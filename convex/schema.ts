@@ -1,0 +1,167 @@
+import { defineSchema, defineTable } from "convex/server";
+import { v } from "convex/values";
+
+export const role = v.union(
+  v.literal("admin"),
+  v.literal("storekeeper"),
+  v.literal("laser_operator"),
+  v.literal("cnc_operator"),
+  v.literal("plotter_operator"),
+  v.literal("printer_operator"),
+);
+
+export const unit = v.union(
+  v.literal("m²"),
+  v.literal("m"),
+  v.literal("sheet"),
+  v.literal("piece"),
+  v.literal("L"),
+);
+
+export const jobStatus = v.union(
+  v.literal("Queued"),
+  v.literal("In production"),
+  v.literal("Completed"),
+  v.literal("Paused"),
+);
+
+export const machineStatus = v.union(
+  v.literal("Running"),
+  v.literal("Available"),
+  v.literal("Maintenance"),
+);
+
+export const priority = v.union(
+  v.literal("High"),
+  v.literal("Medium"),
+  v.literal("Normal"),
+);
+
+export const accent = v.union(
+  v.literal("cyan"),
+  v.literal("gold"),
+  v.literal("violet"),
+  v.literal("blue"),
+  v.literal("green"),
+);
+
+export const stockDirection = v.union(
+  v.literal("in"),
+  v.literal("out"),
+);
+
+export const stockInputUnit = v.union(
+  v.literal("roll"),
+  v.literal("sheet"),
+  unit,
+);
+
+export const offcutStatus = v.union(
+  v.literal("available"),
+  v.literal("reserved"),
+  v.literal("consumed"),
+);
+
+export default defineSchema({
+  users: defineTable({
+    authUserId: v.string(),
+    name: v.string(),
+    email: v.string(),
+    role,
+    active: v.boolean(),
+  })
+    .index("by_auth_user", ["authUserId"])
+    .index("by_role", ["role"]),
+
+  materials: defineTable({
+    name: v.string(),
+    category: v.string(),
+    unit,
+    quantity: v.number(),
+    reorderAt: v.number(),
+    rollEquivalent: v.optional(v.number()),
+    sheetEquivalent: v.optional(v.number()),
+    accent,
+    active: v.boolean(),
+  })
+    .index("by_category", ["category"])
+    .index("by_unit", ["unit"]),
+
+  machines: defineTable({
+    name: v.string(),
+    code: v.string(),
+    type: v.string(),
+    operatorRole: role,
+    materialUnit: unit,
+    status: machineStatus,
+    activeJob: v.optional(v.string()),
+    active: v.boolean(),
+  })
+    .index("by_code", ["code"])
+    .index("by_operator_role", ["operatorRole"]),
+
+  stockMovements: defineTable({
+    materialId: v.id("materials"),
+    direction: v.union(stockDirection, v.literal("adjustment"), v.literal("offcut_return")),
+    quantity: v.number(),
+    unit: stockInputUnit,
+    note: v.string(),
+    createdBy: v.string(),
+    createdAt: v.number(),
+  }).index("by_material", ["materialId"]),
+
+  jobCards: defineTable({
+    code: v.string(),
+    client: v.string(),
+    title: v.string(),
+    machineId: v.id("machines"),
+    materialId: v.id("materials"),
+    quantity: v.number(),
+    unit,
+    status: jobStatus,
+    due: v.string(),
+    priority,
+    createdBy: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_status", ["status"])
+    .index("by_machine", ["machineId"]),
+
+  productionLogs: defineTable({
+    jobCardId: v.id("jobCards"),
+    machineId: v.id("machines"),
+    inputQuantity: v.number(),
+    outputQuantity: v.number(),
+    wasteQuantity: v.number(),
+    unit,
+    operatorId: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_job_card", ["jobCardId"])
+    .index("by_machine", ["machineId"]),
+
+  offcuts: defineTable({
+    materialId: v.id("materials"),
+    label: v.string(),
+    width: v.number(),
+    length: v.number(),
+    area: v.number(),
+    location: v.string(),
+    usable: v.boolean(),
+    status: offcutStatus,
+    createdBy: v.string(),
+    createdAt: v.string(),
+  })
+    .index("by_material", ["materialId"])
+    .index("by_status", ["status"]),
+
+  scraps: defineTable({
+    materialId: v.id("materials"),
+    label: v.string(),
+    quantity: v.number(),
+    unit,
+    reason: v.string(),
+    createdBy: v.string(),
+    createdAt: v.string(),
+  }).index("by_material", ["materialId"]),
+});
