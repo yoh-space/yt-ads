@@ -2,6 +2,7 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { authComponent } from "./auth";
 import { calculateOffcutArea } from "./units";
+import { requireActiveProfile } from "./users";
 
 export const list = query({
   args: {},
@@ -22,9 +23,14 @@ export const create = mutation({
     location: v.string(),
   },
   handler: async (ctx, args) => {
-    const user = await authComponent.getAuthUser(ctx);
+    const { identity } = await requireActiveProfile(ctx);
+    if (!Number.isFinite(args.width) || !Number.isFinite(args.length) || args.width <= 0 || args.length <= 0) {
+      throw new Error("Offcut dimensions must be greater than zero.");
+    }
+    if (!args.location.trim()) throw new Error("Offcut location is required.");
     const material = await ctx.db.get(args.materialId);
-    if (!material) throw new Error("Material not found.");
+    if (!material || !material.active) throw new Error("Active material not found.");
+    if (material.unit !== "m²") throw new Error("Only square-meter materials can create sheet offcuts.");
 
     const area = calculateOffcutArea(args.width, args.length);
     const label = material.name;
@@ -34,19 +40,25 @@ export const create = mutation({
       width: args.width,
       length: args.length,
       area,
-      location: args.location,
+      location: args.location.trim(),
       usable: true,
       status: "available",
-      createdBy: user._id,
-      createdAt: new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
+      createdBy: identity._id,
+      createdAt: new Date().toISOString(),
     });
 
-    // Return reusable sheet area to active inventory when the base unit is m².
-    if (material.unit === "m²") {
-      await ctx.db.patch(args.materialId, {
-        quantity: Number((material.quantity + area).toFixed(2)),
-      });
-    }
+    await ctx.db.patch(args.materialId, {
+      quantity: Number((material.quantity + area).toFixed(2)),
+    });
+    await ctx.db.insert("stockMovements", {
+      materialId: args.materialId,
+      direction: "offcut_return",
+      quantity: area,
+      unit: "m²",
+      note: `Usable offcut returned at ${args.location.trim()}`,
+      createdBy: identity._id,
+      createdAt: Date.now(),
+    });
     return (await ctx.db.get(id))!;
   },
 });
@@ -66,17 +78,37 @@ export const logScrap = mutation({
     reason: v.string(),
   },
   handler: async (ctx, args) => {
-    const user = await authComponent.getAuthUser(ctx);
+    const { identity } = await requireActiveProfile(ctx);
+    if (!Number.isFinite(args.quantity) || args.quantity <= 0) {
+      throw new Error("Scrap quantity must be greater than zero.");
+    }
+    if (!args.reason.trim()) throw new Error("A scrap reason is required.");
     const material = await ctx.db.get(args.materialId);
-    if (!material) throw new Error("Material not found.");
+    if (!material || !material.active) throw new Error("Active material not found.");
+    if (args.quantity > material.quantity) {
+      throw new Error(`Insufficient ${material.name} stock for this scrap record.`);
+    }
+
     const id = await ctx.db.insert("scraps", {
       materialId: args.materialId,
       label: material.name,
       quantity: args.quantity,
       unit: material.unit,
-      reason: args.reason,
-      createdBy: user._id,
-      createdAt: new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
+      reason: args.reason.trim(),
+      createdBy: identity._id,
+      createdAt: new Date().toISOString(),
+    });
+    await ctx.db.patch(args.materialId, {
+      quantity: Number((material.quantity - args.quantity).toFixed(2)),
+    });
+    await ctx.db.insert("stockMovements", {
+      materialId: args.materialId,
+      direction: "out",
+      quantity: args.quantity,
+      unit: material.unit,
+      note: `Scrap: ${args.reason.trim()}`,
+      createdBy: identity._id,
+      createdAt: Date.now(),
     });
     return (await ctx.db.get(id))!;
   },

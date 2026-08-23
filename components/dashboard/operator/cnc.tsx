@@ -5,7 +5,7 @@ import { Command, Scissors } from "lucide-react";
 import type { WorkspaceProps } from "./workspace-shell";
 import { OperatorWorkspaceShell } from "./workspace-shell";
 
-export function CncOperatorWorkspace({ machine, job, onComplete, onOffcut, onScrap }: WorkspaceProps) {
+export function CncOperatorWorkspace({ machine, job, onComplete, onRecordProduction, onOffcut, onScrap }: WorkspaceProps) {
   const [boardArea, setBoardArea] = useState(job?.quantity ?? 0);
   const [tool, setTool] = useState("6mm end mill");
   const [passDepth, setPassDepth] = useState("3mm");
@@ -17,6 +17,7 @@ export function CncOperatorWorkspace({ machine, job, onComplete, onOffcut, onScr
       title="CNC router control"
       subtitle="Board cutting workspace for wood and aluminium sheet operations."
       onComplete={onComplete}
+      onRecordProduction={onRecordProduction}
       onOffcut={onOffcut}
       onScrap={onScrap}
     >

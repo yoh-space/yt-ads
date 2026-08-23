@@ -3,6 +3,9 @@ import { v } from "convex/values";
 import { authComponent } from "./auth";
 import { unit, accent } from "./schema";
 import { convertToBase, type InputUnit } from "./units";
+import { requireRoles } from "./users";
+
+const INVENTORY_ROLES = ["admin", "storekeeper"] as const;
 
 export const list = query({
   args: {},
@@ -27,7 +30,20 @@ export const create = mutation({
     accent,
   },
   handler: async (ctx, args) => {
-    await authComponent.getAuthUser(ctx);
+    await requireRoles(ctx, [...INVENTORY_ROLES]);
+    if (!args.name.trim()) throw new Error("Material name is required.");
+    if (!Number.isFinite(args.quantity) || args.quantity < 0) {
+      throw new Error("Opening quantity must be zero or greater.");
+    }
+    if (!Number.isFinite(args.reorderAt) || args.reorderAt < 0) {
+      throw new Error("Reorder level must be zero or greater.");
+    }
+    if (args.rollEquivalent !== undefined && args.rollEquivalent <= 0) {
+      throw new Error("Roll conversion must be greater than zero.");
+    }
+    if (args.sheetEquivalent !== undefined && args.sheetEquivalent <= 0) {
+      throw new Error("Sheet conversion must be greater than zero.");
+    }
     const id = await ctx.db.insert("materials", { ...args, active: true });
     return (await ctx.db.get(id))!;
   },
@@ -42,9 +58,12 @@ export const recordStockMovement = mutation({
     note: v.string(),
   },
   handler: async (ctx, args) => {
-    const user = await authComponent.getAuthUser(ctx);
+    const { identity } = await requireRoles(ctx, [...INVENTORY_ROLES]);
+    if (!Number.isFinite(args.quantity) || args.quantity <= 0) {
+      throw new Error("Stock movement quantity must be greater than zero.");
+    }
     const material = await ctx.db.get(args.materialId);
-    if (!material) throw new Error("Material not found.");
+    if (!material || !material.active) throw new Error("Active material not found.");
 
     const converted = convertToBase(
       args.quantity,
@@ -53,17 +72,24 @@ export const recordStockMovement = mutation({
       material.rollEquivalent,
       material.sheetEquivalent,
     );
+    if (!Number.isFinite(converted) || converted <= 0) {
+      throw new Error("Converted stock quantity must be greater than zero.");
+    }
+    if (args.direction === "out" && converted > material.quantity) {
+      throw new Error(`Insufficient ${material.name} stock for this movement.`);
+    }
+
     const delta = args.direction === "in" ? converted : -converted;
     await ctx.db.patch(args.materialId, {
-      quantity: Math.max(0, Number((material.quantity + delta).toFixed(2))),
+      quantity: Number((material.quantity + delta).toFixed(2)),
     });
     await ctx.db.insert("stockMovements", {
       materialId: args.materialId,
       direction: args.direction,
       quantity: args.quantity,
       unit: args.inputUnit,
-      note: args.note,
-      createdBy: user._id,
+      note: args.note.trim() || "Manual stock movement",
+      createdBy: identity._id,
       createdAt: Date.now(),
     });
   },

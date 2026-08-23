@@ -5,7 +5,7 @@ import { Scissors } from "lucide-react";
 import type { WorkspaceProps } from "./workspace-shell";
 import { OperatorWorkspaceShell } from "./workspace-shell";
 
-export function PlotterOperatorWorkspace({ machine, job, onComplete, onOffcut, onScrap }: WorkspaceProps) {
+export function PlotterOperatorWorkspace({ machine, job, onComplete, onRecordProduction, onOffcut, onScrap }: WorkspaceProps) {
   const [length, setLength] = useState(job?.quantity ?? 0);
   const [pressure, setPressure] = useState("18");
   const [weedTest, setWeedTest] = useState(false);
@@ -17,6 +17,7 @@ export function PlotterOperatorWorkspace({ machine, job, onComplete, onOffcut, o
       title="Vinyl plotter control"
       subtitle="Running-meter workflow for sticker and vinyl cutting, weeding, and roll remainder tracking."
       onComplete={onComplete}
+      onRecordProduction={onRecordProduction}
       onOffcut={onOffcut}
       onScrap={onScrap}
     >
