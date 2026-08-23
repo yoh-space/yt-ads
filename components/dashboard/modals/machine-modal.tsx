@@ -10,6 +10,7 @@ import { ModalShell } from "./modal-shell";
 export type NewMachineInput = {
   name: string;
   code: string;
+  type: string;
   operatorRole: Role;
   materialUnit: Unit;
   status: MachineStatus;
@@ -26,6 +27,7 @@ export function MachineModal({
 }) {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
+  const [type, setType] = useState("Laser cutter");
   const [operatorRole, setOperatorRole] = useState<Role>("laser_operator");
   const [materialUnit, setMaterialUnit] = useState<Unit>("m²");
   const [status, setStatus] = useState<MachineStatus>("Available");
@@ -39,6 +41,7 @@ export function MachineModal({
           onSave({
             name: name || "New machine",
             code: code || "NEW-01",
+            type: type || "Production machine",
             operatorRole,
             materialUnit,
             status,
@@ -47,6 +50,7 @@ export function MachineModal({
       >
         <label>Machine name<input autoFocus required placeholder="e.g. UV Flatbed 2513" value={name} onChange={(event) => setName(event.target.value)} /></label>
         <label>Machine code<input required placeholder="e.g. UV-01" value={code} onChange={(event) => setCode(event.target.value.toUpperCase())} /></label>
+        <label>Machine type<input required placeholder="e.g. UV flatbed printer" value={type} onChange={(event) => setType(event.target.value)} /></label>
         <div className="two-field">
           <label>
             Assigned operator

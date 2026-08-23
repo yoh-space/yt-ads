@@ -5,7 +5,7 @@ import { Scissors } from "lucide-react";
 import type { WorkspaceProps } from "./workspace-shell";
 import { OperatorWorkspaceShell as OperatorWorkspaceShellInner } from "./workspace-shell";
 
-export function LaserOperatorWorkspace({ machine, job, onComplete, onOffcut, onScrap }: WorkspaceProps) {
+export function LaserOperatorWorkspace({ machine, job, onComplete, onRecordProduction, onOffcut, onScrap }: WorkspaceProps) {
   const [area, setArea] = useState(job?.quantity ?? 0);
   const [kerf, setKerf] = useState("0.20");
   const [safeStart, setSafeStart] = useState(false);
@@ -17,6 +17,7 @@ export function LaserOperatorWorkspace({ machine, job, onComplete, onOffcut, onS
       title="Laser cutter control"
       subtitle="Acrylic and MDF sheet workflow with area, kerf, and offcut controls."
       onComplete={onComplete}
+      onRecordProduction={onRecordProduction}
       onOffcut={onOffcut}
       onScrap={onScrap}
     >

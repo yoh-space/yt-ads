@@ -26,6 +26,7 @@ export function MachinesView({
   onOffcut,
   onScrap,
   onComplete,
+  onRecordProduction,
 }: {
   machines: Machine[];
   jobs: JobCard[];
@@ -34,6 +35,7 @@ export function MachinesView({
   onOffcut: () => void;
   onScrap: () => void;
   onComplete: (id: string) => void;
+  onRecordProduction: (id: string, inputQuantity: number, outputQuantity: number, wasteQuantity: number) => void;
 }) {
   const context: Record<Role, { action: string; detail: string; unit: string }> = {
     admin: { action: "View machine plan", detail: "Monitor every production lane and active allocation.", unit: "Enterprise view" },
@@ -54,6 +56,7 @@ export function MachinesView({
         machine={primaryMachine}
         job={primaryJob}
         onComplete={onComplete}
+        onRecordProduction={onRecordProduction}
         onOffcut={onOffcut}
         onScrap={onScrap}
       />

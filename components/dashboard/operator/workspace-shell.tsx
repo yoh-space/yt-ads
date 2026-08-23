@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { ArrowUpRight, Scissors, Trash2, Wrench } from "lucide-react";
 import type { JobCard, Machine } from "@/lib/operations-types";
 import { formatQuantity } from "@/lib/units";
@@ -10,6 +10,7 @@ export type WorkspaceProps = {
   machine: Machine;
   job?: JobCard;
   onComplete: (id: string) => void;
+  onRecordProduction: (id: string, inputQuantity: number, outputQuantity: number, wasteQuantity: number) => void;
   onOffcut: () => void;
   onScrap: () => void;
 };
@@ -22,6 +23,7 @@ export function OperatorWorkspaceShell({
   subtitle,
   children,
   onComplete,
+  onRecordProduction,
   onOffcut,
   onScrap,
 }: WorkspaceProps & {
@@ -30,6 +32,10 @@ export function OperatorWorkspaceShell({
   subtitle: string;
   children: ReactNode;
 }) {
+  const [inputQuantity, setInputQuantity] = useState(job?.quantity ?? 0);
+  const [outputQuantity, setOutputQuantity] = useState(job?.quantity ?? 0);
+  const [wasteQuantity, setWasteQuantity] = useState(0);
+
   return (
     <section className={`operator-workspace ${mode}`}>
       <div className="workspace-topline">
@@ -61,6 +67,17 @@ export function OperatorWorkspaceShell({
                 <b>{formatQuantity(job.quantity, job.unit)}</b>
                 <span>planned material usage</span>
               </div>
+              <div className="operator-form-grid">
+                <label>Material input ({job.unit})<input type="number" min="0.1" step="0.1" value={inputQuantity} onChange={(event) => setInputQuantity(Number(event.target.value))} /></label>
+                <label>Good output ({job.unit})<input type="number" min="0" step="0.1" value={outputQuantity} onChange={(event) => setOutputQuantity(Number(event.target.value))} /></label>
+              </div>
+              <label>Waste ({job.unit})<input type="number" min="0" step="0.1" value={wasteQuantity} onChange={(event) => setWasteQuantity(Number(event.target.value))} /></label>
+              <button
+                className="button secondary full"
+                onClick={() => onRecordProduction(job.id, inputQuantity, outputQuantity, wasteQuantity)}
+              >
+                Save production log <ArrowUpRight size={16} />
+              </button>
               <button className="button primary full" onClick={() => onComplete(job.id)}>
                 Complete production run <ArrowUpRight size={16} />
               </button>

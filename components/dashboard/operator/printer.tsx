@@ -5,7 +5,7 @@ import { Printer, Scissors } from "lucide-react";
 import type { WorkspaceProps } from "./workspace-shell";
 import { OperatorWorkspaceShell } from "./workspace-shell";
 
-export function PrinterOperatorWorkspace({ machine, job, onComplete, onOffcut, onScrap }: WorkspaceProps) {
+export function PrinterOperatorWorkspace({ machine, job, onComplete, onRecordProduction, onOffcut, onScrap }: WorkspaceProps) {
   const [area, setArea] = useState(job?.quantity ?? 0);
   const [passes, setPasses] = useState("6-pass");
   const [inkCheck, setInkCheck] = useState(false);
@@ -17,6 +17,7 @@ export function PrinterOperatorWorkspace({ machine, job, onComplete, onOffcut, o
       title="Large-format print control"
       subtitle="Banner print-area workflow with pass-profile, ink readiness, and trim remainder checks."
       onComplete={onComplete}
+      onRecordProduction={onRecordProduction}
       onOffcut={onOffcut}
       onScrap={onScrap}
     >

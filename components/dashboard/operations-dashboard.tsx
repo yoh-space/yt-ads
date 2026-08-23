@@ -44,6 +44,7 @@ export function OperationsDashboard() {
   const createMaterial = useMutation(api.materials.create);
   const createJob = useMutation(api.jobs.create);
   const completeJobMutation = useMutation(api.jobs.complete);
+  const recordProductionMutation = useMutation(api.jobs.recordProduction);
   const createMachine = useMutation(api.machines.create);
   const createOffcut = useMutation(api.offcuts.create);
   const logScrap = useMutation(api.offcuts.logScrap);
@@ -93,8 +94,29 @@ export function OperationsDashboard() {
   }
 
   function completeJob(jobId: string) {
-    void completeJobMutation({ jobId });
-    setNotice("የሥራ ካርዱ ተጠናቋል፤ መዝገቡ ተዘምኗል");
+    void completeJobMutation({ jobId: jobId as Id<"jobCards"> })
+      .then(() => setNotice("የሥራ ካርዱ ተጠናቋል፤ መዝገቡ ተዘምኗል"))
+      .catch((error: unknown) => setNotice(error instanceof Error ? error.message : "Unable to complete the job card."));
+  }
+
+  function recordProduction(jobId: string, inputQuantity: number, outputQuantity: number, wasteQuantity: number) {
+    void recordProductionMutation({
+      jobCardId: jobId as Id<"jobCards">,
+      inputQuantity,
+      outputQuantity,
+      wasteQuantity,
+    })
+      .then(() => setNotice("የምርት መዝገቡ ተቀምጧል፤ ክምችት ተዘምኗል"))
+      .catch((error: unknown) => setNotice(error instanceof Error ? error.message : "Unable to save the production log."));
+  }
+
+  function finishMutation<T>(promise: Promise<T>, successMessage: string) {
+    void promise
+      .then(() => {
+        setNotice(successMessage);
+        setModal(null);
+      })
+      .catch((error: unknown) => setNotice(error instanceof Error ? error.message : "The operation could not be completed."));
   }
 
   return (
@@ -172,6 +194,7 @@ export function OperationsDashboard() {
               onOffcut={() => setModal("offcut")}
               onScrap={() => setModal("scrap")}
               onComplete={completeJob}
+              onRecordProduction={recordProduction}
             />
           ) : null}
           {activeView === "offcuts" ? (
@@ -185,10 +208,11 @@ export function OperationsDashboard() {
           materials={materials}
           onClose={() => setModal(null)}
           onSave={(materialId, direction, quantity, inputUnit, note) => {
-            void recordStockMovement({ materialId: materialId as Id<"materials">, direction, quantity, inputUnit, note });
             const material = materials.find((entry) => entry.id === materialId);
-            setNotice(`${material?.name}: ${direction === "in" ? "stock-in" : "stock-out"} — ${note || "recorded"}`);
-            setModal(null);
+            finishMutation(
+              recordStockMovement({ materialId: materialId as Id<"materials">, direction, quantity, inputUnit, note }),
+              `${material?.name ?? "Material"}: ${direction === "in" ? "stock-in" : "stock-out"} recorded`,
+            );
           }}
         />
       ) : null}
@@ -198,13 +222,14 @@ export function OperationsDashboard() {
           machines={machines}
           onClose={() => setModal(null)}
           onSave={(input: NewJobInput) => {
-            void createJob({
-              ...input,
-              machineId: input.machineId as Id<"machines">,
-              materialId: input.materialId as Id<"materials">,
-            });
-            setNotice(`${input.client || "Walk-in"} ተመዝግቧል እና ለማሽን ተመድቧል`);
-            setModal(null);
+            finishMutation(
+              createJob({
+                ...input,
+                machineId: input.machineId as Id<"machines">,
+                materialId: input.materialId as Id<"materials">,
+              }),
+              `${input.client || "Walk-in"} ተመዝግቧል እና ለማሽን ተመድቧል`,
+            );
           }}
         />
       ) : null}
@@ -213,9 +238,10 @@ export function OperationsDashboard() {
           materials={materials}
           onClose={() => setModal(null)}
           onSave={(input: NewOffcutInput) => {
-            void createOffcut(input);
-            setNotice(`ቅሪት ወደ ንቁ ክምችት ተመልሷል`);
-            setModal(null);
+            finishMutation(
+              createOffcut({ ...input, materialId: input.materialId as Id<"materials"> }),
+              `ቅሪት ወደ ንቁ ክምችት ተመልሷል`,
+            );
           }}
         />
       ) : null}
@@ -224,9 +250,10 @@ export function OperationsDashboard() {
           materials={materials}
           onClose={() => setModal(null)}
           onSave={(input: NewScrapInput) => {
-            void logScrap(input);
-            setNotice(`${input.reason} ለወጪ እና ቅነሳ ትንተና ተመዝግቧል`);
-            setModal(null);
+            finishMutation(
+              logScrap({ ...input, materialId: input.materialId as Id<"materials"> }),
+              `${input.reason} ለወጪ እና ቅነሳ ትንተና ተመዝግቧል`,
+            );
           }}
         />
       ) : null}
@@ -234,9 +261,7 @@ export function OperationsDashboard() {
         <MaterialModal
           onClose={() => setModal(null)}
           onSave={(input: NewMaterialInput) => {
-            void createMaterial(input);
-            setNotice(`${input.name} ወደ የእቃ መዝገብ ታክሏል`);
-            setModal(null);
+            finishMutation(createMaterial(input), `${input.name} ወደ የእቃ መዝገብ ታክሏል`);
           }}
         />
       ) : null}
@@ -244,9 +269,7 @@ export function OperationsDashboard() {
         <MachineModal
           onClose={() => setModal(null)}
           onSave={(input: NewMachineInput) => {
-            void createMachine(input);
-            setNotice(`${input.name} ወደ ማሽኖች ዝርዝር ታክሏል`);
-            setModal(null);
+            finishMutation(createMachine(input), `${input.name} ወደ ማሽኖች ዝርዝር ታክሏል`);
           }}
         />
       ) : null}

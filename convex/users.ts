@@ -2,6 +2,7 @@ import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/s
 import { v } from "convex/values";
 import { authComponent } from "./auth";
 import { role } from "./schema";
+import type { Role } from "./types";
 
 /**
  * Resolves the signed-in user's application profile (which carries the role)
@@ -70,14 +71,26 @@ export const setActive = mutation({
   },
 });
 
-export async function requireAdmin(ctx: QueryCtx | MutationCtx) {
+export async function requireActiveProfile(ctx: QueryCtx | MutationCtx) {
   const identity = await authComponent.getAuthUser(ctx);
   const profile = await ctx.db
     .query("users")
     .withIndex("by_auth_user", (q) => q.eq("authUserId", identity._id))
     .unique();
-  if (!profile || profile.role !== "admin") {
-    throw new Error("Administrator access required.");
+  if (!profile || !profile.active) {
+    throw new Error("Active team profile required.");
   }
-  return profile;
+  return { identity, profile };
+}
+
+export async function requireRoles(ctx: QueryCtx | MutationCtx, allowedRoles: Role[]) {
+  const result = await requireActiveProfile(ctx);
+  if (!allowedRoles.includes(result.profile.role)) {
+    throw new Error(`Role ${result.profile.role} is not permitted for this action.`);
+  }
+  return result;
+}
+
+export async function requireAdmin(ctx: QueryCtx | MutationCtx) {
+  return (await requireRoles(ctx, ["admin"])).profile;
 }
