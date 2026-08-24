@@ -2137,3 +2137,302 @@ button {
   color: #28788e;
   font-weight: 700;
 }
+
+/* Reports and audit log */
+.reports-view,
+.audit-view {
+  min-width: 0;
+}
+.report-toolbar,
+.audit-summary,
+.audit-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 14px;
+  padding: 17px;
+}
+.report-toolbar h2,
+.audit-summary h2 {
+  margin: 4px 0 0;
+  color: #173c53;
+  font-family: "Noto Sans Ethiopic", Inter, sans-serif;
+  font-size: 16px;
+}
+.report-toolbar h2 small,
+.audit-summary h2 small {
+  margin-left: 7px;
+  color: #91a1aa;
+  font: 500 10px Inter, sans-serif;
+}
+.report-toolbar p,
+.audit-summary p {
+  margin: 4px 0 0;
+  color: #8598a4;
+  font-size: 10px;
+}
+.period-switcher,
+.audit-filters {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.period-switcher button,
+.audit-filters button {
+  min-width: 86px;
+  padding: 7px 9px;
+  border: 1px solid #dce8ec;
+  border-radius: 6px;
+  background: #f8fafb;
+  color: #66808e;
+  font-size: 10px;
+  font-weight: 700;
+  text-align: center;
+}
+.period-switcher button small,
+.audit-filters button small {
+  display: block;
+  margin-top: 2px;
+  color: #9aaab3;
+  font-size: 8px;
+  font-weight: 500;
+}
+.period-switcher button.selected,
+.audit-filters button.selected {
+  border-color: #83cbd2;
+  background: #e9f8fa;
+  color: #08798b;
+}
+.period-switcher button.selected small,
+.audit-filters button.selected small {
+  color: #3d9aaa;
+}
+.report-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 13px;
+  margin-bottom: 14px;
+}
+.report-stat {
+  position: relative;
+  overflow: hidden;
+  padding: 15px;
+  border: 1px solid #e4edf1;
+  border-radius: 9px;
+  background: #fff;
+  box-shadow: 0 6px 17px rgba(23, 57, 72, 0.03);
+}
+.report-stat:after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: var(--cyan);
+  content: "";
+  opacity: 0.65;
+}
+.report-stat.gold:after { background: var(--gold); }
+.report-stat.violet:after { background: var(--violet); }
+.report-stat.coral:after { background: var(--coral); }
+.report-stat-icon {
+  display: grid;
+  place-items: center;
+  width: 29px;
+  height: 29px;
+  border-radius: 7px;
+  color: var(--cyan-dark);
+  background: #e4f8fa;
+}
+.report-stat.gold .report-stat-icon { color: #b77e15; background: #fff5df; }
+.report-stat.violet .report-stat-icon { color: #705ab8; background: #f0ecff; }
+.report-stat.coral .report-stat-icon { color: #c86256; background: #fff0ef; }
+.report-stat strong {
+  display: block;
+  margin-top: 13px;
+  color: #10364d;
+  font: 700 24px/1 Inter, sans-serif;
+  letter-spacing: -1px;
+}
+.report-stat p {
+  margin: 7px 0 3px;
+  color: #28495b;
+  font-family: "Noto Sans Ethiopic", Inter, sans-serif;
+  font-size: 11px;
+}
+.report-stat small {
+  color: #8495a0;
+  font-size: 9px;
+}
+.report-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.report-panel {
+  min-width: 0;
+}
+.report-head-icon,
+.audit-summary-icon {
+  color: #2b8a9c;
+}
+.report-list {
+  padding: 8px 17px 12px;
+}
+.report-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid #edf2f4;
+  color: #6c8490;
+  font-size: 10px;
+}
+.report-line:last-child { border-bottom: 0; }
+.report-line strong {
+  color: #285367;
+  font: 600 10px "DM Mono", monospace;
+  text-align: right;
+}
+.success-text { color: #2f916d !important; }
+.warning-text { color: #b36d20 !important; }
+.report-note,
+.audit-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 14px;
+  border: 1px solid #d7e8ed;
+  border-radius: 8px;
+  background: #f7fbfc;
+  color: #278398;
+}
+.report-note p,
+.audit-note p {
+  margin: 0;
+  color: #718b98;
+  font-size: 10px;
+  line-height: 1.4;
+}
+.report-note strong,
+.audit-note strong { color: #2b6475; }
+.report-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 240px;
+  color: #8097a2;
+  font-size: 11px;
+}
+.audit-summary {
+  margin-bottom: 10px;
+}
+.audit-toolbar {
+  min-height: 68px;
+  margin-bottom: 14px;
+  padding: 10px 14px;
+}
+.audit-count {
+  flex: none;
+  color: #80939e;
+  font: 10px "DM Mono", monospace;
+}
+.audit-panel {
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+.audit-list {
+  padding: 4px 17px 9px;
+}
+.audit-entry {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 138px;
+  gap: 11px;
+  align-items: center;
+  padding: 13px 0;
+  border-bottom: 1px solid #edf2f4;
+}
+.audit-entry:last-child { border-bottom: 0; }
+.audit-icon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  color: #08798b;
+  background: #e1f8fa;
+}
+.audit-icon.production { color: #9a701f; background: #fff5df; }
+.audit-icon.recovery { color: #705ab8; background: #f0ecff; }
+.audit-entry-main { min-width: 0; }
+.audit-entry-title {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+.audit-entry-title strong {
+  color: #294b5f;
+  font-size: 11px;
+}
+.audit-entry-title span {
+  color: #2b8a9c;
+  font-size: 9px;
+  font-weight: 700;
+}
+.audit-entry-main p {
+  margin: 4px 0 2px;
+  overflow: hidden;
+  color: #5b7280;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.audit-entry-main small {
+  display: block;
+  overflow: hidden;
+  color: #8b9da6;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.audit-entry time {
+  color: #8298a3;
+  font: 9px "DM Mono", monospace;
+  text-align: right;
+}
+@media (max-width: 1100px) {
+  .report-stat-grid { grid-template-columns: repeat(2, 1fr); }
+  .report-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 780px) {
+  .report-toolbar,
+  .audit-summary,
+  .audit-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .period-switcher,
+  .audit-filters {
+    width: 100%;
+    justify-content: stretch;
+  }
+  .period-switcher button,
+  .audit-filters button { flex: 1; }
+  .report-stat-grid { grid-template-columns: 1fr 1fr; gap: 9px; }
+  .report-stat { padding: 13px; }
+  .report-stat strong { font-size: 20px; }
+  .audit-count { align-self: flex-end; }
+  .audit-entry {
+    grid-template-columns: 30px minmax(0, 1fr);
+  }
+  .audit-entry time {
+    grid-column: 2;
+    text-align: left;
+  }
+}

@@ -18,6 +18,8 @@ import { InventoryView } from "./views/inventory";
 import { JobsView } from "./views/jobs";
 import { MachinesView } from "./views/machines";
 import { OffcutsView } from "./views/offcuts";
+import { ReportsView } from "./views/reports";
+import { AuditLogView } from "./views/audit-log";
 import { StockModal } from "./modals/stock-modal";
 import { JobModal, type NewJobInput } from "./modals/job-modal";
 import { OffcutModal, type NewOffcutInput } from "./modals/offcut-modal";
@@ -199,6 +201,8 @@ export function OperationsDashboard() {
           {activeView === "offcuts" ? (
             <OffcutsView offcuts={offcuts} scraps={scraps} onCreate={() => setModal("offcut")} onScrap={() => setModal("scrap")} />
           ) : null}
+          {activeView === "reports" ? <ReportsView /> : null}
+          {activeView === "audit" ? <AuditLogView /> : null}
         </div>
       </main>
 
