@@ -14,6 +14,7 @@ import type * as dashboard from "../dashboard.js";
 import type * as http from "../http.js";
 import type * as jobs from "../jobs.js";
 import type * as machines from "../machines.js";
+import type * as materialRequests from "../materialRequests.js";
 import type * as materials from "../materials.js";
 import type * as offcuts from "../offcuts.js";
 import type * as reports from "../reports.js";
@@ -36,6 +37,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   jobs: typeof jobs;
   machines: typeof machines;
+  materialRequests: typeof materialRequests;
   materials: typeof materials;
   offcuts: typeof offcuts;
   reports: typeof reports;

@@ -96,7 +96,8 @@ export function MachinesView({
                 <span className={`status-pill ${statusTone(machine.status)}`}>{machine.status}</span>
               </div>
               <h3>{machine.name}</h3>
-              <p>{machine.code} · {machine.type}</p>
+              <p>{machine.code} · {machine.manufacturer || "Manufacturer not set"}</p>
+              {machine.model || machine.capability ? <small className="machine-specs">{machine.model || "Model pending"}{machine.capability ? ` · ${machine.capability}` : ""}</small> : null}
               <div className="machine-job-box">
                 {job ? (
                   <>

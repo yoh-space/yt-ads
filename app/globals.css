@@ -2635,3 +2635,106 @@ button {
   white-space: nowrap;
   border: 0;
 }
+
+.machine-specs {
+  display: block;
+  margin-top: 4px;
+  color: #6f8b98;
+  font-size: 9px;
+}
+
+.request-panel {
+  margin-bottom: 18px;
+}
+
+.request-panel .panel-head {
+  align-items: flex-start;
+}
+
+.request-panel .panel-head p {
+  margin: 5px 0 0;
+  color: #6f8b98;
+  font-size: 12px;
+}
+
+.request-list {
+  display: grid;
+  gap: 8px;
+}
+
+.request-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid #dce8eb;
+  border-radius: 12px;
+  background: #fbfdfd;
+}
+
+.request-icon {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  place-items: center;
+  border-radius: 9px;
+  color: #007f8b;
+  background: #dff7f4;
+}
+
+.request-main {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 3px;
+}
+
+.request-main strong,
+.request-main span,
+.request-main small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.request-main span,
+.request-main small {
+  color: #6f8b98;
+  font-size: 11px;
+}
+
+.request-action {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.request-issue-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.request-issue-controls input {
+  width: 76px;
+  padding: 7px 8px;
+  border: 1px solid #cbdde1;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+@media (max-width: 760px) {
+  .request-row {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .request-action {
+    width: 100%;
+    justify-content: flex-start;
+    padding-left: 42px;
+  }
+}
