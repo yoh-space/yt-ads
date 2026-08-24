@@ -38,6 +38,8 @@ export function MachinesView({
   onRecordProduction: (id: string, inputQuantity: number, outputQuantity: number, wasteQuantity: number) => void;
 }) {
   const context: Record<Role, { action: string; detail: string; unit: string }> = {
+    owner: { action: "Oversee operations", detail: "Owner control room", unit: "All units" },
+    manager: { action: "Coordinate operations", detail: "Manager control room", unit: "All units" },
     admin: { action: "View machine plan", detail: "Monitor every production lane and active allocation.", unit: "Enterprise view" },
     storekeeper: { action: "Issue material", detail: "Confirm issued quantity against the job card and unit rule.", unit: "Store issue mode" },
     laser_operator: { action: "Measure acrylic offcut", detail: "Record usable acrylic or MDF sections in square meters.", unit: "Sheet area · m²" },
@@ -67,8 +69,8 @@ export function MachinesView({
     <section className="machines-view">
       <div className="operator-banner">
         <div>
-          <span className="panel-kicker">{role === "admin" || role === "storekeeper" ? "MACHINE WORKFLOW" : "OPERATOR CONSOLE"}</span>
-          <h2>{role === "admin" || role === "storekeeper" ? "የማሽን ቁጥጥር ማዕከል" : `${roleLabels[role].am} የሥራ ማዕከል`}</h2>
+          <span className="panel-kicker">{role === "owner" || role === "manager" || role === "admin" || role === "storekeeper" ? "MACHINE WORKFLOW" : "OPERATOR CONSOLE"}</span>
+          <h2>{role === "owner" || role === "manager" || role === "admin" || role === "storekeeper" ? "የማሽን ቁጥጥር ማዕከል" : `${roleLabels[role].am} የሥራ ማዕከል`}</h2>
           <p>{focus.detail}</p>
         </div>
         <div>

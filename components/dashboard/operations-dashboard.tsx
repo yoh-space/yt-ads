@@ -41,6 +41,7 @@ function withIds<T extends { _id: string }>(docs: T[]): WithId<T>[] {
 
 export function OperationsDashboard() {
   const profile = useQuery(api.users.getCurrentProfile);
+  const companySettings = useQuery(api.users.getCompanySettings);
   const state = useQuery(api.dashboard.getState);
   const materialRequests = useQuery(api.materialRequests.list);
 
@@ -69,7 +70,7 @@ export function OperationsDashboard() {
     }
   }, [profile, ensureProfile]);
 
-  if (state === undefined || profile === undefined || materialRequests === undefined) {
+  if (state === undefined || profile === undefined || companySettings === undefined || materialRequests === undefined) {
     return <InventoryLoader />;
   }
 
@@ -82,7 +83,7 @@ export function OperationsDashboard() {
   const requests = withIds(materialRequests) as MaterialRequest[];
   const resolvedProfile: Profile | null = profile ? { ...profile, id: profile._id } : null;
 
-  const filteredMachines = role === "admin" || role === "storekeeper"
+  const filteredMachines = role === "owner" || role === "manager" || role === "admin" || role === "storekeeper"
     ? machines
     : machines.filter((machine) => machine.operatorRole === role);
   const runningJobs = jobs.filter((job) => job.status === "In production");
@@ -157,6 +158,8 @@ export function OperationsDashboard() {
         onClose={() => setMobileNavOpen(false)}
         collapsed={sidebarCollapsed}
         runningJobsCount={runningJobs.length}
+        companyName={companySettings?.companyName}
+        logoUrl={companySettings?.logoUrl}
       />
 
       {mobileNavOpen ? (
@@ -170,6 +173,7 @@ export function OperationsDashboard() {
           onToggleSidebar={() => setSidebarCollapsed((value) => !value)}
           sidebarCollapsed={sidebarCollapsed}
           profile={resolvedProfile}
+          companyName={companySettings?.companyName}
         />
 
         <div className="page-content">

@@ -1,4 +1,6 @@
 export type Role =
+  | "owner"
+  | "manager"
   | "admin"
   | "storekeeper"
   | "laser_operator"
@@ -17,6 +19,8 @@ export type Priority = "High" | "Medium" | "Normal";
 export type Accent = "cyan" | "gold" | "violet" | "blue" | "green";
 
 export const ROLES: Role[] = [
+  "owner",
+  "manager",
   "admin",
   "storekeeper",
   "laser_operator",

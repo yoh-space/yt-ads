@@ -15,6 +15,19 @@ export default function SignInPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  async function signInWithGoogle() {
+    setError(null);
+    setLoading(true);
+    try {
+      const result = await authClient.signIn.social({ provider: "google", callbackURL: "/" });
+      if (result.error) throw new Error(result.error.message ?? "Google sign-in failed.");
+      if (result.data?.url) window.location.assign(result.data.url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Google sign-in is not configured yet.");
+      setLoading(false);
+    }
+  }
+
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
@@ -42,6 +55,7 @@ export default function SignInPage() {
           <label>Password<input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" /></label>
           {error ? <p className="auth-error">{error}</p> : null}
           <button className="button primary full" type="submit" disabled={loading}>{loading ? "Signing in…" : "Sign in"}</button>
+          <button className="button secondary full" type="button" onClick={() => void signInWithGoogle()} disabled={loading}>Continue with Google</button>
         </form>
         <p className="auth-foot">No account? <Link href="/sign-up">Create one</Link></p>
       </div>

@@ -19,7 +19,7 @@ export function MaterialRequestsPanel({
   onAcknowledge: (requestId: string) => void;
 }) {
   const [issueQuantities, setIssueQuantities] = useState<Record<string, number>>({});
-  const canIssue = role === "admin" || role === "storekeeper";
+  const canIssue = role === "owner" || role === "manager" || role === "admin" || role === "storekeeper";
 
   return (
     <section className="panel request-panel">

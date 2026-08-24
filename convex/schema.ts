@@ -2,6 +2,8 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
 export const role = v.union(
+  v.literal("owner"),
+  v.literal("manager"),
   v.literal("admin"),
   v.literal("storekeeper"),
   v.literal("laser_operator"),
@@ -71,16 +73,69 @@ export const materialRequestStatus = v.union(
   v.literal("Discrepancy"),
 );
 
+export const notificationType = v.union(
+  v.literal("material_request"),
+  v.literal("material_issue"),
+  v.literal("material_received"),
+  v.literal("short_stock"),
+  v.literal("discrepancy"),
+  v.literal("job_update"),
+  v.literal("machine_update"),
+  v.literal("account_update"),
+);
+
 export default defineSchema({
+  companySettings: defineTable({
+    key: v.string(),
+    companyName: v.string(),
+    industry: v.string(),
+    address: v.string(),
+    phone: v.optional(v.string()),
+    ownerAuthUserId: v.optional(v.string()),
+    logoUrl: v.optional(v.string()),
+    timezone: v.string(),
+    dailyReportEnabled: v.boolean(),
+    monthlyAuditEnabled: v.boolean(),
+    active: v.boolean(),
+  })
+    .index("by_key", ["key"]),
+
+  staff: defineTable({
+    personName: v.string(),
+    department: v.optional(v.string()),
+    responsibility: v.optional(v.string()),
+    businessRole: v.string(),
+    handlesMaterial: v.optional(v.string()),
+    authUserId: v.optional(v.string()),
+    active: v.boolean(),
+  })
+    .index("by_business_role", ["businessRole"])
+    .index("by_auth_user", ["authUserId"]),
+
   users: defineTable({
     authUserId: v.string(),
     name: v.string(),
     email: v.string(),
+    image: v.optional(v.string()),
     role,
     active: v.boolean(),
   })
     .index("by_auth_user", ["authUserId"])
     .index("by_role", ["role"]),
+
+  notifications: defineTable({
+    recipientAuthUserId: v.string(),
+    title: v.string(),
+    message: v.string(),
+    type: notificationType,
+    actorAuthUserId: v.optional(v.string()),
+    relatedTable: v.optional(v.string()),
+    relatedId: v.optional(v.string()),
+    createdAt: v.number(),
+    readAt: v.optional(v.number()),
+  })
+    .index("by_recipient_created", ["recipientAuthUserId", "createdAt"])
+    .index("by_recipient_read", ["recipientAuthUserId", "readAt"]),
 
   materials: defineTable({
     name: v.string(),
@@ -91,6 +146,7 @@ export default defineSchema({
     rollEquivalent: v.optional(v.number()),
     sheetEquivalent: v.optional(v.number()),
     storageLocation: v.optional(v.string()),
+    displayUnit: v.optional(v.string()),
     averageUse: v.optional(v.string()),
     reorderRule: v.optional(v.string()),
     scrapRule: v.optional(v.string()),
@@ -110,6 +166,7 @@ export default defineSchema({
     notes: v.optional(v.string()),
     operatorRole: role,
     materialUnit: unit,
+    displayUnit: v.optional(v.string()),
     status: machineStatus,
     activeJob: v.optional(v.string()),
     active: v.boolean(),

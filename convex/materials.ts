@@ -4,6 +4,7 @@ import { authComponent } from "./auth";
 import { unit, accent } from "./schema";
 import { convertToBase, type InputUnit } from "./units";
 import { requireRoles } from "./users";
+import { notifyRoles } from "./notificationHelpers";
 
 const INVENTORY_ROLES = ["admin", "storekeeper"] as const;
 
@@ -105,5 +106,16 @@ export const recordStockMovement = mutation({
       createdBy: identity._id,
       createdAt: Date.now(),
     });
+    const nextQuantity = Number((material.quantity + delta).toFixed(2));
+    if (args.direction === "out" && nextQuantity <= material.reorderAt) {
+      await notifyRoles(ctx, ["owner", "manager", "admin", "storekeeper"], {
+        title: "Low stock alert",
+        message: `${material.name} is at ${nextQuantity} ${material.unit}, at or below its reorder level.`,
+        type: "short_stock",
+        actorAuthUserId: identity._id,
+        relatedTable: "materials",
+        relatedId: args.materialId,
+      });
+    }
   },
 });
