@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, Menu, PanelLeftClose, Search } from "lucide-react";
+import { Bell, Menu, PanelLeftClose, PanelLeftOpen, Search } from "lucide-react";
 import { navItems, type View } from "./nav-config";
 import { UserMenu } from "./user-menu";
 import type { Profile } from "@/lib/operations-types";
@@ -8,18 +8,25 @@ import type { Profile } from "@/lib/operations-types";
 export function Topbar({
   activeView,
   onMenu,
+  onToggleSidebar,
+  sidebarCollapsed,
   profile,
 }: {
   activeView: View;
   onMenu: () => void;
+  onToggleSidebar: () => void;
+  sidebarCollapsed: boolean;
   profile: Profile | null;
 }) {
   const current = navItems.find((item) => item.id === activeView);
   return (
     <header className="topbar">
       <div className="topbar-left">
-        <button className="collapse-button icon-button" aria-label="Collapse sidebar">
-          <PanelLeftClose size={19} />
+        <button className="icon-button mobile-menu" aria-label="Open navigation" onClick={onMenu}>
+          <Menu size={19} />
+        </button>
+        <button className="collapse-button icon-button" aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} onClick={onToggleSidebar}>
+          {sidebarCollapsed ? <PanelLeftOpen size={19} /> : <PanelLeftClose size={19} />}
         </button>
         <div className="breadcrumb">
           <span>YT Advertising</span>

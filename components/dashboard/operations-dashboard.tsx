@@ -54,6 +54,7 @@ export function OperationsDashboard() {
   const [activeView, setActiveView] = useState<View>("overview");
   const [modal, setModal] = useState<Modal>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [notice, setNotice] = useState("የዛሬ ሥራ በቅጽበት እየተመዘገበ ነው");
 
   useEffect(() => {
@@ -122,12 +123,13 @@ export function OperationsDashboard() {
   }
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${sidebarCollapsed ? "collapsed" : ""}`}>
       <Sidebar
         activeView={activeView}
         onNavigate={openView}
         mobileOpen={mobileNavOpen}
         onClose={() => setMobileNavOpen(false)}
+        collapsed={sidebarCollapsed}
         runningJobsCount={runningJobs.length}
       />
 
@@ -136,7 +138,13 @@ export function OperationsDashboard() {
       ) : null}
 
       <main className="main-content">
-        <Topbar activeView={activeView} onMenu={() => setMobileNavOpen(true)} profile={resolvedProfile} />
+        <Topbar
+          activeView={activeView}
+          onMenu={() => setMobileNavOpen(true)}
+          onToggleSidebar={() => setSidebarCollapsed((value) => !value)}
+          sidebarCollapsed={sidebarCollapsed}
+          profile={resolvedProfile}
+        />
 
         <div className="page-content">
           <section className="page-heading">

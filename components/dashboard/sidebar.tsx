@@ -8,19 +8,24 @@ export function Sidebar({
   onNavigate,
   mobileOpen,
   onClose,
+  collapsed,
   runningJobsCount,
 }: {
   activeView: View;
   onNavigate: (view: View) => void;
   mobileOpen: boolean;
   onClose: () => void;
+  collapsed: boolean;
   runningJobsCount: number;
 }) {
   return (
-    <aside className={`sidebar ${mobileOpen ? "open" : ""}`}>
+    <aside className={`sidebar ${mobileOpen ? "open" : ""} ${collapsed ? "collapsed" : ""}`}>
       <div className="brand-block">
         <div className="brand-mark"><span>Y</span><i /></div>
         <div><strong>YT Advertising</strong><small>Operations Control</small></div>
+        <button className="icon-button mobile-close" aria-label="Close navigation" onClick={onClose}>
+          <X size={18} />
+        </button>
       </div>
       <div className="workspace-chip"><span className="live-dot" />Live </div>
       <nav className="primary-nav">

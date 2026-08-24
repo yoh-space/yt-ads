@@ -214,15 +214,56 @@ button {
 .support-card strong {
   color: #e0f7fa;
 }
-.mobile-close {
+.icon-button.mobile-close {
   display: none;
   margin-left: auto;
+  background: rgba(255, 255, 255, 0.08);
+  color: #cfe6ed;
 }
-.mobile-menu {
+.mobile-close:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
+.icon-button.mobile-menu {
   display: none;
 }
 .overlay {
   display: none;
+}
+
+@media (min-width: 781px) {
+  .app-shell.collapsed {
+    grid-template-columns: 74px minmax(0, 1fr);
+  }
+  .sidebar.collapsed {
+    width: 74px;
+    padding: 22px 9px 16px;
+  }
+  .sidebar.collapsed .brand-block {
+    justify-content: center;
+    padding: 1px 0 21px;
+  }
+  .sidebar.collapsed .brand-block > div,
+  .sidebar.collapsed .workspace-chip,
+  .sidebar.collapsed .primary-nav > p,
+  .sidebar.collapsed .nav-item > span,
+  .sidebar.collapsed .nav-item > b,
+  .sidebar.collapsed .sidebar-foot .support-card p,
+  .sidebar.collapsed .sidebar-foot .nav-item > span {
+    display: none;
+  }
+  .sidebar.collapsed .nav-item {
+    justify-content: center;
+    padding: 11px 0;
+  }
+  .sidebar.collapsed .support-card {
+    justify-content: center;
+    padding: 11px 0;
+  }
+  .sidebar.collapsed .sidebar-foot .nav-item {
+    justify-content: center;
+    padding: 11px 0;
+  }
 }
 
 .main-content {
@@ -1888,8 +1929,8 @@ button {
     border: 0;
     background: rgba(0, 29, 45, 0.35);
   }
-  .mobile-close,
-  .mobile-menu {
+  .icon-button.mobile-close,
+  .icon-button.mobile-menu {
     display: grid;
   }
   .collapse-button,
@@ -2434,5 +2475,81 @@ button {
   .audit-entry time {
     grid-column: 2;
     text-align: left;
+  }
+}
+@media (max-width: 480px) {
+  .topbar {
+    padding: 0 12px;
+  }
+  .topbar-right {
+    gap: 6px;
+  }
+  .page-content {
+    padding: 15px 12px 76px;
+  }
+  .page-heading h1 {
+    font-size: 17px;
+  }
+  .stats-grid,
+  .report-stat-grid {
+    grid-template-columns: 1fr;
+  }
+  .stat-card > strong {
+    font-size: 22px;
+  }
+  .report-stat strong {
+    font-size: 22px;
+  }
+  .heading-actions {
+    flex-wrap: wrap;
+  }
+  .heading-actions .button {
+    min-width: 0;
+  }
+  .dashboard-grid {
+    gap: 10px;
+  }
+  .panel-head {
+    padding: 13px;
+  }
+  .report-toolbar,
+  .audit-summary,
+  .audit-toolbar {
+    padding: 14px;
+  }
+  .period-switcher button,
+  .audit-filters button {
+    min-width: 0;
+    padding: 7px 6px;
+  }
+  .inventory-callout,
+  .operator-banner,
+  .offcut-hero {
+    padding: 13px;
+  }
+  .job-table .table-header,
+  .job-table .table-row {
+    min-width: 520px;
+  }
+  .inventory-table .table-header,
+  .inventory-table .table-row {
+    min-width: 640px;
+  }
+  .offcut-card {
+    grid-template-columns: 84px 1fr;
+    min-height: 132px;
+  }
+  .offcut-preview i {
+    min-width: 28px;
+    min-height: 24px;
+  }
+  .modal-card {
+    width: 100%;
+  }
+  .workspace-foot-actions {
+    grid-template-columns: 1fr;
+  }
+  .workspace-foot-actions .button {
+    width: 100%;
   }
 }
