@@ -50,7 +50,21 @@ Reusable sheet offcuts increase square-meter inventory and create an `offcut_ret
 
 ## Seeding
 
-`convex/seed.ts` provides an administrator-only demo-data mutation. It inserts sample materials, machines, job cards, and offcuts only when the materials table is empty. Use seed data only for development or a controlled demonstration; production data should be created through the application workflows.
+`convex/seed.ts` provides two administrator-only seed mutations:
+
+- `seed` inserts the original demo materials, machines, job cards, and offcuts for a controlled demonstration.
+- `seedYtAdvertisementWorkspace` inserts the captured YT Advertisement master data: company settings, eight machine records, 26 materials, and 11 staff responsibility records. The four confirmed Crystal machine records are Print and Cut, DTF, Laser Cutter 1325, and UV Flat bed. It intentionally creates no jobs, production logs, stock movements, material requests, scrap, or offcuts because no real historical activity was provided.
+- `seedYitbarekOwner` creates or promotes the confirmed real owner account at the approved email, using a password supplied only at invocation time. The password is not stored in source, returned, or written to the application profile. Run it only in the intended local development deployment, then change the temporary password from Account settings.
+
+The requirement-based seed is idempotent by company key and refuses to mix with existing operational records. Use a backup and a reviewed migration before replacing demo data. Never place access keys, session identifiers, passwords, or deployment secrets in seed data.
+
+## Owner, profile, and notifications
+
+The application roles now include `owner` and `manager` in addition to the existing operational roles. The owner can manage all operations, assign or revoke roles, deactivate profiles, and update company branding. Owner, manager, and legacy admin accounts can manage team access; managers cannot assign or modify the owner role. Every authenticated user can update their own name and profile image URL, change their password, and start Google account linking from Account settings.
+
+Notifications are persisted per recipient and delivered reactively through Convex subscriptions. The initial targeted events cover material requests, material issues and partial/short-stock issues, received confirmations, low stock, job updates, machine updates, and account role/access updates. The header badge counts unread items; the modal lists newest first and supports marking one item or all items as read.
+
+To enable Google sign-in and account linking, set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in the Convex deployment environment and configure the OAuth callback URL for the Better Auth site URL. The repository only contains the variable names in `.env.example`, never the credential values.
 
 ## Verification
 

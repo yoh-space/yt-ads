@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { authComponent } from "./auth";
 import { priority, unit } from "./schema";
 import { requireActiveProfile, requireRoles } from "./users";
+import { notifyRoles, notifyUser } from "./notificationHelpers";
 import { assertProductionQuantities } from "./validation";
 
 const JOB_MANAGER_ROLES = ["admin", "storekeeper"] as const;
@@ -118,6 +119,14 @@ export const create = mutation({
     if (machine.status !== "Running") {
       await ctx.db.patch(args.machineId, { status: "Running", activeJob: code });
     }
+    await notifyRoles(ctx, [machine.operatorRole, "owner", "manager", "admin"], {
+      title: "Job card assigned",
+      message: `${code} · ${args.client.trim()} was assigned to ${machine.name}.`,
+      type: "job_update",
+      actorAuthUserId: identity._id,
+      relatedTable: "jobCards",
+      relatedId: id,
+    });
     return (await ctx.db.get(id))!;
   },
 });
@@ -135,10 +144,18 @@ export const recordProduction = mutation({
     if (!job) throw new Error("Job card not found.");
     const machine = await ctx.db.get(job.machineId);
     if (!machine) throw new Error("Job machine not found.");
-    if (profile.role !== "admin" && profile.role !== "storekeeper" && profile.role !== machine.operatorRole) {
+    if (profile.role !== "owner" && profile.role !== "manager" && profile.role !== "admin" && profile.role !== "storekeeper" && profile.role !== machine.operatorRole) {
       throw new Error("You are not assigned to this machine.");
     }
     await recordProductionInternal(ctx, args, identity._id);
+    await notifyUser(ctx, job.createdBy, {
+      title: "Production activity recorded",
+      message: `${job.code} received a production update on ${machine.name}.`,
+      type: "job_update",
+      actorAuthUserId: identity._id,
+      relatedTable: "jobCards",
+      relatedId: args.jobCardId,
+    });
   },
 });
 
@@ -150,7 +167,7 @@ export const complete = mutation({
     if (!job) throw new Error("Job card not found.");
     const machine = await ctx.db.get(job.machineId);
     if (!machine) throw new Error("Job machine not found.");
-    if (profile.role !== "admin" && profile.role !== "storekeeper" && profile.role !== machine.operatorRole) {
+    if (profile.role !== "owner" && profile.role !== "manager" && profile.role !== "admin" && profile.role !== "storekeeper" && profile.role !== machine.operatorRole) {
       throw new Error("You are not assigned to this machine.");
     }
     if (job.status === "Completed") return;
@@ -168,5 +185,13 @@ export const complete = mutation({
 
     await ctx.db.patch(args.jobId, { status: "Completed" });
     await ctx.db.patch(machine._id, { status: "Available", activeJob: undefined });
+    await notifyUser(ctx, job.createdBy, {
+      title: "Job completed",
+      message: `${job.code} was completed and ${machine.name} is available.`,
+      type: "job_update",
+      actorAuthUserId: identity._id,
+      relatedTable: "jobCards",
+      relatedId: args.jobId,
+    });
   },
 });

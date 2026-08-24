@@ -10,6 +10,8 @@ export function Sidebar({
   onClose,
   collapsed,
   runningJobsCount,
+  companyName,
+  logoUrl,
 }: {
   activeView: View;
   onNavigate: (view: View) => void;
@@ -17,12 +19,14 @@ export function Sidebar({
   onClose: () => void;
   collapsed: boolean;
   runningJobsCount: number;
+  companyName?: string;
+  logoUrl?: string;
 }) {
   return (
     <aside className={`sidebar ${mobileOpen ? "open" : ""} ${collapsed ? "collapsed" : ""}`}>
       <div className="brand-block">
-        <div className="brand-mark"><span>Y</span><i /></div>
-        <div><strong>YT Advertising</strong><small>Operations Control</small></div>
+        <div className="brand-mark">{logoUrl ? <img src={logoUrl} alt="" /> : <><span>Y</span><i /></>}</div>
+        <div><strong>{companyName ?? "YT Advertising"}</strong><small>Operations Control</small></div>
         <button className="icon-button mobile-close" aria-label="Close navigation" onClick={onClose}>
           <X size={18} />
         </button>

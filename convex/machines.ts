@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { authComponent } from "./auth";
 import { role, unit, machineStatus } from "./schema";
 import { requireAdmin } from "./users";
+import { notifyRoles } from "./notificationHelpers";
 
 export const list = query({
   args: {},
@@ -29,7 +30,7 @@ export const create = mutation({
     status: machineStatus,
   },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    const actor = await requireAdmin(ctx);
     if (!args.name.trim() || !args.code.trim() || !args.type.trim()) {
       throw new Error("Machine name, code, and type are required.");
     }
@@ -49,6 +50,14 @@ export const create = mutation({
       notes: args.notes?.trim() || undefined,
       active: true,
     });
+    await notifyRoles(ctx, [args.operatorRole, "owner", "manager", "admin"], {
+      title: "Machine added",
+      message: `${args.name.trim()} was added to the machine register.`,
+      type: "machine_update",
+      actorAuthUserId: actor.authUserId,
+      relatedTable: "machines",
+      relatedId: id,
+    });
     return (await ctx.db.get(id))!;
   },
 });
@@ -56,7 +65,7 @@ export const create = mutation({
 export const updateStatus = mutation({
   args: { machineId: v.id("machines"), status: machineStatus },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    const actor = await requireAdmin(ctx);
     const machine = await ctx.db.get(args.machineId);
     if (!machine) throw new Error("Machine not found.");
     if (args.status === "Maintenance" && machine.activeJob) {
@@ -66,18 +75,34 @@ export const updateStatus = mutation({
       status: args.status,
       activeJob: args.status === "Available" || args.status === "Maintenance" ? undefined : machine.activeJob,
     });
+    await notifyRoles(ctx, [machine.operatorRole, "owner", "manager", "admin"], {
+      title: "Machine status updated",
+      message: `${machine.name} is now ${args.status}.`,
+      type: "machine_update",
+      actorAuthUserId: actor.authUserId,
+      relatedTable: "machines",
+      relatedId: args.machineId,
+    });
   },
 });
 
 export const setActive = mutation({
   args: { machineId: v.id("machines"), active: v.boolean() },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    const actor = await requireAdmin(ctx);
     const machine = await ctx.db.get(args.machineId);
     if (!machine) throw new Error("Machine not found.");
     if (!args.active && machine.activeJob) {
       throw new Error("A machine with an active job cannot be deactivated.");
     }
     await ctx.db.patch(args.machineId, { active: args.active });
+    await notifyRoles(ctx, [machine.operatorRole, "owner", "manager", "admin"], {
+      title: "Machine availability updated",
+      message: `${machine.name} was ${args.active ? "activated" : "deactivated"}.`,
+      type: "machine_update",
+      actorAuthUserId: actor.authUserId,
+      relatedTable: "machines",
+      relatedId: args.machineId,
+    });
   },
 });

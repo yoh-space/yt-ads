@@ -4,10 +4,6 @@ import type { MutationCtx } from "./_generated/server";
 import { authComponent, createAuth } from "./auth";
 import { requireAdmin } from "./users";
 
-const DEFAULT_EMAIL = "admin@demo.com";
-const DEFAULT_PASSWORD = "Password123!";
-const DEFAULT_NAME = "Demo Admin";
-
 /**
  * Populates the demo operations dataset (materials, machines, job cards,
  * offcuts). No-op when materials already exist so it is safe to call
@@ -116,59 +112,203 @@ export const seed = mutation({
   },
 });
 
+const YT_WORKSPACE_KEY = "yt-advertisement";
+
 /**
- * Bootstraps a sample admin account with a known email and password so the site
- * can be accessed immediately after deployment. Creates the Better Auth user
- * (with a properly hashed password), an admin application profile, and the demo
- * dataset. Idempotent: if an account with the same email already exists it is
- * left untouched and the credentials are returned.
+ * Seeds the captured YT Advertisement master data for a fresh database.
+ *
+ * This intentionally does not create jobs, production logs, stock movements,
+ * requests, scrap, or offcuts because the workspace capture did not provide
+ * real historical activity. It also refuses to mix with an existing database;
+ * take a backup and run a reviewed migration before replacing demo data.
  */
-export const seedSampleAccount = mutation({
+export const seedYtAdvertisementWorkspace = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const actor = await requireAdmin(ctx);
+    const existingSettings = await ctx.db
+      .query("companySettings")
+      .withIndex("by_key", (q) => q.eq("key", YT_WORKSPACE_KEY))
+      .unique();
+    if (existingSettings) return { seeded: false, reason: "YT Advertisement workspace is already seeded." };
+
+    const [materials, machines, jobs, productionLogs, stockMovements, offcuts, scraps] = await Promise.all([
+      ctx.db.query("materials").collect(),
+      ctx.db.query("machines").collect(),
+      ctx.db.query("jobCards").collect(),
+      ctx.db.query("productionLogs").collect(),
+      ctx.db.query("stockMovements").collect(),
+      ctx.db.query("offcuts").collect(),
+      ctx.db.query("scraps").collect(),
+    ]);
+    if (materials.length || machines.length || jobs.length || productionLogs.length || stockMovements.length || offcuts.length || scraps.length) {
+      return {
+        seeded: false,
+        reason: "Existing operational data detected. Back up and review a migration before replacing it.",
+      };
+    }
+
+    await ctx.db.insert("companySettings", {
+      key: YT_WORKSPACE_KEY,
+      companyName: "YT Advertisement",
+      industry: "ማስታወቂያ እና ማተሚያ",
+      address: "የድርጅት አድራሻ ጀሞ ካፍደም ህንጻ",
+      phone: "0951082102",
+      ownerAuthUserId: actor.role === "owner" ? actor.authUserId : undefined,
+      timezone: "Africa/Addis_Ababa",
+      dailyReportEnabled: true,
+      monthlyAuditEnabled: true,
+      active: true,
+    });
+
+    const machineRecords = [
+      { name: "Banner Printer", code: "BAN-01", type: "Banner Printer", operatorRole: "printer_operator" as const, materialUnit: "m²" as const, displayUnit: "m²", status: "Available" as const },
+      { name: "DTF", code: "DTF-01", type: "DTF", manufacturer: "Crystal", capability: "0.6m", operatorRole: "printer_operator" as const, materialUnit: "m²" as const, displayUnit: "ሮል", status: "Available" as const },
+      { name: "Print and Cut", code: "PAC-01", type: "Print and Cut", manufacturer: "Crystal", operatorRole: "plotter_operator" as const, materialUnit: "m²" as const, displayUnit: "ሮል", status: "Available" as const },
+      { name: "CNC Router", code: "CNC-01", type: "CNC Router", operatorRole: "cnc_operator" as const, materialUnit: "m²" as const, displayUnit: "m²", status: "Available" as const },
+      { name: "Laser Cutter 1325", code: "LAS-01", type: "Laser Cutter 1325", manufacturer: "Crystal", capability: "1.20 × 2.44m", operatorRole: "laser_operator" as const, materialUnit: "m²" as const, displayUnit: "m²", status: "Available" as const },
+      { name: "Heat press", code: "HPR-01", type: "Heat press", operatorRole: "printer_operator" as const, materialUnit: "piece" as const, displayUnit: "ቁጥር", status: "Available" as const, notes: "ማተም ለልብስ እና ለመሳሰሉት" },
+      { name: "Conca", code: "CON-01", type: "Conca", operatorRole: "printer_operator" as const, materialUnit: "piece" as const, displayUnit: "ቁጥር", status: "Available" as const, notes: "Paper work" },
+      { name: "UV Flat bed", code: "UVF-01", type: "UV Flat bed", manufacturer: "Crystal", operatorRole: "printer_operator" as const, materialUnit: "m²" as const, displayUnit: "m²", status: "Available" as const },
+    ];
+    for (const machine of machineRecords) await ctx.db.insert("machines", { ...machine, active: true });
+
+    const materialRecords = [
+      ["Banner", "Banner", "m²", "ሮል"],
+      ["DTF Film", "Film", "m²", "ሮል", "Store", "Based on customer requirement"],
+      ["Acrylic", "Sheet", "piece", "ቁጥር"],
+      ["DTF Ink", "Ink", "L", "ሊትር"],
+      ["Banner Ink", "Ink", "L", "ሊትር"],
+      ["Print and Cut INK", "Ink", "L", "ሊትር"],
+      ["UV Flat bed Ink", "Ink", "L", "ሊትር"],
+      ["LED", "Electrical", "piece", "ቁጥር"],
+      ["Normal Sticker", "Sticker", "m²", "ሮል"],
+      ["Frosted Sticker", "Sticker", "m²", "ሮል"],
+      ["Transparent Sticker", "Sticker", "m²", "ሮል"],
+      ["Reflective Sticker", "Sticker", "m²", "ሮል"],
+      ["Mush Sticker", "Sticker", "m²", "ሮል"],
+      ["Mica", "Sheet", "piece", "ቁጥር"],
+      ["PVC Film", "Film", "m²", "ሮል"],
+      ["Canvas", "Fabric", "m²", "ሮል"],
+      ["Neon Light", "Electrical", "m", "ሜትር"],
+      ["Power Supply", "Electrical", "piece", "ቁጥር"],
+      ["Foam", "Board", "piece", "ቁጥር"],
+      ["AMIR", "Finished component", "piece", "ቁጥር"],
+      ["ROLE UP DELUX", "Finished component", "piece", "ቁጥር"],
+      ["ROLE UP STANDARD", "Finished component", "piece", "ቁጥር"],
+      ["VINNER", "Finished component", "piece", "ቁጥር"],
+      ["ZOCOLO", "Finished component", "piece", "ቁጥር"],
+      ["LED LIGHT BOX A1", "Finished component", "piece", "ቁጥር"],
+      ["LED LIGHT BOX A2", "Finished component", "piece", "ቁጥር"],
+    ] as const;
+    const accents = ["cyan", "violet", "gold", "green", "blue"] as const;
+    for (const [index, record] of materialRecords.entries()) {
+      const [name, category, unit, displayUnit, storageLocation, averageUse] = record;
+      await ctx.db.insert("materials", {
+        name,
+        category,
+        unit,
+        displayUnit,
+        quantity: 0,
+        reorderAt: 0,
+        storageLocation,
+        averageUse,
+        accent: accents[index % accents.length],
+        active: true,
+      });
+    }
+
+    const staffRecords = [
+      ["Zewuditu", "Store", "Storekeeper", "እቃ ተቀባይ እና አከፋፋይ", "እቃ ያስረክባል"],
+      ["ዮርዳኖስ", "ማኔጅመንት", "Management", "ስታፍ መቆጣጠር", "የለውም"],
+      ["Debas melaku", undefined, "Print and Cut operator, Crystal", undefined, "እቃ ይቀበላል"],
+      ["surafel", undefined, "UV FLAT BED OPERATOR", undefined, "እቃ ይቀበላል"],
+      ["SAMUEL GETE", undefined, "Banner machine operator", undefined, "እቃ ይቀበላል"],
+      ["Addisu", undefined, "CNC and Laser Operator", undefined, "እቃ ይቀበላል"],
+      ["Niguse", undefined, "Relief Coordinator", undefined, "እቃ ይቀበላል"],
+      ["abriham", undefined, "Relief staff", undefined, "እቃ ይቀበላል"],
+      ["haymanot", undefined, "Relief staff", undefined, "እቃ ይቀበላል"],
+      ["Yohannes", undefined, "Relief Staff", undefined, "እቃ ይቀበላል"],
+      ["Emebet", undefined, "Direct sales / customer services", "main position customer services", undefined],
+    ] as const;
+    for (const [personName, department, businessRole, responsibility, handlesMaterial] of staffRecords) {
+      await ctx.db.insert("staff", { personName, department, businessRole, responsibility, handlesMaterial, active: true });
+    }
+    await ctx.db.insert("staff", {
+      personName: "Yitbarek",
+      businessRole: "Owner",
+      responsibility: "Whole-activity oversight, role assignment, profile access, and company settings",
+      authUserId: actor.role === "owner" ? actor.authUserId : undefined,
+      active: true,
+    });
+
+    return {
+      seeded: true,
+      company: "YT Advertisement",
+      machines: machineRecords.length,
+      materials: materialRecords.length,
+      staff: staffRecords.length + 1,
+      operationalRecordsCreated: 0,
+    };
+  },
+});
+
+/**
+ * Creates or promotes the real YT Advertisement owner account.
+ *
+ * The password is supplied only when this mutation is invoked in the local
+ * deployment; it is intentionally not stored in source, returned, or written
+ * to the application profile. The owner can change it from account settings.
+ */
+export const seedYitbarekOwner = mutation({
   args: {
+    password: v.string(),
     email: v.optional(v.string()),
-    password: v.optional(v.string()),
     name: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const email = (args.email ?? DEFAULT_EMAIL).toLowerCase().trim();
-    const password = args.password ?? DEFAULT_PASSWORD;
-    const name = args.name ?? DEFAULT_NAME;
+    const email = (args.email ?? "ytadvert@admin.org").toLowerCase().trim();
+    const name = (args.name ?? "Yitbarek").trim();
+    if (email !== "ytadvert@admin.org") {
+      throw new Error("This bootstrap mutation is restricted to the confirmed owner email.");
+    }
+    if (args.password.length < 8) throw new Error("Owner password must be at least 8 characters.");
+    if (!name) throw new Error("Owner name is required.");
 
-    const existing = await ctx.db
-      .query("users")
-      .filter((q) => q.eq(q.field("email"), email))
-      .first();
-    if (existing) {
-      await seedDemoData(ctx, existing.authUserId);
-      return {
-        created: false,
-        email,
-        password,
-        message: "An account with this email already exists. Use the existing credentials to sign in.",
-      };
+    const existingProfile = (await ctx.db.query("users").collect()).find((user) => user.email.toLowerCase() === email);
+    if (existingProfile) {
+      await ctx.db.patch(existingProfile._id, { name, role: "owner", active: true });
+      const settings = await ctx.db
+        .query("companySettings")
+        .withIndex("by_key", (q) => q.eq("key", YT_WORKSPACE_KEY))
+        .unique();
+      if (settings) await ctx.db.patch(settings._id, { ownerAuthUserId: existingProfile.authUserId });
+      const staff = (await ctx.db.query("staff").collect()).find((member) => member.personName.toLowerCase() === "yitbarek");
+      if (staff) await ctx.db.patch(staff._id, { authUserId: existingProfile.authUserId });
+      return { created: false, email, profileId: existingProfile._id };
     }
 
     const auth = createAuth(ctx);
     const result = await auth.api.signUpEmail({
-      body: { name, email, password },
+      body: { name, email, password: args.password },
     });
     const authUser = result.user;
-
-    await ctx.db.insert("users", {
+    const profileId = await ctx.db.insert("users", {
       authUserId: authUser.id,
       name: authUser.name ?? name,
       email: authUser.email,
-      role: "admin",
+      image: authUser.image ?? undefined,
+      role: "owner",
       active: true,
     });
+    const settings = await ctx.db
+      .query("companySettings")
+      .withIndex("by_key", (q) => q.eq("key", YT_WORKSPACE_KEY))
+      .unique();
+    if (settings) await ctx.db.patch(settings._id, { ownerAuthUserId: authUser.id });
+    const staff = (await ctx.db.query("staff").collect()).find((member) => member.personName.toLowerCase() === "yitbarek");
+    if (staff) await ctx.db.patch(staff._id, { authUserId: authUser.id });
 
-    await seedDemoData(ctx, authUser.id);
-
-    return {
-      created: true,
-      email,
-      password,
-      message: "Sample admin account created. Sign in with these credentials.",
-    };
+    return { created: true, email, profileId };
   },
 });

@@ -1,4 +1,12 @@
-export type Role = "admin" | "storekeeper" | "laser_operator" | "cnc_operator" | "plotter_operator" | "printer_operator";
+export type Role =
+  | "owner"
+  | "manager"
+  | "admin"
+  | "storekeeper"
+  | "laser_operator"
+  | "cnc_operator"
+  | "plotter_operator"
+  | "printer_operator";
 export type Unit = "m²" | "m" | "sheet" | "piece" | "L";
 export type JobStatus = "Queued" | "In production" | "Completed" | "Paused";
 export type MachineStatus = "Running" | "Available" | "Maintenance";
@@ -104,9 +112,12 @@ export type Profile = {
   email: string;
   role: Role;
   active: boolean;
+  image?: string;
 };
 
 export const roleLabels: Record<Role, { am: string; en: string; initial: string }> = {
+  owner: { am: "ባለቤት", en: "Owner", initial: "OW" },
+  manager: { am: "ማኔጀር", en: "Manager", initial: "MG" },
   admin: { am: "ዋና ሥራ አስኪያጅ", en: "General Manager", initial: "GM" },
   storekeeper: { am: "መጋዘን ኃላፊ", en: "Storekeeper", initial: "SK" },
   laser_operator: { am: "Laser ኦፕሬተር", en: "Laser Cutter", initial: "LC" },

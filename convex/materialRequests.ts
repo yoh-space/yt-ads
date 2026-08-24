@@ -2,6 +2,7 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { unit } from "./schema";
 import { requireActiveProfile, requireRoles } from "./users";
+import { notifyRoles, notifyUser } from "./notificationHelpers";
 
 const STORE_ROLES = ["admin", "storekeeper"] as const;
 
@@ -21,7 +22,7 @@ export const list = query({
     const materialMap = new Map(materials.map((material) => [material._id, material]));
     const machineMap = new Map(machines.map((machine) => [machine._id, machine]));
     const userMap = new Map(users.map((user) => [user.authUserId, user.name]));
-    const visibleRequests = profile.role === "admin" || profile.role === "storekeeper"
+    const visibleRequests = profile.role === "owner" || profile.role === "manager" || profile.role === "admin" || profile.role === "storekeeper"
       ? requests
       : requests.filter((request) => request.requestedBy === identity._id || jobMap.get(request.jobCardId)?.machineId && machineMap.get(jobMap.get(request.jobCardId)!.machineId)?.operatorRole === profile.role);
 
@@ -78,6 +79,14 @@ export const create = mutation({
       requestedAt: Date.now(),
       note: args.note?.trim() || undefined,
     });
+    await notifyRoles(ctx, ["owner", "manager", "admin", "storekeeper"], {
+      title: "New material request",
+      message: `${material.name} requested for ${job.code} (${args.requestedQuantity} ${args.unit}).`,
+      type: "material_request",
+      actorAuthUserId: identity._id,
+      relatedTable: "materialRequests",
+      relatedId: id,
+    });
     return (await ctx.db.get(id))!;
   },
 });
@@ -120,12 +129,21 @@ export const issue = mutation({
       createdAt: Date.now(),
     });
     const totalIssued = Number((request.issuedQuantity + args.issuedQuantity).toFixed(2));
+    const nextStatus = totalIssued < request.requestedQuantity ? "Partially Issued" : "Issued";
     await ctx.db.patch(args.requestId, {
       issuedQuantity: totalIssued,
-      status: totalIssued < request.requestedQuantity ? "Partially Issued" : "Issued",
+      status: nextStatus,
       issuedBy: identity._id,
       issuedAt: Date.now(),
       note: args.note?.trim() || request.note,
+    });
+    await notifyUser(ctx, request.requestedBy, {
+      title: nextStatus === "Partially Issued" ? "Short stock: request partially issued" : "Material issued",
+      message: `${material.name} for ${request.jobCardId} was issued at ${totalIssued} ${request.unit}.`,
+      type: nextStatus === "Partially Issued" ? "short_stock" : "material_issue",
+      actorAuthUserId: identity._id,
+      relatedTable: "materialRequests",
+      relatedId: args.requestId,
     });
     return (await ctx.db.get(args.requestId))!;
   },
@@ -144,6 +162,14 @@ export const acknowledge = mutation({
       status: "Received",
       receivedBy: identity._id,
       receivedAt: Date.now(),
+    });
+    await notifyUser(ctx, request.issuedBy ?? request.requestedBy, {
+      title: "Material received",
+      message: `Material request ${args.requestId} was marked received.`,
+      type: "material_received",
+      actorAuthUserId: identity._id,
+      relatedTable: "materialRequests",
+      relatedId: args.requestId,
     });
     return (await ctx.db.get(args.requestId))!;
   },
