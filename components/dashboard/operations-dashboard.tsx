@@ -139,7 +139,6 @@ export function OperationsDashboard() {
         <div className="page-content">
           <section className="page-heading">
             <div>
-              <div className="eyebrow"><span />YO TECH DIGITALS · OPERATING SYSTEM</div>
               <h1>
                 {activeView === "overview"
                   ? "የምርት እና ክምችት አጠቃላይ እይታ"

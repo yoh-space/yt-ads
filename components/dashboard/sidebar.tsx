@@ -22,7 +22,7 @@ export function Sidebar({
         <div className="brand-mark"><span>Y</span><i /></div>
         <div><strong>YT Advertising</strong><small>Operations Control</small></div>
       </div>
-      <div className="workspace-chip"><span className="live-dot" />ቀጥታ ማዕከል <small>LIVE</small></div>
+      <div className="workspace-chip"><span className="live-dot" />Live </div>
       <nav className="primary-nav">
         <p>የሥራ ማውጫ <span>WORKSPACE</span></p>
         {navItems.map((item) => {
