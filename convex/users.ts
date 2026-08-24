@@ -28,7 +28,8 @@ export const getCurrentProfile = query({
 export const ensureProfile = mutation({
   args: {},
   handler: async (ctx) => {
-    const identity = await authComponent.getAuthUser(ctx);
+    const identity = await authComponent.safeGetAuthUser(ctx);
+    if (!identity) return null;
     const existing = await ctx.db
       .query("users")
       .withIndex("by_auth_user", (q) => q.eq("authUserId", identity._id))

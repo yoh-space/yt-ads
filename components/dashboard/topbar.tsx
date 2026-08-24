@@ -18,9 +18,6 @@ export function Topbar({
   return (
     <header className="topbar">
       <div className="topbar-left">
-        <button className="mobile-menu icon-button" onClick={onMenu} aria-label="Open navigation">
-          <Menu size={21} />
-        </button>
         <button className="collapse-button icon-button" aria-label="Collapse sidebar">
           <PanelLeftClose size={19} />
         </button>

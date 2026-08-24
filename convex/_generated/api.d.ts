@@ -19,6 +19,7 @@ import type * as seed from "../seed.js";
 import type * as types from "../types.js";
 import type * as units from "../units.js";
 import type * as users from "../users.js";
+import type * as validation from "../validation.js";
 
 import type {
   ApiFromModules,
@@ -38,6 +39,7 @@ declare const fullApi: ApiFromModules<{
   types: typeof types;
   units: typeof units;
   users: typeof users;
+  validation: typeof validation;
 }>;
 
 /**

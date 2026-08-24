@@ -21,7 +21,6 @@ export function Sidebar({
       <div className="brand-block">
         <div className="brand-mark"><span>Y</span><i /></div>
         <div><strong>YT Advertising</strong><small>Operations Control</small></div>
-        <button className="mobile-close icon-button" onClick={onClose} aria-label="Close navigation"><X size={19} /></button>
       </div>
       <div className="workspace-chip"><span className="live-dot" />ቀጥታ ማዕከል <small>LIVE</small></div>
       <nav className="primary-nav">
