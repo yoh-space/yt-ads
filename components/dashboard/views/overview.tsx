@@ -40,10 +40,10 @@ export function Overview({
   onComplete: (id: string) => void;
 }) {
   const stats = [
-    { label: "የክምችት ንጥሎች", en: "Tracked inventory", value: materials.length.toString(), meta: "6 categories live", icon: Boxes, trend: "+2 this week", tone: "cyan" },
-    { label: "በሂደት ላይ ያሉ ሥራዎች", en: "Active production", value: jobs.filter((job) => job.status === "In production").length.toString(), meta: "Across machines", icon: Factory, trend: "Operational", tone: "gold" },
-    { label: "የዛሬ ብክነት", en: "Waste ratio", value: `${waste}%`, meta: "Target below 5.0%", icon: Trash2, trend: "Within target", tone: "violet" },
-    { label: "የክምችት ንቁ መጠን", en: "Active stock units", value: stockValue.toLocaleString("en-US", { maximumFractionDigits: 0 }), meta: "All base units", icon: Gauge, trend: "Live count", tone: "blue" },
+    { label: "የክምችት ንጥሎች", en: "Tracked inventory", value: materials.length.toString(), meta: "6 categories live", icon: Boxes, trend: "Open", tone: "cyan", view: "inventory" as View },
+    { label: "በሂደት ላይ ያሉ ሥራዎች", en: "Active production", value: jobs.filter((job) => job.status === "In production").length.toString(), meta: "Across machines", icon: Factory, trend: "Open", tone: "gold", view: "jobs" as View },
+    { label: "የዛሬ ብክነት", en: "Waste ratio", value: `${waste}%`, meta: "Target below 5.0%", icon: Trash2, trend: "Open", tone: "violet", view: "offcuts" as View },
+    { label: "የክምችት ንቁ መጠን", en: "Active stock units", value: stockValue.toLocaleString("en-US", { maximumFractionDigits: 0 }), meta: "All base units", icon: Gauge, trend: "Open", tone: "blue", view: "inventory" as View },
   ];
   return (
     <>
@@ -51,7 +51,19 @@ export function Overview({
         {stats.map((stat) => {
           const Icon = stat.icon;
           return (
-            <article className={`stat-card ${stat.tone}`} key={stat.en}>
+            <article
+              className={`stat-card interactive ${stat.tone}`}
+              key={stat.en}
+              role="button"
+              tabIndex={0}
+              onClick={() => onView(stat.view)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  onView(stat.view);
+                }
+              }}
+            >
               <div className="stat-top">
                 <span className="stat-icon"><Icon size={19} /></span>
                 <span className="trend"><ArrowUpRight size={13} />{stat.trend}</span>
