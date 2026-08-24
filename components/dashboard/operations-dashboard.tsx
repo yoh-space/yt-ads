@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import type { JobCard, Machine, Material, Offcut, Profile, Role, ScrapLog } from "@/lib/operations-types";
 import { Sidebar } from "./sidebar";
+import { InventoryLoader } from "./inventory-loader";
 import { Topbar } from "./topbar";
 import { Overview } from "./views/overview";
 import { InventoryView } from "./views/inventory";
@@ -64,13 +65,7 @@ export function OperationsDashboard() {
   }, [profile, ensureProfile]);
 
   if (state === undefined || profile === undefined) {
-    return (
-      <div className="app-shell">
-        <div className="main-content">
-          <div className="page-content"><p style={{ color: "#81929d" }}>Loading operations control…</p></div>
-        </div>
-      </div>
-    );
+    return <InventoryLoader />;
   }
 
   const role: Role = profile?.role ?? "admin";
