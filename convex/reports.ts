@@ -45,10 +45,11 @@ function inRange(value: TimestampValue, startAt: number, endAt: number) {
 }
 
 function sumByUnit(entries: Array<{ quantity: number; unit: string }>) {
-  return entries.reduce<Record<string, number>>((totals, entry) => {
-    totals[entry.unit] = Number(((totals[entry.unit] ?? 0) + entry.quantity).toFixed(2));
-    return totals;
-  }, {});
+  const totals = new Map<string, number>();
+  for (const entry of entries) {
+    totals.set(entry.unit, Number(((totals.get(entry.unit) ?? 0) + entry.quantity).toFixed(2)));
+  }
+  return Array.from(totals, ([unit, quantity]) => ({ unit, quantity }));
 }
 
 export const getSummary = query({

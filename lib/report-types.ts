@@ -11,8 +11,8 @@ export type ReportSummary = {
     lowStockMaterials: number;
     totalBaseQuantity: number;
     movementCount: number;
-    stockInByUnit: Record<string, number>;
-    stockOutByUnit: Record<string, number>;
+    stockInByUnit: Array<{ unit: string; quantity: number }>;
+    stockOutByUnit: Array<{ unit: string; quantity: number }>;
   };
   production: {
     machineCount: number;
@@ -32,7 +32,7 @@ export type ReportSummary = {
     reusableOffcuts: number;
     scrapRecords: number;
     scrapQuantity: number;
-    scrapByUnit: Record<string, number>;
+    scrapByUnit: Array<{ unit: string; quantity: number }>;
   };
 };
 
