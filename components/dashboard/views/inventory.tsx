@@ -1,22 +1,35 @@
 "use client";
 
 import { AlertTriangle, ArrowUpRight, Box, MoreHorizontal, PackagePlus } from "lucide-react";
-import type { Material } from "@/lib/operations-types";
+import type { Material, MaterialRequest, Role } from "@/lib/operations-types";
 import { formatQuantity } from "@/lib/units";
+import { MaterialRequestsPanel } from "../material-requests-panel";
 
 export function InventoryView({
   materials,
   lowStock,
+  requests,
+  role,
   onStock,
   onAdd,
+  onRequest,
+  onIssue,
+  onAcknowledge,
 }: {
   materials: Material[];
   lowStock: Material[];
+  requests: MaterialRequest[];
+  role: Role;
   onStock: () => void;
   onAdd: () => void;
+  onRequest: () => void;
+  onIssue: (requestId: string, issuedQuantity: number) => void;
+  onAcknowledge: (requestId: string) => void;
 }) {
   return (
-    <section className="panel inventory-panel">
+    <>
+      <MaterialRequestsPanel requests={requests} role={role} onRequest={onRequest} onIssue={onIssue} onAcknowledge={onAcknowledge} />
+      <section className="panel inventory-panel">
       <div className="inventory-callout">
         <div>
           <span className="panel-kicker">STOREKEEPER CONSOLE</span>
@@ -46,7 +59,11 @@ export function InventoryView({
                 <span className={`material-swatch ${material.accent}`}><Box size={16} /></span>
                 <p>
                   <b>{material.name}</b>
-                  <small>Base unit: {material.unit}{material.rollEquivalent ? ` · 1 roll = ${material.rollEquivalent} ${material.unit}` : ""}</small>
+                  <small>
+                    Base unit: {material.unit}
+                    {material.rollEquivalent ? ` · 1 roll = ${material.rollEquivalent} ${material.unit}` : ""}
+                    {material.storageLocation ? ` · ${material.storageLocation}` : ""}
+                  </small>
                 </p>
               </div>
               <span>{material.category}</span>
@@ -58,6 +75,7 @@ export function InventoryView({
           );
         })}
       </div>
-    </section>
+      </section>
+    </>
   );
 }

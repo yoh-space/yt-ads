@@ -27,6 +27,10 @@ export const create = mutation({
     reorderAt: v.number(),
     rollEquivalent: v.optional(v.number()),
     sheetEquivalent: v.optional(v.number()),
+    storageLocation: v.optional(v.string()),
+    averageUse: v.optional(v.string()),
+    reorderRule: v.optional(v.string()),
+    scrapRule: v.optional(v.string()),
     accent,
   },
   handler: async (ctx, args) => {
@@ -44,7 +48,16 @@ export const create = mutation({
     if (args.sheetEquivalent !== undefined && args.sheetEquivalent <= 0) {
       throw new Error("Sheet conversion must be greater than zero.");
     }
-    const id = await ctx.db.insert("materials", { ...args, active: true });
+    const id = await ctx.db.insert("materials", {
+      ...args,
+      name: args.name.trim(),
+      category: args.category.trim() || "Custom",
+      storageLocation: args.storageLocation?.trim() || undefined,
+      averageUse: args.averageUse?.trim() || undefined,
+      reorderRule: args.reorderRule?.trim() || undefined,
+      scrapRule: args.scrapRule?.trim() || undefined,
+      active: true,
+    });
     return (await ctx.db.get(id))!;
   },
 });

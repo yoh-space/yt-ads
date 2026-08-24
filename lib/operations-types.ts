@@ -14,6 +14,10 @@ export type Material = {
   reorderAt: number;
   rollEquivalent?: number;
   sheetEquivalent?: number;
+  storageLocation?: string;
+  averageUse?: string;
+  reorderRule?: string;
+  scrapRule?: string;
   accent: "cyan" | "gold" | "violet" | "blue" | "green";
 };
 
@@ -22,6 +26,10 @@ export type Machine = {
   name: string;
   code: string;
   type: string;
+  manufacturer?: string;
+  model?: string;
+  capability?: string;
+  notes?: string;
   operatorRole: Role;
   materialUnit: Unit;
   status: "Running" | "Available" | "Maintenance";
@@ -61,6 +69,32 @@ export type ScrapLog = {
   unit: Unit;
   reason: string;
   createdAt: string;
+};
+
+export type MaterialRequestStatus = "Requested" | "Partially Issued" | "Issued" | "Received" | "Short Stock" | "Discrepancy";
+
+export type MaterialRequest = {
+  id: string;
+  jobCardId: string;
+  materialId: string;
+  requestedQuantity: number;
+  issuedQuantity: number;
+  unit: Unit;
+  status: MaterialRequestStatus;
+  requestedBy: string;
+  issuedBy?: string;
+  receivedBy?: string;
+  requestedAt: number;
+  issuedAt?: number;
+  receivedAt?: number;
+  note?: string;
+  jobCode: string;
+  client: string;
+  jobTitle: string;
+  materialName: string;
+  requesterName: string;
+  issuerName?: string;
+  receiverName?: string;
 };
 
 export type Profile = {

@@ -62,6 +62,15 @@ export const offcutStatus = v.union(
   v.literal("consumed"),
 );
 
+export const materialRequestStatus = v.union(
+  v.literal("Requested"),
+  v.literal("Partially Issued"),
+  v.literal("Issued"),
+  v.literal("Received"),
+  v.literal("Short Stock"),
+  v.literal("Discrepancy"),
+);
+
 export default defineSchema({
   users: defineTable({
     authUserId: v.string(),
@@ -81,6 +90,10 @@ export default defineSchema({
     reorderAt: v.number(),
     rollEquivalent: v.optional(v.number()),
     sheetEquivalent: v.optional(v.number()),
+    storageLocation: v.optional(v.string()),
+    averageUse: v.optional(v.string()),
+    reorderRule: v.optional(v.string()),
+    scrapRule: v.optional(v.string()),
     accent,
     active: v.boolean(),
   })
@@ -91,6 +104,10 @@ export default defineSchema({
     name: v.string(),
     code: v.string(),
     type: v.string(),
+    manufacturer: v.optional(v.string()),
+    model: v.optional(v.string()),
+    capability: v.optional(v.string()),
+    notes: v.optional(v.string()),
     operatorRole: role,
     materialUnit: unit,
     status: machineStatus,
@@ -99,6 +116,24 @@ export default defineSchema({
   })
     .index("by_code", ["code"])
     .index("by_operator_role", ["operatorRole"]),
+
+  materialRequests: defineTable({
+    jobCardId: v.id("jobCards"),
+    materialId: v.id("materials"),
+    requestedQuantity: v.number(),
+    issuedQuantity: v.number(),
+    unit,
+    status: materialRequestStatus,
+    requestedBy: v.string(),
+    issuedBy: v.optional(v.string()),
+    receivedBy: v.optional(v.string()),
+    requestedAt: v.number(),
+    issuedAt: v.optional(v.number()),
+    receivedAt: v.optional(v.number()),
+    note: v.optional(v.string()),
+  })
+    .index("by_job_card", ["jobCardId"])
+    .index("by_status", ["status"]),
 
   stockMovements: defineTable({
     materialId: v.id("materials"),

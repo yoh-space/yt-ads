@@ -10,7 +10,7 @@ import {
   Scissors,
   Trash2,
 } from "lucide-react";
-import type { JobCard, Machine, Material, Offcut, Profile, Role, ScrapLog } from "@/lib/operations-types";
+import type { JobCard, Machine, Material, MaterialRequest, Offcut, Profile, Role, ScrapLog } from "@/lib/operations-types";
 import { Sidebar } from "./sidebar";
 import { InventoryLoader } from "./inventory-loader";
 import { Topbar } from "./topbar";
@@ -27,6 +27,7 @@ import { OffcutModal, type NewOffcutInput } from "./modals/offcut-modal";
 import { MaterialModal, type NewMaterialInput } from "./modals/material-modal";
 import { ScrapModal, type NewScrapInput } from "./modals/scrap-modal";
 import { MachineModal, type NewMachineInput } from "./modals/machine-modal";
+import { MaterialRequestModal, type NewMaterialRequestInput } from "./modals/material-request-modal";
 import { navItems, type Modal, type View } from "./nav-config";
 
 type WithId<T extends { _id: string }> = Omit<T, "_id"> & { id: T["_id"] };
@@ -41,6 +42,7 @@ function withIds<T extends { _id: string }>(docs: T[]): WithId<T>[] {
 export function OperationsDashboard() {
   const profile = useQuery(api.users.getCurrentProfile);
   const state = useQuery(api.dashboard.getState);
+  const materialRequests = useQuery(api.materialRequests.list);
 
   const ensureProfile = useMutation(api.users.ensureProfile);
   const recordStockMovement = useMutation(api.materials.recordStockMovement);
@@ -51,6 +53,9 @@ export function OperationsDashboard() {
   const createMachine = useMutation(api.machines.create);
   const createOffcut = useMutation(api.offcuts.create);
   const logScrap = useMutation(api.offcuts.logScrap);
+  const createMaterialRequest = useMutation(api.materialRequests.create);
+  const issueMaterialRequest = useMutation(api.materialRequests.issue);
+  const acknowledgeMaterialRequest = useMutation(api.materialRequests.acknowledge);
 
   const [activeView, setActiveView] = useState<View>("overview");
   const [modal, setModal] = useState<Modal>(null);
@@ -64,7 +69,7 @@ export function OperationsDashboard() {
     }
   }, [profile, ensureProfile]);
 
-  if (state === undefined || profile === undefined) {
+  if (state === undefined || profile === undefined || materialRequests === undefined) {
     return <InventoryLoader />;
   }
 
@@ -74,6 +79,7 @@ export function OperationsDashboard() {
   const jobs = withIds(state.jobs) as JobCard[];
   const offcuts = withIds(state.offcuts) as Offcut[];
   const scraps = withIds(state.scraps) as ScrapLog[];
+  const requests = withIds(materialRequests) as MaterialRequest[];
   const resolvedProfile: Profile | null = profile ? { ...profile, id: profile._id } : null;
 
   const filteredMachines = role === "admin" || role === "storekeeper"
@@ -95,6 +101,31 @@ export function OperationsDashboard() {
     void completeJobMutation({ jobId: jobId as Id<"jobCards"> })
       .then(() => setNotice("የሥራ ካርዱ ተጠናቋል፤ መዝገቡ ተዘምኗል"))
       .catch((error: unknown) => setNotice(error instanceof Error ? error.message : "Unable to complete the job card."));
+  }
+
+  function requestMaterial(input: NewMaterialRequestInput) {
+    finishMutation(
+      createMaterialRequest({
+        ...input,
+        jobCardId: input.jobCardId as Id<"jobCards">,
+        materialId: input.materialId as Id<"materials">,
+      }),
+      "የእቃ ጥያቄው ተልኳል",
+    );
+  }
+
+  function issueMaterial(requestId: string, issuedQuantity: number) {
+    finishMutation(
+      issueMaterialRequest({ requestId: requestId as Id<"materialRequests">, issuedQuantity }),
+      "እቃው ተሰጥቷል፤ ክምችቱ ተዘምኗል",
+    );
+  }
+
+  function acknowledgeMaterial(requestId: string) {
+    finishMutation(
+      acknowledgeMaterialRequest({ requestId: requestId as Id<"materialRequests"> }),
+      "የተሰጠው እቃ እንደደረሰ ተረጋግጧል",
+    );
   }
 
   function recordProduction(jobId: string, inputQuantity: number, outputQuantity: number, wasteQuantity: number) {
@@ -184,7 +215,17 @@ export function OperationsDashboard() {
             />
           ) : null}
           {activeView === "inventory" ? (
-            <InventoryView materials={materials} lowStock={lowStock} onStock={() => setModal("stock")} onAdd={() => setModal("material")} />
+            <InventoryView
+              materials={materials}
+              lowStock={lowStock}
+              requests={requests}
+              role={role}
+              onStock={() => setModal("stock")}
+              onAdd={() => setModal("material")}
+              onRequest={() => setModal("request")}
+              onIssue={issueMaterial}
+              onAcknowledge={acknowledgeMaterial}
+            />
           ) : null}
           {activeView === "jobs" ? (
             <JobsView jobs={jobs} machines={machines} materials={materials} onCreate={() => setModal("job")} onComplete={completeJob} />
@@ -277,6 +318,14 @@ export function OperationsDashboard() {
           onSave={(input: NewMachineInput) => {
             finishMutation(createMachine(input), `${input.name} ወደ ማሽኖች ዝርዝር ታክሏል`);
           }}
+        />
+      ) : null}
+      {modal === "request" ? (
+        <MaterialRequestModal
+          jobs={jobs}
+          materials={materials}
+          onClose={() => setModal(null)}
+          onSave={requestMaterial}
         />
       ) : null}
     </div>

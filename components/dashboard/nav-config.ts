@@ -17,6 +17,7 @@ export type Modal =
   | "scrap"
   | "material"
   | "machine"
+  | "request"
   | null;
 
 export const navItems: Array<{

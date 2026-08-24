@@ -11,6 +11,10 @@ export type NewMachineInput = {
   name: string;
   code: string;
   type: string;
+  manufacturer?: string;
+  model?: string;
+  capability?: string;
+  notes?: string;
   operatorRole: Role;
   materialUnit: Unit;
   status: MachineStatus;
@@ -28,6 +32,10 @@ export function MachineModal({
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [type, setType] = useState("Laser cutter");
+  const [manufacturer, setManufacturer] = useState("Crystal");
+  const [model, setModel] = useState("");
+  const [capability, setCapability] = useState("");
+  const [notes, setNotes] = useState("");
   const [operatorRole, setOperatorRole] = useState<Role>("laser_operator");
   const [materialUnit, setMaterialUnit] = useState<Unit>("m²");
   const [status, setStatus] = useState<MachineStatus>("Available");
@@ -42,6 +50,10 @@ export function MachineModal({
             name: name || "New machine",
             code: code || "NEW-01",
             type: type || "Production machine",
+            manufacturer: manufacturer || undefined,
+            model: model || undefined,
+            capability: capability || undefined,
+            notes: notes || undefined,
             operatorRole,
             materialUnit,
             status,
@@ -51,6 +63,14 @@ export function MachineModal({
         <label>Machine name<input autoFocus required placeholder="e.g. UV Flatbed 2513" value={name} onChange={(event) => setName(event.target.value)} /></label>
         <label>Machine code<input required placeholder="e.g. UV-01" value={code} onChange={(event) => setCode(event.target.value.toUpperCase())} /></label>
         <label>Machine type<input required placeholder="e.g. UV flatbed printer" value={type} onChange={(event) => setType(event.target.value)} /></label>
+        <div className="two-field">
+          <label>Manufacturer<input placeholder="e.g. Crystal" value={manufacturer} onChange={(event) => setManufacturer(event.target.value)} /></label>
+          <label>Exact model<input placeholder="e.g. Crystal 1325" value={model} onChange={(event) => setModel(event.target.value)} /></label>
+        </div>
+        <div className="two-field">
+          <label>Capability<input placeholder="e.g. 1.20 × 2.44m" value={capability} onChange={(event) => setCapability(event.target.value)} /></label>
+          <label>Operating notes<input placeholder="Optional notes" value={notes} onChange={(event) => setNotes(event.target.value)} /></label>
+        </div>
         <div className="two-field">
           <label>
             Assigned operator

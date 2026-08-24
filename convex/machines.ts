@@ -20,6 +20,10 @@ export const create = mutation({
     name: v.string(),
     code: v.string(),
     type: v.string(),
+    manufacturer: v.optional(v.string()),
+    model: v.optional(v.string()),
+    capability: v.optional(v.string()),
+    notes: v.optional(v.string()),
     operatorRole: role,
     materialUnit: unit,
     status: machineStatus,
@@ -39,6 +43,10 @@ export const create = mutation({
       name: args.name.trim(),
       code: args.code.trim().toUpperCase(),
       type: args.type.trim(),
+      manufacturer: args.manufacturer?.trim() || undefined,
+      model: args.model?.trim() || undefined,
+      capability: args.capability?.trim() || undefined,
+      notes: args.notes?.trim() || undefined,
       active: true,
     });
     return (await ctx.db.get(id))!;
