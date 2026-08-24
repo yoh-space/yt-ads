@@ -4,10 +4,12 @@ import {
   Factory,
   LayoutDashboard,
   Scissors,
+  FileBarChart,
+  History,
   type LucideIcon,
 } from "lucide-react";
 
-export type View = "overview" | "inventory" | "jobs" | "machines" | "offcuts";
+export type View = "overview" | "inventory" | "jobs" | "machines" | "offcuts" | "reports" | "audit";
 export type Modal =
   | "stock"
   | "job"
@@ -28,6 +30,8 @@ export const navItems: Array<{
   { id: "jobs", label: "የሥራ ካርዶች", english: "Job cards", icon: ClipboardList },
   { id: "machines", label: "ማሽኖች", english: "Machines", icon: Factory },
   { id: "offcuts", label: "ቅሪት እቃ", english: "Offcuts", icon: Scissors },
+  { id: "reports", label: "ሪፖርቶች", english: "Reports", icon: FileBarChart },
+  { id: "audit", label: "የእንቅስቃሴ መዝገብ", english: "Audit Log", icon: History },
 ];
 
 export const unitOptions = ["m²", "m", "sheet", "piece", "L"] as const;
