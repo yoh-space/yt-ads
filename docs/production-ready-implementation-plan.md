@@ -32,21 +32,21 @@ The system must support management, storekeepers, machine operators, relief staf
 
 For application configuration, the following four machines should be entered as **Crystal-manufactured**. This clarification is for machine master data and workflow behavior, not proposal text.
 
-| Machine input type | Manufacturer | Quantity | Initial capability | Required production configuration |
+| Machine input type | Manufacturer | Quantity | Confirmed model/capability | Current production mapping |
 |---|---|---:|---|---|
-| Print and Cut | Crystal | 1 | To confirm | Print width, cut width, supported media, operator assignment, and unit. |
-| DTF | Crystal | 1 | 0.6m captured | Confirm whether 0.6m means print width, film width, or another capacity measure. |
-| Laser Cutter 1325 | Crystal | 1 | 1.20 × 2.44 captured | Confirm dimensions, laser power, supported materials, and operator assignment. |
-| UV Flat bed | Crystal | 1 | To confirm | Confirm bed dimensions, print area, supported media, and operator assignment. |
+| Print and Cut | Crystal | 1 | 1.6m Print & Cut Plotter; 1.6m width | `plotter_operator`, base unit `m²` |
+| DTF | Crystal | 1 | 60cm Roll-to-Roll DTF; 0.60m print width | `printer_operator`, base unit `m` |
+| Laser Cutter 1325 | Crystal | 1 | 1300mm × 2500mm CO2 Laser; 1.22m × 2.44m board | `laser_operator`, base unit `m²` |
+| UV Flat bed | Crystal | 1 | Industrial UV Flatbed; direct-to-rigid board | `printer_operator`, base unit `m²` |
 
-The remaining equipment records must be onboarded separately:
+The remaining equipment records are also seeded with the revised working specifications, while final manufacturer/assignment confirmation remains an onboarding task:
 
-| Machine input type | Manufacturer status | Quantity | Open information |
-|---|---|---:|---|
-| Banner Printer | To confirm | 1 | Confirm brand, exact model, width, and supported media. |
-| CNC Router | To confirm | 1 | Confirm brand, bed size, spindle/power, and supported materials. |
-| Heat press | To confirm | 1 | Confirm manufacturer and whether work is measured by piece, job, or time. |
-| Conca | To confirm | 1 | Confirm whether this is a machine, paper-work station, or local operational term. |
+| Machine input type | Quantity | Model/capability | Current production mapping |
+|---|---:|---|---|
+| Large Format Banner Printer | 1 | 3.2m Eco-Solvent / Solvent Printer; 3.2m print width | `printer_operator`, base unit `m²` |
+| CNC Router 2030 | 1 | 2000mm × 3000mm Heavy Duty; 2.0m × 3.0m bed | `cnc_operator`, base unit `m²` |
+| Pneumatic / Manual Heat Press | 1 | Flatbed Heat Press; 40cm × 60cm platen | `printer_operator`, base unit `pcs` |
+| Paper Guillotine Cutter (Conca) | 1 | Heavy Duty Paper Cutter; A3+ cutting width | `printer_operator`, base unit `pcs`; local meaning still needs confirmation |
 
 Exact model numbers and technical specifications remain required for maintenance, assignment, capacity planning, and machine-specific reports.
 
@@ -143,9 +143,9 @@ Production logs must remain immutable. Corrections should create a correction re
 
 **Goal:** Build reliable master data and authorization boundaries.
 
-**Tasks:** Add company settings, staff directory, machine manufacturer/model/capability fields, machine assignments, material policies, localized units, opening balances, profile-to-staff links, role permissions, indexes, and audit events for administrative changes.
+**Tasks:** Add company settings, staff directory, machine manufacturer/model/capability fields, machine assignments, dual-unit purchase/base metadata, confirmed conversion ratios, localized display units, opening balances, profile-to-staff links, role permissions, indexes, and audit events for administrative changes.
 
-**Deliverables:** Production schema, migration/import tools, administrator master-data screens, permission matrix, and opening-balance import report.
+**Deliverables:** Production schema, non-destructive master-data migration/import tools, administrator master-data screens, permission matrix, conversion verification report, and opening-balance import report.
 
 **Exit criteria:** An administrator can onboard the four Crystal machines, the remaining equipment, approved materials, and staff without editing the database directly.
 

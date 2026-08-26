@@ -8,7 +8,9 @@ export type Role =
   | "plotter_operator"
   | "printer_operator";
 
-export type Unit = "m²" | "m" | "sheet" | "piece" | "L";
+export type Unit = "m²" | "m" | "sheet" | "piece" | "pcs" | "L";
+
+export type PurchaseUnit = "roll" | "sheet" | "pack" | "liter" | "piece";
 
 export type JobStatus = "Queued" | "In production" | "Completed" | "Paused";
 

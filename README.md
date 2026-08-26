@@ -9,13 +9,13 @@ The application uses the **Next.js App Router** for the web interface, **Convex*
 | Area | Current implementation |
 |---|---|
 | Authentication | Better Auth email/password and optional Google sign-in/linking, Convex session integration, application profiles, owner/manager delegation, and access revocation. |
-| Inventory | Materials with base units, reorder levels, roll/sheet conversions, stock-in and stock-out movements, insufficient-stock protection, and audit records. |
+| Inventory | Materials with purchase units, normalized base units, explicit conversion ratios, stock-in/out movements, insufficient-stock protection, low-stock notifications, and audit records. |
 | Job cards | Job creation, machine assignment, queued/in-production/completed states, machine release, and planned-quantity validation. |
 | Production | Operator workspaces for laser, CNC, plotter, and printer workflows; production input, good output, waste, operator, machine, and timestamp logging. |
 | Machines | Active machine listing, administrator-only creation, unique machine codes, maintenance safeguards, status changes, and activation controls. |
 | Offcuts and scrap | Reusable sheet offcuts returned to inventory with rack locations, plus unusable scrap deducted from stock and recorded separately. |
 | Interface | Responsive desktop/mobile dashboard with Amharic-first labels, role-specific machine workspaces, live company branding, real-time unread notification badge/modal, account settings, loading states, and mutation error feedback. |
-| Tests | Vitest unit coverage for conversion and workflow validation. The current suite contains 9 passing tests. |
+| Tests | Vitest unit coverage for conversion and workflow validation. The current suite contains 13 passing tests. |
 
 ## Repository structure
 
@@ -61,9 +61,9 @@ NODE_ENV=production pnpm build
 
 ## Backend rules
 
-All persistent operations must be performed through Convex handlers rather than the legacy in-memory helpers. Backend mutations enforce active application profiles and role permissions. Owners oversee all operations and company branding; owners, managers, and legacy administrators manage team access; owners, managers, and storekeepers manage inventory and job cards; assigned operators can record production for their machines. Notifications are targeted by recipient and update reactively through Convex subscriptions.
+All persistent operations must be performed through Convex handlers rather than the legacy in-memory helpers. Backend mutations enforce active application profiles and role permissions. Owners oversee all operations and company branding; owners, managers, and legacy administrators manage team access; owners, managers, and storekeepers manage inventory and job cards; assigned operators can record production for their machines. Notifications are targeted by recipient and update reactively through Convex subscriptions. The normal material flow remains `Requested → Issued/Partially Issued → Received` without mandatory routine approval or signatures.
 
-Production logging deducts material input from inventory, inserts a `productionLogs` record, and creates a corresponding stock-movement audit row. Completing a job records any remaining planned input with zero waste before releasing the machine. Scrap records deduct stock and create an auditable outbound movement. Reusable square-meter offcuts increase material stock and create an `offcut_return` movement.
+Stock-in converts the selected purchase unit into the material’s normalized base unit using `conversionRatio` before updating inventory and recording both entered and normalized quantities. Production logging consumes base units directly, inserts a `productionLogs` record, and creates a corresponding stock-movement audit row. Completing a job records any remaining planned input with zero waste before releasing the machine. Scrap records deduct stock and create an auditable outbound movement. Reusable square-meter offcuts increase material stock and create an `offcut_return` movement.
 
 ## Environment variables
 
@@ -82,4 +82,4 @@ Do not commit `.env.local` or deployment secrets. Keep `.env.example` limited to
 
 The codebase is buildable and testable locally. A real deployment still requires connecting a Convex project, configuring Better Auth secrets and site URLs, running the Convex development/deployment command, seeding an administrator account if needed, and completing an authenticated smoke test against the deployed backend.
 
-The next product-level improvements are Convex integration tests for authorization and notification targeting, a production Google OAuth configuration, image upload storage for company logos instead of URL-only branding, and continuous integration for the verification commands.
+The current requirement-based seed creates one company record, eight machines, 26 materials with confirmed conversion metadata, and 12 staff-context records without inventing operational history. `migrateYtAdvertisementMasterData` updates existing master records without changing quantities or activity. The next product-level improvements are Convex integration tests for authorization and notification targeting, a production Google OAuth configuration, image upload storage for company logos instead of URL-only branding, and continuous integration for the verification commands.

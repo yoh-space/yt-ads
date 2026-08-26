@@ -7,7 +7,8 @@ export type Role =
   | "cnc_operator"
   | "plotter_operator"
   | "printer_operator";
-export type Unit = "m²" | "m" | "sheet" | "piece" | "L";
+export type Unit = "m²" | "m" | "sheet" | "piece" | "pcs" | "L";
+export type PurchaseUnit = "roll" | "sheet" | "pack" | "liter" | "piece";
 export type JobStatus = "Queued" | "In production" | "Completed" | "Paused";
 export type MachineStatus = "Running" | "Available" | "Maintenance";
 export type Priority = "High" | "Medium" | "Normal";
@@ -18,6 +19,10 @@ export type Material = {
   name: string;
   category: string;
   unit: Unit;
+  baseUnit?: Unit;
+  purchaseUnit?: PurchaseUnit;
+  conversionRatio?: number;
+  displayUnit?: string;
   quantity: number;
   reorderAt: number;
   rollEquivalent?: number;

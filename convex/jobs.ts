@@ -48,6 +48,8 @@ async function recordProductionInternal(ctx: any, args: ProductionInput, operato
     direction: "out",
     quantity: args.inputQuantity,
     unit: job.unit,
+    baseUnit: job.unit,
+    baseQuantity: args.inputQuantity,
     note: `Production issue ${job.code}`,
     createdBy: operatorId,
     createdAt: Date.now(),
@@ -98,7 +100,7 @@ export const create = mutation({
     const material = await ctx.db.get(args.materialId);
     if (!machine || !machine.active) throw new Error("Active machine not found.");
     if (!material || !material.active) throw new Error("Active material not found.");
-    if (args.unit !== material.unit) throw new Error("Job unit must match the selected material base unit.");
+    if (args.unit !== (material.baseUnit ?? material.unit)) throw new Error("Job unit must match the selected material base unit.");
     if (machine.status === "Maintenance") throw new Error("Jobs cannot be assigned to a machine in maintenance.");
 
     const code = `JC-${String(430 + Math.floor(Math.random() * 500)).padStart(4, "0")}`;

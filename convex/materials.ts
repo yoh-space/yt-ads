@@ -1,7 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { authComponent } from "./auth";
-import { unit, accent } from "./schema";
+import { unit, purchaseUnit, accent } from "./schema";
 import { convertToBase, type InputUnit } from "./units";
 import { requireRoles } from "./users";
 import { notifyRoles } from "./notificationHelpers";
@@ -24,6 +24,9 @@ export const create = mutation({
     name: v.string(),
     category: v.string(),
     unit,
+    baseUnit: v.optional(unit),
+    purchaseUnit: v.optional(purchaseUnit),
+    conversionRatio: v.optional(v.number()),
     quantity: v.number(),
     reorderAt: v.number(),
     rollEquivalent: v.optional(v.number()),
@@ -43,14 +46,23 @@ export const create = mutation({
     if (!Number.isFinite(args.reorderAt) || args.reorderAt < 0) {
       throw new Error("Reorder level must be zero or greater.");
     }
+    const baseUnit = args.baseUnit ?? args.unit;
+    if (args.conversionRatio !== undefined && (!Number.isFinite(args.conversionRatio) || args.conversionRatio <= 0)) {
+      throw new Error("Conversion ratio must be greater than zero.");
+    }
     if (args.rollEquivalent !== undefined && args.rollEquivalent <= 0) {
       throw new Error("Roll conversion must be greater than zero.");
     }
     if (args.sheetEquivalent !== undefined && args.sheetEquivalent <= 0) {
       throw new Error("Sheet conversion must be greater than zero.");
     }
+    if (args.purchaseUnit) {
+      convertToBase(1, args.purchaseUnit as InputUnit, baseUnit, args.conversionRatio, args.rollEquivalent, args.sheetEquivalent);
+    }
     const id = await ctx.db.insert("materials", {
       ...args,
+      unit: baseUnit,
+      baseUnit,
       name: args.name.trim(),
       category: args.category.trim() || "Custom",
       storageLocation: args.storageLocation?.trim() || undefined,
@@ -68,7 +80,7 @@ export const recordStockMovement = mutation({
     materialId: v.id("materials"),
     direction: v.union(v.literal("in"), v.literal("out")),
     quantity: v.number(),
-    inputUnit: v.union(v.literal("roll"), v.literal("sheet"), unit),
+    inputUnit: v.union(v.literal("roll"), v.literal("sheet"), v.literal("pack"), v.literal("liter"), unit),
     note: v.string(),
   },
   handler: async (ctx, args) => {
@@ -82,7 +94,8 @@ export const recordStockMovement = mutation({
     const converted = convertToBase(
       args.quantity,
       args.inputUnit as InputUnit,
-      material.unit,
+      material.baseUnit ?? material.unit,
+      material.conversionRatio,
       material.rollEquivalent,
       material.sheetEquivalent,
     );
@@ -102,6 +115,8 @@ export const recordStockMovement = mutation({
       direction: args.direction,
       quantity: args.quantity,
       unit: args.inputUnit,
+      baseUnit: material.baseUnit ?? material.unit,
+      baseQuantity: converted,
       note: args.note.trim() || "Manual stock movement",
       createdBy: identity._id,
       createdAt: Date.now(),

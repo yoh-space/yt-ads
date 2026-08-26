@@ -1,4 +1,4 @@
-# YT Advertisement seed-data note
+# YT Advertisement seed-data and conversion note
 
 ## Purpose
 
@@ -10,60 +10,151 @@ The requirement-based seed provides a safe starting point for the YT Advertiseme
 
 | Record type | Count | Source treatment |
 |---|---:|---|
-| Company settings | 1 | YT Advertisement identity and reporting preferences captured from the workspace requirements |
-| Machines | 8 | Captured workshop equipment; four Crystal machines explicitly confirmed by the user |
-| Materials | 26 | Captured requirement list |
+| Company settings | 1 | YT Advertisement identity, address, phone, and reporting preferences |
+| Machines | 8 | Captured workshop equipment with revised models and capabilities |
+| Materials | 26 | Captured requirement list with dual-unit metadata |
 | Staff responsibility records | 12 | Eleven captured staff-context records plus Yitbarek’s owner-context record |
 | Operational history | 0 | Deliberately excluded because no verified historical activity was supplied |
 
-The administrator-only Convex mutation is `seedYtAdvertisementWorkspace` in `convex/seed.ts`. It is idempotent using the `companySettings` key `yt-advertisement`. It also refuses to seed when operational tables already contain data, so it cannot silently mix the requirement dataset with the older demo dataset. The separate `seedYitbarekOwner` mutation creates or promotes the real confirmed owner account at `ytadvert@admin.org`; its temporary password is accepted only at invocation time and is never stored in source, returned, or documented.
+The administrator-protected Convex mutation is `seedYtAdvertisementWorkspace` in `convex/seed.ts`. It is idempotent using the `companySettings` key `yt-advertisement` and refuses to mix with existing operational data unless the explicit force/reset path is used.
+
+For an existing seeded workspace, use `migrateYtAdvertisementMasterData`. It matches machines by provisional code and materials by name, applies the revised master fields, inserts missing master records with zero balances, and preserves existing quantities, reorder levels, stock movements, jobs, production logs, requests, offcuts, and scraps.
+
+The separate `seedYitbarekOwner` mutation creates or promotes the real confirmed owner account at `ytadvert@admin.org`. Its temporary password is accepted only at runtime and is never stored in source, returned, or documented. Change it immediately after first sign-in.
 
 ## Machines
 
-The seed includes **Banner Printer**, **DTF**, **Print and Cut**, **CNC Router**, **Laser Cutter 1325**, **Heat press**, **Conca**, and **UV Flat bed**. The manufacturer `Crystal` is set only for the four confirmed machines: Print and Cut, DTF, Laser Cutter 1325, and UV Flat bed. The captured capabilities are retained for DTF (`0.6m`) and Laser Cutter 1325 (`1.20 × 2.44m`).
+The seed includes the following eight production machines. The manufacturer `Crystal` is set for the four machines explicitly confirmed by the owner: DTF, Print and Cut, Laser Cutter 1325, and UV Flatbed.
 
-The application currently supports operator roles for laser, CNC, plotter, and printer operators. Therefore, Print and Cut is mapped temporarily to `plotter_operator`, while DTF and UV Flat bed are mapped to `printer_operator`. Heat press and Conca use compatible temporary defaults and are marked with configuration notes; their final operator mapping should be confirmed during onboarding.
+| Machine | Seed code | Manufacturer | Model | Capability | Base/display unit | Operator role |
+|---|---|---|---|---|---|---|
+| Large Format Banner Printer | `BAN-01` | Not supplied | `3.2m Eco-Solvent / Solvent Printer` | `3.2m Print Width` | `m²` | `printer_operator` |
+| DTF Printer | `DTF-01` | Crystal | `60cm Roll-to-Roll DTF` | `0.60m Print Width` | `m` | `printer_operator` |
+| Print & Cut Eco-Solvent Plotter | `PAC-01` | Crystal | `1.6m Print & Cut Plotter` | `1.6m Width` | `m²` | `plotter_operator` |
+| CNC Router 2030 | `CNC-01` | Not supplied | `2000mm x 3000mm Heavy Duty` | `2.0m x 3.0m Bed Size` | `m²` | `cnc_operator` |
+| Laser Cutter 1325 | `LAS-01` | Crystal | `1300mm x 2500mm CO2 Laser` | `1.22m x 2.44m Standard Board` | `m²` | `laser_operator` |
+| Pneumatic / Manual Heat Press | `HPR-01` | Not supplied | `Flatbed Heat Press` | `40cm x 60cm Platen` | `pcs` | `printer_operator` |
+| Paper Guillotine Cutter (Conca) | `CON-01` | Not supplied | `Heavy Duty Paper Cutter` | `A3+ Cutting Width` | `pcs` | `printer_operator` |
+| UV Flatbed Printer | `UVF-01` | Crystal | `Industrial UV Flatbed` | `Direct-to-Rigid Board` | `m²` | `printer_operator` |
 
-The machine codes are provisional seed identifiers, not claimed manufacturer serial numbers:
+The seed initializes all machines as `Available` and active because no historical operating or maintenance status was supplied. The codes are provisional application identifiers, not manufacturer serial numbers. Exact serial numbers, maintenance data, and final staff assignments remain onboarding tasks.
 
-| Machine | Seed code | Temporary mapping or note |
-|---|---|---|
-| Banner Printer | `BAN-01` | Printer operator; captured size context is 3m |
-| DTF | `DTF-01` | Crystal; 0.6m capability |
-| Print and Cut | `PAC-01` | Crystal; temporary plotter-operator mapping |
-| CNC Router | `CNC-01` | CNC operator |
-| Laser Cutter 1325 | `LAS-01` | Crystal; 1.20 × 2.44m capability |
-| Heat press | `HPR-01` | Configuration pending; piece-oriented display unit |
-| Conca | `CON-01` | Configuration pending; captured paper-work note |
-| UV Flat bed | `UVF-01` | Crystal; temporary printer-operator mapping |
+## Dual-unit inventory model
 
-## Materials and unit policy
+The revised inventory model separates the unit used when purchasing or receiving stock from the normalized unit used by production and accounting:
 
-The seed includes the captured list: Banner, DTF Film, Acrylic, DTF Ink, Banner Ink, Print and Cut INK, UV Flat bed Ink, LED, Normal Sticker, Frosted Sticker, Transparent Sticker, Reflective Sticker, Mush Sticker, Mica, PVC Film, Canvas, Neon Light, Power Supply, Foam, AMIR, ROLE UP DELUX, ROLE UP STANDARD, VINNER, ZOCOLO, LED LIGHT BOX A1, and LED LIGHT BOX A2.
-
-The current schema does not have a native `roll` base unit and no roll-length conversion was confirmed. The seed therefore preserves the captured Amharic display label `ሮል` and tracks roll-style materials using a conservative base unit without inventing a conversion. In particular, sticker, film, canvas, banner, and DTF Film records use `m²` for the application base-unit compatibility, but their opening quantity is `0` and their display unit remains `ሮል`. Operators must confirm the actual stock-counting method and conversion before entering live balances.
-
-| Captured unit label | Seed treatment |
+| Field | Meaning |
 |---|---|
-| `ሮል` | Preserved as `displayUnit`; no roll-length or area conversion is seeded |
-| `ቁጥር` | Mapped to `piece` |
-| `ሊትር` | Mapped to `L` |
-| `ሜትር` | Mapped to `m`; used for Neon Light |
+| `purchaseUnit` | `roll`, `sheet`, `pack`, `liter`, or `piece`; used by the storekeeper during stock-in |
+| `baseUnit` | `m²`, `m`, `L`, or `pcs`; used for balances, production consumption, and reporting |
+| `conversionRatio` | Multiplier that converts one purchase unit into the base unit |
+| `displayUnit` | Original workshop wording such as `ሮል`, `ቁጥር`, or `ሊትር` |
+| `quantity` | Current balance in the normalized base unit |
 
-Acrylic and Mica are tracked as pieces because the captured requirement used `ቁጥር`; actual sheet dimensions and area conversion remain an onboarding task. Finished components and electrical components are also tracked as pieces. No material receives an opening quantity, reorder threshold, average-use value, storage location, or scrap rule unless it was explicitly captured; the seed uses zero quantities and zero reorder thresholds as safe placeholders.
+For example, receiving two Banner rolls applies `2 × 160 = 320 m²` to the material balance. Receiving three LED packs applies `3 × 20 = 60 pcs`. Production consumption is entered and deducted directly in the material’s base unit.
+
+### Confirmed conversion rules
+
+| Material group | Purchase unit | Base unit | Ratio | Physical basis |
+|---|---|---|---:|---|
+| Banner | `roll` | `m²` | 160 | `3.2m × 50m` |
+| DTF Film | `roll` | `m` | 100 | `0.60m × 100m`; running metres |
+| Acrylic | `sheet` | `m²` | 2.977 | `1.22m × 2.44m` |
+| Normal/Frosted/Transparent/Reflective/Mush Sticker | `roll` | `m²` | 63.5 | `1.27m × 50m` |
+| Canvas | `roll` | `m²` | 45.6 | `1.52m × 30m` |
+| Foam board | `sheet` | `m²` | 2.977 | `1.22m × 2.44m` |
+| LED | `pack` | `pcs` | 20 | Pack of 20 modules |
+| Neon Light | `roll` | `m` | 5 | Roll of 5m |
+| Inks | `liter` | `L` | 1 | Direct litre count |
+| Mica, Power Supply, finished/display components | `piece` | `piece` or `pcs` | 1 | Direct piece count |
+
+### Material records
+
+| Material | Category | Purchase unit | Base unit | Ratio | Display label | Note |
+|---|---|---|---|---:|---|---|
+| Banner | Banner | `roll` | `m²` | 160 | `ሮል` | 3.2m × 50m |
+| DTF Film | Film | `roll` | `m` | 100 | `ሮል` | Store; customer-requirement usage note |
+| Acrylic | Rigid sheet | `sheet` | `m²` | 2.977 | `ቁጥር` | 1.22m × 2.44m |
+| DTF Ink | Ink | `liter` | `L` | 1 | `ሊትር` | Direct count |
+| Banner Ink | Ink | `liter` | `L` | 1 | `ሊትር` | Direct count |
+| Print and Cut INK | Ink | `liter` | `L` | 1 | `ሊትር` | Direct count |
+| UV Flat bed Ink | Ink | `liter` | `L` | 1 | `ሊትር` | Direct count |
+| LED | Electrical | `pack` | `pcs` | 20 | `ቁጥር` | Pack of 20 |
+| Normal Sticker | Sticker roll | `roll` | `m²` | 63.5 | `ሮል` | 1.27m × 50m |
+| Frosted Sticker | Sticker roll | `roll` | `m²` | 63.5 | `ሮል` | 1.27m × 50m |
+| Transparent Sticker | Sticker roll | `roll` | `m²` | 63.5 | `ሮል` | 1.27m × 50m |
+| Reflective Sticker | Sticker roll | `roll` | `m²` | 63.5 | `ሮል` | 1.27m × 50m |
+| Mush Sticker | Sticker roll | `roll` | `m²` | 63.5 | `ሮል` | Source name retained; supplied prompt calls this Mesh in the rule description |
+| Mica | Rigid sheet | `piece` | `piece` | 1 | `ቁጥር` | Physical sheet dimensions pending |
+| PVC Film | Film | `roll` | `m²` | — | `ሮል` | Roll dimensions not confirmed; stock-in roll conversion is intentionally blocked |
+| Canvas | Fabric roll | `roll` | `m²` | 45.6 | `ሮል` | 1.52m × 30m |
+| Neon Light | Electrical | `roll` | `m` | 5 | `ሜትር` | Roll of 5m |
+| Power Supply | Electrical | `piece` | `pcs` | 1 | `ቁጥር` | Direct count |
+| Foam | Foam board | `sheet` | `m²` | 2.977 | `ቁጥር` | 1.22m × 2.44m |
+| AMIR | Finished component | `piece` | `pcs` | 1 | `ቁጥር` | Direct count |
+| ROLE UP DELUX | Finished component | `piece` | `pcs` | 1 | `ቁጥር` | Direct count |
+| ROLE UP STANDARD | Finished component | `piece` | `pcs` | 1 | `ቁጥር` | Direct count |
+| VINNER | Finished component | `piece` | `pcs` | 1 | `ቁጥር` | Direct count |
+| ZOCOLO | Finished component | `piece` | `pcs` | 1 | `ቁጥር` | Direct count |
+| LED LIGHT BOX A1 | Display hardware | `piece` | `pcs` | 1 | `ቁጥር` | Direct count |
+| LED LIGHT BOX A2 | Display hardware | `piece` | `pcs` | 1 | `ቁጥር` | Direct count |
+
+All requirement-seed material balances and reorder thresholds remain `0`. These are neutral placeholders, not claims about physical stock. The storekeeper must enter verified opening balances and reorder thresholds before live stock control.
 
 ## Staff handling and ownership
 
-The 12 staff records are business-context master data, with Yitbarek’s owner-context record linked to his real account when the owner bootstrap has run. They do not contain passwords, Better Auth identities, access keys, session identifiers, or deployment secrets. Yitbarek is the exception because the owner explicitly authorized a real owner-account bootstrap at `ytadvert@admin.org`; he should change the temporary password immediately after the first sign-in.
+The seed stores staff as business-context records. It does not automatically create Better Auth accounts for every person named in the original capture.
 
-The `owner` role has full operational oversight, role assignment, profile revocation, and company-branding permissions. The owner can delegate team-access management to a `manager`; managers cannot assign or modify the owner role. Other staff should sign up through the normal authentication flow and then receive their application role from the owner or delegated manager.
+| Person | Context/role | Current seed treatment |
+|---|---|---|
+| Yitbarek | Owner | `owner` context; linked to the real owner account after bootstrap |
+| Yordanos | Manager / management | `manager` application-role context |
+| Zewuditu | Storekeeper | `storekeeper` application-role context |
+| Debas Melaku | Print and Cut operator | `plotter_operator` application-role context |
+| Surafel | UV Flatbed operator | `printer_operator` application-role context |
+| Samuel Gete | Banner machine operator | `printer_operator` application-role context |
+| Addisu | CNC and Laser operator | Both `cnc_operator` and `laser_operator` application-role context |
+| Niguse, abriham, haymanot, Yohannes | Relief coordination/staff | Business context only; final application role pending |
+| Emebet | Direct sales / customer services | Business context only; dedicated customer-service role pending |
 
-The normal operator material workflow remains intentionally small: **Request → Issue → Received**, with `Short Stock` and `Discrepancy` available as exceptions. Normal requests do not require a mandatory approval, signature, or recipient-signature evidence step.
+Application accounts must be created through Better Auth and then assigned by the owner or delegated manager. The owner can assign/revoke roles and activate/deactivate profiles; a manager may manage delegated team access but cannot assign or modify the owner role.
+
+## Workflow boundaries
+
+The normal material workflow remains:
+
+```text
+Requested → Issued / Partially Issued → Received
+```
+
+`Short Stock` and `Discrepancy` remain exception states. Normal material issues do not require mandatory approval, digital signature, or recipient-signature evidence.
+
+Operators may log reusable offcuts with dimensions and a location. A reusable offcut returns its area to base-unit inventory separately from scrap. Scrap decreases base-unit inventory and records a reason.
 
 ## Post-seed onboarding checklist
 
-Before using the workspace for live stock control, an administrator should confirm each provisional machine code, final machine role, machine serial/model details, and the meaning of Conca. Store staff should then enter verified storage locations, opening balances, counting units, reorder rules, average-use guidance, and scrap rules for each material. Finally, real staff should sign in through Better Auth and receive application roles; the seeded staff context should not be converted automatically into accounts.
+Before using the workspace for live stock control:
 
-## Running the seed
+1. Run the requirement seed only in the intended development or clean deployment.
+2. If the workspace was already seeded, run the non-destructive master-data migration instead of resetting operational records.
+3. Verify each machine code, exact serial/model details, final manufacturer, and operator assignment.
+4. Confirm the interpretation of the Conca equipment and whether its paper-work description is complete.
+5. Verify the DTF production unit choice (`m` versus `m²`) with the workshop; the current prompt maps DTF Film to running metres.
+6. Verify PVC Film roll dimensions before enabling roll stock-in for that material.
+7. Confirm storage locations, opening balances, reorder thresholds, average-use guidance, and scrap rules for every material.
+8. Create real staff accounts through Better Auth and assign application roles from the owner controls.
+9. Configure Google OAuth credentials only if Google sign-in/linking is required.
+10. Exercise stock-in with a test Banner roll, LED pack, rigid sheet, and DTF Film roll, then verify the resulting base balances.
 
-Run the mutation from an authenticated administrator context after reviewing the deployment and backing up any existing data. If the database still contains the legacy demo dataset or other operational rows, the mutation will return a no-op safety response rather than mixing datasets. A reviewed migration or a clean development deployment is required before loading this requirement-based dataset.
+## Running and validating
+
+The normal local verification sequence is:
+
+```bash
+pnpm test
+pnpm check
+NODE_ENV=production pnpm build
+git diff --check
+```
+
+The requirement seed and migration mutations are exposed from `convex/seed.ts`. Authenticated Convex deployment access is required to run them against the remote deployment. Never place deployment secrets, access keys, session identifiers, or passwords in Git, source code, seed data, or documentation.

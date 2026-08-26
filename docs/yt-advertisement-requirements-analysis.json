@@ -1,0 +1,238 @@
+{
+  "document": {
+    "title": "YT Advertisement Operations Management Requirements and Analysis",
+    "version": "2.0",
+    "language": "English with Amharic source labels preserved where useful",
+    "preparedFor": "YT Advertisement",
+    "preparedBy": "YoTech Digitals",
+    "purpose": "Provide a clean, implementation-ready requirements baseline for workshop inventory, production operations, ownership, access control, notifications, reporting, and account management.",
+    "sourceDescription": "Sanitized synthesis of the earlier YT Advertisement workspace requirements capture plus later confirmed product decisions.",
+    "sanitized": true,
+    "excludedSensitiveFields": [
+      "accessKey",
+      "sessionId",
+      "backend record identifiers",
+      "creation and submission timestamps",
+      "temporary authentication passwords"
+    ]
+  },
+  "company": {
+    "name": "YT Advertisement",
+    "industry": {
+      "sourceLabel": "ማስታወቂያ እና ማተሚያ",
+      "english": "Advertising and printing"
+    },
+    "location": "የድርጅት አድራሻ ጀሞ ካፍደም ህንጻ",
+    "contact": {
+      "phone": "0951082102",
+      "email": null
+    },
+    "ownership": {
+      "ownerName": "Yitbarek",
+      "ownerResponsibilities": [
+        "Oversee the whole operational activity",
+        "Assign, change, and revoke application roles",
+        "Delegate team-access management to a manager",
+        "Deactivate and reactivate user profiles",
+        "Update company name and logo settings"
+      ],
+      "ownerAuthenticationPolicy": "Use a real Better Auth account; never represent the owner with a fabricated historical user or expose a password in a requirements artifact."
+    },
+    "managementContext": {
+      "generalManagerName": "Yordanos",
+      "communicationTools": ["Telegram groups", "WhatsApp groups"],
+      "communicationToolsPolicy": "These are existing communication channels, not application master-data records."
+    }
+  },
+  "businessObjectives": [
+    {
+      "id": "OBJ-001",
+      "statement": "Track and prioritize job orders from intake through production completion.",
+      "evidence": "Desired system outcome: job order tracking and prioritizing.",
+      "priority": "P0"
+    },
+    {
+      "id": "OBJ-002",
+      "statement": "Produce daily operational reports and support monthly audit review.",
+      "evidence": "Daily report and monthly audit were listed as priority pain points.",
+      "priority": "P0"
+    },
+    {
+      "id": "OBJ-003",
+      "statement": "Keep material custody movement simple enough for operators to use consistently.",
+      "evidence": "The original signed requisition concept was intentionally simplified after review.",
+      "priority": "P0"
+    },
+    {
+      "id": "OBJ-004",
+      "statement": "Maintain transparent activity history through targeted notifications and auditable operational records.",
+      "evidence": "The product direction requires transparency without adding excessive operator steps.",
+      "priority": "P1"
+    }
+  ],
+  "confirmedWorkflowDecisions": {
+    "materialFlow": {
+      "name": "Minimal material request flow",
+      "stages": ["Requested", "Issued or Partially Issued", "Received"],
+      "exceptions": ["Short Stock", "Discrepancy"],
+      "mandatoryApproval": false,
+      "mandatorySignature": false,
+      "mandatoryRecipientSignatureEvidence": false,
+      "designReason": "Normal operators should complete the workflow with a small number of steps."
+    },
+    "jobOrderFlow": {
+      "requiredCapabilities": ["Create job card", "Prioritize job", "Assign machine", "Record production", "Complete job", "Release machine"],
+      "usageEvidence": "Job cards are used regularly.",
+      "priority": "P0"
+    },
+    "stockReconciliation": {
+      "sourceUsage": "Used regularly",
+      "initialScope": "Track request, issue, receipt, consumption, return, scrap, and closing balance where the application has confirmed records.",
+      "historicalDataPolicy": "Do not invent opening balances or historical stock activity."
+    },
+    "scrapHandling": {
+      "sourceProcess": "No",
+      "sourceReinventoryRule": "No",
+      "applicationPolicy": "Scrap may be recorded when it occurs, but no historical scrap or reinventory records are seeded."
+    }
+  },
+  "machines": [
+    {"name": "Large Format Banner Printer", "code": "BAN-01", "quantity": 1, "manufacturer": null, "model": "3.2m Eco-Solvent / Solvent Printer", "capability": "3.2m Print Width", "baseUnit": "m²", "displayUnit": "m²", "operatorRole": "printer_operator", "configurationStatus": "Model/capability captured; manufacturer pending"},
+    {"name": "DTF Printer", "code": "DTF-01", "quantity": 1, "manufacturer": "Crystal", "model": "60cm Roll-to-Roll DTF", "capability": "0.60m Print Width", "baseUnit": "m", "displayUnit": "m", "operatorRole": "printer_operator", "configurationStatus": "Confirmed prompt mapping"},
+    {"name": "Print & Cut Eco-Solvent Plotter", "code": "PAC-01", "quantity": 1, "manufacturer": "Crystal", "model": "1.6m Print & Cut Plotter", "capability": "1.6m Width", "baseUnit": "m²", "displayUnit": "m²", "operatorRole": "plotter_operator", "configurationStatus": "Confirmed prompt mapping"},
+    {"name": "CNC Router 2030", "code": "CNC-01", "quantity": 1, "manufacturer": null, "model": "2000mm x 3000mm Heavy Duty", "capability": "2.0m x 3.0m Bed Size", "baseUnit": "m²", "displayUnit": "m²", "operatorRole": "cnc_operator", "configurationStatus": "Model/capability captured; manufacturer pending"},
+    {"name": "Laser Cutter 1325", "code": "LAS-01", "quantity": 1, "manufacturer": "Crystal", "model": "1300mm x 2500mm CO2 Laser", "capability": "1.22m x 2.44m Standard Board", "baseUnit": "m²", "displayUnit": "m²", "operatorRole": "laser_operator", "configurationStatus": "Confirmed prompt mapping"},
+    {"name": "Pneumatic / Manual Heat Press", "code": "HPR-01", "quantity": 1, "manufacturer": null, "model": "Flatbed Heat Press", "capability": "40cm x 60cm Platen", "baseUnit": "pcs", "displayUnit": "pcs", "operatorRole": "printer_operator", "configurationStatus": "Prompt mapping; manufacturer pending"},
+    {"name": "Paper Guillotine Cutter (Conca)", "code": "CON-01", "quantity": 1, "manufacturer": null, "model": "Heavy Duty Paper Cutter", "capability": "A3+ Cutting Width", "baseUnit": "pcs", "displayUnit": "pcs", "operatorRole": "printer_operator", "configurationStatus": "Prompt mapping; local meaning requires confirmation"},
+    {"name": "UV Flatbed Printer", "code": "UVF-01", "quantity": 1, "manufacturer": "Crystal", "model": "Industrial UV Flatbed", "capability": "Direct-to-Rigid Board", "baseUnit": "m²", "displayUnit": "m²", "operatorRole": "printer_operator", "configurationStatus": "Confirmed prompt mapping"}
+  ],
+  "materials": [
+    {"name": "Banner", "category": "Banner", "capturedUnit": "ሮል", "purchaseUnit": "roll", "baseUnit": "m²", "conversionRatio": 160, "physicalBasis": "3.2m × 50m"},
+    {"name": "DTF Film", "category": "Film", "capturedUnit": "ሮል", "purchaseUnit": "roll", "baseUnit": "m", "conversionRatio": 100, "storageLocation": "Store", "averageUse": "Based on customer requirement", "physicalBasis": "0.60m × 100m; running metres"},
+    {"name": "Acrylic", "category": "Rigid sheet", "capturedUnit": "ቁጥር", "purchaseUnit": "sheet", "baseUnit": "m²", "conversionRatio": 2.977, "physicalBasis": "1.22m × 2.44m"},
+    {"name": "DTF Ink", "category": "Ink", "capturedUnit": "ሊትር", "purchaseUnit": "liter", "baseUnit": "L", "conversionRatio": 1},
+    {"name": "Banner Ink", "category": "Ink", "capturedUnit": "ሊትር", "purchaseUnit": "liter", "baseUnit": "L", "conversionRatio": 1},
+    {"name": "Print and Cut INK", "category": "Ink", "capturedUnit": "ሊትር", "purchaseUnit": "liter", "baseUnit": "L", "conversionRatio": 1},
+    {"name": "UV Flat bed Ink", "category": "Ink", "capturedUnit": "ሊትር", "purchaseUnit": "liter", "baseUnit": "L", "conversionRatio": 1},
+    {"name": "LED", "category": "Electrical", "capturedUnit": "ቁጥር", "purchaseUnit": "pack", "baseUnit": "pcs", "conversionRatio": 20, "physicalBasis": "Pack of 20"},
+    {"name": "Normal Sticker", "category": "Sticker roll", "capturedUnit": "ሮል", "purchaseUnit": "roll", "baseUnit": "m²", "conversionRatio": 63.5, "physicalBasis": "1.27m × 50m"},
+    {"name": "Frosted Sticker", "category": "Sticker roll", "capturedUnit": "ሮል", "purchaseUnit": "roll", "baseUnit": "m²", "conversionRatio": 63.5, "physicalBasis": "1.27m × 50m"},
+    {"name": "Transparent Sticker", "category": "Sticker roll", "capturedUnit": "ሮል", "purchaseUnit": "roll", "baseUnit": "m²", "conversionRatio": 63.5, "physicalBasis": "1.27m × 50m"},
+    {"name": "Reflective Sticker", "category": "Sticker roll", "capturedUnit": "ሮል", "purchaseUnit": "roll", "baseUnit": "m²", "conversionRatio": 63.5, "physicalBasis": "1.27m × 50m"},
+    {"name": "Mush Sticker", "category": "Sticker roll", "capturedUnit": "ሮል", "purchaseUnit": "roll", "baseUnit": "m²", "conversionRatio": 63.5, "physicalBasis": "1.27m × 50m; prompt conversion rule calls this Mesh"},
+    {"name": "Mica", "category": "Rigid sheet", "capturedUnit": "ቁጥር", "purchaseUnit": "piece", "baseUnit": "pcs", "conversionRatio": 1},
+    {"name": "PVC Film", "category": "Film", "capturedUnit": "ሮል", "purchaseUnit": "roll", "baseUnit": "m²", "conversionRatio": null, "unitDecision": "Roll dimensions are not confirmed; receiving a roll is blocked until configured."},
+    {"name": "Canvas", "category": "Fabric roll", "capturedUnit": "ሮል", "purchaseUnit": "roll", "baseUnit": "m²", "conversionRatio": 45.6, "physicalBasis": "1.52m × 30m"},
+    {"name": "Neon Light", "category": "Electrical", "capturedUnit": "ሜትር", "purchaseUnit": "roll", "baseUnit": "m", "conversionRatio": 5, "physicalBasis": "Roll of 5m"},
+    {"name": "Power Supply", "category": "Electrical", "capturedUnit": "ቁጥር", "purchaseUnit": "piece", "baseUnit": "pcs", "conversionRatio": 1},
+    {"name": "Foam", "category": "Foam board", "capturedUnit": "ቁጥር", "purchaseUnit": "sheet", "baseUnit": "m²", "conversionRatio": 2.977, "physicalBasis": "1.22m × 2.44m"},
+    {"name": "AMIR", "category": "Finished component", "capturedUnit": "ቁጥር", "purchaseUnit": "piece", "baseUnit": "pcs", "conversionRatio": 1},
+    {"name": "ROLE UP DELUX", "category": "Finished component", "capturedUnit": "ቁጥር", "purchaseUnit": "piece", "baseUnit": "pcs", "conversionRatio": 1},
+    {"name": "ROLE UP STANDARD", "category": "Finished component", "capturedUnit": "ቁጥር", "purchaseUnit": "piece", "baseUnit": "pcs", "conversionRatio": 1},
+    {"name": "VINNER", "category": "Finished component", "capturedUnit": "ቁጥር", "purchaseUnit": "piece", "baseUnit": "pcs", "conversionRatio": 1},
+    {"name": "ZOCOLO", "category": "Finished component", "capturedUnit": "ቁጥር", "purchaseUnit": "piece", "baseUnit": "pcs", "conversionRatio": 1},
+    {"name": "LED LIGHT BOX A1", "category": "Display hardware", "capturedUnit": "ቁጥር", "purchaseUnit": "piece", "baseUnit": "pcs", "conversionRatio": 1},
+    {"name": "LED LIGHT BOX A2", "category": "Display hardware", "capturedUnit": "ቁጥር", "purchaseUnit": "piece", "baseUnit": "pcs", "conversionRatio": 1}
+  ],
+  "staffContext": [
+    {"name": "Yitbarek", "businessRole": "Owner", "responsibilities": ["Whole-activity oversight", "Role assignment and revocation", "Profile access control", "Company settings"], "applicationAccount": "Real owner account required; no password included"},
+    {"name": "Yordanos", "department": "ማኔጅመንት", "businessRole": "General manager / management", "responsibility": "Staff oversight", "handlesMaterial": false},
+    {"name": "Zewuditu", "department": "Store", "businessRole": "Storekeeper", "responsibility": "እቃ ተቀባይ እና አከፋፋይ", "handlesMaterial": true},
+    {"name": "Debas melaku", "businessRole": "Print and Cut operator, Crystal", "handlesMaterial": true},
+    {"name": "surafel", "businessRole": "UV FLAT BED OPERATOR", "handlesMaterial": true},
+    {"name": "SAMUEL GETE", "businessRole": "Banner machine operator", "handlesMaterial": true},
+    {"name": "Addisu", "businessRole": "CNC and Laser Operator", "handlesMaterial": true},
+    {"name": "Niguse", "businessRole": "Relief Coordinator", "handlesMaterial": true},
+    {"name": "abriham", "businessRole": "Relief staff", "handlesMaterial": true},
+    {"name": "haymanot", "businessRole": "Relief staff", "handlesMaterial": true},
+    {"name": "Yohannes", "businessRole": "Relief Staff", "handlesMaterial": true},
+    {"name": "Emebet", "businessRole": "Direct sales / customer services", "responsibility": "main position customer services", "handlesMaterial": false}
+  ],
+  "roleAndAccessRequirements": {
+    "roles": [
+      {"role": "owner", "description": "Full operational oversight, company branding, role assignment, role revocation, profile activation control."},
+      {"role": "manager", "description": "Delegated team-access and operational management; cannot modify the owner role."},
+      {"role": "admin", "description": "Legacy administrative role with operational management access."},
+      {"role": "storekeeper", "description": "Inventory custody and material issue workflow."},
+      {"role": "machine operators", "description": "Role-specific production activity for assigned machine types."}
+    ],
+    "rules": [
+      "Only the owner can assign or modify the owner role.",
+      "The owner may delegate team-access management to a manager.",
+      "Managers may assign operational roles but cannot assign or modify the owner role.",
+      "Users may update their own name, profile image, and password.",
+      "Users may attach a Google account for sign-in when Google OAuth is configured.",
+      "No fake authenticated users or passwords belong in historical seed data."
+    ]
+  },
+  "functionalRequirements": [
+    {"id": "FR-001", "priority": "P0", "area": "Job management", "requirement": "Create, prioritize, assign, track, and complete job cards."},
+    {"id": "FR-002", "priority": "P0", "area": "Inventory", "requirement": "Maintain material master data, safe stock movements, and reorder visibility."},
+    {"id": "FR-003", "priority": "P0", "area": "Material custody", "requirement": "Support Requested → Issued or Partially Issued → Received with Short Stock and Discrepancy exceptions."},
+    {"id": "FR-004", "priority": "P0", "area": "Production", "requirement": "Record production input, output, waste, machine, operator, and timestamp against a job."},
+    {"id": "FR-005", "priority": "P0", "area": "Reporting", "requirement": "Provide daily operational reporting and monthly audit-oriented activity review."},
+    {"id": "FR-006", "priority": "P1", "area": "Notifications", "requirement": "Deliver targeted real-time notifications for requests, issue/receipt events, short stock, discrepancies, job updates, machine updates, and account changes."},
+    {"id": "FR-007", "priority": "P1", "area": "Account management", "requirement": "Allow personal profile updates, password changes, Google account linking, owner role delegation, and company branding updates."},
+    {"id": "FR-008", "priority": "P1", "area": "Transparency", "requirement": "Maintain auditable activity history without requiring a heavy approval/signature process for normal material requests."}
+  ],
+  "nonFunctionalRequirements": [
+    {"id": "NFR-001", "requirement": "Keep normal operator workflows short and understandable."},
+    {"id": "NFR-002", "requirement": "Use Amharic-first labels where appropriate while retaining clear English operational terms."},
+    {"id": "NFR-003", "requirement": "Enforce role permissions on the backend, not only in the UI."},
+    {"id": "NFR-004", "requirement": "Do not fabricate opening balances, historical transactions, production logs, users, or staff authentication identities."},
+    {"id": "NFR-005", "requirement": "Keep secrets, OAuth credentials, temporary passwords, session identifiers, and access keys outside requirements documents and source control."}
+  ],
+  "analysis": {
+    "mvpScope": [
+      "Master data for the eight captured machine records and 26 captured materials.",
+      "Owner and delegated manager access control.",
+      "Minimal material request lifecycle.",
+      "Job tracking and prioritization.",
+      "Targeted real-time notification center with unread badge.",
+      "Profile, password, Google linking, and company branding settings.",
+      "Daily and monthly operational visibility from actual application records."
+    ],
+    "strengths": [
+      "The workshop has a concrete machine and material vocabulary that can seed master data without inventing activity.",
+      "The simplified Request → Issue → Received flow reduces operator burden.",
+      "Crystal manufacturer confirmation is available for four key machine types.",
+      "The owner role provides a clear accountability point for access and company settings."
+    ],
+    "gapsAndRisks": [
+      "Opening stock quantities and reorder thresholds were not captured and must be verified before live inventory operation.",
+      "Roll-length conversions are unknown; roll-count tracking should not be treated as metre or square-metre stock.",
+      "Banner Printer manufacturer, CNC capability, Heat press configuration, and Conca meaning require confirmation.",
+      "Google OAuth requires deployment client credentials and callback configuration.",
+      "The source capture contains business names and contact data that should be access-controlled outside public documentation."
+    ],
+    "recommendedNextSteps": [
+      "Confirm opening balances, storage locations, reorder rules, average use, and scrap rules with the storekeeper.",
+      "Confirm machine specifications and map operators to application roles after owner review.",
+      "Run the YT Advertisement master-data seed, then run the explicit owner bootstrap for Yitbarek in the intended Convex deployment.",
+      "Change the temporary owner password immediately after first sign-in.",
+      "Configure Google OAuth only after the client ID, client secret, and callback URL are approved.",
+      "Perform an authenticated smoke test for owner, manager, storekeeper, and operator permissions."
+    ]
+  },
+  "openQuestions": [
+    {"id": "Q-001", "question": "What is the confirmed manufacturer and model of the Banner Printer?"},
+    {"id": "Q-002", "question": "What exactly does Conca refer to, and what unit/capability should it use?"},
+    {"id": "Q-003", "question": "What are the actual opening quantities and reorder thresholds for each material?"},
+    {"id": "Q-004", "question": "Which captured staff names should receive which application roles after owner approval?"},
+    {"id": "Q-005", "question": "What is the approved company logo asset or logo URL?"},
+    {"id": "Q-006", "question": "Which Google OAuth client configuration should be used for the production site?"}
+  ],
+  "dataQuality": {
+    "machineCount": 8,
+    "materialCount": 26,
+    "staffContextCount": 12,
+    "operationalHistoryRecordsIncluded": 0,
+    "authenticatedUsersCreatedByThisArtifact": 0,
+    "knownConflictsResolved": [
+      "Crystal is treated as confirmed manufacturer, not as an invented exact model name, for DTF, Print and Cut, Laser Cutter 1325, and UV Flat bed.",
+      "Yitbarek is represented as the confirmed owner from the later product decision, while Yordanos remains the general-manager name from the source capture.",
+      "The original signed-requisition concept is represented by the later confirmed minimal Request → Issue → Received workflow."
+    ],
+    "unitMappingPolicy": "Inventory separates purchaseUnit from baseUnit. Confirmed physical ratios are applied for banner, DTF film, rigid sheets, sticker rolls, canvas, LED packs, and neon rolls. PVC Film remains intentionally unconfigured until its physical roll dimensions are verified. Source display labels are preserved separately."
+  }
+}

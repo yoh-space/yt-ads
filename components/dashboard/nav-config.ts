@@ -35,4 +35,6 @@ export const navItems: Array<{
   { id: "audit", label: "የእንቅስቃሴ መዝገብ", english: "Audit Log", icon: History },
 ];
 
-export const unitOptions = ["m²", "m", "sheet", "piece", "L"] as const;
+export const baseUnitOptions = ["m²", "m", "pcs", "L"] as const;
+export const purchaseUnitOptions = ["roll", "sheet", "pack", "liter", "piece"] as const;
+export const unitOptions = ["m²", "m", "sheet", "piece", "pcs", "L"] as const;

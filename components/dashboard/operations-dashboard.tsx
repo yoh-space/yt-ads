@@ -89,7 +89,7 @@ export function OperationsDashboard() {
     ? machines
     : machines.filter((machine) => machine.operatorRole === role);
   const runningJobs = jobs.filter((job) => job.status === "In production");
-  const lowStock = materials.filter((material) => material.quantity <= material.reorderAt);
+  const lowStock = materials.filter((material) => material.reorderAt > 0 && material.quantity <= material.reorderAt);
   const stockValue = materials.reduce((total, material) => total + material.quantity, 0);
   const averageWaste = Number(
     (3.4 + Math.min(5, scraps.reduce((total, scrap) => total + scrap.quantity, 0) / 10)).toFixed(1),

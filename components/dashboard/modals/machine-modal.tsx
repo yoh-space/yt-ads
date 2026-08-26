@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Plus } from "lucide-react";
 import type { MachineStatus, Role, Unit } from "@/lib/operations-types";
 import { roleLabels } from "@/lib/operations-types";
-import { unitOptions } from "../nav-config";
+import { baseUnitOptions } from "../nav-config";
 import { ModalShell } from "./modal-shell";
 
 export type NewMachineInput = {
@@ -81,7 +81,7 @@ export function MachineModal({
           <label>
             Consumption unit
             <select value={materialUnit} onChange={(event) => setMaterialUnit(event.target.value as Unit)}>
-              {unitOptions.map((option) => <option key={option}>{option}</option>)}
+              {baseUnitOptions.map((option) => <option key={option}>{option}</option>)}
             </select>
           </label>
         </div>

@@ -44,10 +44,12 @@ function inRange(value: TimestampValue, startAt: number, endAt: number) {
   return timestamp >= startAt && timestamp <= endAt;
 }
 
-function sumByUnit(entries: Array<{ quantity: number; unit: string }>) {
+function sumByUnit(entries: Array<{ quantity: number; unit: string; baseQuantity?: number; baseUnit?: string }>) {
   const totals = new Map<string, number>();
   for (const entry of entries) {
-    totals.set(entry.unit, Number(((totals.get(entry.unit) ?? 0) + entry.quantity).toFixed(2)));
+    const unit = entry.baseUnit ?? entry.unit;
+    const quantity = entry.baseQuantity ?? entry.quantity;
+    totals.set(unit, Number(((totals.get(unit) ?? 0) + quantity).toFixed(3)));
   }
   return Array.from(totals, ([unit, quantity]) => ({ unit, quantity }));
 }
