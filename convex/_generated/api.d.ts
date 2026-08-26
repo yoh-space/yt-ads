@@ -10,6 +10,8 @@
 
 import type * as audit from "../audit.js";
 import type * as auth from "../auth.js";
+import type * as authorization from "../authorization.js";
+import type * as crons from "../crons.js";
 import type * as dashboard from "../dashboard.js";
 import type * as http from "../http.js";
 import type * as jobs from "../jobs.js";
@@ -36,6 +38,8 @@ import type {
 declare const fullApi: ApiFromModules<{
   audit: typeof audit;
   auth: typeof auth;
+  authorization: typeof authorization;
+  crons: typeof crons;
   dashboard: typeof dashboard;
   http: typeof http;
   jobs: typeof jobs;
