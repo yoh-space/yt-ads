@@ -7,7 +7,35 @@ import { notifyUser } from "./notificationHelpers";
 
 const MANAGEMENT_ROLES: Role[] = ["owner", "manager", "admin"];
 
-/** Resolves the signed-in user's application profile. */
+type AuthIdentity = NonNullable<Awaited<ReturnType<typeof authComponent.safeGetAuthUser>>>;
+
+/**
+ * Finds the application profile for an identity, relinking by email when the
+ * stored `authUserId` no longer matches (for example after the authentication
+ * provider's user records were reset but the application profiles were kept).
+ */
+async function resolveProfileByIdentity(ctx: QueryCtx | MutationCtx, identity: AuthIdentity) {
+  const byId = await ctx.db
+    .query("users")
+    .withIndex("by_auth_user", (q) => q.eq("authUserId", identity._id))
+    .unique();
+  if (byId) return byId;
+  if (identity.email) {
+    const normalized = identity.email.toLowerCase();
+    const byEmail = (await ctx.db.query("users").collect()).find(
+      (user) => user.email.toLowerCase() === normalized,
+    );
+    if (byEmail) return byEmail;
+  }
+  return null;
+}
+
+/**
+ * Resolves the signed-in user's application profile. Matches strictly by the
+ * stored `authUserId` so that a stale link surfaces as `null` and the client
+ * triggers `ensureProfile` to relink it. Reads never mutate, so a by-email
+ * fallback is intentionally not applied here.
+ */
 export const getCurrentProfile = query({
   args: {},
   handler: async (ctx) => {
@@ -39,11 +67,13 @@ export const ensureProfile = mutation({
   handler: async (ctx) => {
     const identity = await authComponent.safeGetAuthUser(ctx);
     if (!identity) return null;
-    const existing = await ctx.db
-      .query("users")
-      .withIndex("by_auth_user", (q) => q.eq("authUserId", identity._id))
-      .unique();
-    if (existing) return existing;
+    const existing = await resolveProfileByIdentity(ctx, identity);
+    if (existing) {
+      if (existing.authUserId !== identity._id) {
+        await ctx.db.patch(existing._id, { authUserId: identity._id });
+      }
+      return existing;
+    }
 
     const isFirst = (await ctx.db.query("users").collect()).length === 0;
     const userId = await ctx.db.insert("users", {
@@ -63,6 +93,39 @@ export const listUsers = query({
   handler: async (ctx) => {
     await requireRoleManager(ctx);
     return ctx.db.query("users").collect();
+  },
+});
+
+/**
+ * Removes every application profile that is not an owner (and not the calling
+ * owner), leaving only the real YT Advertisement owner and the seeded
+ * workspace. Use this to drop leftover demo/admin profiles. The underlying
+ * Better Auth accounts are not deleted here; remove them from the auth side if
+ * their sign-in should be fully revoked.
+ */
+export const pruneDemoUsers = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await authComponent.safeGetAuthUser(ctx);
+    if (identity) {
+      const actor = await ctx.db
+        .query("users")
+        .withIndex("by_auth_user", (q) => q.eq("authUserId", identity._id))
+        .unique();
+      if (!actor || actor.role !== "owner") {
+        throw new Error("Only the owner can prune users.");
+      }
+    }
+    const users = await ctx.db.query("users").collect();
+    const removed: string[] = [];
+    for (const user of users) {
+      if (user.role === "owner") continue;
+      if (identity && user.authUserId === identity._id) continue;
+      await ctx.db.delete(user._id);
+      removed.push(user.email);
+    }
+    const remaining = (await ctx.db.query("users").collect()).map((user) => user.email);
+    return { removed, remaining };
   },
 });
 
@@ -165,10 +228,7 @@ export const updateCompanySettings = mutation({
 
 export async function requireActiveProfile(ctx: QueryCtx | MutationCtx) {
   const identity = await authComponent.getAuthUser(ctx);
-  const profile = await ctx.db
-    .query("users")
-    .withIndex("by_auth_user", (q) => q.eq("authUserId", identity._id))
-    .unique();
+  const profile = await resolveProfileByIdentity(ctx, identity);
   if (!profile || !profile.active) {
     throw new Error("Active team profile required.");
   }

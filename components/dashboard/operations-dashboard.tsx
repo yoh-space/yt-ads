@@ -28,6 +28,7 @@ import { MaterialModal, type NewMaterialInput } from "./modals/material-modal";
 import { ScrapModal, type NewScrapInput } from "./modals/scrap-modal";
 import { MachineModal, type NewMachineInput } from "./modals/machine-modal";
 import { MaterialRequestModal, type NewMaterialRequestInput } from "./modals/material-request-modal";
+import { AccountSettingsModal } from "./modals/account-settings-modal";
 import { navItems, type Modal, type View } from "./nav-config";
 
 type WithId<T extends { _id: string }> = Omit<T, "_id"> & { id: T["_id"] };
@@ -43,7 +44,7 @@ export function OperationsDashboard() {
   const profile = useQuery(api.users.getCurrentProfile);
   const companySettings = useQuery(api.users.getCompanySettings);
   const state = useQuery(api.dashboard.getState);
-  const materialRequests = useQuery(api.materialRequests.list);
+  const materialRequests = useQuery(api.materialRequests.list, profile ? {} : "skip");
 
   const ensureProfile = useMutation(api.users.ensureProfile);
   const recordStockMovement = useMutation(api.materials.recordStockMovement);
@@ -62,6 +63,7 @@ export function OperationsDashboard() {
   const [modal, setModal] = useState<Modal>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [notice, setNotice] = useState("የዛሬ ሥራ በቅጽበት እየተመዘገበ ነው");
 
   useEffect(() => {
@@ -156,6 +158,7 @@ export function OperationsDashboard() {
         onNavigate={openView}
         mobileOpen={mobileNavOpen}
         onClose={() => setMobileNavOpen(false)}
+        onOpenSettings={() => setSettingsOpen(true)}
         collapsed={sidebarCollapsed}
         runningJobsCount={runningJobs.length}
         companyName={companySettings?.companyName}
@@ -174,6 +177,7 @@ export function OperationsDashboard() {
           sidebarCollapsed={sidebarCollapsed}
           profile={resolvedProfile}
           companyName={companySettings?.companyName}
+          onOpenSettings={() => setSettingsOpen(true)}
         />
 
         <div className="page-content">
@@ -331,6 +335,9 @@ export function OperationsDashboard() {
           onClose={() => setModal(null)}
           onSave={requestMaterial}
         />
+      ) : null}
+      {settingsOpen && resolvedProfile ? (
+        <AccountSettingsModal profile={resolvedProfile} onClose={() => setSettingsOpen(false)} />
       ) : null}
     </div>
   );

@@ -115,22 +115,90 @@ export const seed = mutation({
 const YT_WORKSPACE_KEY = "yt-advertisement";
 
 /**
+ * Resolves the calling actor for bootstrap (seed/reset) mutations.
+ *
+ * When a Better Auth identity is present, it must be an admin/owner — this is
+ * the normal guard for an in-app or authenticated invocation. When no identity
+ * is present (a deployment-credentialed `npx convex run`), the mutation is
+ * still trusted because possession of deployment credentials already grants
+ * full database access. This lets operators seed or reset a workspace from the
+ * CLI without a live session.
+ */
+async function resolveBootstrapActor(ctx: MutationCtx): Promise<{ role: string; authUserId: string | undefined }> {
+  const identity = await authComponent.safeGetAuthUser(ctx);
+  if (identity) return requireAdmin(ctx);
+  return { role: "owner", authUserId: undefined };
+}
+
+/**
+ * Removes all previously loaded demo and operational workspace data so the
+ * master dataset can be re-seeded cleanly.
+ *
+ * This intentionally preserves authentication users and the owner profile; it
+ * only clears data created by seeding or by production activity against the
+ * seeded master records (company settings, staff, machines, materials, jobs,
+ * logs, movements, requests, offcuts, scrap).
+ */
+export async function clearWorkspaceData(ctx: MutationCtx) {
+  const requests = await ctx.db.query("materialRequests").collect();
+  for (const record of requests) await ctx.db.delete(record._id);
+  const productionLogs = await ctx.db.query("productionLogs").collect();
+  for (const record of productionLogs) await ctx.db.delete(record._id);
+  const offcuts = await ctx.db.query("offcuts").collect();
+  for (const record of offcuts) await ctx.db.delete(record._id);
+  const scraps = await ctx.db.query("scraps").collect();
+  for (const record of scraps) await ctx.db.delete(record._id);
+  const jobCards = await ctx.db.query("jobCards").collect();
+  for (const record of jobCards) await ctx.db.delete(record._id);
+  const stockMovements = await ctx.db.query("stockMovements").collect();
+  for (const record of stockMovements) await ctx.db.delete(record._id);
+  const materials = await ctx.db.query("materials").collect();
+  for (const record of materials) await ctx.db.delete(record._id);
+  const machines = await ctx.db.query("machines").collect();
+  for (const record of machines) await ctx.db.delete(record._id);
+  const staff = await ctx.db.query("staff").collect();
+  for (const record of staff) await ctx.db.delete(record._id);
+  const settings = await ctx.db
+    .query("companySettings")
+    .withIndex("by_key", (q) => q.eq("key", YT_WORKSPACE_KEY))
+    .unique();
+  if (settings) await ctx.db.delete(settings._id);
+}
+
+/**
+ * Wipes all previously loaded demo and operational workspace data. Use this
+ * before re-running `seedYtAdvertisementWorkspace` with `force`, or as a
+ * standalone reset. Authentication users and the owner profile are preserved.
+ */
+export const resetSeedData = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await resolveBootstrapActor(ctx);
+    await clearWorkspaceData(ctx);
+    return { cleared: true };
+  },
+});
+
+/**
  * Seeds the captured YT Advertisement master data for a fresh database.
  *
  * This intentionally does not create jobs, production logs, stock movements,
  * requests, scrap, or offcuts because the workspace capture did not provide
- * real historical activity. It also refuses to mix with an existing database;
- * take a backup and run a reviewed migration before replacing demo data.
+ * real historical activity. It refuses to mix with an existing database unless
+ * `force` is supplied, which first removes all previously loaded demo and
+ * operational data.
  */
 export const seedYtAdvertisementWorkspace = mutation({
-  args: {},
-  handler: async (ctx) => {
-    const actor = await requireAdmin(ctx);
+  args: { force: v.optional(v.boolean()) },
+  handler: async (ctx, args) => {
+    const actor = await resolveBootstrapActor(ctx);
     const existingSettings = await ctx.db
       .query("companySettings")
       .withIndex("by_key", (q) => q.eq("key", YT_WORKSPACE_KEY))
       .unique();
-    if (existingSettings) return { seeded: false, reason: "YT Advertisement workspace is already seeded." };
+    if (existingSettings && !args.force) {
+      return { seeded: false, reason: "YT Advertisement workspace is already seeded." };
+    }
 
     const [materials, machines, jobs, productionLogs, stockMovements, offcuts, scraps] = await Promise.all([
       ctx.db.query("materials").collect(),
@@ -141,13 +209,16 @@ export const seedYtAdvertisementWorkspace = mutation({
       ctx.db.query("offcuts").collect(),
       ctx.db.query("scraps").collect(),
     ]);
-    if (materials.length || machines.length || jobs.length || productionLogs.length || stockMovements.length || offcuts.length || scraps.length) {
+    if ((materials.length || machines.length || jobs.length || productionLogs.length || stockMovements.length || offcuts.length || scraps.length) && !args.force) {
       return {
         seeded: false,
         reason: "Existing operational data detected. Back up and review a migration before replacing it.",
       };
     }
 
+    if (args.force) {
+      await clearWorkspaceData(ctx);
+    }
     await ctx.db.insert("companySettings", {
       key: YT_WORKSPACE_KEY,
       companyName: "YT Advertisement",

@@ -17,6 +17,7 @@ export function Topbar({
   sidebarCollapsed,
   profile,
   companyName,
+  onOpenSettings,
 }: {
   activeView: View;
   onMenu: () => void;
@@ -24,6 +25,7 @@ export function Topbar({
   sidebarCollapsed: boolean;
   profile: Profile | null;
   companyName?: string;
+  onOpenSettings: () => void;
 }) {
   const current = navItems.find((item) => item.id === activeView);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -58,7 +60,7 @@ export function Topbar({
             <Bell size={19} />
             {unreadCount ? <b>{unreadCount > 99 ? "99+" : unreadCount}</b> : null}
           </button>
-          <UserMenu profile={profile} />
+          <UserMenu profile={profile} onOpenSettings={onOpenSettings} />
         </div>
       </header>
       {notificationsOpen && notifications ? (
