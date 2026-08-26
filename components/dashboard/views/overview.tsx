@@ -15,7 +15,7 @@ import {
   Command,
   Trash2,
 } from "lucide-react";
-import type { JobCard, Machine, Material } from "@/lib/operations-types";
+import type { CustomerOrder, JobCard, Machine, Material } from "@/lib/operations-types";
 import { formatQuantity } from "@/lib/units";
 import { statusTone } from "../helpers";
 import type { View } from "../nav-config";
@@ -24,6 +24,7 @@ export function Overview({
   materials,
   machines,
   jobs,
+  orders,
   lowStock,
   stockValue,
   waste,
@@ -33,6 +34,7 @@ export function Overview({
   materials: Material[];
   machines: Machine[];
   jobs: JobCard[];
+  orders: CustomerOrder[];
   lowStock: Material[];
   stockValue: number;
   waste: number;
@@ -45,8 +47,13 @@ export function Overview({
     { label: "የዛሬ ብክነት", en: "Waste ratio", value: `${waste}%`, meta: "Target below 5.0%", icon: Trash2, trend: "Open", tone: "violet", view: "offcuts" as View },
     { label: "የክምችት ንቁ መጠን", en: "Active stock units", value: stockValue.toLocaleString("en-US", { maximumFractionDigits: 0 }), meta: "All base units", icon: Gauge, trend: "Open", tone: "blue", view: "inventory" as View },
   ];
+  const today = new Date();
+  const isToday = (timestamp: number) => { const date = new Date(timestamp); return date.getFullYear() === today.getFullYear() && date.getMonth() === today.getMonth() && date.getDate() === today.getDate(); };
+  const todaysOrders = orders.filter((order) => isToday(order.createdAt));
+  const todaysActivities = jobs.filter((job) => isToday(Date.parse(job.due))).length + todaysOrders.length;
   return (
     <>
+      {orders.length > 0 ? <section className="executive-strip"><button className="executive-card" onClick={() => onView("orders")}><span>EXECUTIVE QUEUE</span><strong>{todaysOrders.length}</strong><small>Orders received today</small></button><div className="executive-card"><span>DAILY ACTIVITY</span><strong>{todaysActivities}</strong><small>Orders and scheduled job activity</small></div><div className="executive-card"><span>STOCK ACCOUNTING</span><strong>{stockValue.toLocaleString("en-US", { maximumFractionDigits: 0 })}</strong><small>Tracked base units, not monetary value</small></div></section> : null}
       <section className="stats-grid">
         {stats.map((stat) => {
           const Icon = stat.icon;

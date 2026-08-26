@@ -32,7 +32,10 @@ export type Permission =
   | "team.manage"
   | "company_settings.update"
   | "reports.view"
-  | "audit.view";
+  | "audit.view"
+  | "order.view"
+  | "order.manage"
+  | "stock.exception";
 
 const ALL: Permission[] = [
   "dashboard.view",
@@ -62,6 +65,9 @@ const ALL: Permission[] = [
   "company_settings.update",
   "reports.view",
   "audit.view",
+  "order.view",
+  "order.manage",
+  "stock.exception",
 ];
 
 const OPERATIONS: Permission[] = [
@@ -117,6 +123,9 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "team.view",
     "reports.view",
     "audit.view",
+    "order.view",
+    "order.manage",
+    "stock.exception",
   ],
   storekeeper: [
     "dashboard.view",
@@ -140,6 +149,8 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "team.view",
     "reports.view",
     "audit.view",
+    "order.view",
+    "stock.exception",
   ],
   laser_operator: [...OPERATIONS],
   cnc_operator: [...OPERATIONS],

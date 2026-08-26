@@ -9,9 +9,62 @@ export type Role =
   | "printer_operator";
 export type Unit = "m²" | "m" | "sheet" | "piece" | "pcs" | "L";
 export type PurchaseUnit = "roll" | "sheet" | "pack" | "liter" | "piece";
+export type MaterialSpecification =
+  | "Color Type"
+  | "Roll Weight & Size"
+  | "Thickness / Size (in millimeters)"
+  | "Color Type / Finish"
+  | "Thickness (in millimeters)"
+  | "Roll Width / Type (in meters)"
+  | "Ink Type & Color Config"
+  | "Wattage"
+  | "Height (in centimeters)"
+  | "Roll Width / Type";
 export type JobStatus = "Queued" | "In production" | "Completed" | "Paused";
 export type MachineStatus = "Running" | "Available" | "Maintenance";
 export type Priority = "High" | "Medium" | "Normal";
+export type CustomerOrderStatus = "Received" | "In Production" | "Ready for Pickup" | "Completed";
+export type OrderPriority = "High" | "Medium" | "Low";
+export type OrderSource = "public_portal" | "walk_in";
+export type ExceptionReason = "Sample Print" | "Minor Repair" | "Test Cut" | "Internal Maintenance";
+
+export type CustomerOrder = {
+  id: string;
+  code: string;
+  clientName: string;
+  phone: string;
+  serviceType: string;
+  dimensions: string;
+  quantity: string;
+  fileName?: string;
+  fileUrl?: string;
+  preferredDueDate: number;
+  status: CustomerOrderStatus;
+  priority: OrderPriority;
+  source: OrderSource;
+  notes?: string;
+  machineId?: string;
+  machineName?: string;
+  jobCardId?: string;
+  createdAt: number;
+  updatedAt: number;
+  overdue: boolean;
+};
+
+export type TrackedOrder = Pick<CustomerOrder, "id" | "code" | "clientName" | "serviceType" | "dimensions" | "quantity" | "preferredDueDate" | "status" | "priority" | "createdAt" | "updatedAt" | "overdue">;
+
+export type StockException = {
+  id: string;
+  materialId: string;
+  materialName: string;
+  quantity: number;
+  unit: Unit;
+  baseQuantity: number;
+  reason: ExceptionReason;
+  authorizationNote?: string;
+  createdBy: string;
+  createdAt: number;
+};
 export type Accent = "cyan" | "gold" | "violet" | "blue" | "green";
 
 export type Material = {
@@ -22,6 +75,9 @@ export type Material = {
   baseUnit?: Unit;
   purchaseUnit?: PurchaseUnit;
   conversionRatio?: number;
+  specification?: MaterialSpecification | string;
+  specificationValue?: string;
+  specificationOptions?: string[];
   displayUnit?: string;
   quantity: number;
   reorderAt: number;
@@ -61,6 +117,9 @@ export type JobCard = {
   status: JobStatus;
   due: string;
   priority: "High" | "Medium" | "Normal";
+  orderId?: string;
+  orderStatus?: CustomerOrderStatus;
+  orderOverdue?: boolean;
 };
 
 export type Offcut = {
@@ -132,12 +191,12 @@ export const roleLabels: Record<Role, { am: string; en: string; initial: string 
 };
 
 export const initialMaterials: Material[] = [
-  { id: "mat-banner", name: "Frontlit Banner 440gsm", category: "Banner roll", unit: "m²", quantity: 286, reorderAt: 160, rollEquivalent: 160, accent: "cyan" },
-  { id: "mat-acrylic", name: "Acrylic Clear 3mm", category: "Sheet", unit: "m²", quantity: 54.8, reorderAt: 65, sheetEquivalent: 2.98, accent: "violet" },
-  { id: "mat-vinyl", name: "Premium Vinyl Gloss", category: "Vinyl roll", unit: "m", quantity: 417, reorderAt: 240, rollEquivalent: 50, accent: "gold" },
-  { id: "mat-led", name: "LED Module 1.5W", category: "Electrical", unit: "piece", quantity: 1260, reorderAt: 800, accent: "blue" },
-  { id: "mat-ink", name: "UV Ink — Cyan", category: "Ink", unit: "L", quantity: 18.2, reorderAt: 12, accent: "green" },
-  { id: "mat-mdf", name: "MDF Board 18mm", category: "Sheet", unit: "m²", quantity: 91.4, reorderAt: 45, sheetEquivalent: 2.98, accent: "gold" },
+  { id: "mat-banner", name: "Banner", category: "Banner", unit: "m²", baseUnit: "m²", purchaseUnit: "roll", conversionRatio: 160, specification: "Roll Weight & Size", specificationValue: "3 Meter Roll Weight", specificationOptions: ["2 Meter Roll Weight", "3 Meter Roll Weight"], quantity: 286, reorderAt: 160, rollEquivalent: 160, displayUnit: "ሮል", accent: "cyan" },
+  { id: "mat-acrylic", name: "Acrylic", category: "Rigid sheet", unit: "m²", baseUnit: "m²", purchaseUnit: "sheet", conversionRatio: 2.977, specification: "Thickness (in millimeters)", specificationValue: "3mm", specificationOptions: ["18mm", "10mm", "8mm", "5mm", "3mm"], quantity: 54.8, reorderAt: 65, sheetEquivalent: 2.977, displayUnit: "ቁጥር", accent: "violet" },
+  { id: "mat-vinyl", name: "Normal Sticker", category: "Sticker roll", unit: "m²", baseUnit: "m²", purchaseUnit: "roll", conversionRatio: 63.5, specification: "Roll Width / Type", specificationValue: "1.27 Meter × 50 Meter Roll", specificationOptions: ["1.27 Meter × 50 Meter Roll"], quantity: 417, reorderAt: 240, rollEquivalent: 63.5, displayUnit: "ሮል", accent: "gold" },
+  { id: "mat-led", name: "LED Module / Strip", category: "Electrical", unit: "pcs", baseUnit: "pcs", purchaseUnit: "pack", conversionRatio: 20, specification: "Color Type", specificationValue: "Cool White (6000K-6500K)", specificationOptions: ["Cool White (6000K-6500K)", "Warm White (3000K)", "Red", "Green", "Blue", "Yellow", "Amber", "RGB (Multi-Color)", "RGBW"], quantity: 1260, reorderAt: 800, displayUnit: "ቁጥር", accent: "blue" },
+  { id: "mat-ink", name: "DTF Ink", category: "Ink", unit: "L", baseUnit: "L", purchaseUnit: "liter", conversionRatio: 1, specification: "Ink Type & Color Config", specificationValue: "CMYK (Cyan, Magenta, Yellow, Key/Black)", specificationOptions: ["CMYK (Cyan, Magenta, Yellow, Key/Black)", "Expanded Gamut / Light Inks (Light Cyan, Light Magenta, Light Black)", "Specialty Inks (White Ink, Spot Gloss / Clear UV Varnish, Primer)", "Ink Formulations: Eco-Solvent, Solvent, UV-Curing Ink, Sublimation Ink"], quantity: 18.2, reorderAt: 12, displayUnit: "ሊትር", accent: "green" },
+  { id: "mat-mdf", name: "Foam", category: "Foam board", unit: "m²", baseUnit: "m²", purchaseUnit: "sheet", conversionRatio: 2.977, specification: "Thickness / Size (in millimeters)", specificationValue: "18mm", specificationOptions: ["18mm", "10mm", "8mm", "5mm", "3mm"], quantity: 91.4, reorderAt: 45, sheetEquivalent: 2.977, displayUnit: "ቁጥር", accent: "gold" },
 ];
 
 export const initialMachines: Machine[] = [
@@ -156,5 +215,5 @@ export const initialJobs: JobCard[] = [
 
 export const initialOffcuts: Offcut[] = [
   { id: "off-01", materialId: "mat-acrylic", label: "Acrylic Clear 3mm", width: 1.2, length: 0.8, area: 0.96, location: "Rack B · Slot 04", createdAt: "08:25" },
-  { id: "off-02", materialId: "mat-mdf", label: "MDF Board 18mm", width: 0.9, length: 0.6, area: 0.54, location: "Rack C · Slot 02", createdAt: "Yesterday" },
+  { id: "off-02", materialId: "mat-mdf", label: "Foam · 18mm", width: 0.9, length: 0.6, area: 0.54, location: "Rack C · Slot 02", createdAt: "Yesterday" },
 ];

@@ -5,6 +5,7 @@ import { unit, purchaseUnit, accent } from "./schema";
 import { convertToBase, type InputUnit } from "./units";
 import { requirePermission } from "./users";
 import { notifyRoles } from "./notificationHelpers";
+import { findMaterialSpecification } from "../shared/material-specifications";
 
 export const list = query({
   args: {},
@@ -25,6 +26,10 @@ export const create = mutation({
     baseUnit: v.optional(unit),
     purchaseUnit: v.optional(purchaseUnit),
     conversionRatio: v.optional(v.number()),
+    specification: v.optional(v.string()),
+    specificationValue: v.optional(v.string()),
+    specificationOptions: v.optional(v.array(v.string())),
+    displayUnit: v.optional(v.string()),
     quantity: v.number(),
     reorderAt: v.number(),
     rollEquivalent: v.optional(v.number()),
@@ -44,8 +49,25 @@ export const create = mutation({
     if (!Number.isFinite(args.reorderAt) || args.reorderAt < 0) {
       throw new Error("Reorder level must be zero or greater.");
     }
-    const baseUnit = args.baseUnit ?? args.unit;
-    if (args.conversionRatio !== undefined && (!Number.isFinite(args.conversionRatio) || args.conversionRatio <= 0)) {
+    const requestedName = args.name.trim();
+    const catalog = findMaterialSpecification(requestedName);
+    const canonicalName = catalog?.name ?? requestedName;
+    const baseUnit = catalog?.baseUnit ?? args.baseUnit ?? args.unit;
+    const purchaseUnitValue = catalog?.purchaseUnit ?? args.purchaseUnit;
+    const specification = catalog?.specification ?? (args.specification?.trim() || undefined);
+    const specificationOptions = catalog?.specificationOptions ? [...catalog.specificationOptions] : args.specificationOptions?.map((option) => option.trim()).filter(Boolean);
+    const specificationValue = args.specificationValue?.trim() || undefined;
+    if (specificationOptions?.length && specificationValue && !specificationOptions.includes(specificationValue)) {
+      throw new Error(`Invalid ${specification ?? "material specification"} option for ${canonicalName}.`);
+    }
+    if (catalog?.specificationOptions && !specificationValue) {
+      throw new Error(`${catalog.specification} is required for ${canonicalName}.`);
+    }
+    if (catalog?.conversionRatio !== undefined && args.conversionRatio !== undefined && args.conversionRatio !== catalog.conversionRatio) {
+      throw new Error(`The confirmed conversion ratio for ${canonicalName} is ${catalog.conversionRatio}.`);
+    }
+    const resolvedRatio = catalog?.conversionRatio ?? args.conversionRatio;
+    if (resolvedRatio !== undefined && (!Number.isFinite(resolvedRatio) || resolvedRatio <= 0)) {
       throw new Error("Conversion ratio must be greater than zero.");
     }
     if (args.rollEquivalent !== undefined && args.rollEquivalent <= 0) {
@@ -54,19 +76,29 @@ export const create = mutation({
     if (args.sheetEquivalent !== undefined && args.sheetEquivalent <= 0) {
       throw new Error("Sheet conversion must be greater than zero.");
     }
-    if (args.purchaseUnit) {
-      convertToBase(1, args.purchaseUnit as InputUnit, baseUnit, args.conversionRatio, args.rollEquivalent, args.sheetEquivalent);
+    if (purchaseUnitValue) {
+      convertToBase(1, purchaseUnitValue as InputUnit, baseUnit, resolvedRatio, args.rollEquivalent, args.sheetEquivalent);
     }
     const id = await ctx.db.insert("materials", {
-      ...args,
+      name: canonicalName,
+      category: catalog?.category ?? (args.category.trim() || "Custom"),
       unit: baseUnit,
       baseUnit,
-      name: args.name.trim(),
-      category: args.category.trim() || "Custom",
-      storageLocation: args.storageLocation?.trim() || undefined,
-      averageUse: args.averageUse?.trim() || undefined,
+      purchaseUnit: purchaseUnitValue,
+      conversionRatio: resolvedRatio,
+      rollEquivalent: purchaseUnitValue === "roll" ? resolvedRatio : args.rollEquivalent,
+      sheetEquivalent: purchaseUnitValue === "sheet" ? resolvedRatio : args.sheetEquivalent,
+      displayUnit: args.displayUnit?.trim() || catalog?.displayUnit,
+      specification,
+      specificationValue,
+      specificationOptions,
+      quantity: args.quantity,
+      reorderAt: args.reorderAt,
+      storageLocation: args.storageLocation?.trim() || catalog?.storageLocation || undefined,
+      averageUse: args.averageUse?.trim() || catalog?.averageUse || undefined,
       reorderRule: args.reorderRule?.trim() || undefined,
       scrapRule: args.scrapRule?.trim() || undefined,
+      accent: args.accent,
       active: true,
     });
     return (await ctx.db.get(id))!;
@@ -115,6 +147,7 @@ export const recordStockMovement = mutation({
       unit: args.inputUnit,
       baseUnit: material.baseUnit ?? material.unit,
       baseQuantity: converted,
+      movementType: "STANDARD",
       note: args.note.trim() || "Manual stock movement",
       createdBy: identity._id,
       createdAt: Date.now(),

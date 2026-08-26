@@ -7,6 +7,26 @@ import { canAccessJob } from "./authorization";
 import { notifyRoles, notifyUser } from "./notificationHelpers";
 import { assertProductionQuantities } from "./validation";
 
+async function notifyOrderCompletion(ctx: any, orderId: any, actorAuthUserId: string) {
+  const order = await ctx.db.get(orderId);
+  if (!order) return;
+  const users = await ctx.db.query("users").collect();
+  for (const user of users) {
+    if (user.active && ["owner", "manager", "admin"].includes(user.role) && user.authUserId !== actorAuthUserId) {
+      await ctx.db.insert("notifications", {
+        recipientAuthUserId: user.authUserId,
+        title: "Order ready for pickup",
+        message: `${order.code} · ${order.clientName} is ready for pickup.`,
+        type: "order_status",
+        actorAuthUserId,
+        relatedTable: "customerOrders",
+        relatedId: orderId,
+        createdAt: Date.now(),
+      });
+    }
+  }
+}
+
 type ProductionInput = {
   jobCardId: string;
   inputQuantity: number;
@@ -49,6 +69,7 @@ async function recordProductionInternal(ctx: any, args: ProductionInput, operato
     unit: job.unit,
     baseUnit: job.unit,
     baseQuantity: args.inputQuantity,
+    movementType: "STANDARD",
     note: `Production issue ${job.code}`,
     createdBy: operatorId,
     createdAt: Date.now(),
@@ -64,6 +85,9 @@ async function recordProductionInternal(ctx: any, args: ProductionInput, operato
     createdAt: Date.now(),
   });
   await ctx.db.patch(job._id, { status: "In production" });
+  if (job.orderId) {
+    await ctx.db.patch(job.orderId, { status: "In Production", updatedAt: Date.now() });
+  }
   const machine = await ctx.db.get(job.machineId);
   if (machine && machine.status !== "Running") {
     await ctx.db.patch(machine._id, { status: "Running", activeJob: job.code });
@@ -185,6 +209,10 @@ export const complete = mutation({
     }
 
     await ctx.db.patch(args.jobId, { status: "Completed" });
+    if (job.orderId) {
+      await ctx.db.patch(job.orderId, { status: "Ready for Pickup", updatedAt: Date.now() });
+      await notifyOrderCompletion(ctx, job.orderId, identity._id);
+    }
     await ctx.db.patch(machine._id, { status: "Available", activeJob: undefined });
     await notifyUser(ctx, job.createdBy, {
       title: "Job completed",

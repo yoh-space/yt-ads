@@ -2,6 +2,7 @@
 
 import { Settings, Sparkles, X } from "lucide-react";
 import { navItems, type View } from "./nav-config";
+import type { Role } from "@/lib/operations-types";
 
 export function Sidebar({
   activeView,
@@ -13,6 +14,7 @@ export function Sidebar({
   runningJobsCount,
   companyName,
   logoUrl,
+  role,
 }: {
   activeView: View;
   onNavigate: (view: View) => void;
@@ -23,6 +25,7 @@ export function Sidebar({
   runningJobsCount: number;
   companyName?: string;
   logoUrl?: string;
+  role: Role;
 }) {
   return (
     <aside className={`sidebar ${mobileOpen ? "open" : ""} ${collapsed ? "collapsed" : ""}`}>
@@ -36,7 +39,11 @@ export function Sidebar({
       <div className="workspace-chip"><span className="live-dot" />Live </div>
       <nav className="primary-nav">
         <p>የሥራ ማውጫ <span>WORKSPACE</span></p>
-        {navItems.map((item) => {
+        {navItems.filter((item) => {
+          if (["owner", "manager", "admin"].includes(role)) return true;
+          if (role === "storekeeper") return ["overview", "orders", "inventory", "jobs", "machines", "offcuts"].includes(item.id);
+          return ["jobs", "machines", "offcuts"].includes(item.id);
+        }).map((item) => {
           const Icon = item.icon;
           return (
             <button

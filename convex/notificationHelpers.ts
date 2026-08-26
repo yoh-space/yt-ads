@@ -9,7 +9,11 @@ type NotificationType =
   | "discrepancy"
   | "job_update"
   | "machine_update"
-  | "account_update";
+  | "account_update"
+  | "order_received"
+  | "order_status"
+  | "overdue_order"
+  | "exception_stock_out";
 
 export async function notifyUser(
   ctx: MutationCtx,

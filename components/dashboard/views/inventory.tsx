@@ -1,7 +1,7 @@
 "use client";
 
 import { AlertTriangle, ArrowUpRight, Box, MoreHorizontal, PackagePlus } from "lucide-react";
-import type { Material, MaterialRequest, Role } from "@/lib/operations-types";
+import type { Material, MaterialRequest, Role, StockException } from "@/lib/operations-types";
 import { formatQuantity } from "@/lib/units";
 import { MaterialRequestsPanel } from "../material-requests-panel";
 
@@ -11,6 +11,8 @@ export function InventoryView({
   requests,
   role,
   onStock,
+  onException,
+  exceptions,
   onAdd,
   onRequest,
   onIssue,
@@ -21,6 +23,8 @@ export function InventoryView({
   requests: MaterialRequest[];
   role: Role;
   onStock: () => void;
+  onException: () => void;
+  exceptions: StockException[];
   onAdd: () => void;
   onRequest: () => void;
   onIssue: (requestId: string, issuedQuantity: number) => void;
@@ -37,6 +41,7 @@ export function InventoryView({
           <p>Stock-in uses purchase units; balances and production consumption use normalized base units.</p>
         </div>
         <div>
+          <button className="button secondary" onClick={onException}><ArrowUpRight size={16} />Direct exception</button>
           <button className="button secondary" onClick={onStock}><ArrowUpRight size={16} />Stock In / Out</button>
           <button className="button primary" onClick={onAdd}><PackagePlus size={16} />New material</button>
         </div>
@@ -60,6 +65,7 @@ export function InventoryView({
                 <p>
                   <b>{material.name}</b>
                   <small>
+                    {material.specification ? `${material.specification}${material.specificationValue ? `: ${material.specificationValue}` : ""} · ` : ""}
                     Base unit: {material.baseUnit ?? material.unit}
                     {material.purchaseUnit && material.conversionRatio ? ` · 1 ${material.purchaseUnit} = ${material.conversionRatio} ${material.baseUnit ?? material.unit}` : ""}
                     {material.storageLocation ? ` · ${material.storageLocation}` : ""}
@@ -76,6 +82,7 @@ export function InventoryView({
         })}
       </div>
       </section>
+      {exceptions.length ? <section className="panel exception-review"><div className="panel-head"><div><span className="panel-kicker coral">EXCEPTION REVIEW</span><h2>Recent direct stock-outs</h2><p>Separate from normal job-card production issues</p></div><span className="status-pill warning">{exceptions.length} recorded</span></div><div className="exception-list">{exceptions.slice(0, 6).map((entry) => <div className="exception-row" key={entry.id}><div><strong>{entry.materialName}</strong><small>{entry.reason} · {new Date(entry.createdAt).toLocaleString("en-ET")}</small></div><b>{entry.quantity} {entry.unit}</b></div>)}</div></section> : null}
     </>
   );
 }

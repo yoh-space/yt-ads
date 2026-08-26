@@ -36,7 +36,7 @@ export type ReportSummary = {
   };
 };
 
-export type AuditCategory = "all" | "inventory" | "production" | "recovery";
+export type AuditCategory = "all" | "inventory" | "production" | "recovery" | "orders";
 
 export type AuditEvent = {
   id: string;

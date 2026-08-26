@@ -10,7 +10,7 @@ export const getState = query({
   args: {},
   handler: async (ctx) => {
     await authComponent.getAuthUser(ctx);
-    const [materials, machines, jobs, offcuts, scraps] = await Promise.all([
+    const [materials, machines, jobs, offcuts, scraps, orders] = await Promise.all([
       ctx.db
         .query("materials")
         .filter((q) => q.eq(q.field("active"), true))
@@ -25,7 +25,17 @@ export const getState = query({
         .filter((q) => q.eq(q.field("status"), "available"))
         .collect(),
       ctx.db.query("scraps").collect(),
+      ctx.db.query("customerOrders").collect(),
     ]);
-    return { materials, machines, jobs, offcuts, scraps };
+    const ordersById = new Map(orders.map((order) => [order._id, order]));
+    const enrichedJobs = jobs.map((job) => {
+      const order = job.orderId ? ordersById.get(job.orderId) : undefined;
+      return {
+        ...job,
+        orderStatus: order?.status,
+        orderOverdue: Boolean(order && order.status !== "Completed" && order.preferredDueDate < Date.now()),
+      };
+    });
+    return { materials, machines, jobs: enrichedJobs, offcuts, scraps };
   },
 });
