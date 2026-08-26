@@ -28,6 +28,7 @@ import { MaterialModal, type NewMaterialInput } from "./modals/material-modal";
 import { ScrapModal, type NewScrapInput } from "./modals/scrap-modal";
 import { MachineModal, type NewMachineInput } from "./modals/machine-modal";
 import { MachineEditModal } from "./modals/machine-edit-modal";
+import { MachineSettingsModal } from "./modals/machine-settings-modal";
 import { MaterialRequestModal, type NewMaterialRequestInput } from "./modals/material-request-modal";
 import { ExceptionStockModal } from "./modals/exception-stock-modal";
 import { OrderCreateModal, type NewOrderInput } from "./modals/order-create-modal";
@@ -101,6 +102,7 @@ function OperationsDashboardInner() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [convertOrderTarget, setConvertOrderTarget] = useState<CustomerOrder | null>(null);
   const [editMachineTarget, setEditMachineTarget] = useState<Machine | null>(null);
+  const [machineSettingsTarget, setMachineSettingsTarget] = useState<Machine | null>(null);
   const [notice, setNotice] = useState("የዛሬ ሥራ በቅጽበት እየተመዘገበ ነው");
 
   useEffect(() => {
@@ -333,14 +335,12 @@ function OperationsDashboardInner() {
               canUpdateMachine={Boolean(profile && hasPermission(role, "machine.update"))}
               canDeleteMachine={Boolean(profile && hasPermission(role, "machine.delete"))}
               onCreate={() => openModal("machine", "machine.create")}
-              onEdit={setEditMachineTarget}
-              onRemove={(machineId) => finishMutation(`remove-machine-${machineId}`, removeMachine({ machineId: machineId as Id<"machines"> }), "Machine removed from register")}
-              onStatusChange={(machineId, status) => finishMutation(`status-machine-${machineId}`, updateMachineStatus({ machineId: machineId as Id<"machines">, status }), `Machine status updated to ${status}`)}
               onOffcut={() => openModal("offcut", "offcut.create")}
               onScrap={() => openModal("scrap", "scrap.create")}
               onComplete={completeJob}
               onRecordProduction={recordProduction}
               onAssignNextJob={(machineId) => finishMutation(`assign-job-${machineId}`, assignNextJob({ machineId: machineId as Id<"machines"> }), "Job assigned to machine")}
+              onSettings={setMachineSettingsTarget}
               onView={openView}
               isPending={isPending}
             />
@@ -443,6 +443,25 @@ function OperationsDashboardInner() {
               `${editMachineTarget.name} updated successfully`,
             );
           }}
+        />
+      ) : null}
+      {machineSettingsTarget ? (
+        <MachineSettingsModal
+          machine={machineSettingsTarget}
+          onClose={() => setMachineSettingsTarget(null)}
+          onEdit={(machine) => {
+            setMachineSettingsTarget(null);
+            setEditMachineTarget(machine);
+          }}
+          onRemove={(machineId) => { finishMutation(`remove-machine-${machineId}`, removeMachine({ machineId: machineId as Id<"machines"> }), "Machine removed from register"); setMachineSettingsTarget(null); }}
+          onStatusChange={(machineId, status) => finishMutation(`status-machine-${machineId}`, updateMachineStatus({ machineId: machineId as Id<"machines">, status }), `Machine status updated to ${status}`)}
+          isPending={isPending}
+          canUpdateMachine={Boolean(profile && hasPermission(role, "machine.update"))}
+          canDeleteMachine={Boolean(profile && hasPermission(role, "machine.delete"))}
+          canCreateOffcut={canCreateOffcut}
+          onOffcut={() => { setMachineSettingsTarget(null); openModal("offcut", "offcut.create"); }}
+          canCreateScrap={canCreateScrap}
+          onScrap={() => { setMachineSettingsTarget(null); openModal("scrap", "scrap.create"); }}
         />
       ) : null}
       {modal === "request" && canCreateRequest ? (

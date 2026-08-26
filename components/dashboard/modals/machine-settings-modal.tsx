@@ -16,6 +16,10 @@ export function MachineSettingsModal({
   machine,
   canUpdateMachine,
   canDeleteMachine,
+  canCreateOffcut,
+  onOffcut,
+  canCreateScrap,
+  onScrap,
   onClose,
   onStatusChange,
   onEdit,
@@ -25,6 +29,10 @@ export function MachineSettingsModal({
   machine: Machine;
   canUpdateMachine: boolean;
   canDeleteMachine: boolean;
+  canCreateOffcut: boolean;
+  onOffcut: () => void;
+  canCreateScrap: boolean;
+  onScrap: () => void;
   onClose: () => void;
   onStatusChange: (machineId: string, status: MachineStatus) => void;
   onEdit: (machine: Machine) => void;
