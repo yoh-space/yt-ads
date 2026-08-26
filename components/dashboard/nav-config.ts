@@ -1,4 +1,5 @@
 import { MATERIAL_SPECIFICATIONS } from "@/shared/material-specifications";
+import type { Role } from "@/lib/operations-types";
 import {
   Boxes,
   ClipboardList,
@@ -22,6 +23,25 @@ export type Modal =
   | "request"
   | "exception"
   | null;
+
+export const roleVisibleViews: Record<Role, View[]> = {
+  owner: ["overview", "orders", "inventory", "jobs", "machines", "offcuts", "reports", "audit"],
+  manager: ["overview", "orders", "inventory", "jobs", "machines", "offcuts", "reports", "audit"],
+  admin: ["overview", "orders", "inventory", "jobs", "machines", "offcuts", "reports", "audit"],
+  storekeeper: ["overview", "orders", "inventory", "jobs", "machines", "offcuts", "reports", "audit"],
+  laser_operator: ["jobs", "machines", "offcuts"],
+  cnc_operator: ["jobs", "machines", "offcuts"],
+  plotter_operator: ["jobs", "machines", "offcuts"],
+  printer_operator: ["jobs", "machines", "offcuts"],
+};
+
+export function canAccessView(role: Role, view: View) {
+  return roleVisibleViews[role].includes(view);
+}
+
+export function defaultViewForRole(role: Role): View {
+  return roleVisibleViews[role][0] ?? "overview";
+}
 
 export const navItems: Array<{
   id: View;

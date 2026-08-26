@@ -1,7 +1,7 @@
 "use client";
 
 import { Settings, Sparkles, X } from "lucide-react";
-import { navItems, type View } from "./nav-config";
+import { canAccessView, navItems, type View } from "./nav-config";
 import type { Role } from "@/lib/operations-types";
 
 export function Sidebar({
@@ -39,11 +39,7 @@ export function Sidebar({
       <div className="workspace-chip"><span className="live-dot" />Live </div>
       <nav className="primary-nav">
         <p>የሥራ ማውጫ <span>WORKSPACE</span></p>
-        {navItems.filter((item) => {
-          if (["owner", "manager", "admin"].includes(role)) return true;
-          if (role === "storekeeper") return ["overview", "orders", "inventory", "jobs", "machines", "offcuts"].includes(item.id);
-          return ["jobs", "machines", "offcuts"].includes(item.id);
-        }).map((item) => {
+        {navItems.filter((item) => canAccessView(role, item.id)).map((item) => {
           const Icon = item.icon;
           return (
             <button

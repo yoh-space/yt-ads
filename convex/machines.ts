@@ -1,6 +1,5 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { authComponent } from "./auth";
 import { role, unit, machineStatus } from "./schema";
 import { requirePermission } from "./users";
 import { notifyRoles } from "./notificationHelpers";
@@ -8,7 +7,7 @@ import { notifyRoles } from "./notificationHelpers";
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    await authComponent.getAuthUser(ctx);
+    await requirePermission(ctx, "machine.view");
     return ctx.db
       .query("machines")
       .filter((q) => q.eq(q.field("active"), true))

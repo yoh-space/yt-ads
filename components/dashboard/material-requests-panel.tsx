@@ -20,7 +20,9 @@ export function MaterialRequestsPanel({
   onAcknowledge: (requestId: string) => void;
 }) {
   const [issueQuantities, setIssueQuantities] = useState<Record<string, number>>({});
+  const canRequest = hasPermission(role, "request.create");
   const canIssue = hasPermission(role, "request.issue");
+  const canAcknowledge = hasPermission(role, "request.acknowledge");
 
   return (
     <section className="panel request-panel">
@@ -30,7 +32,7 @@ export function MaterialRequestsPanel({
           <h2>የእቃ ጥያቄዎች</h2>
           <p>Request → Issue → Received</p>
         </div>
-        <button className="button primary small" onClick={onRequest}><Send size={14} />Request</button>
+        {canRequest ? <button className="button primary small" onClick={onRequest}><Send size={14} />Request</button> : null}
       </div>
       {requests.length === 0 ? (
         <div className="empty-state">No material requests yet. Start with one job and one quantity.</div>
@@ -54,7 +56,7 @@ export function MaterialRequestsPanel({
                       <button className="button secondary small" onClick={() => onIssue(request.id, issueQuantity)}><PackageCheck size={13} />Issue</button>
                     </div>
                   ) : null}
-                  {(request.status === "Issued" || request.status === "Partially Issued") ? (
+                  {canAcknowledge && (request.status === "Issued" || request.status === "Partially Issued") ? (
                     <button className="button secondary small" onClick={() => onAcknowledge(request.id)}><ClipboardCheck size={13} />Received</button>
                   ) : null}
                 </div>

@@ -8,12 +8,14 @@ export function ModalShell({
   subtitle,
   step,
   children,
+  footer,
   onClose,
 }: {
   title: string;
   subtitle: string;
   step?: number;
   children: ReactNode;
+  footer?: ReactNode;
   onClose: () => void;
 }) {
   return (
@@ -34,7 +36,8 @@ export function ModalShell({
             <i className={step > 2 ? "filled" : ""} />
           </div>
         ) : null}
-        {children}
+        <div className="modal-body">{children}</div>
+        {footer ? <div className="modal-foot">{footer}</div> : null}
       </div>
     </div>
   );

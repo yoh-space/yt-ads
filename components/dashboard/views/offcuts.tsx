@@ -1,15 +1,19 @@
 "use client";
 
-import { MoreHorizontal, Scissors, Store, Trash2 } from "lucide-react";
+import { Scissors, Store, Trash2 } from "lucide-react";
 import type { Offcut, ScrapLog } from "@/lib/operations-types";
 
 export function OffcutsView({
   offcuts,
   scraps,
+  canCreate,
+  canScrap,
   onCreate,
   onScrap,
 }: {
   offcuts: Offcut[];
+  canCreate: boolean;
+  canScrap: boolean;
   scraps: ScrapLog[];
   onCreate: () => void;
   onScrap: () => void;
@@ -25,8 +29,8 @@ export function OffcutsView({
           <p>Reusable sheet pieces are returned to active store stock automatically.</p>
         </div>
         <div className="recovery-actions">
-          <button className="button secondary" onClick={onScrap}><Trash2 size={16} />Log scrap</button>
-          <button className="button primary" onClick={onCreate}><Scissors size={16} />Log new offcut</button>
+          {canScrap ? <button className="button secondary" onClick={onScrap}><Trash2 size={16} />Log scrap</button> : null}
+          {canCreate ? <button className="button primary" onClick={onCreate}><Scissors size={16} />Log new offcut</button> : null}
         </div>
       </div>
       <div className="offcut-grid">
@@ -44,7 +48,7 @@ export function OffcutsView({
               <p>{offcut.width}m × {offcut.length}m <b>{offcut.area} m²</b></p>
               <footer>
                 <span><Store size={14} />{offcut.location}</span>
-                <button className="icon-button subtle"><MoreHorizontal size={17} /></button>
+
               </footer>
             </div>
           </article>
@@ -57,7 +61,7 @@ export function OffcutsView({
           <p>Separate from reusable offcuts and included in the live wastage metric.</p>
         </div>
         <strong>{scrapTotal.toFixed(1)} <small>logged units</small></strong>
-        <button className="button secondary small" onClick={onScrap}>Record scrap</button>
+        {canScrap ? <button className="button secondary small" onClick={onScrap}>Record scrap</button> : null}
         {scraps.length ? (
           <div className="scrap-list">
             {scraps.slice(0, 3).map((scrap) => (

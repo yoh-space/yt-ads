@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { AlertTriangle, RefreshCw, LogIn } from "lucide-react";
+import { DashboardAccessDenied } from "@/components/dashboard/access-denied";
 
 export default function Error({
   error,
@@ -10,12 +11,15 @@ export default function Error({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const authenticationFailure = /unauthenticated|not authenticated|no session/i.test(error.message);
+  const accessFailure = /active team profile|unauthorized|permission.*required|not permitted/i.test(error.message);
+
   useEffect(() => {
     console.error("Workspace failed to load:", error);
-    if (/unauthenticated|active team profile|not authenticated|unauthorized|no session/i.test(error.message)) {
-      window.location.href = "/sign-in";
-    }
-  }, [error]);
+    if (authenticationFailure) window.location.href = "/sign-in";
+  }, [authenticationFailure, error]);
+
+  if (accessFailure) return <DashboardAccessDenied reason="Your account does not have access to this workspace action or view." />;
 
   return (
     <div

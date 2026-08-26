@@ -13,6 +13,12 @@ export function InventoryView({
   onStock,
   onException,
   exceptions,
+  canRecordStock,
+  canRecordException,
+  canCreateMaterial,
+  canCreateRequest,
+  canIssueRequest,
+  canAcknowledgeRequest,
   onAdd,
   onRequest,
   onIssue,
@@ -25,6 +31,12 @@ export function InventoryView({
   onStock: () => void;
   onException: () => void;
   exceptions: StockException[];
+  canRecordStock: boolean;
+  canRecordException: boolean;
+  canCreateMaterial: boolean;
+  canCreateRequest: boolean;
+  canIssueRequest: boolean;
+  canAcknowledgeRequest: boolean;
   onAdd: () => void;
   onRequest: () => void;
   onIssue: (requestId: string, issuedQuantity: number) => void;
@@ -32,7 +44,7 @@ export function InventoryView({
 }) {
   return (
     <>
-      <MaterialRequestsPanel requests={requests} role={role} onRequest={onRequest} onIssue={onIssue} onAcknowledge={onAcknowledge} />
+      {canCreateRequest || canIssueRequest || canAcknowledgeRequest ? <MaterialRequestsPanel requests={requests} role={role} onRequest={onRequest} onIssue={onIssue} onAcknowledge={onAcknowledge} /> : null}
       <section className="panel inventory-panel">
       <div className="inventory-callout">
         <div>
@@ -41,9 +53,9 @@ export function InventoryView({
           <p>Stock-in uses purchase units; balances and production consumption use normalized base units.</p>
         </div>
         <div>
-          <button className="button secondary" onClick={onException}><ArrowUpRight size={16} />Direct exception</button>
-          <button className="button secondary" onClick={onStock}><ArrowUpRight size={16} />Stock In / Out</button>
-          <button className="button primary" onClick={onAdd}><PackagePlus size={16} />New material</button>
+          {canRecordException ? <button className="button secondary" onClick={onException}><ArrowUpRight size={16} />Direct exception</button> : null}
+          {canRecordStock ? <button className="button secondary" onClick={onStock}><ArrowUpRight size={16} />Stock In / Out</button> : null}
+          {canCreateMaterial ? <button className="button primary" onClick={onAdd}><PackagePlus size={16} />New material</button> : null}
         </div>
       </div>
       {lowStock.length ? (
@@ -76,7 +88,7 @@ export function InventoryView({
               <strong>{formatQuantity(material.quantity, material.baseUnit ?? material.unit)}</strong>
               <span>{formatQuantity(material.reorderAt, material.baseUnit ?? material.unit)}</span>
               <span className={`status-pill ${low ? "warning" : "success"}`}>{low ? "Reorder" : "Healthy"}</span>
-              <button className="icon-button subtle" onClick={onStock}><MoreHorizontal size={18} /></button>
+              {canRecordStock ? <button className="icon-button subtle" onClick={onStock} aria-label={`Record stock movement for ${material.name}`}><MoreHorizontal size={18} /></button> : null}
             </div>
           );
         })}

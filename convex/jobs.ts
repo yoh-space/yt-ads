@@ -1,6 +1,5 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { authComponent } from "./auth";
 import { priority, unit } from "./schema";
 import { requireActiveProfile, requirePermission } from "./users";
 import { canAccessJob } from "./authorization";
@@ -97,8 +96,12 @@ async function recordProductionInternal(ctx: any, args: ProductionInput, operato
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    await authComponent.getAuthUser(ctx);
-    return ctx.db.query("jobCards").collect();
+    const { profile } = await requireActiveProfile(ctx);
+    const jobs = await ctx.db.query("jobCards").collect();
+    if (["owner", "manager", "admin", "storekeeper"].includes(profile.role)) return jobs;
+    const machines = await ctx.db.query("machines").collect();
+    const assignedMachineIds = new Set(machines.filter((machine) => machine.operatorRole === profile.role).map((machine) => machine._id));
+    return jobs.filter((job) => assignedMachineIds.has(job.machineId));
   },
 });
 

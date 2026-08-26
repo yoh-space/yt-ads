@@ -13,6 +13,7 @@ import {
 import type { CustomerOrder, JobCard, Machine, Material, MaterialRequest, Offcut, Profile, Role, ScrapLog, StockException } from "@/lib/operations-types";
 import { Sidebar } from "./sidebar";
 import { InventoryLoader } from "./inventory-loader";
+import { DashboardAccessDenied } from "./access-denied";
 import { Topbar } from "./topbar";
 import { Overview } from "./views/overview";
 import { InventoryView } from "./views/inventory";
@@ -31,7 +32,8 @@ import { MachineModal, type NewMachineInput } from "./modals/machine-modal";
 import { MaterialRequestModal, type NewMaterialRequestInput } from "./modals/material-request-modal";
 import { ExceptionStockModal } from "./modals/exception-stock-modal";
 import { AccountSettingsModal } from "./modals/account-settings-modal";
-import { navItems, type Modal, type View } from "./nav-config";
+import { canAccessView, defaultViewForRole, navItems, type Modal, type View } from "./nav-config";
+import { hasPermission } from "@/lib/permissions";
 
 type WithId<T extends { _id: string }> = Omit<T, "_id"> & { id: T["_id"] };
 
@@ -45,13 +47,23 @@ function withIds<T extends { _id: string }>(docs: T[]): WithId<T>[] {
 export function OperationsDashboard() {
   const profile = useQuery(api.users.getCurrentProfile);
   const companySettings = useQuery(api.users.getCompanySettings);
-  const state = useQuery(api.dashboard.getState);
+  const state = useQuery(api.dashboard.getState, profile?.active ? {} : "skip");
   const role = profile?.role ?? "admin";
-  const canViewOrders = Boolean(profile && ["owner", "manager", "admin", "storekeeper"].includes(role));
-  const canManageOrders = Boolean(profile && ["owner", "manager", "admin"].includes(role));
-  const materialRequests = useQuery(api.materialRequests.list, profile ? {} : "skip");
-  const ordersQuery = useQuery(api.orders.list, canViewOrders ? {} : "skip");
-  const exceptionsQuery = useQuery(api.orders.listExceptions, canViewOrders ? {} : "skip");
+  const canViewOrders = Boolean(profile && hasPermission(role, "order.view"));
+  const canManageOrders = Boolean(profile && hasPermission(role, "order.manage"));
+  const canRecordStock = Boolean(profile && hasPermission(role, "stock.record"));
+  const canCreateMaterial = Boolean(profile && hasPermission(role, "material.create"));
+  const canCreateJob = Boolean(profile && hasPermission(role, "job.create"));
+  const canCreateMachine = Boolean(profile && hasPermission(role, "machine.create"));
+  const canCreateOffcut = Boolean(profile && hasPermission(role, "offcut.create"));
+  const canCreateScrap = Boolean(profile && hasPermission(role, "scrap.create"));
+  const canCreateRequest = Boolean(profile && hasPermission(role, "request.create"));
+  const canAcknowledgeRequest = Boolean(profile && hasPermission(role, "request.acknowledge"));
+  const canIssueRequest = Boolean(profile && hasPermission(role, "request.issue"));
+  const canRecordException = Boolean(profile && hasPermission(role, "stock.exception"));
+  const materialRequests = useQuery(api.materialRequests.list, profile?.active ? {} : "skip");
+  const ordersQuery = useQuery(api.orders.list, canViewOrders && profile?.active ? {} : "skip");
+  const exceptionsQuery = useQuery(api.orders.listExceptions, canViewOrders && profile?.active ? {} : "skip");
 
   const ensureProfile = useMutation(api.users.ensureProfile);
   const recordStockMovement = useMutation(api.materials.recordStockMovement);
@@ -88,13 +100,9 @@ export function OperationsDashboard() {
     if (canManageOrders && ordersQuery) void notifyOverdue({}).catch(() => {});
   }, [canManageOrders, notifyOverdue, ordersQuery]);
 
-  useEffect(() => {
-    if (profile && ["laser_operator", "cnc_operator", "plotter_operator", "printer_operator"].includes(profile.role) && activeView === "overview") {
-      setActiveView("machines");
-    }
-  }, [activeView, profile]);
-
-  if (state === undefined || profile === undefined || companySettings === undefined || materialRequests === undefined || (canViewOrders && (ordersQuery === undefined || exceptionsQuery === undefined))) {
+  if (profile === undefined || companySettings === undefined) return <InventoryLoader />;
+  if (profile === null || !profile.active) return <DashboardAccessDenied />;
+  if (state === undefined || materialRequests === undefined || (canViewOrders && (ordersQuery === undefined || exceptionsQuery === undefined))) {
     return <InventoryLoader />;
   }
 
@@ -108,6 +116,7 @@ export function OperationsDashboard() {
   const orders = canViewOrders ? (withIds(ordersQuery ?? []) as CustomerOrder[]) : [];
   const exceptions = canViewOrders ? (withIds(exceptionsQuery ?? []) as StockException[]) : [];
   const resolvedProfile: Profile | null = profile ? { ...profile, id: profile._id } : null;
+  const visibleView = canAccessView(resolvedRole, activeView) ? activeView : defaultViewForRole(resolvedRole);
 
   const filteredMachines = role === "owner" || role === "manager" || role === "admin" || role === "storekeeper"
     ? machines
@@ -119,7 +128,20 @@ export function OperationsDashboard() {
     (3.4 + Math.min(5, scraps.reduce((total, scrap) => total + scrap.quantity, 0) / 10)).toFixed(1),
   );
 
+  function openModal(nextModal: Exclude<Modal, null>, permission: Parameters<typeof hasPermission>[1]) {
+    if (!hasPermission(resolvedRole, permission)) {
+      setNotice("You do not have permission to open this action.");
+      return;
+    }
+    setModal(nextModal);
+  }
+
   function openView(view: View) {
+    if (!canAccessView(resolvedRole, view)) {
+      setNotice("This workspace view is not available for your role.");
+      setMobileNavOpen(false);
+      return;
+    }
     setActiveView(view);
     setMobileNavOpen(false);
   }
@@ -178,7 +200,7 @@ export function OperationsDashboard() {
   return (
     <div className={`app-shell ${sidebarCollapsed ? "collapsed" : ""}`}>
       <Sidebar
-        activeView={activeView}
+        activeView={visibleView}
         onNavigate={openView}
         mobileOpen={mobileNavOpen}
         onClose={() => setMobileNavOpen(false)}
@@ -196,7 +218,7 @@ export function OperationsDashboard() {
 
       <main className="main-content">
         <Topbar
-          activeView={activeView}
+          activeView={visibleView}
           onMenu={() => setMobileNavOpen(true)}
           onToggleSidebar={() => setSidebarCollapsed((value) => !value)}
           sidebarCollapsed={sidebarCollapsed}
@@ -209,34 +231,34 @@ export function OperationsDashboard() {
           <section className="page-heading">
             <div>
               <h1>
-                {activeView === "overview"
+                {visibleView === "overview"
                   ? "የምርት እና ክምችት አጠቃላይ እይታ"
-                  : navItems.find((item) => item.id === activeView)?.label}
-                <span>{navItems.find((item) => item.id === activeView)?.english}</span>
+                  : navItems.find((item) => item.id === visibleView)?.label}
+                <span>{navItems.find((item) => item.id === visibleView)?.english}</span>
               </h1>
               <p>{notice}</p>
             </div>
             <div className="heading-actions">
-              {activeView === "inventory" ? (
+              {visibleView === "inventory" ? (
                 <>
-                  {canManageOrders ? <button className="button secondary" onClick={() => setModal("exception")}><ArrowDownRight size={16} />Direct exception</button> : null}
-                  <button className="button secondary" onClick={() => setModal("stock")}><ArrowDownRight size={16} />Stock movement</button>
-                  <button className="button primary" onClick={() => setModal("material")}><Plus size={16} />እቃ ጨምር</button>
+                  {canRecordException ? <button className="button secondary" onClick={() => openModal("exception", "stock.exception")}><ArrowDownRight size={16} />Direct exception</button> : null}
+                  {canRecordStock ? <button className="button secondary" onClick={() => openModal("stock", "stock.record")}><ArrowDownRight size={16} />Stock movement</button> : null}
+                  {canCreateMaterial ? <button className="button primary" onClick={() => openModal("material", "material.create")}><Plus size={16} />እቃ ጨምር</button> : null}
                 </>
               ) : null}
-              {activeView === "jobs" ? <button className="button primary" onClick={() => setModal("job")}><Plus size={16} />New job card</button> : null}
-              {activeView === "machines" ? <button className="button primary" onClick={() => setModal("machine")}><Plus size={16} />Add machine</button> : null}
-              {activeView === "offcuts" ? (
+              {visibleView === "jobs" && canCreateJob ? <button className="button primary" onClick={() => openModal("job", "job.create")}><Plus size={16} />New job card</button> : null}
+              {visibleView === "machines" && canCreateMachine ? <button className="button primary" onClick={() => openModal("machine", "machine.create")}><Plus size={16} />Add machine</button> : null}
+              {visibleView === "offcuts" ? (
                 <>
-                  <button className="button secondary" onClick={() => setModal("scrap")}><Trash2 size={16} />Log scrap</button>
-                  <button className="button primary" onClick={() => setModal("offcut")}><Scissors size={16} />Log offcut</button>
+                  {canCreateScrap ? <button className="button secondary" onClick={() => openModal("scrap", "scrap.create")}><Trash2 size={16} />Log scrap</button> : null}
+                  {canCreateOffcut ? <button className="button primary" onClick={() => openModal("offcut", "offcut.create")}><Scissors size={16} />Log offcut</button> : null}
                 </>
               ) : null}
-              {activeView === "overview" ? <button className="button primary" onClick={() => setModal("job")}><Plus size={16} />አዲስ ሥራ ካርድ</button> : null}
+              {visibleView === "overview" && canCreateJob ? <button className="button primary" onClick={() => openModal("job", "job.create")}><Plus size={16} />አዲስ ሥራ ካርድ</button> : null}
             </div>
           </section>
 
-          {activeView === "overview" ? (
+          {visibleView === "overview" ? (
             <Overview
               materials={materials}
               machines={machines}
@@ -249,47 +271,57 @@ export function OperationsDashboard() {
               onComplete={completeJob}
             />
           ) : null}
-          {activeView === "orders" ? <OrdersView orders={orders} machines={machines} materials={materials} canManage={canManageOrders} onConvert={setConvertOrderTarget} onStatus={(orderId, status) => finishMutation(updateOrderStatus({ orderId: orderId as Id<"customerOrders">, status }), `Order status updated to ${status}`)} /> : null}
-          {activeView === "inventory" ? (
+          {visibleView === "orders" ? <OrdersView orders={orders} machines={machines} materials={materials} canManage={canManageOrders} onConvert={setConvertOrderTarget} onStatus={(orderId, status) => finishMutation(updateOrderStatus({ orderId: orderId as Id<"customerOrders">, status }), `Order status updated to ${status}`)} /> : null}
+          {visibleView === "inventory" ? (
             <InventoryView
               materials={materials}
               lowStock={lowStock}
               requests={requests}
               role={resolvedRole}
-              onStock={() => setModal("stock")}
-              onException={() => setModal("exception")}
+              onStock={() => openModal("stock", "stock.record")}
+              onException={() => openModal("exception", "stock.exception")}
               exceptions={exceptions}
-              onAdd={() => setModal("material")}
-              onRequest={() => setModal("request")}
+              canRecordStock={canRecordStock}
+              canRecordException={canRecordException}
+              canCreateMaterial={canCreateMaterial}
+              canCreateRequest={canCreateRequest}
+              canIssueRequest={canIssueRequest}
+              canAcknowledgeRequest={canAcknowledgeRequest}
+              onAdd={() => openModal("material", "material.create")}
+              onRequest={() => openModal("request", "request.create")}
               onIssue={issueMaterial}
               onAcknowledge={acknowledgeMaterial}
             />
           ) : null}
-          {activeView === "jobs" ? (
-            <JobsView jobs={jobs} machines={machines} materials={materials} onCreate={() => setModal("job")} onComplete={completeJob} />
+          {visibleView === "jobs" ? (
+            <JobsView jobs={jobs} machines={machines} materials={materials} canCreate={canCreateJob} canComplete={Boolean(profile && hasPermission(role, "job.complete"))} onCreate={() => openModal("job", "job.create")} onComplete={completeJob} />
           ) : null}
-          {activeView === "machines" ? (
+          {visibleView === "machines" ? (
             <MachinesView
               machines={filteredMachines}
               jobs={jobs}
               role={resolvedRole}
-              onCreate={() => setModal("machine")}
-              onOffcut={() => setModal("offcut")}
-              onScrap={() => setModal("scrap")}
+              canCreateMachine={canCreateMachine}
+              canCreateOffcut={canCreateOffcut}
+              canCreateScrap={canCreateScrap}
+              canComplete={Boolean(profile && hasPermission(role, "job.complete"))}
+              onCreate={() => openModal("machine", "machine.create")}
+              onOffcut={() => openModal("offcut", "offcut.create")}
+              onScrap={() => openModal("scrap", "scrap.create")}
               onComplete={completeJob}
               onRecordProduction={recordProduction}
             />
           ) : null}
-          {activeView === "offcuts" ? (
-            <OffcutsView offcuts={offcuts} scraps={scraps} onCreate={() => setModal("offcut")} onScrap={() => setModal("scrap")} />
+          {visibleView === "offcuts" ? (
+            <OffcutsView offcuts={offcuts} scraps={scraps} canCreate={canCreateOffcut} canScrap={canCreateScrap} onCreate={() => openModal("offcut", "offcut.create")} onScrap={() => openModal("scrap", "scrap.create")} />
           ) : null}
-          {activeView === "reports" ? <ReportsView /> : null}
-          {activeView === "audit" ? <AuditLogView /> : null}
+          {visibleView === "reports" ? <ReportsView /> : null}
+          {visibleView === "audit" ? <AuditLogView /> : null}
         </div>
       </main>
 
-      {modal === "exception" ? <ExceptionStockModal materials={materials} onClose={() => setModal(null)} onSave={(input) => finishMutation(recordExceptionStockOut({ materialId: input.materialId as Id<"materials">, quantity: input.quantity, unit: input.unit, reason: input.reason, authorizationNote: input.authorizationNote }), "Direct exception stock-out recorded")} /> : null}
-      {modal === "stock" ? (
+      {modal === "exception" && canRecordException ? <ExceptionStockModal materials={materials} onClose={() => setModal(null)} onSave={(input) => finishMutation(recordExceptionStockOut({ materialId: input.materialId as Id<"materials">, quantity: input.quantity, unit: input.unit, reason: input.reason, authorizationNote: input.authorizationNote }), "Direct exception stock-out recorded")} /> : null}
+      {modal === "stock" && canRecordStock ? (
         <StockModal
           materials={materials}
           onClose={() => setModal(null)}
@@ -302,7 +334,7 @@ export function OperationsDashboard() {
           }}
         />
       ) : null}
-      {modal === "job" ? (
+      {modal === "job" && canCreateJob ? (
         <JobModal
           materials={materials}
           machines={machines}
@@ -319,7 +351,7 @@ export function OperationsDashboard() {
           }}
         />
       ) : null}
-      {modal === "offcut" ? (
+      {modal === "offcut" && canCreateOffcut ? (
         <OffcutModal
           materials={materials}
           onClose={() => setModal(null)}
@@ -331,7 +363,7 @@ export function OperationsDashboard() {
           }}
         />
       ) : null}
-      {modal === "scrap" ? (
+      {modal === "scrap" && canCreateScrap ? (
         <ScrapModal
           materials={materials}
           onClose={() => setModal(null)}
@@ -343,7 +375,7 @@ export function OperationsDashboard() {
           }}
         />
       ) : null}
-      {modal === "material" ? (
+      {modal === "material" && canCreateMaterial ? (
         <MaterialModal
           onClose={() => setModal(null)}
           onSave={(input: NewMaterialInput) => {
@@ -351,7 +383,7 @@ export function OperationsDashboard() {
           }}
         />
       ) : null}
-      {modal === "machine" ? (
+      {modal === "machine" && canCreateMachine ? (
         <MachineModal
           onClose={() => setModal(null)}
           onSave={(input: NewMachineInput) => {
@@ -359,7 +391,7 @@ export function OperationsDashboard() {
           }}
         />
       ) : null}
-      {modal === "request" ? (
+      {modal === "request" && canCreateRequest ? (
         <MaterialRequestModal
           jobs={jobs}
           materials={materials}

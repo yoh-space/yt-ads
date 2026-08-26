@@ -8,10 +8,14 @@ export function JobsView({
   jobs,
   machines,
   materials,
+  canCreate,
+  canComplete,
   onCreate,
   onComplete,
 }: {
   jobs: JobCard[];
+  canCreate: boolean;
+  canComplete: boolean;
   machines: Machine[];
   materials: Material[];
   onCreate: () => void;
@@ -24,7 +28,7 @@ export function JobsView({
         <p>
           Production queue <span>{jobs.filter((job) => job.status !== "Completed").length} open cards</span>
         </p>
-        <button className="button primary" onClick={onCreate}><Plus size={16} />Create job card</button>
+        {canCreate ? <button className="button primary" onClick={onCreate}><Plus size={16} />Create job card</button> : null}
       </div>
       <div className="kanban-board">
         {columns.map((status) => (
@@ -47,13 +51,14 @@ export function JobsView({
                       </div>
                       <h4>{job.title}</h4>
                       <p>{job.client}</p>
+                      {job.orderOverdue ? <small className="danger-text">Linked customer order overdue</small> : null}
                       <div className="job-card-data">
                         <span><Wrench size={13} />{machine?.code}</span>
                         <span><Box size={13} />{formatQuantity(job.quantity, job.unit)}</span>
                       </div>
                       <div className="job-card-footer">
                         <small>{material?.name}</small>
-                        {status === "In production" ? <button onClick={() => onComplete(job.id)}>Complete</button> : null}
+                        {canComplete && status === "In production" ? <button onClick={() => onComplete(job.id)}>Complete</button> : null}
                       </div>
                     </div>
                   );

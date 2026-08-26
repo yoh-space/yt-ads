@@ -1742,12 +1742,60 @@ button {
 }
 .modal-card {
   width: min(470px, 100%);
+  max-height: min(760px, calc(100vh - 40px));
+  display: flex;
+  flex-direction: column;
   border: 1px solid rgba(255, 255, 255, 0.4);
   border-radius: 11px;
   background: #fff;
   box-shadow: 0 30px 80px rgba(1, 23, 38, 0.32);
   overflow: hidden;
 }
+.modal-body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+.modal-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  flex: none;
+  background: #fff;
+}
+.modal-foot {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  flex: none;
+  padding: 11px 21px;
+  border-top: 1px solid #e6eef1;
+  background: rgba(255, 255, 255, .97);
+  box-shadow: 0 -8px 18px rgba(12, 47, 65, .05);
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.modal-actions .button { min-width: 106px; }
+.access-denied-page { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: #f5fafb; }
+.access-denied-card { width: min(460px, 100%); padding: 30px; border: 1px solid #dce9ed; border-radius: 14px; background: #fff; box-shadow: 0 22px 60px rgba(7, 42, 61, .1); }
+.access-denied-card h1 { margin: 8px 0 10px; color: #12384d; font-size: 24px; }
+.access-denied-card p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.access-denied-actions { display: flex; gap: 8px; margin-top: 20px; }
+.access-denied-actions .button { flex: 1; text-align: center; }
+.compact-form {
+  gap: 10px;
+  padding-top: 14px;
+  padding-bottom: 15px;
+}
+.compact-form label { gap: 4px; font-size: 9px; }
+.compact-form input,
+.compact-form select { height: 34px; padding: 0 9px; font-size: 10px; }
+.compact-form .two-field { gap: 8px; }
+.compact-form .conversion-box { min-height: 38px; padding: 8px 10px; }
 .modal-head {
   padding: 20px 21px 14px;
   display: flex;
@@ -2082,19 +2130,21 @@ button {
     padding: 0;
   }
   .modal-card {
-    border-radius: 12px 12px 0 0;
+    width: 100%;
     max-height: 92vh;
-    overflow: auto;
+    border-radius: 12px 12px 0 0;
+    overflow: hidden;
   }
   .modal-head {
     padding: 18px 17px 12px;
   }
-  .modal-form {
-    padding: 15px 17px 20px;
-  }
-  .two-field {
-    grid-template-columns: 1fr;
-  }
+  .modal-foot { padding: 10px 17px; }
+  .modal-form { padding: 13px 17px 15px; }
+  .modal-actions .button { flex: 1; min-width: 0; }
+  .access-denied-card { padding: 22px; }
+  .access-denied-actions { flex-direction: column; }
+  .compact-form .two-field { grid-template-columns: 1fr; }
+  .compact-form label { font-size: 9px; }
   .notification {
     width: 30px;
     height: 30px;

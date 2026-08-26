@@ -1,13 +1,12 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { authComponent } from "./auth";
 import { calculateOffcutArea } from "./units";
 import { requirePermission } from "./users";
 
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    await authComponent.getAuthUser(ctx);
+    await requirePermission(ctx, "offcut.view");
     return ctx.db
       .query("offcuts")
       .filter((q) => q.eq(q.field("status"), "available"))
@@ -68,7 +67,7 @@ export const create = mutation({
 export const listScraps = query({
   args: {},
   handler: async (ctx) => {
-    await authComponent.getAuthUser(ctx);
+    await requirePermission(ctx, "scrap.view");
     return ctx.db.query("scraps").collect();
   },
 });

@@ -95,9 +95,15 @@ export function MaterialModal({
   }
 
   return (
-    <ModalShell title="Add raw material" subtitle="Choose a standard material definition and record its exact type or size." onClose={onClose}>
+    <ModalShell
+      title="Add raw material"
+      subtitle="Choose a standard material definition and record its exact type or size."
+      onClose={onClose}
+      footer={<div className="modal-actions"><button className="button secondary" type="button" onClick={onClose}>Cancel</button><button className="button primary" type="submit" form="new-material-form"><Plus size={16} />Add material</button></div>}
+    >
       <form
-        className="modal-form"
+        id="new-material-form"
+        className="modal-form compact-form"
         onSubmit={(event) => {
           event.preventDefault();
           if (specificationOptions.length > 0 && !specificationValue) {
@@ -168,7 +174,6 @@ export function MaterialModal({
         </div>
         <div className="conversion-box"><Sparkles size={17} /><span>Accent colour</span><select value={accent} onChange={(event) => setAccent(event.target.value as Accent)} style={{ border: 0, background: "transparent", fontWeight: 700, color: "inherit" }}><option value="cyan">Cyan</option><option value="gold">Gold</option><option value="violet">Violet</option><option value="blue">Blue</option><option value="green">Green</option></select></div>
         {formError ? <p className="form-error">{formError}</p> : null}
-        <button className="button primary full" type="submit">Add material <Plus size={16} /></button>
       </form>
     </ModalShell>
   );
