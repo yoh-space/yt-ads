@@ -127,7 +127,12 @@ export const create = mutation({
     if (!machine || !machine.active) throw new Error("Active machine not found.");
     if (!material || !material.active) throw new Error("Active material not found.");
     if (args.unit !== (material.baseUnit ?? material.unit)) throw new Error("Job unit must match the selected material base unit.");
-    if (machine.status === "Maintenance") throw new Error("Jobs cannot be assigned to a machine in maintenance.");
+    if (machine.status === "Maintenance" || machine.status === "Unavailable") {
+      return { success: false as const, error: `${machine.name} is currently ${machine.status.toLowerCase()} and cannot accept new jobs.` };
+    }
+    if (args.quantity > material.quantity) {
+      return { success: false as const, error: `Stock shortfall — ${material.name} has ${material.quantity} ${material.baseUnit ?? material.unit} available but ${args.quantity} ${args.unit} is required.` };
+    }
 
     const code = `JC-${String(430 + Math.floor(Math.random() * 500)).padStart(4, "0")}`;
     const id = await ctx.db.insert("jobCards", {
@@ -155,7 +160,8 @@ export const create = mutation({
       relatedTable: "jobCards",
       relatedId: id,
     });
-    return (await ctx.db.get(id))!;
+    const job = (await ctx.db.get(id))!;
+    return { success: true as const, job };
   },
 });
 

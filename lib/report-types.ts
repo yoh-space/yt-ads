@@ -1,4 +1,4 @@
-export type ReportPeriod = "weekly" | "biweekly" | "monthly";
+export type ReportPeriod = "weekly" | "biweekly" | "monthly" | "custom";
 
 export type ReportSummary = {
   period: ReportPeriod;
@@ -33,6 +33,59 @@ export type ReportSummary = {
     scrapRecords: number;
     scrapQuantity: number;
     scrapByUnit: Array<{ unit: string; quantity: number }>;
+  };
+  financial: {
+    totalOrders: number;
+    completedOrders: number;
+    overdueOrders: number;
+    pendingOrders: number;
+    estimatedRevenue: number;
+  };
+  exceptions: Array<{
+    id: string;
+    materialName: string;
+    quantity: number;
+    unit: string;
+    reason: string;
+    operatorName: string;
+    authorizationNote?: string;
+    createdAt: number;
+  }>;
+  consumption: {
+    topMaterials: Array<{
+      materialName: string;
+      totalConsumed: number;
+      unit: string;
+      movementCount: number;
+    }>;
+    reorderAlerts: Array<{
+      materialName: string;
+      currentStock: number;
+      reorderAt: number;
+      unit: string;
+      estimatedDaysLeft: number | null;
+    }>;
+  };
+  machineEfficiency: {
+    byType: Array<{
+      machineType: string;
+      machineCount: number;
+      jobCount: number;
+      logCount: number;
+      totalOutput: number;
+      totalWaste: number;
+    }>;
+    wasteValue: {
+      totalWasteQuantity: number;
+      wasteUnit: string;
+      estimatedETB: number;
+    };
+    operatorActivity: Array<{
+      operatorName: string;
+      jobCount: number;
+      logCount: number;
+      outputQuantity: number;
+    }>;
   };
 };
 

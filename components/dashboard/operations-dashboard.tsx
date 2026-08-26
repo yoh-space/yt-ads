@@ -7,8 +7,6 @@ import type { Id } from "@/convex/_generated/dataModel";
 import {
   ArrowDownRight,
   Plus,
-  Scissors,
-  Trash2,
 } from "lucide-react";
 import type { CustomerOrder, JobCard, Machine, Material, MaterialRequest, Offcut, Profile, Role, ScrapLog, StockException } from "@/lib/operations-types";
 import { Sidebar } from "./sidebar";
@@ -22,16 +20,18 @@ import { MachinesView } from "./views/machines";
 import { OffcutsView } from "./views/offcuts";
 import { ReportsView } from "./views/reports";
 import { AuditLogView } from "./views/audit-log";
+import { SettingsView } from "./views/settings";
 import { OrdersView, OrderConvertModal } from "./views/orders";
 import { StockModal } from "./modals/stock-modal";
-import { JobModal, type NewJobInput } from "./modals/job-modal";
 import { OffcutModal, type NewOffcutInput } from "./modals/offcut-modal";
 import { MaterialModal, type NewMaterialInput } from "./modals/material-modal";
 import { ScrapModal, type NewScrapInput } from "./modals/scrap-modal";
 import { MachineModal, type NewMachineInput } from "./modals/machine-modal";
+import { MachineEditModal } from "./modals/machine-edit-modal";
 import { MaterialRequestModal, type NewMaterialRequestInput } from "./modals/material-request-modal";
 import { ExceptionStockModal } from "./modals/exception-stock-modal";
-import { AccountSettingsModal } from "./modals/account-settings-modal";
+import { OrderCreateModal, type NewOrderInput } from "./modals/order-create-modal";
+import { PendingProvider, useSafeMutation } from "./pending-context";
 import { canAccessView, defaultViewForRole, navItems, type Modal, type View } from "./nav-config";
 import { hasPermission } from "@/lib/permissions";
 
@@ -45,6 +45,15 @@ function withIds<T extends { _id: string }>(docs: T[]): WithId<T>[] {
 }
 
 export function OperationsDashboard() {
+  return (
+    <PendingProvider>
+      <OperationsDashboardInner />
+    </PendingProvider>
+  );
+}
+
+function OperationsDashboardInner() {
+  const { isPending, safeMutation } = useSafeMutation();
   const profile = useQuery(api.users.getCurrentProfile);
   const companySettings = useQuery(api.users.getCompanySettings);
   const state = useQuery(api.dashboard.getState, profile?.active ? {} : "skip");
@@ -53,7 +62,6 @@ export function OperationsDashboard() {
   const canManageOrders = Boolean(profile && hasPermission(role, "order.manage"));
   const canRecordStock = Boolean(profile && hasPermission(role, "stock.record"));
   const canCreateMaterial = Boolean(profile && hasPermission(role, "material.create"));
-  const canCreateJob = Boolean(profile && hasPermission(role, "job.create"));
   const canCreateMachine = Boolean(profile && hasPermission(role, "machine.create"));
   const canCreateOffcut = Boolean(profile && hasPermission(role, "offcut.create"));
   const canCreateScrap = Boolean(profile && hasPermission(role, "scrap.create"));
@@ -61,6 +69,7 @@ export function OperationsDashboard() {
   const canAcknowledgeRequest = Boolean(profile && hasPermission(role, "request.acknowledge"));
   const canIssueRequest = Boolean(profile && hasPermission(role, "request.issue"));
   const canRecordException = Boolean(profile && hasPermission(role, "stock.exception"));
+  const canCreateOrder = Boolean(profile && hasPermission(role, "order.create"));
   const materialRequests = useQuery(api.materialRequests.list, profile?.active ? {} : "skip");
   const ordersQuery = useQuery(api.orders.list, canViewOrders && profile?.active ? {} : "skip");
   const exceptionsQuery = useQuery(api.orders.listExceptions, canViewOrders && profile?.active ? {} : "skip");
@@ -68,10 +77,13 @@ export function OperationsDashboard() {
   const ensureProfile = useMutation(api.users.ensureProfile);
   const recordStockMovement = useMutation(api.materials.recordStockMovement);
   const createMaterial = useMutation(api.materials.create);
-  const createJob = useMutation(api.jobs.create);
   const completeJobMutation = useMutation(api.jobs.complete);
   const recordProductionMutation = useMutation(api.jobs.recordProduction);
   const createMachine = useMutation(api.machines.create);
+  const updateMachine = useMutation(api.machines.update);
+  const removeMachine = useMutation(api.machines.remove);
+  const updateMachineStatus = useMutation(api.machines.updateStatus);
+  const assignNextJob = useMutation(api.machines.assignNextJob);
   const createOffcut = useMutation(api.offcuts.create);
   const logScrap = useMutation(api.offcuts.logScrap);
   const createMaterialRequest = useMutation(api.materialRequests.create);
@@ -81,13 +93,14 @@ export function OperationsDashboard() {
   const updateOrderStatus = useMutation(api.orders.setStatus);
   const recordExceptionStockOut = useMutation(api.orders.recordExceptionStockOut);
   const notifyOverdue = useMutation(api.orders.notifyOverdue);
+  const createWalkIn = useMutation(api.orders.createWalkIn);
 
   const [activeView, setActiveView] = useState<View>("overview");
   const [modal, setModal] = useState<Modal>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [convertOrderTarget, setConvertOrderTarget] = useState<CustomerOrder | null>(null);
+  const [editMachineTarget, setEditMachineTarget] = useState<Machine | null>(null);
   const [notice, setNotice] = useState("የዛሬ ሥራ በቅጽበት እየተመዘገበ ነው");
 
   useEffect(() => {
@@ -147,13 +160,17 @@ export function OperationsDashboard() {
   }
 
   function completeJob(jobId: string) {
-    void completeJobMutation({ jobId: jobId as Id<"jobCards"> })
-      .then(() => setNotice("የሥራ ካርዱ ተጠናቋል፤ መዝገቡ ተዘምኗል"))
-      .catch((error: unknown) => setNotice(error instanceof Error ? error.message : "Unable to complete the job card."));
+    safeMutation(
+      `complete-job-${jobId}`,
+      completeJobMutation({ jobId: jobId as Id<"jobCards"> }),
+      () => setNotice("የሥራ ካርዱ ተጠናቋል፤ መዝገቡ ተዘምኗል"),
+      (error: unknown) => setNotice(error instanceof Error ? error.message : "Unable to complete the job card."),
+    );
   }
 
   function requestMaterial(input: NewMaterialRequestInput) {
     finishMutation(
+      "request-material",
       createMaterialRequest({
         ...input,
         jobCardId: input.jobCardId as Id<"jobCards">,
@@ -165,6 +182,7 @@ export function OperationsDashboard() {
 
   function issueMaterial(requestId: string, issuedQuantity: number) {
     finishMutation(
+      `issue-${requestId}`,
       issueMaterialRequest({ requestId: requestId as Id<"materialRequests">, issuedQuantity }),
       "እቃው ተሰጥቷል፤ ክምችቱ ተዘምኗል",
     );
@@ -172,29 +190,42 @@ export function OperationsDashboard() {
 
   function acknowledgeMaterial(requestId: string) {
     finishMutation(
+      `ack-${requestId}`,
       acknowledgeMaterialRequest({ requestId: requestId as Id<"materialRequests"> }),
       "የተሰጠው እቃ እንደደረሰ ተረጋግጧል",
     );
   }
 
   function recordProduction(jobId: string, inputQuantity: number, outputQuantity: number, wasteQuantity: number) {
-    void recordProductionMutation({
-      jobCardId: jobId as Id<"jobCards">,
-      inputQuantity,
-      outputQuantity,
-      wasteQuantity,
-    })
-      .then(() => setNotice("የምርት መዝገቡ ተቀምጧል፤ ክምችት ተዘምኗል"))
-      .catch((error: unknown) => setNotice(error instanceof Error ? error.message : "Unable to save the production log."));
+    safeMutation(
+      `production-${jobId}`,
+      recordProductionMutation({
+        jobCardId: jobId as Id<"jobCards">,
+        inputQuantity,
+        outputQuantity,
+        wasteQuantity,
+      }),
+      () => setNotice("የምርት መዝገቡ ተቀምጧል፤ ክምችት ተዘምኗል"),
+      (error: unknown) => setNotice(error instanceof Error ? error.message : "Unable to save the production log."),
+    );
   }
 
-  function finishMutation<T>(promise: Promise<T>, successMessage: string) {
-    void promise
-      .then(() => {
+  function finishMutation<T>(key: string, promise: Promise<T>, successMessage: string) {
+    safeMutation(
+      key,
+      promise,
+      (result: T) => {
+        if (result && typeof result === "object" && "success" in result && !(result as { success: boolean }).success) {
+          setNotice((result as { error?: string }).error ?? "The operation could not be completed.");
+          return;
+        }
         setNotice(successMessage);
         setModal(null);
-      })
-      .catch((error: unknown) => setNotice(error instanceof Error ? error.message : "The operation could not be completed."));
+      },
+      (error: unknown) => {
+        setNotice(error instanceof Error ? error.message : "The operation could not be completed.");
+      },
+    );
   }
 
   return (
@@ -204,7 +235,6 @@ export function OperationsDashboard() {
         onNavigate={openView}
         mobileOpen={mobileNavOpen}
         onClose={() => setMobileNavOpen(false)}
-        onOpenSettings={() => setSettingsOpen(true)}
         collapsed={sidebarCollapsed}
         runningJobsCount={runningJobs.length}
         companyName={companySettings?.companyName}
@@ -224,7 +254,7 @@ export function OperationsDashboard() {
           sidebarCollapsed={sidebarCollapsed}
           profile={resolvedProfile}
           companyName={companySettings?.companyName}
-          onOpenSettings={() => setSettingsOpen(true)}
+          onOpenSettings={() => openView("settings")}
         />
 
         <div className="page-content">
@@ -246,15 +276,8 @@ export function OperationsDashboard() {
                   {canCreateMaterial ? <button className="button primary" onClick={() => openModal("material", "material.create")}><Plus size={16} />እቃ ጨምር</button> : null}
                 </>
               ) : null}
-              {visibleView === "jobs" && canCreateJob ? <button className="button primary" onClick={() => openModal("job", "job.create")}><Plus size={16} />New job card</button> : null}
               {visibleView === "machines" && canCreateMachine ? <button className="button primary" onClick={() => openModal("machine", "machine.create")}><Plus size={16} />Add machine</button> : null}
-              {visibleView === "offcuts" ? (
-                <>
-                  {canCreateScrap ? <button className="button secondary" onClick={() => openModal("scrap", "scrap.create")}><Trash2 size={16} />Log scrap</button> : null}
-                  {canCreateOffcut ? <button className="button primary" onClick={() => openModal("offcut", "offcut.create")}><Scissors size={16} />Log offcut</button> : null}
-                </>
-              ) : null}
-              {visibleView === "overview" && canCreateJob ? <button className="button primary" onClick={() => openModal("job", "job.create")}><Plus size={16} />አዲስ ሥራ ካርድ</button> : null}
+              {visibleView === "overview" && canCreateOrder ? <button className="button primary" onClick={() => openModal("order", "order.create")}><Plus size={16} />New Customer Order</button> : null}
             </div>
           </section>
 
@@ -264,6 +287,7 @@ export function OperationsDashboard() {
               machines={machines}
               jobs={jobs}
               orders={orders}
+              orderStats={state.orderStats}
               lowStock={lowStock}
               stockValue={stockValue}
               waste={averageWaste}
@@ -271,7 +295,7 @@ export function OperationsDashboard() {
               onComplete={completeJob}
             />
           ) : null}
-          {visibleView === "orders" ? <OrdersView orders={orders} machines={machines} materials={materials} canManage={canManageOrders} onConvert={setConvertOrderTarget} onStatus={(orderId, status) => finishMutation(updateOrderStatus({ orderId: orderId as Id<"customerOrders">, status }), `Order status updated to ${status}`)} /> : null}
+          {visibleView === "orders" ? <OrdersView orders={orders} machines={machines} materials={materials} canManage={canManageOrders} canCreateOrder={canCreateOrder} onConvert={setConvertOrderTarget} onStatus={(orderId, status) => finishMutation(`order-status-${orderId}`, updateOrderStatus({ orderId: orderId as Id<"customerOrders">, status }), `Order status updated to ${status}`)} onCreateOrder={() => openModal("order", "order.create")} isPending={isPending} /> : null}
           {visibleView === "inventory" ? (
             <InventoryView
               materials={materials}
@@ -291,10 +315,11 @@ export function OperationsDashboard() {
               onRequest={() => openModal("request", "request.create")}
               onIssue={issueMaterial}
               onAcknowledge={acknowledgeMaterial}
+              isPending={isPending}
             />
           ) : null}
           {visibleView === "jobs" ? (
-            <JobsView jobs={jobs} machines={machines} materials={materials} canCreate={canCreateJob} canComplete={Boolean(profile && hasPermission(role, "job.complete"))} onCreate={() => openModal("job", "job.create")} onComplete={completeJob} />
+            <JobsView jobs={jobs} machines={machines} materials={materials} canCreate={false} canComplete={Boolean(profile && hasPermission(role, "job.complete"))} onCreate={() => {}} onComplete={completeJob} />
           ) : null}
           {visibleView === "machines" ? (
             <MachinesView
@@ -305,11 +330,19 @@ export function OperationsDashboard() {
               canCreateOffcut={canCreateOffcut}
               canCreateScrap={canCreateScrap}
               canComplete={Boolean(profile && hasPermission(role, "job.complete"))}
+              canUpdateMachine={Boolean(profile && hasPermission(role, "machine.update"))}
+              canDeleteMachine={Boolean(profile && hasPermission(role, "machine.delete"))}
               onCreate={() => openModal("machine", "machine.create")}
+              onEdit={setEditMachineTarget}
+              onRemove={(machineId) => finishMutation(`remove-machine-${machineId}`, removeMachine({ machineId: machineId as Id<"machines"> }), "Machine removed from register")}
+              onStatusChange={(machineId, status) => finishMutation(`status-machine-${machineId}`, updateMachineStatus({ machineId: machineId as Id<"machines">, status }), `Machine status updated to ${status}`)}
               onOffcut={() => openModal("offcut", "offcut.create")}
               onScrap={() => openModal("scrap", "scrap.create")}
               onComplete={completeJob}
               onRecordProduction={recordProduction}
+              onAssignNextJob={(machineId) => finishMutation(`assign-job-${machineId}`, assignNextJob({ machineId: machineId as Id<"machines"> }), "Job assigned to machine")}
+              onView={openView}
+              isPending={isPending}
             />
           ) : null}
           {visibleView === "offcuts" ? (
@@ -317,10 +350,11 @@ export function OperationsDashboard() {
           ) : null}
           {visibleView === "reports" ? <ReportsView /> : null}
           {visibleView === "audit" ? <AuditLogView /> : null}
+          {visibleView === "settings" && resolvedProfile ? <SettingsView profile={resolvedProfile} /> : null}
         </div>
       </main>
 
-      {modal === "exception" && canRecordException ? <ExceptionStockModal materials={materials} onClose={() => setModal(null)} onSave={(input) => finishMutation(recordExceptionStockOut({ materialId: input.materialId as Id<"materials">, quantity: input.quantity, unit: input.unit, reason: input.reason, authorizationNote: input.authorizationNote }), "Direct exception stock-out recorded")} /> : null}
+      {modal === "exception" && canRecordException ? <ExceptionStockModal materials={materials} onClose={() => setModal(null)} onSave={(input) => finishMutation("exception-stock", recordExceptionStockOut({ materialId: input.materialId as Id<"materials">, quantity: input.quantity, unit: input.unit, reason: input.reason, authorizationNote: input.authorizationNote }), "Direct exception stock-out recorded")} /> : null}
       {modal === "stock" && canRecordStock ? (
         <StockModal
           materials={materials}
@@ -328,25 +362,30 @@ export function OperationsDashboard() {
           onSave={(materialId, direction, quantity, inputUnit, note) => {
             const material = materials.find((entry) => entry.id === materialId);
             finishMutation(
+              `stock-${materialId}-${direction}`,
               recordStockMovement({ materialId: materialId as Id<"materials">, direction, quantity, inputUnit, note }),
               `${material?.name ?? "Material"}: ${direction === "in" ? "stock-in" : "stock-out"} recorded`,
             );
           }}
         />
       ) : null}
-      {modal === "job" && canCreateJob ? (
-        <JobModal
-          materials={materials}
-          machines={machines}
+      {modal === "order" && canCreateOrder ? (
+        <OrderCreateModal
           onClose={() => setModal(null)}
-          onSave={(input: NewJobInput) => {
+          onSave={(input: NewOrderInput) => {
             finishMutation(
-              createJob({
-                ...input,
-                machineId: input.machineId as Id<"machines">,
-                materialId: input.materialId as Id<"materials">,
+              "create-walk-in-order",
+              createWalkIn({
+                clientName: input.clientName,
+                phone: input.phone,
+                serviceType: input.serviceType,
+                dimensions: input.dimensions,
+                quantity: input.quantity,
+                preferredDueDate: input.preferredDueDate,
+                priority: input.priority,
+                notes: input.notes || undefined,
               }),
-              `${input.client || "Walk-in"} ተመዝግቧል እና ለማሽን ተመድቧል`,
+              `${input.clientName} ተዘርግቧል እና ትዕዛዝ ተመዝግቧል`,
             );
           }}
         />
@@ -357,6 +396,7 @@ export function OperationsDashboard() {
           onClose={() => setModal(null)}
           onSave={(input: NewOffcutInput) => {
             finishMutation(
+              "create-offcut",
               createOffcut({ ...input, materialId: input.materialId as Id<"materials"> }),
               `ቅሪት ወደ ንቁ ክምችት ተመልሷል`,
             );
@@ -369,6 +409,7 @@ export function OperationsDashboard() {
           onClose={() => setModal(null)}
           onSave={(input: NewScrapInput) => {
             finishMutation(
+              "log-scrap",
               logScrap({ ...input, materialId: input.materialId as Id<"materials"> }),
               `${input.reason} ለወጪ እና ቅነሳ ትንተና ተመዝግቧል`,
             );
@@ -379,7 +420,7 @@ export function OperationsDashboard() {
         <MaterialModal
           onClose={() => setModal(null)}
           onSave={(input: NewMaterialInput) => {
-            finishMutation(createMaterial(input), `${input.name} ወደ የእቃ መዝገብ ታክሏል`);
+            finishMutation("create-material", createMaterial(input), `${input.name} ወደ የእቃ መዝገብ ታክሏል`);
           }}
         />
       ) : null}
@@ -387,7 +428,20 @@ export function OperationsDashboard() {
         <MachineModal
           onClose={() => setModal(null)}
           onSave={(input: NewMachineInput) => {
-            finishMutation(createMachine(input), `${input.name} ወደ ማሽኖች ዝርዝር ታክሏል`);
+            finishMutation("create-machine", createMachine(input), `${input.name} ወደ ማሽኖች ዝርዝር ታክሏል`);
+          }}
+        />
+      ) : null}
+      {editMachineTarget ? (
+        <MachineEditModal
+          machine={editMachineTarget}
+          onClose={() => setEditMachineTarget(null)}
+          onSave={(input) => {
+            finishMutation(
+              `edit-machine-${editMachineTarget.id}`,
+              updateMachine({ machineId: editMachineTarget.id as Id<"machines">, ...input }),
+              `${editMachineTarget.name} updated successfully`,
+            );
           }}
         />
       ) : null}
@@ -399,10 +453,7 @@ export function OperationsDashboard() {
           onSave={requestMaterial}
         />
       ) : null}
-      {convertOrderTarget ? <OrderConvertModal order={convertOrderTarget} machines={machines} materials={materials} onClose={() => setConvertOrderTarget(null)} onSave={(input) => finishMutation(convertOrder({ orderId: convertOrderTarget.id as Id<"customerOrders">, machineId: input.machineId as Id<"machines">, materialId: input.materialId as Id<"materials">, quantity: input.quantity, unit: input.unit, priority: input.priority }).then(() => setConvertOrderTarget(null)), "Order converted to a job card")} /> : null}
-      {settingsOpen && resolvedProfile ? (
-        <AccountSettingsModal profile={resolvedProfile} onClose={() => setSettingsOpen(false)} />
-      ) : null}
+      {convertOrderTarget ? <OrderConvertModal order={convertOrderTarget} machines={machines} materials={materials} onClose={() => setConvertOrderTarget(null)} onSave={(input) => finishMutation(`convert-${convertOrderTarget.id}`, convertOrder({ orderId: convertOrderTarget.id as Id<"customerOrders">, machineId: input.machineId as Id<"machines">, materialId: input.materialId as Id<"materials">, quantity: input.quantity, unit: input.unit, priority: input.priority }).then((result) => { setConvertOrderTarget(null); return result; }), "Order converted to a job card")} /> : null}
     </div>
   );
 }

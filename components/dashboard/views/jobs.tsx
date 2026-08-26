@@ -28,7 +28,6 @@ export function JobsView({
         <p>
           Production queue <span>{jobs.filter((job) => job.status !== "Completed").length} open cards</span>
         </p>
-        {canCreate ? <button className="button primary" onClick={onCreate}><Plus size={16} />Create job card</button> : null}
       </div>
       <div className="kanban-board">
         {columns.map((status) => (

@@ -9,10 +9,11 @@ import {
   Scissors,
   FileBarChart,
   History,
+  Settings,
   type LucideIcon,
 } from "lucide-react";
 
-export type View = "overview" | "orders" | "inventory" | "jobs" | "machines" | "offcuts" | "reports" | "audit";
+export type View = "overview" | "orders" | "inventory" | "jobs" | "machines" | "offcuts" | "reports" | "audit" | "settings";
 export type Modal =
   | "stock"
   | "job"
@@ -22,17 +23,20 @@ export type Modal =
   | "machine"
   | "request"
   | "exception"
+  | "order"
   | null;
 
+export type SettingsCategory = "profile" | "security" | "team" | "company";
+
 export const roleVisibleViews: Record<Role, View[]> = {
-  owner: ["overview", "orders", "inventory", "jobs", "machines", "offcuts", "reports", "audit"],
-  manager: ["overview", "orders", "inventory", "jobs", "machines", "offcuts", "reports", "audit"],
-  admin: ["overview", "orders", "inventory", "jobs", "machines", "offcuts", "reports", "audit"],
-  storekeeper: ["overview", "orders", "inventory", "jobs", "machines", "offcuts", "reports", "audit"],
-  laser_operator: ["jobs", "machines", "offcuts"],
-  cnc_operator: ["jobs", "machines", "offcuts"],
-  plotter_operator: ["jobs", "machines", "offcuts"],
-  printer_operator: ["jobs", "machines", "offcuts"],
+  owner: ["overview", "orders", "inventory", "jobs", "machines", "offcuts", "reports", "audit", "settings"],
+  manager: ["overview", "orders", "inventory", "jobs", "machines", "offcuts", "reports", "audit", "settings"],
+  admin: ["overview", "orders", "inventory", "jobs", "machines", "offcuts", "reports", "audit", "settings"],
+  storekeeper: ["overview", "orders", "inventory", "jobs", "machines", "offcuts", "reports", "audit", "settings"],
+  laser_operator: ["jobs", "machines", "offcuts", "settings"],
+  cnc_operator: ["jobs", "machines", "offcuts", "settings"],
+  plotter_operator: ["jobs", "machines", "offcuts", "settings"],
+  printer_operator: ["jobs", "machines", "offcuts", "settings"],
 };
 
 export function canAccessView(role: Role, view: View) {
@@ -51,12 +55,13 @@ export const navItems: Array<{
 }> = [
   { id: "overview", label: "ዋና ማዕከል", english: "Overview", icon: LayoutDashboard },
   { id: "orders", label: "የደንበኛ ትዕዛዞች", english: "Orders Queue", icon: Inbox },
-  { id: "inventory", label: "ክምችት", english: "Inventory", icon: Boxes },
   { id: "jobs", label: "የሥራ ካርዶች", english: "Job cards", icon: ClipboardList },
   { id: "machines", label: "ማሽኖች", english: "Machines", icon: Factory },
+  { id: "inventory", label: "ክምችት", english: "Inventory", icon: Boxes },
   { id: "offcuts", label: "ቅሪት እቃ", english: "Offcuts", icon: Scissors },
   { id: "reports", label: "ሪፖርቶች", english: "Reports", icon: FileBarChart },
   { id: "audit", label: "የእንቅስቃሴ መዝገብ", english: "Audit Log", icon: History },
+  { id: "settings", label: "ማስተካከያ", english: "Settings", icon: Settings },
 ];
 
 export const baseUnitOptions = ["m²", "m", "pcs", "L"] as const;

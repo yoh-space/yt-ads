@@ -12,5 +12,6 @@ export function initials(name: string) {
 export function statusTone(status: string) {
   if (status === "Running" || status === "In production" || status === "Completed") return "success";
   if (status === "Maintenance" || status === "Paused") return "warning";
+  if (status === "Unavailable") return "danger";
   return "neutral";
 }

@@ -23,6 +23,7 @@ export function InventoryView({
   onRequest,
   onIssue,
   onAcknowledge,
+  isPending,
 }: {
   materials: Material[];
   lowStock: Material[];
@@ -41,10 +42,11 @@ export function InventoryView({
   onRequest: () => void;
   onIssue: (requestId: string, issuedQuantity: number) => void;
   onAcknowledge: (requestId: string) => void;
+  isPending: (key: string) => boolean;
 }) {
   return (
     <>
-      {canCreateRequest || canIssueRequest || canAcknowledgeRequest ? <MaterialRequestsPanel requests={requests} role={role} onRequest={onRequest} onIssue={onIssue} onAcknowledge={onAcknowledge} /> : null}
+      {canCreateRequest || canIssueRequest || canAcknowledgeRequest ? <MaterialRequestsPanel requests={requests} role={role} onRequest={onRequest} onIssue={onIssue} onAcknowledge={onAcknowledge} isPending={isPending} /> : null}
       <section className="panel inventory-panel">
       <div className="inventory-callout">
         <div>

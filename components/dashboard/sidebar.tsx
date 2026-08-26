@@ -1,6 +1,6 @@
 "use client";
 
-import { Settings, Sparkles, X } from "lucide-react";
+import { Sparkles, X } from "lucide-react";
 import { canAccessView, navItems, type View } from "./nav-config";
 import type { Role } from "@/lib/operations-types";
 
@@ -9,7 +9,6 @@ export function Sidebar({
   onNavigate,
   mobileOpen,
   onClose,
-  onOpenSettings,
   collapsed,
   runningJobsCount,
   companyName,
@@ -20,7 +19,6 @@ export function Sidebar({
   onNavigate: (view: View) => void;
   mobileOpen: boolean;
   onClose: () => void;
-  onOpenSettings: () => void;
   collapsed: boolean;
   runningJobsCount: number;
   companyName?: string;
@@ -59,7 +57,6 @@ export function Sidebar({
           <Sparkles size={17} />
           <p><strong>YoTech Digitals</strong><br />Enterprise workflow system</p>
         </div>
-        <button className="nav-item" onClick={onOpenSettings}><Settings size={18} /><span>ማስተካከያ<small>Settings</small></span></button>
       </div>
     </aside>
   );

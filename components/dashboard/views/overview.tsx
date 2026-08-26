@@ -6,13 +6,13 @@ import {
   Box,
   Boxes,
   CircleAlert,
+  Command,
   Factory,
   Gauge,
   MoreHorizontal,
   MoveUpRight,
   Printer,
   Scissors,
-  Command,
   Trash2,
 } from "lucide-react";
 import type { CustomerOrder, JobCard, Machine, Material } from "@/lib/operations-types";
@@ -25,6 +25,7 @@ export function Overview({
   machines,
   jobs,
   orders,
+  orderStats,
   lowStock,
   stockValue,
   waste,
@@ -35,6 +36,7 @@ export function Overview({
   machines: Machine[];
   jobs: JobCard[];
   orders: CustomerOrder[];
+  orderStats: { todaysOrders: number; completedOrders: number; queueOrders: number; activeProductionOrders: number };
   lowStock: Material[];
   stockValue: number;
   waste: number;
@@ -42,18 +44,15 @@ export function Overview({
   onComplete: (id: string) => void;
 }) {
   const stats = [
-    { label: "የክምችት ንጥሎች", en: "Tracked inventory", value: materials.length.toString(), meta: "6 categories live", icon: Boxes, trend: "Open", tone: "cyan", view: "inventory" as View },
-    { label: "በሂደት ላይ ያሉ ሥራዎች", en: "Active production", value: jobs.filter((job) => job.status === "In production").length.toString(), meta: "Across machines", icon: Factory, trend: "Open", tone: "gold", view: "jobs" as View },
-    { label: "የዛሬ ብክነት", en: "Waste ratio", value: `${waste}%`, meta: "Target below 5.0%", icon: Trash2, trend: "Open", tone: "violet", view: "offcuts" as View },
-    { label: "የክምችት ንቁ መጠን", en: "Active stock units", value: stockValue.toLocaleString("en-US", { maximumFractionDigits: 0 }), meta: "All base units", icon: Gauge, trend: "Open", tone: "blue", view: "inventory" as View },
+    { label: "የዛሬ ትዕዛዞች", en: "Today's orders", value: orderStats.todaysOrders.toString(), meta: "Received today", icon: Boxes, trend: "Live", tone: "cyan", view: "orders" as View },
+    { label: "የተጠናቀቁ ትዕዛዞች", en: "Completed orders", value: orderStats.completedOrders.toString(), meta: "All time", icon: Factory, trend: "Live", tone: "green", view: "orders" as View },
+    { label: "በመጠባበቅ ላይ ያሉ", en: "Queue orders", value: orderStats.queueOrders.toString(), meta: "Awaiting production", icon: Gauge, trend: "Live", tone: "gold", view: "orders" as View },
+    { label: "በሂደት ላይ ያሉ", en: "Active production", value: orderStats.activeProductionOrders.toString(), meta: "Currently producing", icon: Trash2, trend: "Live", tone: "violet", view: "orders" as View },
   ];
-  const today = new Date();
-  const isToday = (timestamp: number) => { const date = new Date(timestamp); return date.getFullYear() === today.getFullYear() && date.getMonth() === today.getMonth() && date.getDate() === today.getDate(); };
-  const todaysOrders = orders.filter((order) => isToday(order.createdAt));
-  const todaysActivities = jobs.filter((job) => isToday(Date.parse(job.due))).length + todaysOrders.length;
+  const todaysActivities = jobs.filter((job) => { const d = new Date(); const jd = new Date(job.due); return jd.getFullYear() === d.getFullYear() && jd.getMonth() === d.getMonth() && jd.getDate() === d.getDate(); }).length + orderStats.todaysOrders;
   return (
     <>
-      {orders.length > 0 ? <section className="executive-strip"><button className="executive-card" onClick={() => onView("orders")}><span>EXECUTIVE QUEUE</span><strong>{todaysOrders.length}</strong><small>Orders received today</small></button><div className="executive-card"><span>DAILY ACTIVITY</span><strong>{todaysActivities}</strong><small>Orders and scheduled job activity</small></div><div className="executive-card"><span>STOCK ACCOUNTING</span><strong>{stockValue.toLocaleString("en-US", { maximumFractionDigits: 0 })}</strong><small>Tracked base units, not monetary value</small></div></section> : null}
+      {orders.length > 0 ? <section className="executive-strip"><button className="executive-card" onClick={() => onView("orders")}><span>EXECUTIVE QUEUE</span><strong>{orderStats.todaysOrders}</strong><small>Orders received today</small></button><div className="executive-card"><span>DAILY ACTIVITY</span><strong>{todaysActivities}</strong><small>Orders and scheduled job activity</small></div><div className="executive-card"><span>STOCK ACCOUNTING</span><strong>{stockValue.toLocaleString("en-US", { maximumFractionDigits: 0 })}</strong><small>Tracked base units, not monetary value</small></div></section> : null}
       <section className="stats-grid">
         {stats.map((stat) => {
           const Icon = stat.icon;
@@ -86,35 +85,49 @@ export function Overview({
         <article className="panel production-panel">
           <div className="panel-head">
             <div>
-              <span className="panel-kicker">LIVE PRODUCTION</span>
+              <span className="panel-kicker">MACHINE WORKFLOW</span>
               <h2>የማሽን የሥራ ሁኔታ</h2>
               <p>Machine workflow status</p>
             </div>
-            <button className="text-button" onClick={() => onView("machines")}>
-              ሁሉን ይመልከቱ <MoveUpRight size={15} />
-            </button>
+            <button className="text-button" onClick={() => onView("machines")}>View all <MoveUpRight size={14} /></button>
           </div>
-          <div className="machine-strip">
+          <div className="mw-status-strip">
+            <div className="mw-status-card">
+              <strong>{machines.length}</strong>
+              <span>Total</span>
+            </div>
+            <div className="mw-status-card running">
+              <strong>{machines.filter((m) => m.status === "Running").length}</strong>
+              <span>Running</span>
+            </div>
+            <div className="mw-status-card available">
+              <strong>{machines.filter((m) => m.status === "Available").length}</strong>
+              <span>Available</span>
+            </div>
+            <div className="mw-status-card maintenance">
+              <strong>{machines.filter((m) => m.status === "Maintenance").length}</strong>
+              <span>Maintenance</span>
+            </div>
+            <div className="mw-status-card unavailable">
+              <strong>{machines.filter((m) => m.status === "Unavailable").length}</strong>
+              <span>Unavailable</span>
+            </div>
+          </div>
+          <div className="mw-machine-list">
             {machines.map((machine) => (
-              <div className="machine-row" key={machine.id}>
-                <div className={`machine-symbol ${machine.status === "Running" ? "running" : ""}`}>
-                  {machine.type.includes("Laser") ? <Scissors size={18} /> : machine.type.includes("Printer") ? <Printer size={18} /> : <Command size={18} />}
+              <div className="mw-machine-row" key={machine.id}>
+                <div className={`mw-machine-icon ${machine.status === "Running" ? "running" : ""}`}>
+                  {machine.type.includes("Laser") ? <Scissors size={16} /> : machine.type.includes("Printer") ? <Printer size={16} /> : <Command size={16} />}
                 </div>
-                <div className="machine-main">
-                  <div>
+                <div className="mw-machine-info">
+                  <div className="mw-machine-name">
                     <strong>{machine.name}</strong>
-                    <span>{machine.code} · {machine.type}</span>
+                    <span>{machine.code}</span>
                   </div>
-                  <div className="progress-rail">
-                    <i style={{ width: machine.status === "Running" ? "68%" : "10%" }} />
-                  </div>
+                  <span className="mw-machine-type">{machine.type}</span>
                 </div>
-                <div className="machine-status">
-                  <span className={`status-dot ${statusTone(machine.status)}`} />
-                  {machine.status}
-                  <small>{machine.activeJob || "No assigned job"}</small>
-                </div>
-                <button className="icon-button subtle"><MoreHorizontal size={18} /></button>
+                <span className={`status-pill ${statusTone(machine.status)}`}>{machine.status}</span>
+                <span className="mw-machine-job">{machine.activeJob || "—"}</span>
               </div>
             ))}
           </div>

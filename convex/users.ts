@@ -104,6 +104,21 @@ export const listUsers = query({
  * Better Auth accounts are not deleted here; remove them from the auth side if
  * their sign-in should be fully revoked.
  */
+/**
+ * Deletes a single user profile by ID. Owner-only.
+ */
+export const deleteUser = mutation({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const { profile: actor } = await requirePermission(ctx, "team.manage");
+    if (actor.role !== "owner") throw new Error("Only the owner can delete user profiles.");
+    const target = await ctx.db.get(args.userId);
+    if (!target) throw new Error("User not found.");
+    await ctx.db.delete(args.userId);
+    return { deleted: target.email };
+  },
+});
+
 export const pruneDemoUsers = mutation({
   args: {},
   handler: async (ctx) => {

@@ -62,6 +62,7 @@ export const machineStatus = v.union(
   v.literal("Running"),
   v.literal("Available"),
   v.literal("Maintenance"),
+  v.literal("Unavailable"),
 );
 
 export const priority = v.union(

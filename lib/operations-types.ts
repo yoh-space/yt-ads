@@ -21,7 +21,7 @@ export type MaterialSpecification =
   | "Height (in centimeters)"
   | "Roll Width / Type";
 export type JobStatus = "Queued" | "In production" | "Completed" | "Paused";
-export type MachineStatus = "Running" | "Available" | "Maintenance";
+export type MachineStatus = "Running" | "Available" | "Maintenance" | "Unavailable";
 export type Priority = "High" | "Medium" | "Normal";
 export type CustomerOrderStatus = "Received" | "In Production" | "Ready for Pickup" | "Completed";
 export type OrderPriority = "High" | "Medium" | "Low";
@@ -101,7 +101,7 @@ export type Machine = {
   notes?: string;
   operatorRole: Role;
   materialUnit: Unit;
-  status: "Running" | "Available" | "Maintenance";
+  status: "Running" | "Available" | "Maintenance" | "Unavailable";
   activeJob?: string;
 };
 

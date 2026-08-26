@@ -210,6 +210,21 @@ export const resetSeedData = mutation({
 });
 
 /**
+ * Deletes a user profile by email. Bootstrap/CLI helper — no auth required.
+ */
+export const deleteUserByEmail = mutation({
+  args: { email: v.string() },
+  handler: async (ctx, args) => {
+    await resolveBootstrapActor(ctx);
+    const users = await ctx.db.query("users").collect();
+    const target = users.find((u) => u.email.toLowerCase() === args.email.toLowerCase());
+    if (!target) return { deleted: false, reason: "User not found." };
+    await ctx.db.delete(target._id);
+    return { deleted: true, email: target.email };
+  },
+});
+
+/**
  * Seeds the captured YT Advertisement master data for a fresh database.
  *
  * This intentionally does not create jobs, production logs, stock movements,
@@ -562,11 +577,73 @@ export const seedSampleStock = mutation({
   },
 });
 
+export const seedSingleRoleAccount = mutation({
+  args: { roleName: v.string() },
+  handler: async (ctx, args) => {
+    await resolveBootstrapActor(ctx);
+
+    const ROLE_SEED_DATA: Record<string, { role: Role; name: string; email: string; password: string; staffName?: string }> = {
+      owner: { role: "owner", name: "Yitbarek", email: "ytadvert+owner@gmail.com", password: "password12ow", staffName: "Yitbarek" },
+      manager: { role: "manager", name: "Yordanos", email: "ytadvert+manager@gmail.com", password: "password12ma", staffName: "ዮርዳኖስ" },
+      admin: { role: "admin", name: "Admin User", email: "ytadvert+admin@gmail.com", password: "password12ad" },
+      storekeeper: { role: "storekeeper", name: "Zewuditu", email: "ytadvert+storekeeper@gmail.com", password: "password12st", staffName: "Zewuditu" },
+      laser_operator: { role: "laser_operator", name: "Addisu", email: "ytadvert+laser@gmail.com", password: "password12la", staffName: "Addisu" },
+      cnc_operator: { role: "cnc_operator", name: "Addisu", email: "ytadvert+cnc@gmail.com", password: "password12cn", staffName: "Addisu" },
+      plotter_operator: { role: "plotter_operator", name: "Debas Melaku", email: "ytadvert+plotter@gmail.com", password: "password12pl", staffName: "Debas melaku" },
+      printer_operator: { role: "printer_operator", name: "Surafel", email: "ytadvert+printer@gmail.com", password: "password12pr", staffName: "surafel" },
+    };
+
+    const entry = ROLE_SEED_DATA[args.roleName];
+    if (!entry) throw new Error(`Unknown role: ${args.roleName}. Valid: ${Object.keys(ROLE_SEED_DATA).join(", ")}`);
+
+    const existingProfile = (await ctx.db.query("users").collect()).find(
+      (user) => user.email.toLowerCase() === entry.email,
+    );
+    if (existingProfile) return { created: false, reason: "Profile already exists", email: entry.email };
+
+    const auth = createAuth(ctx);
+    const result = await auth.api.signUpEmail({
+      body: { name: entry.name, email: entry.email, password: entry.password },
+    });
+    const authUser = result.user;
+
+    const profileId = await ctx.db.insert("users", {
+      authUserId: authUser.id,
+      name: entry.name,
+      email: entry.email,
+      role: entry.role,
+      active: true,
+    });
+
+    let linkedStaff = false;
+    if (entry.staffName) {
+      const staff = (await ctx.db.query("staff").collect()).find(
+        (member) => member.personName.toLowerCase() === entry.staffName!.toLowerCase(),
+      );
+      if (staff) {
+        await ctx.db.patch(staff._id, { authUserId: authUser.id });
+        linkedStaff = true;
+      }
+    }
+
+    if (entry.role === "owner") {
+      const settings = await ctx.db
+        .query("companySettings")
+        .withIndex("by_key", (q) => q.eq("key", YT_WORKSPACE_KEY))
+        .unique();
+      if (settings) await ctx.db.patch(settings._id, { ownerAuthUserId: authUser.id });
+    }
+
+    return { created: true, role: entry.role, email: entry.email, profileId, linkedStaff };
+  },
+});
+
 /**
  * One-shot production bootstrap: clears any prior workspace data, seeds the
- * full YT Advertisement master dataset, issues sample opening stock, and
- * creates/promotes the owner account. Run once against the production
- * deployment after `convex deploy`.
+ * full YT Advertisement master dataset, issues sample opening stock,
+ * creates/promotes the owner account, and provisions demo accounts for every
+ * workspace role. Run once against the production deployment after
+ * `convex deploy`.
  */
 export const seedAll = mutation({
   args: { password: v.string() },

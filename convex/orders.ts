@@ -130,6 +130,63 @@ export const generateUploadUrl = mutation({
   handler: async (ctx) => ctx.storage.generateUploadUrl(),
 });
 
+/** Internal walk-in order creation (management roles). */
+export const createWalkIn = mutation({
+  args: {
+    clientName: v.string(),
+    phone: v.string(),
+    serviceType: v.string(),
+    dimensions: v.string(),
+    quantity: v.string(),
+    preferredDueDate: v.number(),
+    priority: v.optional(orderPriority),
+    notes: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { identity } = await requirePermission(ctx, "order.create");
+    const clientName = args.clientName.trim();
+    const phone = normalizePhone(args.phone);
+    const serviceType = args.serviceType.trim();
+    const dimensions = args.dimensions.trim();
+    const quantity = args.quantity.trim();
+    if (!clientName || !phone || !serviceType || !dimensions || !quantity) {
+      throw new Error("Client, phone, service, dimensions, and quantity are required.");
+    }
+    if (!/^\+?[\d ]{7,18}$/.test(phone)) throw new Error("Enter a valid phone number.");
+    if (!Number.isFinite(args.preferredDueDate) || args.preferredDueDate < Date.now() - 60_000) {
+      throw new Error("Preferred due date must be in the future.");
+    }
+
+    const code = `ORD-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+    const now = Date.now();
+    const id = await ctx.db.insert("customerOrders", {
+      code,
+      clientName,
+      phone,
+      serviceType,
+      dimensions,
+      quantity,
+      preferredDueDate: args.preferredDueDate,
+      status: "Received",
+      priority: args.priority ?? "Medium",
+      source: "walk_in",
+      notes: args.notes?.trim() || undefined,
+      createdBy: identity._id,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await notifyOrderRoles(ctx, {
+      title: "New walk-in order created",
+      message: `${code} · ${clientName} requested ${serviceType}.`,
+      type: "order_received",
+      actorAuthUserId: identity._id,
+      relatedTable: "customerOrders",
+      relatedId: id,
+    });
+    return { code, order: publicOrder((await ctx.db.get(id)) as OrderDoc) };
+  },
+});
+
 export const track = query({
   args: { lookup: v.string() },
   handler: async (ctx, args) => {
@@ -210,7 +267,12 @@ export const convertToJob = mutation({
     if (order.jobCardId) throw new Error("This order already has a job card.");
     if (!Number.isFinite(args.quantity) || args.quantity <= 0) throw new Error("Planned material quantity must be greater than zero.");
     if (args.unit !== (material.baseUnit ?? material.unit)) throw new Error("Job unit must match the selected material base unit.");
-    if (machine.status === "Maintenance") throw new Error("Jobs cannot be assigned to a machine in maintenance.");
+    if (machine.status === "Maintenance" || machine.status === "Unavailable") {
+      return { success: false as const, error: `${machine.name} is currently ${machine.status.toLowerCase()} and cannot accept new jobs.` };
+    }
+    if (args.quantity > material.quantity) {
+      return { success: false as const, error: `Stock shortfall — ${material.name} has ${material.quantity} ${material.baseUnit ?? material.unit} available but ${args.quantity} ${args.unit} is required.` };
+    }
 
     const code = `JC-${String(430 + Math.floor(Math.random() * 500)).padStart(4, "0")}`;
     const jobId = await ctx.db.insert("jobCards", {
@@ -238,7 +300,7 @@ export const convertToJob = mutation({
       relatedTable: "customerOrders",
       relatedId: args.orderId,
     });
-    return { jobId, code };
+    return { success: true as const, jobId, code };
   },
 });
 

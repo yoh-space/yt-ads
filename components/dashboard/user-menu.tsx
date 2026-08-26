@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDown, LogOut, Settings } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
@@ -9,7 +9,21 @@ import { initials } from "./helpers";
 
 export function UserMenu({ profile, onOpenSettings }: { profile: Profile | null; onOpenSettings: () => void }) {
   const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => { document.removeEventListener("mousedown", handleClick); document.removeEventListener("keydown", handleKey); };
+  }, [open]);
 
   async function signOut() {
     await authClient.signOut();
@@ -18,8 +32,8 @@ export function UserMenu({ profile, onOpenSettings }: { profile: Profile | null;
 
   const role = profile?.role ?? "storekeeper";
   return (
-    <div className="role-menu-wrap" style={{ position: "relative" }}>
-      <button className="role-menu" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
+    <div className="role-menu-wrap" ref={wrapRef} style={{ position: "relative" }}>
+      <button className="role-menu" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
         <span className="avatar">{profile ? initials(profile.name) : "··"}</span>
         <div>
           <strong>{profile?.name ?? "Team member"}</strong>
@@ -28,21 +42,21 @@ export function UserMenu({ profile, onOpenSettings }: { profile: Profile | null;
         <ChevronDown size={15} />
       </button>
       {open ? (
-        <div className="role-popover" style={{ right: 0, bottom: 48 }}>
+        <div className="role-popover">
           {profile ? (
             <button onClick={() => { onOpenSettings(); setOpen(false); }}>
               <Settings size={15} />
               <span>
-                Account settings
-                <small>Profile and security</small>
+                Settings
+                <small>Profile, security & workspace</small>
               </span>
             </button>
           ) : null}
-          <button onClick={signOut}>
+          <button className="role-popover-signout" onClick={signOut}>
             <LogOut size={15} />
             <span>
               Sign out
-              <small>{roleLabels[role].am}</small>
+              <small>End your session</small>
             </span>
           </button>
         </div>
