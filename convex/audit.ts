@@ -3,7 +3,7 @@ import { v } from "convex/values";
 import { requireActiveProfile } from "./users";
 
 type TimestampValue = number | string;
-type AuditCategory = "inventory" | "production" | "recovery";
+type AuditCategory = "inventory" | "production" | "recovery" | "orders";
 
 type AuditEvent = {
   id: string;
@@ -41,6 +41,7 @@ const category = v.union(
   v.literal("inventory"),
   v.literal("production"),
   v.literal("recovery"),
+  v.literal("orders"),
 );
 
 export const list = query({
@@ -51,7 +52,7 @@ export const list = query({
   handler: async (ctx, args) => {
     await requireActiveProfile(ctx);
     const reference = Date.now();
-    const [users, materials, machines, jobs, productionLogs, stockMovements, offcuts, scraps] = await Promise.all([
+    const [users, materials, machines, jobs, productionLogs, stockMovements, offcuts, scraps, orders] = await Promise.all([
       ctx.db.query("users").collect(),
       ctx.db.query("materials").collect(),
       ctx.db.query("machines").collect(),
@@ -60,6 +61,7 @@ export const list = query({
       ctx.db.query("stockMovements").collect(),
       ctx.db.query("offcuts").collect(),
       ctx.db.query("scraps").collect(),
+      ctx.db.query("customerOrders").collect(),
     ]);
 
     const userNames = new Map(users.map((user) => [user.authUserId, user.name]));
@@ -70,6 +72,19 @@ export const list = query({
 
     function add(event: AuditEvent) {
       if (args.category === "all" || args.category === event.category) events.push(event);
+    }
+
+    for (const order of orders) {
+      add({
+        id: `order-${order._id}`,
+        category: "orders",
+        action: `Order ${order.status}`,
+        actorId: order.createdBy ?? "public-portal",
+        actorName: order.createdBy ? (userNames.get(order.createdBy) ?? order.createdBy) : "Public client",
+        at: order.updatedAt,
+        summary: `${order.code} · ${order.clientName}`,
+        detail: `${order.serviceType} · ${order.priority} priority · Due ${new Date(order.preferredDueDate).toLocaleString("en-ET")}`,
+      });
     }
 
     for (const job of jobs) {
@@ -87,14 +102,16 @@ export const list = query({
 
     for (const movement of stockMovements) {
       const materialName = materialNames.get(movement.materialId) ?? "Unknown material";
-      const action = movement.direction === "in"
-        ? "Stock received"
-        : movement.direction === "offcut_return"
-          ? "Offcut returned"
-          : "Stock issued";
+      const action = movement.movementType === "EXCEPTION_STOCK_OUT"
+        ? "Exception stock-out"
+        : movement.direction === "in"
+          ? "Stock received"
+          : movement.direction === "offcut_return"
+            ? "Offcut returned"
+            : "Stock issued";
       add({
         id: `movement-${movement._id}`,
-        category: movement.direction === "offcut_return" ? "recovery" : "inventory",
+        category: movement.movementType === "EXCEPTION_STOCK_OUT" ? "inventory" : movement.direction === "offcut_return" ? "recovery" : "inventory",
         action,
         actorId: movement.createdBy,
         actorName: userNames.get(movement.createdBy) ?? movement.createdBy,

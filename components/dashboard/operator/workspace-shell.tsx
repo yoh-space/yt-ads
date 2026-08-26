@@ -63,6 +63,7 @@ export function OperatorWorkspaceShell({
               <strong>{job.code}</strong>
               <h3>{job.title}</h3>
               <p>{job.client}</p>
+              {job.orderOverdue ? <div className="operator-overdue"><span>OVERDUE CUSTOMER ORDER</span><strong>Contact the manager before completing handoff</strong></div> : null}
               <div className="job-quantity">
                 <b>{formatQuantity(job.quantity, job.unit)}</b>
                 <span>planned material usage</span>

@@ -78,6 +78,7 @@ export function StockModal({
           >
             {materials.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
           </select>
+          {material?.specification ? <small className="settings-help">{material.specification}{material.specificationValue ? `: ${material.specificationValue}` : " — choose the configured variant in master data"}</small> : null}
         </label>
         <div className="two-field">
           <label>Purchase quantity<input type="number" min="0.001" step="0.001" value={quantity} onChange={(event) => setQuantity(Number(event.target.value))} /></label>

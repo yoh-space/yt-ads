@@ -65,6 +65,8 @@ All persistent operations must be performed through Convex handlers rather than 
 
 Stock-in converts the selected purchase unit into the material’s normalized base unit using `conversionRatio` before updating inventory and recording both entered and normalized quantities. Production logging consumes base units directly, inserts a `productionLogs` record, and creates a corresponding stock-movement audit row. Completing a job records any remaining planned input with zero waste before releasing the machine. Scrap records deduct stock and create an auditable outbound movement. Reusable square-meter offcuts increase material stock and create an `offcut_return` movement.
 
+Each raw-material entity may also define a canonical specification family, a selected specification value, and a strict option list. The current catalog covers Neon Light colors, Banner roll weight/size, Foam and Acrylic thickness, Mica Sheet finish, Canvas roll width/type, Machine Ink type/color configuration, Power Supply wattage, LED Module / Strip colors, and Zocolo height. These definitions are centralized in `shared/material-specifications.ts` and are enforced by both the material form and the Convex create validator.
+
 ## Environment variables
 
 | Variable | Purpose |

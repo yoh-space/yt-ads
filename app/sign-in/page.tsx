@@ -19,7 +19,7 @@ export default function SignInPage() {
     setError(null);
     setLoading(true);
     try {
-      const result = await authClient.signIn.social({ provider: "google", callbackURL: "/" });
+      const result = await authClient.signIn.social({ provider: "google", callbackURL: "/dashboard" });
       if (result.error) throw new Error(result.error.message ?? "Google sign-in failed.");
       if (result.data?.url) window.location.assign(result.data.url);
     } catch (err) {
@@ -35,7 +35,7 @@ export default function SignInPage() {
     try {
       await authClient.signIn.email({ email, password });
       await ensureProfile().catch(() => {});
-      router.push("/");
+      router.push("/dashboard");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign in failed.");

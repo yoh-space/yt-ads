@@ -28,6 +28,36 @@ export const jobStatus = v.union(
   v.literal("Paused"),
 );
 
+export const orderStatus = v.union(
+  v.literal("Received"),
+  v.literal("In Production"),
+  v.literal("Ready for Pickup"),
+  v.literal("Completed"),
+);
+
+export const orderPriority = v.union(
+  v.literal("High"),
+  v.literal("Medium"),
+  v.literal("Low"),
+);
+
+export const orderSource = v.union(
+  v.literal("public_portal"),
+  v.literal("walk_in"),
+);
+
+export const exceptionReason = v.union(
+  v.literal("Sample Print"),
+  v.literal("Minor Repair"),
+  v.literal("Test Cut"),
+  v.literal("Internal Maintenance"),
+);
+
+export const stockMovementType = v.union(
+  v.literal("STANDARD"),
+  v.literal("EXCEPTION_STOCK_OUT"),
+);
+
 export const machineStatus = v.union(
   v.literal("Running"),
   v.literal("Available"),
@@ -90,6 +120,10 @@ export const notificationType = v.union(
   v.literal("job_update"),
   v.literal("machine_update"),
   v.literal("account_update"),
+  v.literal("order_received"),
+  v.literal("order_status"),
+  v.literal("overdue_order"),
+  v.literal("exception_stock_out"),
 );
 
 export default defineSchema({
@@ -153,6 +187,9 @@ export default defineSchema({
     baseUnit: v.optional(unit),
     purchaseUnit: v.optional(purchaseUnit),
     conversionRatio: v.optional(v.number()),
+    specification: v.optional(v.string()),
+    specificationValue: v.optional(v.string()),
+    specificationOptions: v.optional(v.array(v.string())),
     quantity: v.number(),
     reorderAt: v.number(),
     rollEquivalent: v.optional(v.number()),
@@ -211,10 +248,50 @@ export default defineSchema({
     unit: stockInputUnit,
     baseUnit: v.optional(unit),
     baseQuantity: v.optional(v.number()),
+    movementType: v.optional(stockMovementType),
+    exceptionReason: v.optional(v.string()),
     note: v.string(),
     createdBy: v.string(),
     createdAt: v.number(),
   }).index("by_material", ["materialId"]),
+
+  customerOrders: defineTable({
+    code: v.string(),
+    clientName: v.string(),
+    phone: v.string(),
+    serviceType: v.string(),
+    dimensions: v.string(),
+    quantity: v.string(),
+    fileStorageId: v.optional(v.id("_storage")),
+    fileName: v.optional(v.string()),
+    preferredDueDate: v.number(),
+    status: orderStatus,
+    priority: orderPriority,
+    source: orderSource,
+    notes: v.optional(v.string()),
+    machineId: v.optional(v.id("machines")),
+    jobCardId: v.optional(v.id("jobCards")),
+    createdBy: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    overdueInquiryAt: v.optional(v.number()),
+    lastOverdueNotifiedAt: v.optional(v.number()),
+  })
+    .index("by_code", ["code"])
+    .index("by_phone", ["phone"])
+    .index("by_status", ["status"])
+    .index("by_due_date", ["preferredDueDate"]),
+
+  stockExceptions: defineTable({
+    materialId: v.id("materials"),
+    quantity: v.number(),
+    unit,
+    baseQuantity: v.number(),
+    reason: exceptionReason,
+    authorizationNote: v.optional(v.string()),
+    createdBy: v.string(),
+    createdAt: v.number(),
+  }).index("by_created", ["createdAt"]),
 
   jobCards: defineTable({
     code: v.string(),
@@ -229,6 +306,7 @@ export default defineSchema({
     priority,
     createdBy: v.string(),
     createdAt: v.number(),
+    orderId: v.optional(v.id("customerOrders")),
   })
     .index("by_status", ["status"])
     .index("by_machine", ["machineId"]),

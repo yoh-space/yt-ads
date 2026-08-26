@@ -11,6 +11,7 @@ const filters: Array<{ id: AuditCategory; label: string; english: string }> = [
   { id: "inventory", label: "ክምችት", english: "Inventory" },
   { id: "production", label: "ምርት", english: "Production" },
   { id: "recovery", label: "ቅሪት/ብክነት", english: "Recovery" },
+  { id: "orders", label: "ትዕዛዞች", english: "Orders" },
 ];
 
 function formatActivityTime(timestamp: number) {
@@ -27,6 +28,7 @@ function activityIcon(category: Exclude<AuditCategory, "all">) {
   if (category === "inventory") return Boxes;
   if (category === "recovery") return Scissors;
   if (category === "production") return Factory;
+  if (category === "orders") return ClipboardList;
   return ClipboardList;
 }
 

@@ -79,15 +79,15 @@ For example, receiving two Banner rolls applies `2 × 160 = 320 m²` to the mate
 | Banner Ink | Ink | `liter` | `L` | 1 | `ሊትር` | Direct count |
 | Print and Cut INK | Ink | `liter` | `L` | 1 | `ሊትር` | Direct count |
 | UV Flat bed Ink | Ink | `liter` | `L` | 1 | `ሊትር` | Direct count |
-| LED | Electrical | `pack` | `pcs` | 20 | `ቁጥር` | Pack of 20 |
+| LED Module / Strip | Electrical | `pack` | `pcs` | 20 | `ቁጥር` | Pack of 20; color options are defined in the structured specification catalog |
 | Normal Sticker | Sticker roll | `roll` | `m²` | 63.5 | `ሮል` | 1.27m × 50m |
 | Frosted Sticker | Sticker roll | `roll` | `m²` | 63.5 | `ሮል` | 1.27m × 50m |
 | Transparent Sticker | Sticker roll | `roll` | `m²` | 63.5 | `ሮል` | 1.27m × 50m |
 | Reflective Sticker | Sticker roll | `roll` | `m²` | 63.5 | `ሮል` | 1.27m × 50m |
 | Mush Sticker | Sticker roll | `roll` | `m²` | 63.5 | `ሮል` | Source name retained; supplied prompt calls this Mesh in the rule description |
-| Mica | Rigid sheet | `piece` | `piece` | 1 | `ቁጥር` | Physical sheet dimensions pending |
+| Mica Sheet | Rigid sheet | `piece` | `pcs` | 1 | `ቁጥር` | Color/finish options are defined in the structured specification catalog |
 | PVC Film | Film | `roll` | `m²` | — | `ሮል` | Roll dimensions not confirmed; stock-in roll conversion is intentionally blocked |
-| Canvas | Fabric roll | `roll` | `m²` | 45.6 | `ሮል` | 1.52m × 30m |
+| Canvas (Canva) | Fabric roll | `roll` | `m²` | 45.6 | `ሮል` | 1.52m × 30m; width/type options are defined in the structured specification catalog |
 | Neon Light | Electrical | `roll` | `m` | 5 | `ሜትር` | Roll of 5m |
 | Power Supply | Electrical | `piece` | `pcs` | 1 | `ቁጥር` | Direct count |
 | Foam | Foam board | `sheet` | `m²` | 2.977 | `ቁጥር` | 1.22m × 2.44m |
@@ -95,7 +95,7 @@ For example, receiving two Banner rolls applies `2 × 160 = 320 m²` to the mate
 | ROLE UP DELUX | Finished component | `piece` | `pcs` | 1 | `ቁጥር` | Direct count |
 | ROLE UP STANDARD | Finished component | `piece` | `pcs` | 1 | `ቁጥር` | Direct count |
 | VINNER | Finished component | `piece` | `pcs` | 1 | `ቁጥር` | Direct count |
-| ZOCOLO | Finished component | `piece` | `pcs` | 1 | `ቁጥር` | Direct count |
+| Zocolo (Base / Skirting) | Finished component | `piece` | `pcs` | 1 | `ቁጥር` | Height options: 8 cm or 6 cm |
 | LED LIGHT BOX A1 | Display hardware | `piece` | `pcs` | 1 | `ቁጥር` | Direct count |
 | LED LIGHT BOX A2 | Display hardware | `piece` | `pcs` | 1 | `ቁጥር` | Direct count |
 
@@ -158,3 +158,26 @@ git diff --check
 ```
 
 The requirement seed and migration mutations are exposed from `convex/seed.ts`. Authenticated Convex deployment access is required to run them against the remote deployment. Never place deployment secrets, access keys, session identifiers, or passwords in Git, source code, seed data, or documentation.
+
+## Structured material specifications
+
+The material seed now persists `specification`, `specificationOptions`, and an optional `specificationValue`. The material creation form uses the same catalog and the Convex create mutation validates selected values against the canonical options.
+
+| Material | Specification | Standard options |
+|---|---|---|
+| Neon Light | Color Type | White (Warm White, Cool White), Red, Blue, Green, Yellow, Orange, Pink, Purple, RGB (Color-Changing), Neon Spot/Fluorescent Tones (Pink, Yellow, Orange, Green) |
+| Banner | Roll Weight & Size | 2 Meter Roll Weight; 3 Meter Roll Weight |
+| Foam | Thickness / Size (in millimeters) | 18mm; 10mm; 8mm; 5mm; 3mm |
+| Mica Sheet | Color Type / Finish | White; Black; Red; Blue; Green; Yellow; Clear/Transparent; Translucent; Silver Metallic; Gold Metallic; Mirror/Frosted |
+| Acrylic | Thickness (in millimeters) | 18mm; 10mm; 8mm; 5mm; 3mm |
+| Canvas (Canva) | Roll Width / Type (in meters) | 1.4 Meter; 1.0 Meter |
+| Machine Ink records | Ink Type & Color Config | CMYK; Expanded Gamut / Light Inks; Specialty Inks; Eco-Solvent, Solvent, UV-Curing Ink, Sublimation Ink |
+| Power Supply | Wattage | 60 Watt; 400 Watt |
+| LED Module / Strip | Color Type | Cool White (6000K-6500K); Warm White (3000K); Red; Green; Blue; Yellow; Amber; RGB (Multi-Color); RGBW |
+| Zocolo (Base / Skirting) | Height (in centimeters) | 8 cm; 6 cm |
+
+The canonical definitions live in `shared/material-specifications.ts`. Earlier names such as `LED`, `Mica`, `Canvas`, and `ZOCOLO` are treated as migration aliases and are normalized to the new canonical names. PVC Film intentionally has no conversion ratio until its physical roll dimensions are verified.
+
+## Applying the revised master data
+
+For a fresh workspace, run `seedYtAdvertisementWorkspace`. For an already seeded workspace with operational records, run `migrateYtAdvertisementMasterData`; this updates material definitions by canonical name or known alias without deleting history, changing current balances, or creating historical movements. Verify the selected specification variant with the storekeeper before live stock receipts.

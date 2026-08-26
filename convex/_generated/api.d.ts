@@ -19,6 +19,7 @@ import type * as materials from "../materials.js";
 import type * as notificationHelpers from "../notificationHelpers.js";
 import type * as notifications from "../notifications.js";
 import type * as offcuts from "../offcuts.js";
+import type * as orders from "../orders.js";
 import type * as reports from "../reports.js";
 import type * as seed from "../seed.js";
 import type * as types from "../types.js";
@@ -44,6 +45,7 @@ declare const fullApi: ApiFromModules<{
   notificationHelpers: typeof notificationHelpers;
   notifications: typeof notifications;
   offcuts: typeof offcuts;
+  orders: typeof orders;
   reports: typeof reports;
   seed: typeof seed;
   types: typeof types;

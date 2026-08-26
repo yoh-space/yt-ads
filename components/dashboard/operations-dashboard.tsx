@@ -10,7 +10,7 @@ import {
   Scissors,
   Trash2,
 } from "lucide-react";
-import type { JobCard, Machine, Material, MaterialRequest, Offcut, Profile, Role, ScrapLog } from "@/lib/operations-types";
+import type { CustomerOrder, JobCard, Machine, Material, MaterialRequest, Offcut, Profile, Role, ScrapLog, StockException } from "@/lib/operations-types";
 import { Sidebar } from "./sidebar";
 import { InventoryLoader } from "./inventory-loader";
 import { Topbar } from "./topbar";
@@ -21,6 +21,7 @@ import { MachinesView } from "./views/machines";
 import { OffcutsView } from "./views/offcuts";
 import { ReportsView } from "./views/reports";
 import { AuditLogView } from "./views/audit-log";
+import { OrdersView, OrderConvertModal } from "./views/orders";
 import { StockModal } from "./modals/stock-modal";
 import { JobModal, type NewJobInput } from "./modals/job-modal";
 import { OffcutModal, type NewOffcutInput } from "./modals/offcut-modal";
@@ -28,6 +29,7 @@ import { MaterialModal, type NewMaterialInput } from "./modals/material-modal";
 import { ScrapModal, type NewScrapInput } from "./modals/scrap-modal";
 import { MachineModal, type NewMachineInput } from "./modals/machine-modal";
 import { MaterialRequestModal, type NewMaterialRequestInput } from "./modals/material-request-modal";
+import { ExceptionStockModal } from "./modals/exception-stock-modal";
 import { AccountSettingsModal } from "./modals/account-settings-modal";
 import { navItems, type Modal, type View } from "./nav-config";
 
@@ -44,7 +46,12 @@ export function OperationsDashboard() {
   const profile = useQuery(api.users.getCurrentProfile);
   const companySettings = useQuery(api.users.getCompanySettings);
   const state = useQuery(api.dashboard.getState);
+  const role = profile?.role ?? "admin";
+  const canViewOrders = Boolean(profile && ["owner", "manager", "admin", "storekeeper"].includes(role));
+  const canManageOrders = Boolean(profile && ["owner", "manager", "admin"].includes(role));
   const materialRequests = useQuery(api.materialRequests.list, profile ? {} : "skip");
+  const ordersQuery = useQuery(api.orders.list, canViewOrders ? {} : "skip");
+  const exceptionsQuery = useQuery(api.orders.listExceptions, canViewOrders ? {} : "skip");
 
   const ensureProfile = useMutation(api.users.ensureProfile);
   const recordStockMovement = useMutation(api.materials.recordStockMovement);
@@ -58,12 +65,17 @@ export function OperationsDashboard() {
   const createMaterialRequest = useMutation(api.materialRequests.create);
   const issueMaterialRequest = useMutation(api.materialRequests.issue);
   const acknowledgeMaterialRequest = useMutation(api.materialRequests.acknowledge);
+  const convertOrder = useMutation(api.orders.convertToJob);
+  const updateOrderStatus = useMutation(api.orders.setStatus);
+  const recordExceptionStockOut = useMutation(api.orders.recordExceptionStockOut);
+  const notifyOverdue = useMutation(api.orders.notifyOverdue);
 
   const [activeView, setActiveView] = useState<View>("overview");
   const [modal, setModal] = useState<Modal>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [convertOrderTarget, setConvertOrderTarget] = useState<CustomerOrder | null>(null);
   const [notice, setNotice] = useState("የዛሬ ሥራ በቅጽበት እየተመዘገበ ነው");
 
   useEffect(() => {
@@ -72,17 +84,29 @@ export function OperationsDashboard() {
     }
   }, [profile, ensureProfile]);
 
-  if (state === undefined || profile === undefined || companySettings === undefined || materialRequests === undefined) {
+  useEffect(() => {
+    if (canManageOrders && ordersQuery) void notifyOverdue({}).catch(() => {});
+  }, [canManageOrders, notifyOverdue, ordersQuery]);
+
+  useEffect(() => {
+    if (profile && ["laser_operator", "cnc_operator", "plotter_operator", "printer_operator"].includes(profile.role) && activeView === "overview") {
+      setActiveView("machines");
+    }
+  }, [activeView, profile]);
+
+  if (state === undefined || profile === undefined || companySettings === undefined || materialRequests === undefined || (canViewOrders && (ordersQuery === undefined || exceptionsQuery === undefined))) {
     return <InventoryLoader />;
   }
 
-  const role: Role = profile?.role ?? "admin";
+  const resolvedRole: Role = profile?.role ?? "admin";
   const materials = withIds(state.materials) as Material[];
   const machines = withIds(state.machines) as Machine[];
   const jobs = withIds(state.jobs) as JobCard[];
   const offcuts = withIds(state.offcuts) as Offcut[];
   const scraps = withIds(state.scraps) as ScrapLog[];
   const requests = withIds(materialRequests) as MaterialRequest[];
+  const orders = canViewOrders ? (withIds(ordersQuery ?? []) as CustomerOrder[]) : [];
+  const exceptions = canViewOrders ? (withIds(exceptionsQuery ?? []) as StockException[]) : [];
   const resolvedProfile: Profile | null = profile ? { ...profile, id: profile._id } : null;
 
   const filteredMachines = role === "owner" || role === "manager" || role === "admin" || role === "storekeeper"
@@ -163,6 +187,7 @@ export function OperationsDashboard() {
         runningJobsCount={runningJobs.length}
         companyName={companySettings?.companyName}
         logoUrl={companySettings?.logoUrl}
+        role={resolvedRole}
       />
 
       {mobileNavOpen ? (
@@ -194,6 +219,7 @@ export function OperationsDashboard() {
             <div className="heading-actions">
               {activeView === "inventory" ? (
                 <>
+                  {canManageOrders ? <button className="button secondary" onClick={() => setModal("exception")}><ArrowDownRight size={16} />Direct exception</button> : null}
                   <button className="button secondary" onClick={() => setModal("stock")}><ArrowDownRight size={16} />Stock movement</button>
                   <button className="button primary" onClick={() => setModal("material")}><Plus size={16} />እቃ ጨምር</button>
                 </>
@@ -215,6 +241,7 @@ export function OperationsDashboard() {
               materials={materials}
               machines={machines}
               jobs={jobs}
+              orders={orders}
               lowStock={lowStock}
               stockValue={stockValue}
               waste={averageWaste}
@@ -222,13 +249,16 @@ export function OperationsDashboard() {
               onComplete={completeJob}
             />
           ) : null}
+          {activeView === "orders" ? <OrdersView orders={orders} machines={machines} materials={materials} canManage={canManageOrders} onConvert={setConvertOrderTarget} onStatus={(orderId, status) => finishMutation(updateOrderStatus({ orderId: orderId as Id<"customerOrders">, status }), `Order status updated to ${status}`)} /> : null}
           {activeView === "inventory" ? (
             <InventoryView
               materials={materials}
               lowStock={lowStock}
               requests={requests}
-              role={role}
+              role={resolvedRole}
               onStock={() => setModal("stock")}
+              onException={() => setModal("exception")}
+              exceptions={exceptions}
               onAdd={() => setModal("material")}
               onRequest={() => setModal("request")}
               onIssue={issueMaterial}
@@ -242,7 +272,7 @@ export function OperationsDashboard() {
             <MachinesView
               machines={filteredMachines}
               jobs={jobs}
-              role={role}
+              role={resolvedRole}
               onCreate={() => setModal("machine")}
               onOffcut={() => setModal("offcut")}
               onScrap={() => setModal("scrap")}
@@ -258,6 +288,7 @@ export function OperationsDashboard() {
         </div>
       </main>
 
+      {modal === "exception" ? <ExceptionStockModal materials={materials} onClose={() => setModal(null)} onSave={(input) => finishMutation(recordExceptionStockOut({ materialId: input.materialId as Id<"materials">, quantity: input.quantity, unit: input.unit, reason: input.reason, authorizationNote: input.authorizationNote }), "Direct exception stock-out recorded")} /> : null}
       {modal === "stock" ? (
         <StockModal
           materials={materials}
@@ -336,6 +367,7 @@ export function OperationsDashboard() {
           onSave={requestMaterial}
         />
       ) : null}
+      {convertOrderTarget ? <OrderConvertModal order={convertOrderTarget} machines={machines} materials={materials} onClose={() => setConvertOrderTarget(null)} onSave={(input) => finishMutation(convertOrder({ orderId: convertOrderTarget.id as Id<"customerOrders">, machineId: input.machineId as Id<"machines">, materialId: input.materialId as Id<"materials">, quantity: input.quantity, unit: input.unit, priority: input.priority }).then(() => setConvertOrderTarget(null)), "Order converted to a job card")} /> : null}
       {settingsOpen && resolvedProfile ? (
         <AccountSettingsModal profile={resolvedProfile} onClose={() => setSettingsOpen(false)} />
       ) : null}

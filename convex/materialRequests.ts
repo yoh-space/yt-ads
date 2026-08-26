@@ -163,7 +163,7 @@ export const acknowledge = mutation({
     }
     const job = await ctx.db.get(request.jobCardId);
     const machine = job ? await ctx.db.get(job.machineId) : undefined;
-    if (!canAccessMaterialRequest(profile.role, identity._id, request, machine)) {
+    if (!canAccessMaterialRequest(profile.role, identity._id, request, machine ?? undefined)) {
       throw new Error("You cannot acknowledge this material request.");
     }
     await ctx.db.patch(args.requestId, {

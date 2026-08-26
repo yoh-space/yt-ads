@@ -6,6 +6,7 @@ import { authComponent, createAuth } from "./auth";
 import { requireAdmin } from "./users";
 import { convertToBase, type InputUnit } from "./units";
 import { api } from "./_generated/api";
+import { MATERIAL_SPECIFICATIONS, type MaterialSpecificationDefinition } from "../shared/material-specifications";
 
 /**
  * Populates the demo operations dataset (materials, machines, job cards,
@@ -17,30 +18,39 @@ export async function seedDemoData(ctx: MutationCtx, createdById: string) {
     return { seeded: false };
   }
 
-  const matBanner = await ctx.db.insert("materials", {
-    name: "Frontlit Banner 440gsm", category: "Banner roll", unit: "m²",
-    quantity: 286, reorderAt: 160, rollEquivalent: 160, accent: "cyan", active: true,
-  });
-  const matAcrylic = await ctx.db.insert("materials", {
-    name: "Acrylic Clear 3mm", category: "Sheet", unit: "m²",
-    quantity: 54.8, reorderAt: 65, sheetEquivalent: 2.98, accent: "violet", active: true,
-  });
-  const matVinyl = await ctx.db.insert("materials", {
-    name: "Premium Vinyl Gloss", category: "Vinyl roll", unit: "m",
-    quantity: 417, reorderAt: 240, rollEquivalent: 50, accent: "gold", active: true,
-  });
-  const matLed = await ctx.db.insert("materials", {
-    name: "LED Module 1.5W", category: "Electrical", unit: "piece",
-    quantity: 1260, reorderAt: 800, accent: "blue", active: true,
-  });
-  const matInk = await ctx.db.insert("materials", {
-    name: "UV Ink — Cyan", category: "Ink", unit: "L",
-    quantity: 18.2, reorderAt: 12, accent: "green", active: true,
-  });
-  const matMdf = await ctx.db.insert("materials", {
-    name: "MDF Board 18mm", category: "Sheet", unit: "m²",
-    quantity: 91.4, reorderAt: 45, sheetEquivalent: 2.98, accent: "gold", active: true,
-  });
+  const definition = (name: string): MaterialSpecificationDefinition => {
+    const material = MATERIAL_SPECIFICATIONS.find((entry) => entry.name === name);
+    if (!material) throw new Error(`Missing demo material definition: ${name}`);
+    return material;
+  };
+  const createDemoMaterial = (material: MaterialSpecificationDefinition, quantity: number, reorderAt: number, accent: "cyan" | "gold" | "violet" | "blue" | "green", specificationValue?: string) =>
+    ctx.db.insert("materials", {
+      name: material.name,
+      category: material.category,
+      unit: material.baseUnit,
+      baseUnit: material.baseUnit,
+      purchaseUnit: material.purchaseUnit,
+      conversionRatio: material.conversionRatio,
+      rollEquivalent: material.purchaseUnit === "roll" ? material.conversionRatio : undefined,
+      sheetEquivalent: material.purchaseUnit === "sheet" ? material.conversionRatio : undefined,
+      displayUnit: material.displayUnit,
+      specification: material.specification,
+      specificationValue,
+      specificationOptions: material.specificationOptions ? [...material.specificationOptions] : undefined,
+      quantity,
+      reorderAt,
+      storageLocation: material.storageLocation,
+      averageUse: material.averageUse,
+      accent,
+      active: true,
+    });
+
+  const matBanner = await createDemoMaterial(definition("Banner"), 286, 160, "cyan", "3 Meter Roll Weight");
+  const matAcrylic = await createDemoMaterial(definition("Acrylic"), 54.8, 65, "violet", "3mm");
+  const matVinyl = await createDemoMaterial(definition("Normal Sticker"), 417, 240, "gold", "1.27 Meter × 50 Meter Roll");
+  const matLed = await createDemoMaterial(definition("LED Module / Strip"), 1260, 800, "blue", "Cool White (6000K-6500K)");
+  const matInk = await createDemoMaterial(definition("DTF Ink"), 18.2, 12, "green", "CMYK (Cyan, Magenta, Yellow, Key/Black)");
+  const matMdf = await createDemoMaterial(definition("Foam"), 91.4, 45, "gold", "18mm");
 
   const mLaser = await ctx.db.insert("machines", {
     name: "Laser Cutter 1325", code: "LAS-01", type: "Laser cutter",
@@ -93,7 +103,7 @@ export async function seedDemoData(ctx: MutationCtx, createdById: string) {
     createdBy: createdById, createdAt: "08:25",
   });
   await ctx.db.insert("offcuts", {
-    materialId: matMdf, label: "MDF Board 18mm", width: 0.9, length: 0.6,
+    materialId: matMdf, label: "Foam · 18mm", width: 0.9, length: 0.6,
     area: 0.54, location: "Rack C · Slot 02", usable: true, status: "available",
     createdBy: createdById, createdAt: "Yesterday",
   });
@@ -128,34 +138,7 @@ const YT_MACHINE_MASTER_DATA = [
   { name: "UV Flatbed Printer", code: "UVF-01", type: "UV Flat bed", manufacturer: "Crystal", model: "Industrial UV Flatbed", capability: "Direct-to-Rigid Board", operatorRole: "printer_operator" as const, materialUnit: "m²" as const, displayUnit: "m²", status: "Available" as const },
 ] as const;
 
-const YT_MATERIAL_MASTER_DATA = [
-  ["Banner", "Banner", "m²", "roll", 160, "ሮል"],
-  ["DTF Film", "Film", "m", "roll", 100, "ሮል", "Store", "Based on customer requirement"],
-  ["Acrylic", "Rigid sheet", "m²", "sheet", 2.977, "ቁጥር", "", "1.22m × 2.44m sheet"],
-  ["DTF Ink", "Ink", "L", "liter", 1, "ሊትር"],
-  ["Banner Ink", "Ink", "L", "liter", 1, "ሊትር"],
-  ["Print and Cut INK", "Ink", "L", "liter", 1, "ሊትር"],
-  ["UV Flat bed Ink", "Ink", "L", "liter", 1, "ሊትር"],
-  ["LED", "Electrical", "pcs", "pack", 20, "ቁጥር", "", "Pack of 20"],
-  ["Normal Sticker", "Sticker roll", "m²", "roll", 63.5, "ሮል", "", "1.27m × 50m roll"],
-  ["Frosted Sticker", "Sticker roll", "m²", "roll", 63.5, "ሮል", "", "1.27m × 50m roll"],
-  ["Transparent Sticker", "Sticker roll", "m²", "roll", 63.5, "ሮል", "", "1.27m × 50m roll"],
-  ["Reflective Sticker", "Sticker roll", "m²", "roll", 63.5, "ሮል", "", "1.27m × 50m roll"],
-  ["Mush Sticker", "Sticker roll", "m²", "roll", 63.5, "ሮል", "", "1.27m × 50m roll; source label retained as Mush Sticker"],
-  ["Mica", "Rigid sheet", "pcs", "piece", 1, "ቁጥር"],
-  ["PVC Film", "Film", "m²", "roll", undefined, "ሮል", "", "Roll conversion requires physical confirmation"],
-  ["Canvas", "Fabric roll", "m²", "roll", 45.6, "ሮል", "", "1.52m × 30m roll"],
-  ["Neon Light", "Electrical", "m", "roll", 5, "ሜትር", "", "Roll of 5m"],
-  ["Power Supply", "Electrical", "pcs", "piece", 1, "ቁጥር"],
-  ["Foam", "Foam board", "m²", "sheet", 2.977, "ቁጥር", "", "1.22m × 2.44m sheet"],
-  ["AMIR", "Finished component", "pcs", "piece", 1, "ቁጥር"],
-  ["ROLE UP DELUX", "Finished component", "pcs", "piece", 1, "ቁጥር"],
-  ["ROLE UP STANDARD", "Finished component", "pcs", "piece", 1, "ቁጥር"],
-  ["VINNER", "Finished component", "pcs", "piece", 1, "ቁጥር"],
-  ["ZOCOLO", "Finished component", "pcs", "piece", 1, "ቁጥር"],
-  ["LED LIGHT BOX A1", "Display hardware", "pcs", "piece", 1, "ቁጥር"],
-  ["LED LIGHT BOX A2", "Display hardware", "pcs", "piece", 1, "ቁጥር"],
-] as const;
+const YT_MATERIAL_MASTER_DATA = MATERIAL_SPECIFICATIONS;
 
 /**
  * Resolves the calling actor for bootstrap (seed/reset) mutations.
@@ -191,6 +174,10 @@ export async function clearWorkspaceData(ctx: MutationCtx) {
   for (const record of offcuts) await ctx.db.delete(record._id);
   const scraps = await ctx.db.query("scraps").collect();
   for (const record of scraps) await ctx.db.delete(record._id);
+  const stockExceptions = await ctx.db.query("stockExceptions").collect();
+  for (const record of stockExceptions) await ctx.db.delete(record._id);
+  const customerOrders = await ctx.db.query("customerOrders").collect();
+  for (const record of customerOrders) await ctx.db.delete(record._id);
   const jobCards = await ctx.db.query("jobCards").collect();
   for (const record of jobCards) await ctx.db.delete(record._id);
   const stockMovements = await ctx.db.query("stockMovements").collect();
@@ -280,22 +267,23 @@ export const seedYtAdvertisementWorkspace = mutation({
 
     const materialRecords = YT_MATERIAL_MASTER_DATA;
     const accents = ["cyan", "violet", "gold", "green", "blue"] as const;
-    for (const [index, record] of materialRecords.entries()) {
-      const [name, category, unit, purchaseUnit, conversionRatio, displayUnit, storageLocation, averageUse] = record;
+    for (const [index, material] of materialRecords.entries()) {
       await ctx.db.insert("materials", {
-        name,
-        category,
-        unit,
-        baseUnit: unit,
-        purchaseUnit,
-        conversionRatio,
-        rollEquivalent: purchaseUnit === "roll" ? conversionRatio : undefined,
-        sheetEquivalent: purchaseUnit === "sheet" ? conversionRatio : undefined,
-        displayUnit,
+        name: material.name,
+        category: material.category,
+        unit: material.baseUnit,
+        baseUnit: material.baseUnit,
+        purchaseUnit: material.purchaseUnit,
+        conversionRatio: material.conversionRatio,
+        rollEquivalent: material.purchaseUnit === "roll" ? material.conversionRatio : undefined,
+        sheetEquivalent: material.purchaseUnit === "sheet" ? material.conversionRatio : undefined,
+        displayUnit: material.displayUnit,
+        specification: material.specification,
+        specificationOptions: material.specificationOptions ? [...material.specificationOptions] : undefined,
         quantity: 0,
         reorderAt: 0,
-        storageLocation: storageLocation || undefined,
-        averageUse: averageUse || undefined,
+        storageLocation: material.storageLocation,
+        averageUse: material.averageUse,
         accent: accents[index % accents.length],
         active: true,
       });
@@ -453,27 +441,29 @@ export const migrateYtAdvertisementMasterData = mutation({
     let materialsPatched = 0;
     let materialsInserted = 0;
     const accents = ["cyan", "violet", "gold", "green", "blue"] as const;
-    for (const [index, record] of YT_MATERIAL_MASTER_DATA.entries()) {
-      const [name, category, unit, purchaseUnit, conversionRatio, displayUnit, storageLocation, averageUse] = record;
-      const existing = existingMaterials.find((material) => material.name.toLowerCase() === name.toLowerCase());
+    for (const [index, material] of YT_MATERIAL_MASTER_DATA.entries()) {
+      const names = [material.name, ...(material.aliases ?? [])].map((name) => name.toLowerCase());
+      const existing = existingMaterials.find((record) => names.includes(record.name.toLowerCase()));
       const masterFields = {
-        category,
-        unit,
-        baseUnit: unit,
-        purchaseUnit,
-        conversionRatio,
-        rollEquivalent: purchaseUnit === "roll" ? conversionRatio : undefined,
-        sheetEquivalent: purchaseUnit === "sheet" ? conversionRatio : undefined,
-        displayUnit,
-        storageLocation: storageLocation || undefined,
-        averageUse: averageUse || undefined,
+        name: material.name,
+        category: material.category,
+        unit: material.baseUnit,
+        baseUnit: material.baseUnit,
+        purchaseUnit: material.purchaseUnit,
+        conversionRatio: material.conversionRatio,
+        rollEquivalent: material.purchaseUnit === "roll" ? material.conversionRatio : undefined,
+        sheetEquivalent: material.purchaseUnit === "sheet" ? material.conversionRatio : undefined,
+        displayUnit: material.displayUnit,
+        specification: material.specification,
+        specificationOptions: material.specificationOptions ? [...material.specificationOptions] : undefined,
+        storageLocation: material.storageLocation,
+        averageUse: material.averageUse,
       };
       if (existing) {
         await ctx.db.patch(existing._id, masterFields);
         materialsPatched += 1;
       } else {
         await ctx.db.insert("materials", {
-          name,
           ...masterFields,
           quantity: 0,
           reorderAt: 0,
@@ -510,6 +500,7 @@ function sampleOpeningQuantity(unit: string): number {
     case "m":
       return 120;
     case "piece":
+    case "pcs":
       return 250;
     case "L":
       return 24;
