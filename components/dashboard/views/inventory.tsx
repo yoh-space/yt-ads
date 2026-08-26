@@ -34,7 +34,7 @@ export function InventoryView({
         <div>
           <span className="panel-kicker">STOREKEEPER CONSOLE</span>
           <h2>የመጋዘን መዝገብ</h2>
-          <p>Stock is recorded in base units. Roll conversions are applied automatically on entry.</p>
+          <p>Stock-in uses purchase units; balances and production consumption use normalized base units.</p>
         </div>
         <div>
           <button className="button secondary" onClick={onStock}><ArrowUpRight size={16} />Stock In / Out</button>
@@ -52,7 +52,7 @@ export function InventoryView({
       <div className="inventory-table">
         <div className="table-header"><span>MATERIAL</span><span>CATEGORY</span><span>AVAILABLE</span><span>REORDER LEVEL</span><span>STATE</span><span /></div>
         {materials.map((material) => {
-          const low = material.quantity <= material.reorderAt;
+          const low = material.reorderAt > 0 && material.quantity <= material.reorderAt;
           return (
             <div className="table-row material-row" key={material.id}>
               <div className="material-name">
@@ -60,15 +60,15 @@ export function InventoryView({
                 <p>
                   <b>{material.name}</b>
                   <small>
-                    Base unit: {material.unit}
-                    {material.rollEquivalent ? ` · 1 roll = ${material.rollEquivalent} ${material.unit}` : ""}
+                    Base unit: {material.baseUnit ?? material.unit}
+                    {material.purchaseUnit && material.conversionRatio ? ` · 1 ${material.purchaseUnit} = ${material.conversionRatio} ${material.baseUnit ?? material.unit}` : ""}
                     {material.storageLocation ? ` · ${material.storageLocation}` : ""}
                   </small>
                 </p>
               </div>
               <span>{material.category}</span>
-              <strong>{formatQuantity(material.quantity, material.unit)}</strong>
-              <span>{formatQuantity(material.reorderAt, material.unit)}</span>
+              <strong>{formatQuantity(material.quantity, material.baseUnit ?? material.unit)}</strong>
+              <span>{formatQuantity(material.reorderAt, material.baseUnit ?? material.unit)}</span>
               <span className={`status-pill ${low ? "warning" : "success"}`}>{low ? "Reorder" : "Healthy"}</span>
               <button className="icon-button subtle" onClick={onStock}><MoreHorizontal size={18} /></button>
             </div>

@@ -124,6 +124,8 @@ export const issue = mutation({
       direction: "out",
       quantity: args.issuedQuantity,
       unit: request.unit,
+      baseUnit: request.unit,
+      baseQuantity: args.issuedQuantity,
       note: args.note?.trim() || `Material request issue for ${request.jobCardId}`,
       createdBy: identity._id,
       createdAt: Date.now(),

@@ -2,9 +2,18 @@
 
 import { useState } from "react";
 import { ArrowDownRight, ArrowUpRight, Sparkles } from "lucide-react";
-import type { Material, Unit } from "@/lib/operations-types";
+import type { InputUnit } from "@/lib/units";
+import type { Material } from "@/lib/operations-types";
 import { convertToBase, formatQuantity } from "@/lib/units";
 import { ModalShell } from "./modal-shell";
+
+function inputUnitsFor(material?: Material): InputUnit[] {
+  if (!material) return [];
+  return Array.from(new Set<InputUnit>([
+    ...(material.purchaseUnit ? [material.purchaseUnit] : []),
+    material.unit,
+  ]));
+}
 
 export function StockModal({
   materials,
@@ -13,20 +22,27 @@ export function StockModal({
 }: {
   materials: Material[];
   onClose: () => void;
-  onSave: (materialId: string, direction: "in" | "out", quantity: number, inputUnit: "roll" | "sheet" | Unit, note: string) => void;
+  onSave: (materialId: string, direction: "in" | "out", quantity: number, inputUnit: InputUnit, note: string) => void;
 }) {
-  const [materialId, setMaterialId] = useState(materials[0]?.id ?? "");
+  const firstMaterial = materials[0];
+  const [materialId, setMaterialId] = useState(firstMaterial?.id ?? "");
   const [direction, setDirection] = useState<"in" | "out">("in");
   const [quantity, setQuantity] = useState(1);
-  const [inputUnit, setInputUnit] = useState<"roll" | "sheet" | Unit>(materials[0]?.rollEquivalent ? "roll" : materials[0]?.sheetEquivalent ? "sheet" : (materials[0]?.unit ?? "m²"));
+  const [inputUnit, setInputUnit] = useState<InputUnit>(firstMaterial?.purchaseUnit ?? firstMaterial?.unit ?? "m²");
   const [note, setNote] = useState("");
   const material = materials.find((entry) => entry.id === materialId);
-  const canRoll = Boolean(material?.rollEquivalent);
-  const canSheet = Boolean(material?.sheetEquivalent);
+  const inputUnits = inputUnitsFor(material);
   const converted = material
     ? (() => {
         try {
-          return convertToBase(quantity, inputUnit, material.unit, material.rollEquivalent, material.sheetEquivalent);
+          return convertToBase(
+            quantity,
+            inputUnit,
+            material.baseUnit ?? material.unit,
+            material.conversionRatio,
+            material.rollEquivalent,
+            material.sheetEquivalent,
+          );
         } catch {
           return 0;
         }
@@ -36,7 +52,7 @@ export function StockModal({
   return (
     <ModalShell
       title="Stock movement"
-      subtitle="Record stock in or out with roll and sheet conversions into the tracked base unit."
+      subtitle="Record a purchase-unit movement and convert it into the tracked base unit."
       onClose={onClose}
     >
       <form
@@ -57,28 +73,27 @@ export function StockModal({
             onChange={(event) => {
               const next = materials.find((entry) => entry.id === event.target.value);
               setMaterialId(event.target.value);
-              setInputUnit(next?.rollEquivalent ? "roll" : next?.sheetEquivalent ? "sheet" : (next?.unit ?? "m²"));
+              setInputUnit(next?.purchaseUnit ?? next?.unit ?? "m²");
             }}
           >
             {materials.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
           </select>
         </label>
         <div className="two-field">
-          <label>Quantity<input type="number" min="0.1" step="0.1" value={quantity} onChange={(event) => setQuantity(Number(event.target.value))} /></label>
+          <label>Purchase quantity<input type="number" min="0.001" step="0.001" value={quantity} onChange={(event) => setQuantity(Number(event.target.value))} /></label>
           <label>
             Entry unit
-            <select value={inputUnit} onChange={(event) => setInputUnit(event.target.value as "roll" | "sheet" | Unit)}>
-              {canRoll ? <option value="roll">Roll</option> : null}
-              {canSheet ? <option value="sheet">Sheet</option> : null}
-              <option value={material?.unit}>{material?.unit}</option>
+            <select value={inputUnit} onChange={(event) => setInputUnit(event.target.value as InputUnit)}>
+              {inputUnits.map((option) => <option key={option} value={option}>{option}</option>)}
             </select>
           </label>
         </div>
         <div className="conversion-box">
           <Sparkles size={17} />
-          <span>Auto conversion</span>
-          <strong>{formatQuantity(converted, material?.unit ?? "m²")}</strong>
+          <span>Normalized base quantity</span>
+          <strong>{formatQuantity(converted, material?.baseUnit ?? material?.unit ?? "m²")}</strong>
         </div>
+        {material?.conversionRatio ? <small className="settings-help">1 {material.purchaseUnit ?? "purchase unit"} = {material.conversionRatio} {material.baseUnit ?? material.unit}</small> : <small className="settings-help">No conversion ratio is configured for this material. Confirm it before receiving roll or sheet stock.</small>}
         <label>Reference note<input placeholder="Supplier, job card, or issue reason" value={note} onChange={(event) => setNote(event.target.value)} /></label>
         <button className="button primary full" type="submit">Save stock movement <ArrowUpRight size={16} /></button>
       </form>

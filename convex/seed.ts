@@ -1,6 +1,7 @@
 import { mutation } from "./_generated/server";
 import { v } from "convex/values";
 import type { MutationCtx } from "./_generated/server";
+import type { Role } from "./types";
 import { authComponent, createAuth } from "./auth";
 import { requireAdmin } from "./users";
 
@@ -113,6 +114,46 @@ export const seed = mutation({
 });
 
 const YT_WORKSPACE_KEY = "yt-advertisement";
+
+const YT_MACHINE_MASTER_DATA = [
+  { name: "Large Format Banner Printer", code: "BAN-01", type: "Banner Printer", model: "3.2m Eco-Solvent / Solvent Printer", capability: "3.2m Print Width", operatorRole: "printer_operator" as const, materialUnit: "m²" as const, displayUnit: "m²", status: "Available" as const },
+  { name: "DTF Printer", code: "DTF-01", type: "DTF", manufacturer: "Crystal", model: "60cm Roll-to-Roll DTF", capability: "0.60m Print Width", operatorRole: "printer_operator" as const, materialUnit: "m" as const, displayUnit: "m", status: "Available" as const },
+  { name: "Print & Cut Eco-Solvent Plotter", code: "PAC-01", type: "Print and Cut", manufacturer: "Crystal", model: "1.6m Print & Cut Plotter", capability: "1.6m Width", operatorRole: "plotter_operator" as const, materialUnit: "m²" as const, displayUnit: "m²", status: "Available" as const },
+  { name: "CNC Router 2030", code: "CNC-01", type: "CNC Router", model: "2000mm x 3000mm Heavy Duty", capability: "2.0m x 3.0m Bed Size", operatorRole: "cnc_operator" as const, materialUnit: "m²" as const, displayUnit: "m²", status: "Available" as const },
+  { name: "Laser Cutter 1325", code: "LAS-01", type: "Laser Cutter 1325", manufacturer: "Crystal", model: "1300mm x 2500mm CO2 Laser", capability: "1.22m x 2.44m Standard Board", operatorRole: "laser_operator" as const, materialUnit: "m²" as const, displayUnit: "m²", status: "Available" as const },
+  { name: "Pneumatic / Manual Heat Press", code: "HPR-01", type: "Heat press", model: "Flatbed Heat Press", capability: "40cm x 60cm Platen", operatorRole: "printer_operator" as const, materialUnit: "pcs" as const, displayUnit: "pcs", status: "Available" as const },
+  { name: "Paper Guillotine Cutter (Conca)", code: "CON-01", type: "Conca", model: "Heavy Duty Paper Cutter", capability: "A3+ Cutting Width", operatorRole: "printer_operator" as const, materialUnit: "pcs" as const, displayUnit: "pcs", status: "Available" as const, notes: "Paper work" },
+  { name: "UV Flatbed Printer", code: "UVF-01", type: "UV Flat bed", manufacturer: "Crystal", model: "Industrial UV Flatbed", capability: "Direct-to-Rigid Board", operatorRole: "printer_operator" as const, materialUnit: "m²" as const, displayUnit: "m²", status: "Available" as const },
+] as const;
+
+const YT_MATERIAL_MASTER_DATA = [
+  ["Banner", "Banner", "m²", "roll", 160, "ሮል"],
+  ["DTF Film", "Film", "m", "roll", 100, "ሮል", "Store", "Based on customer requirement"],
+  ["Acrylic", "Rigid sheet", "m²", "sheet", 2.977, "ቁጥር", "", "1.22m × 2.44m sheet"],
+  ["DTF Ink", "Ink", "L", "liter", 1, "ሊትር"],
+  ["Banner Ink", "Ink", "L", "liter", 1, "ሊትር"],
+  ["Print and Cut INK", "Ink", "L", "liter", 1, "ሊትር"],
+  ["UV Flat bed Ink", "Ink", "L", "liter", 1, "ሊትር"],
+  ["LED", "Electrical", "pcs", "pack", 20, "ቁጥር", "", "Pack of 20"],
+  ["Normal Sticker", "Sticker roll", "m²", "roll", 63.5, "ሮል", "", "1.27m × 50m roll"],
+  ["Frosted Sticker", "Sticker roll", "m²", "roll", 63.5, "ሮል", "", "1.27m × 50m roll"],
+  ["Transparent Sticker", "Sticker roll", "m²", "roll", 63.5, "ሮል", "", "1.27m × 50m roll"],
+  ["Reflective Sticker", "Sticker roll", "m²", "roll", 63.5, "ሮል", "", "1.27m × 50m roll"],
+  ["Mush Sticker", "Sticker roll", "m²", "roll", 63.5, "ሮል", "", "1.27m × 50m roll; source label retained as Mush Sticker"],
+  ["Mica", "Rigid sheet", "pcs", "piece", 1, "ቁጥር"],
+  ["PVC Film", "Film", "m²", "roll", undefined, "ሮል", "", "Roll conversion requires physical confirmation"],
+  ["Canvas", "Fabric roll", "m²", "roll", 45.6, "ሮል", "", "1.52m × 30m roll"],
+  ["Neon Light", "Electrical", "m", "roll", 5, "ሜትር", "", "Roll of 5m"],
+  ["Power Supply", "Electrical", "pcs", "piece", 1, "ቁጥር"],
+  ["Foam", "Foam board", "m²", "sheet", 2.977, "ቁጥር", "", "1.22m × 2.44m sheet"],
+  ["AMIR", "Finished component", "pcs", "piece", 1, "ቁጥር"],
+  ["ROLE UP DELUX", "Finished component", "pcs", "piece", 1, "ቁጥር"],
+  ["ROLE UP STANDARD", "Finished component", "pcs", "piece", 1, "ቁጥር"],
+  ["VINNER", "Finished component", "pcs", "piece", 1, "ቁጥር"],
+  ["ZOCOLO", "Finished component", "pcs", "piece", 1, "ቁጥር"],
+  ["LED LIGHT BOX A1", "Display hardware", "pcs", "piece", 1, "ቁጥር"],
+  ["LED LIGHT BOX A2", "Display hardware", "pcs", "piece", 1, "ቁጥር"],
+] as const;
 
 /**
  * Resolves the calling actor for bootstrap (seed/reset) mutations.
@@ -232,58 +273,27 @@ export const seedYtAdvertisementWorkspace = mutation({
       active: true,
     });
 
-    const machineRecords = [
-      { name: "Banner Printer", code: "BAN-01", type: "Banner Printer", operatorRole: "printer_operator" as const, materialUnit: "m²" as const, displayUnit: "m²", status: "Available" as const },
-      { name: "DTF", code: "DTF-01", type: "DTF", manufacturer: "Crystal", capability: "0.6m", operatorRole: "printer_operator" as const, materialUnit: "m²" as const, displayUnit: "ሮል", status: "Available" as const },
-      { name: "Print and Cut", code: "PAC-01", type: "Print and Cut", manufacturer: "Crystal", operatorRole: "plotter_operator" as const, materialUnit: "m²" as const, displayUnit: "ሮል", status: "Available" as const },
-      { name: "CNC Router", code: "CNC-01", type: "CNC Router", operatorRole: "cnc_operator" as const, materialUnit: "m²" as const, displayUnit: "m²", status: "Available" as const },
-      { name: "Laser Cutter 1325", code: "LAS-01", type: "Laser Cutter 1325", manufacturer: "Crystal", capability: "1.20 × 2.44m", operatorRole: "laser_operator" as const, materialUnit: "m²" as const, displayUnit: "m²", status: "Available" as const },
-      { name: "Heat press", code: "HPR-01", type: "Heat press", operatorRole: "printer_operator" as const, materialUnit: "piece" as const, displayUnit: "ቁጥር", status: "Available" as const, notes: "ማተም ለልብስ እና ለመሳሰሉት" },
-      { name: "Conca", code: "CON-01", type: "Conca", operatorRole: "printer_operator" as const, materialUnit: "piece" as const, displayUnit: "ቁጥር", status: "Available" as const, notes: "Paper work" },
-      { name: "UV Flat bed", code: "UVF-01", type: "UV Flat bed", manufacturer: "Crystal", operatorRole: "printer_operator" as const, materialUnit: "m²" as const, displayUnit: "m²", status: "Available" as const },
-    ];
+    const machineRecords = YT_MACHINE_MASTER_DATA;
     for (const machine of machineRecords) await ctx.db.insert("machines", { ...machine, active: true });
 
-    const materialRecords = [
-      ["Banner", "Banner", "m²", "ሮል"],
-      ["DTF Film", "Film", "m²", "ሮል", "Store", "Based on customer requirement"],
-      ["Acrylic", "Sheet", "piece", "ቁጥር"],
-      ["DTF Ink", "Ink", "L", "ሊትር"],
-      ["Banner Ink", "Ink", "L", "ሊትር"],
-      ["Print and Cut INK", "Ink", "L", "ሊትር"],
-      ["UV Flat bed Ink", "Ink", "L", "ሊትር"],
-      ["LED", "Electrical", "piece", "ቁጥር"],
-      ["Normal Sticker", "Sticker", "m²", "ሮል"],
-      ["Frosted Sticker", "Sticker", "m²", "ሮል"],
-      ["Transparent Sticker", "Sticker", "m²", "ሮል"],
-      ["Reflective Sticker", "Sticker", "m²", "ሮል"],
-      ["Mush Sticker", "Sticker", "m²", "ሮል"],
-      ["Mica", "Sheet", "piece", "ቁጥር"],
-      ["PVC Film", "Film", "m²", "ሮል"],
-      ["Canvas", "Fabric", "m²", "ሮል"],
-      ["Neon Light", "Electrical", "m", "ሜትር"],
-      ["Power Supply", "Electrical", "piece", "ቁጥር"],
-      ["Foam", "Board", "piece", "ቁጥር"],
-      ["AMIR", "Finished component", "piece", "ቁጥር"],
-      ["ROLE UP DELUX", "Finished component", "piece", "ቁጥር"],
-      ["ROLE UP STANDARD", "Finished component", "piece", "ቁጥር"],
-      ["VINNER", "Finished component", "piece", "ቁጥር"],
-      ["ZOCOLO", "Finished component", "piece", "ቁጥር"],
-      ["LED LIGHT BOX A1", "Finished component", "piece", "ቁጥር"],
-      ["LED LIGHT BOX A2", "Finished component", "piece", "ቁጥር"],
-    ] as const;
+    const materialRecords = YT_MATERIAL_MASTER_DATA;
     const accents = ["cyan", "violet", "gold", "green", "blue"] as const;
     for (const [index, record] of materialRecords.entries()) {
-      const [name, category, unit, displayUnit, storageLocation, averageUse] = record;
+      const [name, category, unit, purchaseUnit, conversionRatio, displayUnit, storageLocation, averageUse] = record;
       await ctx.db.insert("materials", {
         name,
         category,
         unit,
+        baseUnit: unit,
+        purchaseUnit,
+        conversionRatio,
+        rollEquivalent: purchaseUnit === "roll" ? conversionRatio : undefined,
+        sheetEquivalent: purchaseUnit === "sheet" ? conversionRatio : undefined,
         displayUnit,
         quantity: 0,
         reorderAt: 0,
-        storageLocation,
-        averageUse,
+        storageLocation: storageLocation || undefined,
+        averageUse: averageUse || undefined,
         accent: accents[index % accents.length],
         active: true,
       });
@@ -302,13 +312,22 @@ export const seedYtAdvertisementWorkspace = mutation({
       ["Yohannes", undefined, "Relief Staff", undefined, "እቃ ይቀበላል"],
       ["Emebet", undefined, "Direct sales / customer services", "main position customer services", undefined],
     ] as const;
+    const applicationRoles: Record<string, Role[]> = {
+      Zewuditu: ["storekeeper"],
+      "ዮርዳኖስ": ["manager"],
+      "Debas melaku": ["plotter_operator"],
+      surafel: ["printer_operator"],
+      "SAMUEL GETE": ["printer_operator"],
+      Addisu: ["cnc_operator", "laser_operator"],
+    };
     for (const [personName, department, businessRole, responsibility, handlesMaterial] of staffRecords) {
-      await ctx.db.insert("staff", { personName, department, businessRole, responsibility, handlesMaterial, active: true });
+      await ctx.db.insert("staff", { personName, department, businessRole, responsibility, handlesMaterial, applicationRoles: applicationRoles[personName], active: true });
     }
     await ctx.db.insert("staff", {
       personName: "Yitbarek",
       businessRole: "Owner",
       responsibility: "Whole-activity oversight, role assignment, profile access, and company settings",
+      applicationRoles: ["owner"],
       authUserId: actor.role === "owner" ? actor.authUserId : undefined,
       active: true,
     });
@@ -381,5 +400,96 @@ export const seedYitbarekOwner = mutation({
     if (staff) await ctx.db.patch(staff._id, { authUserId: authUser.id });
 
     return { created: true, email, profileId };
+  },
+});
+
+/**
+ * Applies the revised requirement master data to an existing workspace without
+ * clearing operational history or opening balances. Existing machine records
+ * are matched by code and materials by name; missing records are inserted with
+ * zero quantity and zero reorder threshold.
+ */
+export const migrateYtAdvertisementMasterData = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const actor = await resolveBootstrapActor(ctx);
+    const settings = await ctx.db
+      .query("companySettings")
+      .withIndex("by_key", (q) => q.eq("key", YT_WORKSPACE_KEY))
+      .unique();
+    if (!settings) {
+      return { migrated: false, reason: "Seed the YT Advertisement workspace before applying master-data migration." };
+    }
+
+    let machinesPatched = 0;
+    let machinesInserted = 0;
+    for (const machine of YT_MACHINE_MASTER_DATA) {
+      const existing = await ctx.db
+        .query("machines")
+        .withIndex("by_code", (q) => q.eq("code", machine.code))
+        .unique();
+      if (existing) {
+        await ctx.db.patch(existing._id, {
+          name: machine.name,
+          type: machine.type,
+          manufacturer: "manufacturer" in machine ? machine.manufacturer : undefined,
+          model: machine.model,
+          capability: machine.capability,
+          notes: "notes" in machine ? machine.notes : undefined,
+          operatorRole: machine.operatorRole,
+          materialUnit: machine.materialUnit,
+          displayUnit: machine.displayUnit,
+        });
+        machinesPatched += 1;
+      } else {
+        await ctx.db.insert("machines", { ...machine, active: true });
+        machinesInserted += 1;
+      }
+    }
+
+    const existingMaterials = await ctx.db.query("materials").collect();
+    let materialsPatched = 0;
+    let materialsInserted = 0;
+    const accents = ["cyan", "violet", "gold", "green", "blue"] as const;
+    for (const [index, record] of YT_MATERIAL_MASTER_DATA.entries()) {
+      const [name, category, unit, purchaseUnit, conversionRatio, displayUnit, storageLocation, averageUse] = record;
+      const existing = existingMaterials.find((material) => material.name.toLowerCase() === name.toLowerCase());
+      const masterFields = {
+        category,
+        unit,
+        baseUnit: unit,
+        purchaseUnit,
+        conversionRatio,
+        rollEquivalent: purchaseUnit === "roll" ? conversionRatio : undefined,
+        sheetEquivalent: purchaseUnit === "sheet" ? conversionRatio : undefined,
+        displayUnit,
+        storageLocation: storageLocation || undefined,
+        averageUse: averageUse || undefined,
+      };
+      if (existing) {
+        await ctx.db.patch(existing._id, masterFields);
+        materialsPatched += 1;
+      } else {
+        await ctx.db.insert("materials", {
+          name,
+          ...masterFields,
+          quantity: 0,
+          reorderAt: 0,
+          accent: accents[index % accents.length],
+          active: true,
+        });
+        materialsInserted += 1;
+      }
+    }
+
+    return {
+      migrated: true,
+      machinesPatched,
+      machinesInserted,
+      materialsPatched,
+      materialsInserted,
+      operationalDataPreserved: true,
+      actorRole: actor.role,
+    };
   },
 });

@@ -99,8 +99,10 @@ export const list = query({
         actorId: movement.createdBy,
         actorName: userNames.get(movement.createdBy) ?? movement.createdBy,
         at: movement.createdAt,
-        summary: `${materialName} · ${movement.quantity} ${movement.unit}`,
-        detail: movement.note || "Inventory movement recorded",
+        summary: `${materialName} · ${movement.baseQuantity ?? movement.quantity} ${movement.baseUnit ?? movement.unit}`,
+        detail: movement.baseQuantity !== undefined && movement.baseUnit && movement.unit !== movement.baseUnit
+          ? `${movement.quantity} ${movement.unit} converted to ${movement.baseQuantity} ${movement.baseUnit} · ${movement.note || "Inventory movement recorded"}`
+          : movement.note || "Inventory movement recorded",
       });
     }
 

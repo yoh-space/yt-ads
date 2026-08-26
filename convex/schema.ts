@@ -17,6 +17,7 @@ export const unit = v.union(
   v.literal("m"),
   v.literal("sheet"),
   v.literal("piece"),
+  v.literal("pcs"),
   v.literal("L"),
 );
 
@@ -52,9 +53,16 @@ export const stockDirection = v.union(
   v.literal("out"),
 );
 
-export const stockInputUnit = v.union(
+export const purchaseUnit = v.union(
   v.literal("roll"),
   v.literal("sheet"),
+  v.literal("pack"),
+  v.literal("liter"),
+  v.literal("piece"),
+);
+
+export const stockInputUnit = v.union(
+  purchaseUnit,
   unit,
 );
 
@@ -106,6 +114,7 @@ export default defineSchema({
     responsibility: v.optional(v.string()),
     businessRole: v.string(),
     handlesMaterial: v.optional(v.string()),
+    applicationRoles: v.optional(v.array(role)),
     authUserId: v.optional(v.string()),
     active: v.boolean(),
   })
@@ -141,6 +150,9 @@ export default defineSchema({
     name: v.string(),
     category: v.string(),
     unit,
+    baseUnit: v.optional(unit),
+    purchaseUnit: v.optional(purchaseUnit),
+    conversionRatio: v.optional(v.number()),
     quantity: v.number(),
     reorderAt: v.number(),
     rollEquivalent: v.optional(v.number()),
@@ -197,6 +209,8 @@ export default defineSchema({
     direction: v.union(stockDirection, v.literal("adjustment"), v.literal("offcut_return")),
     quantity: v.number(),
     unit: stockInputUnit,
+    baseUnit: v.optional(unit),
+    baseQuantity: v.optional(v.number()),
     note: v.string(),
     createdBy: v.string(),
     createdAt: v.number(),
