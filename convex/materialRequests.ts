@@ -1,10 +1,9 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { unit } from "./schema";
-import { requireActiveProfile, requireRoles } from "./users";
+import { requireActiveProfile, requirePermission } from "./users";
+import { canAccessMaterialRequest } from "./authorization";
 import { notifyRoles, notifyUser } from "./notificationHelpers";
-
-const STORE_ROLES = ["admin", "storekeeper"] as const;
 
 export const list = query({
   args: {},
@@ -22,9 +21,11 @@ export const list = query({
     const materialMap = new Map(materials.map((material) => [material._id, material]));
     const machineMap = new Map(machines.map((machine) => [machine._id, machine]));
     const userMap = new Map(users.map((user) => [user.authUserId, user.name]));
-    const visibleRequests = profile.role === "owner" || profile.role === "manager" || profile.role === "admin" || profile.role === "storekeeper"
-      ? requests
-      : requests.filter((request) => request.requestedBy === identity._id || jobMap.get(request.jobCardId)?.machineId && machineMap.get(jobMap.get(request.jobCardId)!.machineId)?.operatorRole === profile.role);
+    const visibleRequests = requests.filter((request) => {
+      const job = jobMap.get(request.jobCardId);
+      const machine = job ? machineMap.get(job.machineId) : undefined;
+      return canAccessMaterialRequest(profile.role, identity._id, request, machine);
+    });
 
     return visibleRequests
       .map((request) => {
@@ -54,7 +55,7 @@ export const create = mutation({
     note: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const { identity } = await requireActiveProfile(ctx);
+    const { identity } = await requirePermission(ctx, "request.create");
     if (!Number.isFinite(args.requestedQuantity) || args.requestedQuantity <= 0) {
       throw new Error("Requested quantity must be greater than zero.");
     }
@@ -98,7 +99,7 @@ export const issue = mutation({
     note: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const { identity } = await requireRoles(ctx, [...STORE_ROLES]);
+    const { identity } = await requirePermission(ctx, "request.issue");
     if (!Number.isFinite(args.issuedQuantity) || args.issuedQuantity <= 0) {
       throw new Error("Issued quantity must be greater than zero.");
     }
@@ -154,11 +155,16 @@ export const issue = mutation({
 export const acknowledge = mutation({
   args: { requestId: v.id("materialRequests") },
   handler: async (ctx, args) => {
-    const { identity } = await requireActiveProfile(ctx);
+    const { identity, profile } = await requirePermission(ctx, "request.acknowledge");
     const request = await ctx.db.get(args.requestId);
     if (!request) throw new Error("Material request not found.");
     if (request.status !== "Issued" && request.status !== "Partially Issued") {
       throw new Error("Only an issued request can be marked received.");
+    }
+    const job = await ctx.db.get(request.jobCardId);
+    const machine = job ? await ctx.db.get(job.machineId) : undefined;
+    if (!canAccessMaterialRequest(profile.role, identity._id, request, machine)) {
+      throw new Error("You cannot acknowledge this material request.");
     }
     await ctx.db.patch(args.requestId, {
       status: "Received",

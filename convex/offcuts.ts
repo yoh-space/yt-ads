@@ -2,7 +2,7 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { authComponent } from "./auth";
 import { calculateOffcutArea } from "./units";
-import { requireActiveProfile } from "./users";
+import { requirePermission } from "./users";
 
 export const list = query({
   args: {},
@@ -23,7 +23,7 @@ export const create = mutation({
     location: v.string(),
   },
   handler: async (ctx, args) => {
-    const { identity } = await requireActiveProfile(ctx);
+    const { identity } = await requirePermission(ctx, "offcut.create");
     if (!Number.isFinite(args.width) || !Number.isFinite(args.length) || args.width <= 0 || args.length <= 0) {
       throw new Error("Offcut dimensions must be greater than zero.");
     }
@@ -80,7 +80,7 @@ export const logScrap = mutation({
     reason: v.string(),
   },
   handler: async (ctx, args) => {
-    const { identity } = await requireActiveProfile(ctx);
+    const { identity } = await requirePermission(ctx, "scrap.create");
     if (!Number.isFinite(args.quantity) || args.quantity <= 0) {
       throw new Error("Scrap quantity must be greater than zero.");
     }

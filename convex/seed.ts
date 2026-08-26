@@ -4,6 +4,8 @@ import type { MutationCtx } from "./_generated/server";
 import type { Role } from "./types";
 import { authComponent, createAuth } from "./auth";
 import { requireAdmin } from "./users";
+import { convertToBase, type InputUnit } from "./units";
+import { api } from "./_generated/api";
 
 /**
  * Populates the demo operations dataset (materials, machines, job cards,
@@ -491,5 +493,97 @@ export const migrateYtAdvertisementMasterData = mutation({
       operationalDataPreserved: true,
       actorRole: actor.role,
     };
+  },
+});
+
+/**
+ * Issues sample opening stock to every active material so the freshly seeded
+ * workspace has realistic quantities and an audit trail of stock movements.
+ * Runs as a bootstrap (deployment-credentialed) operation; it adds stock-in
+ * movements and sets a sensible reorder level per material. Safe to re-run —
+ * it tops each material up to the sample level rather than stacking on top.
+ */
+function sampleOpeningQuantity(unit: string): number {
+  switch (unit) {
+    case "m²":
+      return 180;
+    case "m":
+      return 120;
+    case "piece":
+      return 250;
+    case "L":
+      return 24;
+    case "sheet":
+      return 60;
+    default:
+      return 100;
+  }
+}
+
+export const seedSampleStock = mutation({
+  args: { force: v.optional(v.boolean()) },
+  handler: async (ctx, args) => {
+    const actor = await resolveBootstrapActor(ctx);
+    const createdBy = actor.authUserId ?? "seed";
+    const materials = await ctx.db.query("materials").collect();
+    const activeMaterials = materials.filter((material) => material.active);
+
+    const movements = await ctx.db.query("stockMovements").collect();
+    const alreadySeeded = movements.some((movement) => movement.note.startsWith("Sample opening stock"));
+    if (alreadySeeded && !args.force) {
+      return { seeded: false, reason: "Sample stock already issued. Pass force to re-issue." };
+    }
+
+    let issued = 0;
+    for (const material of activeMaterials) {
+      const target = sampleOpeningQuantity(material.unit);
+      const baseUnit = material.baseUnit ?? material.unit;
+      const converted = convertToBase(
+        target,
+        material.unit as InputUnit,
+        baseUnit,
+        material.conversionRatio,
+        material.rollEquivalent,
+        material.sheetEquivalent,
+      );
+      if (!Number.isFinite(converted) || converted <= 0) continue;
+      const current = material.quantity ?? 0;
+      const nextQuantity = args.force ? target : Number((current + converted).toFixed(2));
+      await ctx.db.patch(material._id, {
+        quantity: nextQuantity,
+        reorderAt: Number((target * 0.3).toFixed(2)),
+      });
+      await ctx.db.insert("stockMovements", {
+        materialId: material._id,
+        direction: "in",
+        quantity: target,
+        unit: material.unit,
+        baseUnit,
+        baseQuantity: converted,
+        note: "Sample opening stock (seed)",
+        createdBy,
+        createdAt: Date.now(),
+      });
+      issued += 1;
+    }
+
+    return { seeded: true, materialsIssued: issued };
+  },
+});
+
+/**
+ * One-shot production bootstrap: clears any prior workspace data, seeds the
+ * full YT Advertisement master dataset, issues sample opening stock, and
+ * creates/promotes the owner account. Run once against the production
+ * deployment after `convex deploy`.
+ */
+export const seedAll = mutation({
+  args: { password: v.string() },
+  handler: async (ctx, args) => {
+    await resolveBootstrapActor(ctx);
+    await ctx.runMutation(api.seed.seedYtAdvertisementWorkspace, { force: true });
+    await ctx.runMutation(api.seed.seedSampleStock, {});
+    const owner: { email: string; created: boolean } = await ctx.runMutation(api.seed.seedYitbarekOwner, { password: args.password });
+    return { seeded: true, ownerEmail: owner.email, ownerCreated: owner.created };
   },
 });

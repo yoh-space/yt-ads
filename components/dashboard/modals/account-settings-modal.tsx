@@ -6,6 +6,7 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { authClient } from "@/lib/auth-client";
 import { roleLabels, type Profile, type Role } from "@/lib/operations-types";
+import { can } from "@/lib/permissions";
 import { Link2, Save, ShieldCheck, UserRound } from "lucide-react";
 import { ModalShell } from "./modal-shell";
 
@@ -18,7 +19,7 @@ export function AccountSettingsModal({
   profile: Profile;
   onClose: () => void;
 }) {
-  const canManageTeam = profile.role === "owner" || profile.role === "manager" || profile.role === "admin";
+  const canManageTeam = can(profile, "team.manage");
   const isOwner = profile.role === "owner";
   const users = useQuery(api.users.listUsers, canManageTeam ? {} : "skip");
   const company = useQuery(api.users.getCompanySettings);

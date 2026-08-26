@@ -3,6 +3,7 @@
 import { ClipboardCheck, ClipboardList, PackageCheck, Send } from "lucide-react";
 import { useState } from "react";
 import type { MaterialRequest, Role } from "@/lib/operations-types";
+import { hasPermission } from "@/lib/permissions";
 import { formatQuantity } from "@/lib/units";
 
 export function MaterialRequestsPanel({
@@ -19,7 +20,7 @@ export function MaterialRequestsPanel({
   onAcknowledge: (requestId: string) => void;
 }) {
   const [issueQuantities, setIssueQuantities] = useState<Record<string, number>>({});
-  const canIssue = role === "owner" || role === "manager" || role === "admin" || role === "storekeeper";
+  const canIssue = hasPermission(role, "request.issue");
 
   return (
     <section className="panel request-panel">

@@ -3,10 +3,8 @@ import { v } from "convex/values";
 import { authComponent } from "./auth";
 import { unit, purchaseUnit, accent } from "./schema";
 import { convertToBase, type InputUnit } from "./units";
-import { requireRoles } from "./users";
+import { requirePermission } from "./users";
 import { notifyRoles } from "./notificationHelpers";
-
-const INVENTORY_ROLES = ["admin", "storekeeper"] as const;
 
 export const list = query({
   args: {},
@@ -38,7 +36,7 @@ export const create = mutation({
     accent,
   },
   handler: async (ctx, args) => {
-    await requireRoles(ctx, [...INVENTORY_ROLES]);
+    await requirePermission(ctx, "material.create");
     if (!args.name.trim()) throw new Error("Material name is required.");
     if (!Number.isFinite(args.quantity) || args.quantity < 0) {
       throw new Error("Opening quantity must be zero or greater.");
@@ -84,7 +82,7 @@ export const recordStockMovement = mutation({
     note: v.string(),
   },
   handler: async (ctx, args) => {
-    const { identity } = await requireRoles(ctx, [...INVENTORY_ROLES]);
+    const { identity } = await requirePermission(ctx, "stock.record");
     if (!Number.isFinite(args.quantity) || args.quantity <= 0) {
       throw new Error("Stock movement quantity must be greater than zero.");
     }

@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { authComponent } from "./auth";
 import { role } from "./schema";
 import type { Role } from "./types";
+import { hasPermission, hasAnyPermission, type Permission } from "./authorization";
 import { notifyUser } from "./notificationHelpers";
 
 const MANAGEMENT_ROLES: Role[] = ["owner", "manager", "admin"];
@@ -132,7 +133,7 @@ export const pruneDemoUsers = mutation({
 export const setRole = mutation({
   args: { userId: v.id("users"), role },
   handler: async (ctx, args) => {
-    const { profile: actor } = await requireRoleManager(ctx);
+    const { profile: actor } = await requirePermission(ctx, "team.manage");
     const target = await ctx.db.get(args.userId);
     if (!target) throw new Error("User profile not found.");
     if (target.role === "owner" && actor.role !== "owner") {
@@ -159,7 +160,7 @@ export const setRole = mutation({
 export const setActive = mutation({
   args: { userId: v.id("users"), active: v.boolean() },
   handler: async (ctx, args) => {
-    const { profile: actor } = await requireRoleManager(ctx);
+    const { profile: actor } = await requirePermission(ctx, "team.manage");
     const target = await ctx.db.get(args.userId);
     if (!target) throw new Error("User profile not found.");
     if (target.authUserId === actor.authUserId && !args.active) {
@@ -209,7 +210,7 @@ export const updateCompanySettings = mutation({
     phone: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireOwner(ctx);
+    await requirePermission(ctx, "company_settings.update");
     const settings = await ctx.db
       .query("companySettings")
       .withIndex("by_key", (q) => q.eq("key", "yt-advertisement"))
@@ -233,6 +234,24 @@ export async function requireActiveProfile(ctx: QueryCtx | MutationCtx) {
     throw new Error("Active team profile required.");
   }
   return { identity, profile };
+}
+
+/** Permission-based guard (RBAC): the active profile must hold `permission`. */
+export async function requirePermission(ctx: QueryCtx | MutationCtx, permission: Permission) {
+  const result = await requireActiveProfile(ctx);
+  if (!hasPermission(result.profile.role, permission)) {
+    throw new Error(`Permission '${permission}' is required for this action.`);
+  }
+  return result;
+}
+
+/** Permission-based guard (RBAC): the active profile must hold at least one of `permissions`. */
+export async function requireAnyPermission(ctx: QueryCtx | MutationCtx, permissions: Permission[]) {
+  const result = await requireActiveProfile(ctx);
+  if (!hasAnyPermission(result.profile.role, permissions)) {
+    throw new Error("You do not have permission for this action.");
+  }
+  return result;
 }
 
 export async function requireRoles(ctx: QueryCtx | MutationCtx, allowedRoles: Role[]) {

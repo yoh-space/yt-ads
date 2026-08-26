@@ -2,11 +2,10 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { authComponent } from "./auth";
 import { priority, unit } from "./schema";
-import { requireActiveProfile, requireRoles } from "./users";
+import { requireActiveProfile, requirePermission } from "./users";
+import { canAccessJob } from "./authorization";
 import { notifyRoles, notifyUser } from "./notificationHelpers";
 import { assertProductionQuantities } from "./validation";
-
-const JOB_MANAGER_ROLES = ["admin", "storekeeper"] as const;
 
 type ProductionInput = {
   jobCardId: string;
@@ -91,7 +90,7 @@ export const create = mutation({
     priority,
   },
   handler: async (ctx, args) => {
-    const { identity } = await requireRoles(ctx, [...JOB_MANAGER_ROLES]);
+    const { identity } = await requirePermission(ctx, "job.create");
     if (!args.client.trim() || !args.title.trim()) throw new Error("Client and job description are required.");
     if (!Number.isFinite(args.quantity) || args.quantity <= 0) {
       throw new Error("Planned job quantity must be greater than zero.");
@@ -146,7 +145,7 @@ export const recordProduction = mutation({
     if (!job) throw new Error("Job card not found.");
     const machine = await ctx.db.get(job.machineId);
     if (!machine) throw new Error("Job machine not found.");
-    if (profile.role !== "owner" && profile.role !== "manager" && profile.role !== "admin" && profile.role !== "storekeeper" && profile.role !== machine.operatorRole) {
+    if (!canAccessJob(profile.role, machine)) {
       throw new Error("You are not assigned to this machine.");
     }
     await recordProductionInternal(ctx, args, identity._id);
@@ -169,7 +168,7 @@ export const complete = mutation({
     if (!job) throw new Error("Job card not found.");
     const machine = await ctx.db.get(job.machineId);
     if (!machine) throw new Error("Job machine not found.");
-    if (profile.role !== "owner" && profile.role !== "manager" && profile.role !== "admin" && profile.role !== "storekeeper" && profile.role !== machine.operatorRole) {
+    if (!canAccessJob(profile.role, machine)) {
       throw new Error("You are not assigned to this machine.");
     }
     if (job.status === "Completed") return;

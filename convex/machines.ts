@@ -2,7 +2,7 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { authComponent } from "./auth";
 import { role, unit, machineStatus } from "./schema";
-import { requireAdmin } from "./users";
+import { requirePermission } from "./users";
 import { notifyRoles } from "./notificationHelpers";
 
 export const list = query({
@@ -30,7 +30,7 @@ export const create = mutation({
     status: machineStatus,
   },
   handler: async (ctx, args) => {
-    const actor = await requireAdmin(ctx);
+    const { identity } = await requirePermission(ctx, "machine.create");
     if (!args.name.trim() || !args.code.trim() || !args.type.trim()) {
       throw new Error("Machine name, code, and type are required.");
     }
@@ -54,7 +54,7 @@ export const create = mutation({
       title: "Machine added",
       message: `${args.name.trim()} was added to the machine register.`,
       type: "machine_update",
-      actorAuthUserId: actor.authUserId,
+      actorAuthUserId: identity._id,
       relatedTable: "machines",
       relatedId: id,
     });
@@ -65,7 +65,7 @@ export const create = mutation({
 export const updateStatus = mutation({
   args: { machineId: v.id("machines"), status: machineStatus },
   handler: async (ctx, args) => {
-    const actor = await requireAdmin(ctx);
+    const { identity } = await requirePermission(ctx, "machine.update");
     const machine = await ctx.db.get(args.machineId);
     if (!machine) throw new Error("Machine not found.");
     if (args.status === "Maintenance" && machine.activeJob) {
@@ -79,7 +79,7 @@ export const updateStatus = mutation({
       title: "Machine status updated",
       message: `${machine.name} is now ${args.status}.`,
       type: "machine_update",
-      actorAuthUserId: actor.authUserId,
+      actorAuthUserId: identity._id,
       relatedTable: "machines",
       relatedId: args.machineId,
     });
@@ -89,7 +89,7 @@ export const updateStatus = mutation({
 export const setActive = mutation({
   args: { machineId: v.id("machines"), active: v.boolean() },
   handler: async (ctx, args) => {
-    const actor = await requireAdmin(ctx);
+    const { identity } = await requirePermission(ctx, "machine.update");
     const machine = await ctx.db.get(args.machineId);
     if (!machine) throw new Error("Machine not found.");
     if (!args.active && machine.activeJob) {
@@ -100,7 +100,7 @@ export const setActive = mutation({
       title: "Machine availability updated",
       message: `${machine.name} was ${args.active ? "activated" : "deactivated"}.`,
       type: "machine_update",
-      actorAuthUserId: actor.authUserId,
+      actorAuthUserId: identity._id,
       relatedTable: "machines",
       relatedId: args.machineId,
     });
