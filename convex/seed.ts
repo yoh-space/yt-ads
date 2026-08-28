@@ -225,6 +225,42 @@ export const deleteUserByEmail = mutation({
 });
 
 /**
+ * Removes a Better Auth user (credential account + profile + app user) by
+ * email so the seed flow can re-create the same account cleanly. Bootstrap/CLI
+ * helper — no auth required.
+ */
+export const deleteAuthUserByEmail = mutation({
+  args: { email: v.string() },
+  handler: async (ctx, args) => {
+    await resolveBootstrapActor(ctx);
+    const targetEmail = args.email.toLowerCase();
+    const auth = createAuth(ctx);
+    const context = await auth.$context;
+    const authResult = await context.internalAdapter.findUserByEmail(targetEmail);
+    const authUser = authResult?.user;
+    let authDeleted = false;
+    if (authUser) {
+      await context.internalAdapter.deleteUser(authUser.id);
+      authDeleted = true;
+    }
+    const profile = (await ctx.db.query("users").collect()).find((u) => u.email.toLowerCase() === targetEmail);
+    if (profile) await ctx.db.delete(profile._id);
+    const staff = (await ctx.db.query("staff").collect()).filter((member) => (member as { authUserId?: string }).authUserId === authUser?.id);
+    for (const member of staff) {
+      await ctx.db.patch(member._id, { authUserId: undefined });
+    }
+    const settings = await ctx.db
+      .query("companySettings")
+      .withIndex("by_key", (q) => q.eq("key", YT_WORKSPACE_KEY))
+      .unique();
+    if (settings && settings.ownerAuthUserId && authUser && settings.ownerAuthUserId === authUser.id) {
+      await ctx.db.patch(settings._id, { ownerAuthUserId: undefined });
+    }
+    return { deleted: authDeleted, email: targetEmail, profileDeleted: Boolean(profile) };
+  },
+});
+
+/**
  * Seeds the captured YT Advertisement master data for a fresh database.
  *
  * This intentionally does not create jobs, production logs, stock movements,
@@ -380,6 +416,23 @@ export const seedYitbarekOwner = mutation({
       if (settings) await ctx.db.patch(settings._id, { ownerAuthUserId: existingProfile.authUserId });
       const staff = (await ctx.db.query("staff").collect()).find((member) => member.personName.toLowerCase() === "yitbarek");
       if (staff) await ctx.db.patch(staff._id, { authUserId: existingProfile.authUserId });
+
+      const auth = createAuth(ctx);
+      const context = await auth.$context;
+      const passwordHash = await context.password.hash(args.password);
+      const accounts = await context.internalAdapter.findAccounts(existingProfile.authUserId);
+      const credentialAccount = accounts.find((account: any) => account.providerId === "credential");
+      if (credentialAccount) {
+        await context.internalAdapter.updatePassword(existingProfile.authUserId, passwordHash);
+      } else {
+        await context.internalAdapter.linkAccount({
+          userId: existingProfile.authUserId,
+          providerId: "credential",
+          accountId: existingProfile.authUserId,
+          password: passwordHash,
+        });
+      }
+
       return { created: false, email, profileId: existingProfile._id };
     }
 
@@ -583,14 +636,14 @@ export const seedSingleRoleAccount = mutation({
     await resolveBootstrapActor(ctx);
 
     const ROLE_SEED_DATA: Record<string, { role: Role; name: string; email: string; password: string; staffName?: string }> = {
-      owner: { role: "owner", name: "Yitbarek", email: "ytadvert+owner@gmail.com", password: "password12ow", staffName: "Yitbarek" },
-      manager: { role: "manager", name: "Yordanos", email: "ytadvert+manager@gmail.com", password: "password12ma", staffName: "ዮርዳኖስ" },
-      admin: { role: "admin", name: "Admin User", email: "ytadvert+admin@gmail.com", password: "password12ad" },
-      storekeeper: { role: "storekeeper", name: "Zewuditu", email: "ytadvert+storekeeper@gmail.com", password: "password12st", staffName: "Zewuditu" },
-      laser_operator: { role: "laser_operator", name: "Addisu", email: "ytadvert+laser@gmail.com", password: "password12la", staffName: "Addisu" },
-      cnc_operator: { role: "cnc_operator", name: "Addisu", email: "ytadvert+cnc@gmail.com", password: "password12cn", staffName: "Addisu" },
-      plotter_operator: { role: "plotter_operator", name: "Debas Melaku", email: "ytadvert+plotter@gmail.com", password: "password12pl", staffName: "Debas melaku" },
-      printer_operator: { role: "printer_operator", name: "Surafel", email: "ytadvert+printer@gmail.com", password: "password12pr", staffName: "surafel" },
+      owner: { role: "owner", name: "Yitbarek", email: "ytadvert+owner@gmail.com", password: "password123", staffName: "Yitbarek" },
+      manager: { role: "manager", name: "Yordanos", email: "ytadvert+manager@gmail.com", password: "password123", staffName: "ዮርዳኖስ" },
+      admin: { role: "admin", name: "Admin User", email: "ytadvert+admin@gmail.com", password: "password123" },
+      storekeeper: { role: "storekeeper", name: "Zewuditu", email: "ytadvert+storekeeper@gmail.com", password: "password123", staffName: "Zewuditu" },
+      laser_operator: { role: "laser_operator", name: "Addisu", email: "ytadvert+laser@gmail.com", password: "password123", staffName: "Addisu" },
+      cnc_operator: { role: "cnc_operator", name: "Addisu", email: "ytadvert+cnc@gmail.com", password: "password123", staffName: "Addisu" },
+      plotter_operator: { role: "plotter_operator", name: "Debas Melaku", email: "ytadvert+plotter@gmail.com", password: "password123", staffName: "Debas melaku" },
+      printer_operator: { role: "printer_operator", name: "Surafel", email: "ytadvert+printer@gmail.com", password: "password123", staffName: "surafel" },
     };
 
     const entry = ROLE_SEED_DATA[args.roleName];

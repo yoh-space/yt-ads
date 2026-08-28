@@ -81,6 +81,77 @@ export function Overview({
           );
         })}
       </section>
+            <section className="dashboard-grid bottom-grid">
+        <article className="panel job-panel">
+          <div className="panel-head">
+            <div>
+              <span className="panel-kicker">JOB BOARD</span>
+              <h2>ንቁ የሥራ ካርዶች</h2>
+              <p>Current production queue</p>
+            </div>
+            <button className="text-button" onClick={() => onView("jobs")}>
+              Open job board <MoveUpRight size={15} />
+            </button>
+          </div>
+          <div className="job-table">
+            <div className="table-header"><span>JOB / CLIENT</span><span>MACHINE</span><span>MATERIAL</span><span>STATUS</span><span /></div>
+            {jobs
+              .filter((job) => job.status !== "Completed")
+              .slice(0, 4)
+              .map((job) => {
+                const machine = machines.find((item) => item.id === job.machineId);
+                const material = materials.find((item) => item.id === job.materialId);
+                return (
+                  <div className="table-row" key={job.id}>
+                    <div>
+                      <b>{job.code}</b>
+                      <span>{job.client} · {job.title}</span>
+                    </div>
+                    <span>{machine?.code}</span>
+                    <span>{material?.name}</span>
+                    <span className={`status-pill ${statusTone(job.status)}`}>{job.status}</span>
+                    <button
+                      className="icon-button subtle"
+                      onClick={() => job.status === "In production" && onComplete(job.id)}
+                      aria-label="Complete job"
+                    >
+                      <MoreHorizontal size={18} />
+                    </button>
+                  </div>
+                );
+              })}
+          </div>
+        </article>
+        <article className="panel materials-panel">
+          <div className="panel-head">
+            <div>
+              <span className="panel-kicker">MATERIAL PULSE</span>
+              <h2>ከፍተኛ መጠቀም ላይ ያሉ እቃዎች</h2>
+              <p>Material utilization</p>
+            </div>
+            <button className="text-button" onClick={() => onView("inventory")}>
+              Inventory <MoveUpRight size={15} />
+            </button>
+          </div>
+          <div className="material-pulse">
+            {materials.slice(0, 4).map((material) => {
+              const stockPct = material.reorderAt > 0 ? Math.round((material.quantity / material.reorderAt) * 100) : 100;
+              const utilWidth = Math.min(100, stockPct);
+              return (
+                <div className="pulse-row" key={material.id}>
+                  <div className={`material-swatch ${material.accent}`}><Box size={15} /></div>
+                  <p>
+                    <strong>{material.name}</strong>
+                    <span>{formatQuantity(material.quantity, material.unit)} on hand</span>
+                  </p>
+                  <div className="utilization"><i style={{ width: `${utilWidth}%` }} /></div>
+                  <span>{stockPct}%</span>
+                </div>
+              );
+            })}
+          </div>
+        </article>
+      </section>
       <section className="dashboard-grid">
         <article className="panel production-panel">
           <div className="panel-head">
@@ -153,73 +224,6 @@ export function Overview({
               </div>
             ))}
             {lowStock.length === 0 ? <div className="empty-state">አሁን ላይ የተገኘ የክምችት ማስጠንቀቂያ የለም</div> : null}
-          </div>
-        </article>
-      </section>
-      <section className="dashboard-grid bottom-grid">
-        <article className="panel job-panel">
-          <div className="panel-head">
-            <div>
-              <span className="panel-kicker">JOB BOARD</span>
-              <h2>ንቁ የሥራ ካርዶች</h2>
-              <p>Current production queue</p>
-            </div>
-            <button className="text-button" onClick={() => onView("jobs")}>
-              Open job board <MoveUpRight size={15} />
-            </button>
-          </div>
-          <div className="job-table">
-            <div className="table-header"><span>JOB / CLIENT</span><span>MACHINE</span><span>MATERIAL</span><span>STATUS</span><span /></div>
-            {jobs
-              .filter((job) => job.status !== "Completed")
-              .slice(0, 4)
-              .map((job) => {
-                const machine = machines.find((item) => item.id === job.machineId);
-                const material = materials.find((item) => item.id === job.materialId);
-                return (
-                  <div className="table-row" key={job.id}>
-                    <div>
-                      <b>{job.code}</b>
-                      <span>{job.client} · {job.title}</span>
-                    </div>
-                    <span>{machine?.code}</span>
-                    <span>{material?.name}</span>
-                    <span className={`status-pill ${statusTone(job.status)}`}>{job.status}</span>
-                    <button
-                      className="icon-button subtle"
-                      onClick={() => job.status === "In production" && onComplete(job.id)}
-                      aria-label="Complete job"
-                    >
-                      <MoreHorizontal size={18} />
-                    </button>
-                  </div>
-                );
-              })}
-          </div>
-        </article>
-        <article className="panel materials-panel">
-          <div className="panel-head">
-            <div>
-              <span className="panel-kicker">MATERIAL PULSE</span>
-              <h2>ከፍተኛ መጠቀም ላይ ያሉ እቃዎች</h2>
-              <p>Material utilization</p>
-            </div>
-            <button className="text-button" onClick={() => onView("inventory")}>
-              Inventory <MoveUpRight size={15} />
-            </button>
-          </div>
-          <div className="material-pulse">
-            {materials.slice(0, 4).map((material, index) => (
-              <div className="pulse-row" key={material.id}>
-                <div className={`material-swatch ${material.accent}`}><Box size={15} /></div>
-                <p>
-                  <strong>{material.name}</strong>
-                  <span>{formatQuantity(material.quantity, material.unit)} on hand</span>
-                </p>
-                <div className="utilization"><i style={{ width: `${Math.min(100, 30 + index * 17)}%` }} /></div>
-                <span>{`${30 + index * 17}%`}</span>
-              </div>
-            ))}
           </div>
         </article>
       </section>

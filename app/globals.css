@@ -979,18 +979,18 @@ button {
 .pulse-row p span {
   margin-top: 3px;
   color: #92a2ab;
-  font-size: 8px;
+  font-size: 11px;
 }
 .utilization {
-  height: 5px;
-  border-radius: 5px;
+  height: 10px;
+  border-radius: 6px;
   background: #edf2f4;
   overflow: hidden;
 }
 .pulse-row > span {
   color: #66808e;
   font:
-    9px "DM Mono",
+    11px "DM Mono",
     monospace;
 }
 
