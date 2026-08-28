@@ -1395,6 +1395,26 @@ button {
   background: #fef6e4;
   border-color: #e2c88a;
 }
+.mc-status-success {
+  color: #237a5e;
+  background: #ecf9f2;
+  border-color: #96dfbe;
+}
+.mc-status-info {
+  color: #1a6e82;
+  background: #e6f7fa;
+  border-color: #8ad4e0;
+}
+.mc-status-warning {
+  color: #8a6216;
+  background: #fef6e4;
+  border-color: #e2c88a;
+}
+.mc-status-neutral {
+  color: #65818e;
+  background: #eef4f6;
+  border-color: #d0dce0;
+}
 .mc-status-danger {
   color: #8e4440;
   background: #fdf2f1;
@@ -1442,7 +1462,7 @@ button {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  padding: 4px 2px;
+  padding: 12px 6px;
 }
 .ms-status-row {
   display: flex;

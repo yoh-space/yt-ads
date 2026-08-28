@@ -6,8 +6,8 @@ import { statusTone } from "../helpers";
 import { ModalShell } from "./modal-shell";
 
 const statusActions: Array<{ label: string; status: MachineStatus; tone: string }> = [
-  { label: "Available", status: "Available", tone: "success" },
-  { label: "Running", status: "Running", tone: "info" },
+  { label: "Available", status: "Available", tone: "neutral" },
+  { label: "Running", status: "Running", tone: "success" },
   { label: "Maintenance", status: "Maintenance", tone: "warning" },
   { label: "Unavailable", status: "Unavailable", tone: "danger" },
 ];
