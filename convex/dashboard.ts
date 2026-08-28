@@ -1,6 +1,8 @@
 import { query } from "./_generated/server";
 import { requireActiveProfile } from "./users";
 
+const MATERIAL_PULSE_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+
 /**
  * Single round-trip that returns everything the operations dashboard needs:
  * materials, machines, job cards, offcuts, and the scrap register. Reactive by
@@ -11,7 +13,7 @@ export const getState = query({
   handler: async (ctx) => {
     const { profile } = await requireActiveProfile(ctx);
     const canSeeAllMachines = ["owner", "manager", "admin", "storekeeper"].includes(profile.role);
-    const [materials, allMachines, allJobs, offcuts, scraps, orders] = await Promise.all([
+    const [materials, allMachines, allJobs, offcuts, scraps, orders, movements] = await Promise.all([
       ctx.db
         .query("materials")
         .filter((q) => q.eq(q.field("active"), true))
@@ -27,6 +29,7 @@ export const getState = query({
         .collect(),
       ctx.db.query("scraps").collect(),
       ctx.db.query("customerOrders").collect(),
+      ctx.db.query("stockMovements").collect(),
     ]);
     const machines = allMachines.filter((machine) => canSeeAllMachines || machine.operatorRole === profile.role);
     const allowedMachineIds = new Set(machines.map((machine) => machine._id));
@@ -50,12 +53,38 @@ export const getState = query({
     const completedOrders = orders.filter((order) => order.status === "Completed").length;
     const queueOrders = orders.filter((order) => order.status === "Received").length;
     const activeProductionOrders = orders.filter((order) => order.status === "In Production").length;
+
+    const pulseCutoff = Date.now() - MATERIAL_PULSE_WINDOW_MS;
+    const consumedByMaterial = new Map<string, number>();
+    for (const movement of movements) {
+      if (movement.createdAt < pulseCutoff) continue;
+      if (movement.direction !== "out" && movement.movementType !== "EXCEPTION_STOCK_OUT") continue;
+      const amount = movement.baseQuantity ?? movement.quantity;
+      if (!Number.isFinite(amount) || amount <= 0) continue;
+      consumedByMaterial.set(
+        movement.materialId,
+        (consumedByMaterial.get(movement.materialId) ?? 0) + amount,
+      );
+    }
+    const materialPulse = visibleMaterials.map((material) => {
+      const consumed = consumedByMaterial.get(material._id) ?? 0;
+      const onHand = material.quantity ?? 0;
+      const total = consumed + onHand;
+      const utilizationPct = total > 0 ? Math.round((consumed / total) * 100) : 0;
+      return {
+        materialId: material._id,
+        consumedLast30Days: Number(consumed.toFixed(2)),
+        utilizationPct,
+      };
+    });
+
     return {
       materials: visibleMaterials,
       machines,
       jobs: enrichedJobs,
       offcuts: visibleOffcuts,
       scraps: visibleScraps,
+      orderPulse: materialPulse,
       orderStats: { todaysOrders, completedOrders, queueOrders, activeProductionOrders },
     };
   },

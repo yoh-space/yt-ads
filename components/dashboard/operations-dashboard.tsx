@@ -290,6 +290,7 @@ function OperationsDashboardInner() {
               jobs={jobs}
               orders={orders}
               orderStats={state.orderStats}
+              materialPulse={state.orderPulse ?? []}
               lowStock={lowStock}
               stockValue={stockValue}
               waste={averageWaste}

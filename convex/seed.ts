@@ -630,6 +630,56 @@ export const seedSampleStock = mutation({
   },
 });
 
+const SAMPLE_CONSUMPTION_RATIO = 0.18;
+
+/**
+ * Issues a small set of synthetic stock-out movements against the first few
+ * active materials so the Material Pulse utilization metric renders realistic
+ * percentages on a freshly seeded workspace. Bootstrap/CLI helper — no auth
+ * required.
+ */
+export const seedSampleConsumption = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await resolveBootstrapActor(ctx);
+    const createdBy = "seed";
+    const materials = (await ctx.db.query("materials").collect())
+      .filter((material) => material.active)
+      .slice(0, 4);
+    let issued = 0;
+    for (const material of materials) {
+      const baseUnit = material.baseUnit ?? material.unit;
+      const amount = Number((sampleOpeningQuantity(material.unit) * SAMPLE_CONSUMPTION_RATIO).toFixed(2));
+      if (!Number.isFinite(amount) || amount <= 0) continue;
+      const baseQuantity = convertToBase(
+        amount,
+        material.unit as InputUnit,
+        baseUnit,
+        material.conversionRatio,
+        material.rollEquivalent,
+        material.sheetEquivalent,
+      );
+      if (!Number.isFinite(baseQuantity) || baseQuantity <= 0) continue;
+      await ctx.db.insert("stockMovements", {
+        materialId: material._id,
+        direction: "out",
+        quantity: amount,
+        unit: material.unit,
+        baseUnit,
+        baseQuantity,
+        note: "Sample consumption (seed)",
+        createdBy,
+        createdAt: Date.now(),
+      });
+      await ctx.db.patch(material._id, {
+        quantity: Math.max(0, Number((material.quantity - baseQuantity).toFixed(2))),
+      });
+      issued += 1;
+    }
+    return { seeded: true, materialsIssued: issued };
+  },
+});
+
 export const seedSingleRoleAccount = mutation({
   args: { roleName: v.string() },
   handler: async (ctx, args) => {

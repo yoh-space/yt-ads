@@ -26,6 +26,7 @@ export function Overview({
   jobs,
   orders,
   orderStats,
+  materialPulse,
   lowStock,
   stockValue,
   waste,
@@ -37,6 +38,7 @@ export function Overview({
   jobs: JobCard[];
   orders: CustomerOrder[];
   orderStats: { todaysOrders: number; completedOrders: number; queueOrders: number; activeProductionOrders: number };
+  materialPulse: { materialId: string; consumedLast30Days: number; utilizationPct: number }[];
   lowStock: Material[];
   stockValue: number;
   waste: number;
@@ -135,17 +137,19 @@ export function Overview({
           </div>
           <div className="material-pulse">
             {materials.slice(0, 4).map((material) => {
-              const stockPct = material.reorderAt > 0 ? Math.round((material.quantity / material.reorderAt) * 100) : 100;
-              const utilWidth = Math.min(100, stockPct);
+              const pulse = materialPulse.find((entry) => entry.materialId === material.id);
+              const utilizationPct = pulse?.utilizationPct ?? 0;
+              const utilWidth = Math.min(100, Math.max(0, utilizationPct));
+              const consumed = pulse?.consumedLast30Days ?? 0;
               return (
                 <div className="pulse-row" key={material.id}>
                   <div className={`material-swatch ${material.accent}`}><Box size={15} /></div>
                   <p>
                     <strong>{material.name}</strong>
-                    <span>{formatQuantity(material.quantity, material.unit)} on hand</span>
+                    <span>{formatQuantity(material.quantity, material.unit)} on hand · {formatQuantity(consumed, material.unit)} used 30d</span>
                   </p>
                   <div className="utilization"><i style={{ width: `${utilWidth}%` }} /></div>
-                  <span>{stockPct}%</span>
+                  <span>{utilizationPct}%</span>
                 </div>
               );
             })}
