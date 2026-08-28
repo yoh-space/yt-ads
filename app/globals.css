@@ -1438,6 +1438,59 @@ button {
   color: #96372e;
   border-color: #d9a098;
 }
+.ms-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 4px 2px;
+}
+.ms-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #eaf1f4;
+}
+.ms-meta {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.ms-meta small {
+  font: 500 8px "DM Mono", monospace;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: #8495a0;
+}
+.ms-meta strong {
+  font-size: 12px;
+  color: #2c5266;
+}
+.ms-active-note {
+  margin: 0;
+  font-size: 11px;
+  color: #3d4f59;
+}
+.ms-active-note strong {
+  color: #1f8f6b;
+}
+.ms-active-note.muted {
+  color: #9aabb4;
+}
+.ms-section {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding-top: 12px;
+  border-top: 1px solid #eef4f6;
+}
+.ms-readonly-note {
+  margin: 0;
+  font-size: 11px;
+  font-style: italic;
+  color: #9aabb4;
+}
 .offcut-layout {
   min-width: 0;
 }
