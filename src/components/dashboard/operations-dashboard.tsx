@@ -238,13 +238,7 @@ export function OperationsDashboard() {
   }
 
   return (
-    <div className={cn(
-      "min-h-screen grid transition-all duration-300",
-      "grid-cols-[280px_minmax(0,1fr)]",
-      {
-        "grid-cols-[74px_minmax(0,1fr)]": sidebarCollapsed,
-      }
-    )}>
+    <>
       <Sidebar
         activeView={visibleView}
         onNavigate={openView}
@@ -265,7 +259,14 @@ export function OperationsDashboard() {
         />
       ) : null}
 
-      <main className="min-w-0">
+      <main className={cn(
+        "min-h-screen transition-all duration-300",
+        "ml-[280px]",
+        {
+          "ml-[74px]": sidebarCollapsed,
+          "ml-0 max-md:ml-0": mobileNavOpen,
+        }
+      )}>
         <Topbar
           activeView={visibleView}
           onMenu={() => setMobileNavOpen(true)}
@@ -279,17 +280,17 @@ export function OperationsDashboard() {
         <div className="p-[34px]">
           <section className="mb-8 flex items-start justify-between gap-6">
             <div className="min-w-0 flex-1">
-              <h1 className="text-2xl font-bold text-[#10364d] mb-2">
+              <h1 className="text-2xl font-bold text-navy mb-2">
                 {visibleView === "overview"
                   ? "የባለቤት የፋይናንስ እና የክምችት ኦዲት"
                   : navItems.find((item) => item.id === visibleView)?.label}
-                <span className="block text-sm font-normal text-muted mt-1">
+                <span className="block text-sm font-normal text-muted-foreground mt-1">
                   {visibleView === "overview"
                     ? "Owner Financial Oversight · Stock Audit"
                     : navItems.find((item) => item.id === visibleView)?.english}
                 </span>
               </h1>
-              <p className="text-sm text-[#34566a]">{notice}</p>
+              <p className="text-sm text-ink">{notice}</p>
             </div>
             
             <div className="flex items-center gap-3">
@@ -297,7 +298,7 @@ export function OperationsDashboard() {
                 <>
                   {canRecordException ? (
                     <button 
-                      className="inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold rounded-lg border border-[#cbdde5] bg-white text-[#16445f] transition-colors hover:border-[#83bdcd] hover:bg-[#f4fbfc]"
+                      className="inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold rounded-lg border border-line bg-white text-secondary-foreground transition-colors hover:border-cyan hover:bg-cyan/10"
                       onClick={() => openModal("exception", "stock.exception")}
                     >
                       <ArrowDownRight size={16} />Direct exception
@@ -305,7 +306,7 @@ export function OperationsDashboard() {
                   ) : null}
                   {canRecordStock ? (
                     <button 
-                      className="inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold rounded-lg border border-[#cbdde5] bg-white text-[#16445f] transition-colors hover:border-[#83bdcd] hover:bg-[#f4fbfc]"
+                      className="inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold rounded-lg border border-line bg-white text-secondary-foreground transition-colors hover:border-cyan hover:bg-cyan/10"
                       onClick={() => openModal("stock", "stock.record")}
                     >
                       <ArrowDownRight size={16} />Stock movement
@@ -313,7 +314,7 @@ export function OperationsDashboard() {
                   ) : null}
                   {canCreateMaterial ? (
                     <button 
-                      className="inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold rounded-lg bg-navy text-white shadow-[0_4px_10px_rgba(0,46,75,0.14)] transition-colors hover:bg-[#074d76]"
+                      className="inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold rounded-lg bg-primary text-primary-foreground shadow-custom transition-colors hover:bg-navy-2"
                       onClick={() => openModal("material", "material.create")}
                     >
                       <Plus size={16} />እቃ ጨምር
@@ -323,7 +324,7 @@ export function OperationsDashboard() {
               ) : null}
               {visibleView === "machines" && canCreateMachine ? (
                 <button 
-                  className="inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold rounded-lg bg-navy text-white shadow-[0_4px_10px_rgba(0,46,75,0.14)] transition-colors hover:bg-[#074d76]"
+                  className="inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold rounded-lg bg-primary text-primary-foreground shadow-custom transition-colors hover:bg-navy-2"
                   onClick={() => openModal("machine", "machine.create")}
                 >
                   <Plus size={16} />Add machine
@@ -331,7 +332,7 @@ export function OperationsDashboard() {
               ) : null}
               {visibleView === "overview" && canCreateOrder ? (
                 <button 
-                  className="inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold rounded-lg bg-navy text-white shadow-[0_4px_10px_rgba(0,46,75,0.14)] transition-colors hover:bg-[#074d76]"
+                  className="inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold rounded-lg bg-primary text-primary-foreground shadow-custom transition-colors hover:bg-navy-2"
                   onClick={() => openModal("order", "order.create")}
                 >
                   <Plus size={16} />New Customer Order
@@ -550,7 +551,7 @@ export function OperationsDashboard() {
           }}
         />
       ) : null}
-    </div>
+    </>
   );
 }
 

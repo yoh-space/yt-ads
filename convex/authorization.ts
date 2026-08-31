@@ -77,8 +77,6 @@ const ALL: Permission[] = [
 ];
 
 const OPERATIONS: Permission[] = [
-  "dashboard.view",
-  "material.view",
   "machine.view",
   "job.view",
   "job.record_production",
@@ -102,7 +100,7 @@ const MANAGEMENT_ROLES: Role[] = ["owner", "manager", "admin", "storekeeper"];
  */
 export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   owner: [...ALL],
-  manager: ALL.filter((permission) => permission !== "company_settings.update"),
+  manager: ALL.filter((permission) => permission !== "company_settings.update" || "team.view" || "team.manage" || "dashboard.view"),
   admin: [
     "dashboard.view",
     "material.view",
@@ -137,30 +135,19 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "reconciliation.review",
   ],
   storekeeper: [
-    "dashboard.view",
     "material.view",
     "material.create",
     "material.edit",
     "stock.record",
-    "machine.view",
-    "job.view",
-    "job.create",
-    "job.complete",
-    "job.record_production",
     "offcut.view",
     "offcut.create",
     "scrap.view",
     "scrap.create",
     "request.view",
-    "request.create",
     "request.issue",
     "request.acknowledge",
-    "team.view",
     "reports.view",
     "audit.view",
-    "order.view",
-    "order.create",
-    "order.manage",
     "stock.exception",
     "reconciliation.record",
   ],

@@ -40,7 +40,7 @@ export function Topbar({
       <header className="h-[65px] px-[34px] flex items-center justify-between bg-white border-b border-line">
         <div className="flex items-center gap-5">
           <button 
-            className="md:hidden grid place-items-center w-[34px] h-[34px] rounded-lg bg-[#f3f7f9] text-[#48606f] transition-colors hover:bg-[#e4f1f4] hover:text-navy"
+            className="md:hidden grid place-items-center w-[34px] h-[34px] rounded-lg bg-gray-100 text-gray-600 transition-colors hover:bg-gray-200 hover:text-navy"
             aria-label="Open navigation" 
             onClick={onMenu}
           >
@@ -48,34 +48,34 @@ export function Topbar({
           </button>
           
           <button 
-            className="hidden md:grid place-items-center w-[34px] h-[34px] rounded-lg bg-[#f3f7f9] text-[#48606f] transition-colors hover:bg-[#e4f1f4] hover:text-navy"
+            className="hidden md:grid place-items-center w-[34px] h-[34px] rounded-lg bg-gray-100 text-gray-600 transition-colors hover:bg-gray-200 hover:text-navy"
             aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} 
             onClick={onToggleSidebar}
           >
             {sidebarCollapsed ? <PanelLeftOpen size={19} /> : <PanelLeftClose size={19} />}
           </button>
           
-          <div className="flex items-center gap-[9px] text-xs text-[#78909e]">
+          <div className="flex items-center gap-[9px] text-xs text-gray-500">
             <span>{companyName ?? "YT Advertising"}</span>
-            <i className="text-[#c3d0d7] not-italic">/</i>
-            <strong className="font-semibold text-[#29475b]">{current?.english}</strong>
+            <i className="text-gray-300 not-italic">/</i>
+            <strong className="font-semibold text-navy">{current?.english}</strong>
           </div>
         </div>
         
         <div className="flex items-center gap-5">
-          <div className="w-[245px] h-[34px] flex items-center gap-[7px] px-[7px_7px_7px_10px] border border-line rounded-lg text-[#8499a5]">
+          <div className="w-[245px] h-[34px] flex items-center gap-[7px] px-[7px_7px_7px_10px] border border-line rounded-lg text-gray-500">
             <Search size={17} />
             <input 
-              className="flex-1 min-w-0 border-0 outline-0 bg-transparent text-[11px] text-[#314a59] placeholder:text-[#a2b1ba]"
+              className="flex-1 min-w-0 border-0 outline-0 bg-transparent text-[11px] text-ink placeholder:text-gray-400"
               placeholder="Search material, job card..." 
             />
-            <kbd className="font-mono text-[9px] px-1 py-[3px] bg-[#f0f4f6] rounded-[3px] text-[#8fa0ab]">
+            <kbd className="font-mono text-[9px] px-1 py-[3px] bg-gray-100 rounded-[3px] text-gray-400">
               ⌘ K
             </kbd>
           </div>
           
           <button 
-            className="relative grid place-items-center w-[34px] h-[34px] rounded-lg bg-[#f3f7f9] text-[#48606f] transition-colors hover:bg-[#e4f1f4] hover:text-navy"
+            className="relative grid place-items-center w-[34px] h-[34px] rounded-lg bg-gray-100 text-gray-600 transition-colors hover:bg-gray-200 hover:text-navy"
             aria-label={`${unreadCount ?? 0} unread notifications`} 
             aria-expanded={notificationsOpen} 
             onClick={() => setNotificationsOpen(true)}

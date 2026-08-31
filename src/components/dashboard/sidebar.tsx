@@ -30,9 +30,9 @@ export function Sidebar({
     <aside className={cn(
       // Base sidebar styles
       "fixed z-20 top-0 left-0 h-full w-[280px] flex flex-col",
-      "bg-gradient-to-b from-navy to-[#0a2f47] text-white",
-      "border-r border-navy-light/20",
-      "shadow-[5px_0_26px_rgba(0,28,47,0.12)] overflow-hidden",
+      "bg-gradient-to-b from-navy to-navy-2 text-white",
+      "border-r border-white/10",
+      "shadow-custom overflow-hidden",
       "transition-all duration-300 ease-out",
       
       // Mobile states
@@ -55,7 +55,7 @@ export function Sidebar({
       )}>
         <div className={cn(
           "relative w-[33px] h-[33px] grid place-items-center rounded-lg overflow-hidden",
-          "border border-cyan bg-gradient-to-br from-[#00799a] to-[#18c1ce]",
+          "border border-cyan bg-gradient-to-br from-cyan-dark to-cyan",
           "text-white text-lg font-extrabold"
         )}>
           {logoUrl ? (
@@ -72,13 +72,13 @@ export function Sidebar({
           <strong className="block text-sm text-white font-semibold tracking-[-0.3px]">
             {companyName ?? "YT Advertising"}
           </strong>
-          <small className="block mt-[2px] text-[10px] leading-[1.2] font-mono tracking-[0.8px] text-[#85a9bb]">
+          <small className="block mt-[2px] text-[10px] leading-[1.2] font-mono tracking-[0.8px] text-cyan/70">
             Operations Control
           </small>
         </div>
 
         <button 
-          className="md:hidden grid place-items-center w-[34px] h-[34px] rounded-lg bg-[#f3f7f9] text-[#48606f] transition-colors hover:bg-[#e4f1f4] hover:text-navy"
+          className="md:hidden grid place-items-center w-[34px] h-[34px] rounded-lg bg-gray-100 text-gray-600 transition-colors hover:bg-gray-200 hover:text-navy"
           aria-label="Close navigation" 
           onClick={onClose}
         >
@@ -89,20 +89,20 @@ export function Sidebar({
       {/* Live Workspace Chip */}
       <div className={cn(
         "mx-[5px] mb-[23px] p-2 flex items-center gap-[7px]",
-        "border border-[rgba(115,210,218,0.18)] rounded-lg",
-        "bg-[rgba(57,165,186,0.1)] text-[11px] text-[#cbe8ed]",
+        "border border-cyan/20 rounded-lg",
+        "bg-cyan/10 text-[11px] text-cyan",
         {
           "mx-[9px] justify-center": collapsed,
         }
       )}>
-        <span className="block w-[6px] h-[6px] rounded-full bg-[#5cda97] shadow-[0_0_0_3px_rgba(92,218,151,0.12)]" />
+        <span className="block w-[6px] h-[6px] rounded-full bg-green shadow-[0_0_0_3px_rgba(72,173,138,0.12)]" />
         <span className={cn({ "hidden": collapsed })}>Live</span>
       </div>
 
       {/* Primary Navigation */}
       <nav className="flex-1 px-[5px]">
         <p className={cn(
-          "mx-[5px] mb-[9px] text-[9px] font-mono tracking-[1px] uppercase text-[#7199ad]",
+          "mx-[5px] mb-[9px] text-[9px] font-mono tracking-[1px] uppercase text-muted-foreground",
           {
             "hidden": collapsed,
           }
@@ -119,9 +119,9 @@ export function Sidebar({
               key={item.id}
               className={cn(
                 "w-full flex items-center gap-[11px] p-[9px_10px] mb-1 rounded-lg text-left transition-all duration-200",
-                "text-[#a9c4d0] hover:bg-white/6 hover:text-white",
+                "text-gray-400 hover:bg-white/6 hover:text-white",
                 {
-                  "bg-gradient-to-r from-[rgba(27,196,210,0.21)] to-[rgba(27,196,210,0.07)] text-white shadow-[inset_2px_0_var(--cyan)]": isActive,
+                  "bg-gradient-to-r from-cyan/20 to-cyan/7 text-white shadow-[inset_2px_0_var(--cyan)]": isActive,
                   "justify-center p-[11px_0]": collapsed,
                 }
               )}
@@ -136,7 +136,7 @@ export function Sidebar({
                 }
               )}>
                 {item.label}
-                <small className="block mt-[2px] text-[9px] text-[#85a9bb]">
+                <small className="block mt-[2px] text-[9px] text-cyan/70">
                   {item.english}
                 </small>
               </span>
@@ -160,19 +160,19 @@ export function Sidebar({
       <div className="mt-auto">
         <div className={cn(
           "m-[15px_5px_11px] p-[11px] flex gap-[9px] rounded-lg",
-          "border border-white/8 bg-black/10 text-[#6ed5dc]",
+          "border border-white/8 bg-white/5 text-cyan",
           {
             "justify-center p-[11px_0]": collapsed,
           }
         )}>
           <Sparkles size={17} className="flex-none" />
           <p className={cn(
-            "text-[10px] leading-[1.45] text-[#9fbecc] m-0",
+            "text-[10px] leading-[1.45] text-green m-0",
             {
               "hidden": collapsed,
             }
           )}>
-            <strong className="text-[#6ed5dc]">YoTech Digitals</strong><br />
+            <strong className="text-cyan">YoTech Digitals</strong><br />
             Enterprise workflow system
           </p>
         </div>

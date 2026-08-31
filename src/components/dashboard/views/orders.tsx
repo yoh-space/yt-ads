@@ -4,6 +4,9 @@ import { useMemo, useState } from "react";
 import { ArrowUpRight, Clock3, Plus, Search, Wrench, X } from "lucide-react";
 import type { CustomerOrder, Machine, Material, OrderPriority, CustomerOrderStatus } from "@/lib/operations-types";
 import { formatQuantity } from "@/lib/units";
+import { Button, Panel, PanelHeader, StatusPill } from "@/components/ui";
+import { ModalShell } from "../modals/modal-shell";
+import { cn } from "@/lib/utils";
 
 const statuses: Array<CustomerOrderStatus | "all"> = ["all", "Received", "In Production", "Ready for Pickup", "Completed"];
 const priorities: Array<OrderPriority | "all"> = ["all", "High", "Medium", "Low"];
@@ -50,99 +53,170 @@ export function OrdersView({
   const pending = orders.filter((order) => order.status !== "Completed").length;
 
   return (
-    <div className="oq-wrap">
-      <div className="oq-stats">
-        <div className="oq-stat">
-          <span className="oq-stat-label">QUEUE TOTAL</span>
-          <strong>{orders.length}</strong>
-          <small>Public and walk-in orders</small>
+    <div className="space-y-6">
+      {/* Stats Cards */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className="bg-white border border-line rounded-lg p-4 shadow-sm">
+          <span className="block text-[10px] font-mono tracking-wider uppercase text-muted-foreground mb-1">QUEUE TOTAL</span>
+          <strong className="block text-2xl font-bold text-navy">{orders.length}</strong>
+          <small className="text-xs text-gray-500">Public and walk-in orders</small>
         </div>
-        <div className="oq-stat">
-          <span className="oq-stat-label">OPEN</span>
-          <strong>{pending}</strong>
-          <small>Still moving through production</small>
+        <div className="bg-white border border-line rounded-lg p-4 shadow-sm">
+          <span className="block text-[10px] font-mono tracking-wider uppercase text-muted-foreground mb-1">OPEN</span>
+          <strong className="block text-2xl font-bold text-navy">{pending}</strong>
+          <small className="text-xs text-gray-500">Still moving through production</small>
         </div>
-        <div className={`oq-stat${overdue > 0 ? " oq-stat-alert" : ""}`}>
-          <span className="oq-stat-label">OVERDUE</span>
-          <strong>{overdue}</strong>
-          <small>Due date has passed</small>
+        <div className={cn("bg-white border border-line rounded-lg p-4 shadow-sm", overdue > 0 && "border-coral/50 bg-coral/5")}>
+          <span className="block text-[10px] font-mono tracking-wider uppercase text-muted-foreground mb-1">OVERDUE</span>
+          <strong className={cn("block text-2xl font-bold", overdue > 0 ? "text-coral" : "text-navy")}>{overdue}</strong>
+          <small className="text-xs text-gray-500">Due date has passed</small>
         </div>
       </div>
 
-      <section className="panel">
-        <div className="panel-head">
-          <div>
-            <span className="panel-kicker">LIVE WORK QUEUE</span>
-            <h2>Orders ready for action</h2>
-          </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            {canCreateOrder ? <button className="button primary" onClick={onCreateOrder}><Plus size={15} />New Order</button> : null}
-            <span className="live-chip"><span className="live-dot" />Realtime</span>
-          </div>
-        </div>
+      {/* Orders Panel */}
+      <Panel>
+        <PanelHeader
+          title="Orders ready for action"
+          subtitle="Live work queue"
+          kicker="LIVE WORK QUEUE"
+          action={
+            <div className="flex items-center gap-2">
+              {canCreateOrder ? <Button size="small" variant="primary" onClick={onCreateOrder}><Plus size={15} />New Order</Button> : null}
+              <span className="flex items-center gap-2 px-3 py-1 rounded-full bg-green/10 text-green text-xs font-semibold">
+                <span className="w-2 h-2 rounded-full bg-green animate-pulse" />Realtime
+              </span>
+            </div>
+          }
+        />
 
-        <div className="oq-filters">
-          <label className="oq-search"><Search size={15} /><input placeholder="Search order, client, phone..." value={search} onChange={(e) => setSearch(e.target.value)} />{search ? <button onClick={() => setSearch("")}><X size={13} /></button> : null}</label>
-          <select value={status} onChange={(e) => setStatus(e.target.value as CustomerOrderStatus | "all")}>
+        {/* Filters */}
+        <div className="p-4 border-b border-line flex items-center gap-3 flex-wrap">
+          <label className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg border border-line flex-1 min-w-[200px]">
+            <Search size={15} className="text-gray-400" />
+            <input 
+              placeholder="Search order, client, phone..." 
+              value={search} 
+              onChange={(e) => setSearch(e.target.value)}
+              className="flex-1 min-w-0 bg-transparent border-0 outline-none text-sm text-ink placeholder:text-gray-400"
+            />
+            {search ? <button onClick={() => setSearch("")} className="text-gray-400 hover:text-gray-600"><X size={13} /></button> : null}
+          </label>
+          <select 
+            value={status} 
+            onChange={(e) => setStatus(e.target.value as CustomerOrderStatus | "all")}
+            className="px-3 py-2 bg-white border border-line rounded-lg text-sm text-ink outline-none focus:border-cyan"
+          >
             {statuses.map((v) => <option key={v} value={v}>{v === "all" ? "All statuses" : v}</option>)}
           </select>
-          <select value={priority} onChange={(e) => setPriority(e.target.value as OrderPriority | "all")}>
+          <select 
+            value={priority} 
+            onChange={(e) => setPriority(e.target.value as OrderPriority | "all")}
+            className="px-3 py-2 bg-white border border-line rounded-lg text-sm text-ink outline-none focus:border-cyan"
+          >
             {priorities.map((v) => <option key={v} value={v}>{v === "all" ? "All priorities" : v}</option>)}
           </select>
-          <select value={machine} onChange={(e) => setMachine(e.target.value)}>
+          <select 
+            value={machine} 
+            onChange={(e) => setMachine(e.target.value)}
+            className="px-3 py-2 bg-white border border-line rounded-lg text-sm text-ink outline-none focus:border-cyan"
+          >
             <option value="all">All machines</option>
             {machines.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
           </select>
         </div>
 
-        <div className="oq-table">
-          <div className="oq-table-head">
-            <span>ORDER / CLIENT</span>
-            <span>SERVICE</span>
-            <span>PRIORITY</span>
-            <span>DUE</span>
-            <span>STATUS</span>
-            <span>ACTION</span>
+        {/* Table */}
+        <div className="divide-y divide-line">
+          {/* Table Header */}
+          <div className="grid grid-cols-[2fr_1.5fr_1fr_1.2fr_1fr_1.2fr] gap-4 px-4 py-3 bg-gray-50 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+            <span>Order / Client</span>
+            <span>Service</span>
+            <span>Priority</span>
+            <span>Due</span>
+            <span>Status</span>
+            <span>Action</span>
           </div>
 
           {filtered.length === 0 ? (
-            <div className="oq-empty">No orders match the current filters.</div>
+            <div className="p-8 text-center text-gray-500 text-sm">No orders match the current filters.</div>
           ) : filtered.map((order) => (
-            <div className={`oq-row${order.overdue ? " oq-row-overdue" : ""}`} key={order.id}>
-              <div className="oq-cell-code">
-                <b>{order.code}</b>
-                <span>{order.clientName}</span>
-                <small>{order.phone}</small>
+            <div className={cn("grid grid-cols-[2fr_1.5fr_1fr_1.2fr_1fr_1.2fr] gap-4 px-4 py-3 items-center hover:bg-gray-50 transition-colors", order.overdue && "bg-coral/5")} key={order.id}>
+              {/* Order/Client */}
+              <div className="min-w-0">
+                <b className="block text-sm font-semibold text-navy truncate">{order.code}</b>
+                <span className="block text-xs text-gray-600 truncate">{order.clientName}</span>
+                <small className="text-xs text-gray-400">{order.phone}</small>
               </div>
-              <div className="oq-cell-service">
-                <b>{order.serviceType}</b>
-                <span>{order.dimensions} &middot; Qty {order.quantity}</span>
-                {order.fileUrl ? <a className="oq-file" href={order.fileUrl} target="_blank" rel="noreferrer">Open {order.fileName ?? "artwork"}</a> : null}
+              
+              {/* Service */}
+              <div className="min-w-0">
+                <b className="block text-sm font-semibold text-navy truncate">{order.serviceType}</b>
+                <span className="block text-xs text-gray-600 truncate">{order.dimensions} · Qty {order.quantity}</span>
+                {order.fileUrl ? <a className="text-xs text-cyan hover:text-cyan-dark underline" href={order.fileUrl} target="_blank" rel="noreferrer">Open {order.fileName ?? "artwork"}</a> : null}
               </div>
-              <div className="oq-cell-priority">
-                <b className={`priority-dot ${order.priority.toLowerCase()}`} />
-                {order.priority}
+              
+              {/* Priority */}
+              <div className="flex items-center gap-2">
+                <span className={cn("w-2 h-2 rounded-full", order.priority === "High" ? "bg-coral" : order.priority === "Medium" ? "bg-gold" : "bg-green")} />
+                <span className="text-sm text-gray-700">{order.priority}</span>
               </div>
-              <div className="oq-cell-due">
-                <Clock3 size={13} />
-                <span>{formatDue(order.preferredDueDate)}</span>
-                {order.overdue ? <small className="oq-danger">Overdue</small> : null}
+              
+              {/* Due */}
+              <div className="flex items-center gap-2 min-w-0">
+                <Clock3 size={13} className="text-gray-400 flex-none" />
+                <span className="text-xs text-gray-600 truncate">{formatDue(order.preferredDueDate)}</span>
+                {order.overdue ? <small className="text-xs font-semibold text-coral">Overdue</small> : null}
               </div>
-              <div className="oq-cell-status">
-                <span className={`status-pill ${order.status === "Completed" ? "success" : order.overdue ? "warning" : "info"}`}>{order.status}</span>
-                {order.machineName ? <small>{order.machineName}</small> : null}
+              
+              {/* Status */}
+              <div className="min-w-0">
+                <StatusPill 
+                  variant={order.status === "Completed" ? "success" : order.overdue ? "warning" : "info"}
+                  label={order.status}
+                />
+                {order.machineName ? <small className="block text-xs text-gray-500 mt-1">{order.machineName}</small> : null}
               </div>
-              <div className="oq-cell-actions">
-                {canManage && !order.jobCardId && order.status !== "Completed" ? <button className={`button primary small${isPending(`convert-${order.id}`) ? " pending" : ""}`} disabled={isPending(`convert-${order.id}`)} onClick={() => onConvert(order)}><Wrench size={13} />{isPending(`convert-${order.id}`) ? "Creating…" : "Create Job Card"}</button> : null}
-                {canManage && order.jobCardId && order.status === "In Production" ? <button className={`button secondary small${isPending(`order-status-${order.id}`) ? " pending" : ""}`} disabled={isPending(`order-status-${order.id}`)} onClick={() => onStatus(order.id, "Ready for Pickup")}>{isPending(`order-status-${order.id}`) ? "Saving..." : "Ready"}</button> : null}
-                {canManage && order.status === "Ready for Pickup" ? <button className={`button secondary small${isPending(`order-status-${order.id}`) ? " pending" : ""}`} disabled={isPending(`order-status-${order.id}`)} onClick={() => onStatus(order.id, "Completed")}>{isPending(`order-status-${order.id}`) ? "Saving..." : "Complete"}</button> : null}
+              
+              {/* Actions */}
+              <div className="flex items-center gap-2">
+                {canManage && !order.jobCardId && order.status !== "Completed" ? (
+                  <Button 
+                    size="small" 
+                    variant="primary" 
+                    disabled={isPending(`convert-${order.id}`)} 
+                    onClick={() => onConvert(order)}
+                  >
+                    <Wrench size={13} />
+                    {isPending(`convert-${order.id}`) ? "Creating…" : "Create Job Card"}
+                  </Button>
+                ) : null}
+                {canManage && order.jobCardId && order.status === "In Production" ? (
+                  <Button 
+                    size="small" 
+                    variant="secondary" 
+                    disabled={isPending(`order-status-${order.id}`)} 
+                    onClick={() => onStatus(order.id, "Ready for Pickup")}
+                  >
+                    {isPending(`order-status-${order.id}`) ? "Saving..." : "Ready"}
+                  </Button>
+                ) : null}
+                {canManage && order.status === "Ready for Pickup" ? (
+                  <Button 
+                    size="small" 
+                    variant="secondary" 
+                    disabled={isPending(`order-status-${order.id}`)} 
+                    onClick={() => onStatus(order.id, "Completed")}
+                  >
+                    {isPending(`order-status-${order.id}`) ? "Saving..." : "Complete"}
+                  </Button>
+                ) : null}
               </div>
             </div>
           ))}
         </div>
-      </section>
+      </Panel>
 
-      <p className="oq-note">Creating a job card from an order carries client details automatically. Material is deducted when production is recorded, not at creation.</p>
+      <p className="text-xs text-gray-500">Creating a job card from an order carries client details automatically. Material is deducted when production is recorded, not at creation.</p>
     </div>
   );
 }
@@ -156,87 +230,105 @@ export function OrderConvertModal({ order, machines, materials, onClose, onSave 
   const machine = machines.find((entry) => entry.id === machineId);
 
   return (
-    <div className="modal-backdrop">
-      <section className="modal-card">
-        <div className="modal-head">
-          <div>
-            <span className="panel-kicker">CREATE JOB CARD</span>
-            <h2>{order.code} → New Job Card</h2>
-            <p>All client details are carried from the customer order. Select machine and material.</p>
-          </div>
-          <button className="icon-button" onClick={onClose} aria-label="Close">&times;</button>
+    <ModalShell
+      title={`${order.code} → New Job Card`}
+      subtitle="All client details are carried from the customer order. Select machine and material."
+      kicker="CREATE JOB CARD"
+      onClose={onClose}
+      footer={
+        <div className="flex gap-3 justify-end">
+          <Button type="button" variant="tertiary" onClick={onClose} disabled={submitting}>Cancel</Button>
+          <Button 
+            type="submit" 
+            variant="primary" 
+            disabled={submitting}
+            onClick={() => {
+              if (submitting) return;
+              if (machineId && materialId && quantity > 0) {
+                setSubmitting(true);
+                onSave({ machineId, materialId, quantity, unit: material?.baseUnit ?? material?.unit ?? "m²", priority: order.priority });
+              }
+            }}
+          >
+            {submitting ? "Creating…" : "Create job card"} <ArrowUpRight size={16} />
+          </Button>
+        </div>
+      }
+    >
+      <div className="space-y-4">
+        {/* Order Info Box */}
+        <div className="flex items-center gap-3 p-3 bg-cyan/10 rounded-lg border border-cyan/20">
+          <ArrowUpRight size={17} className="text-cyan flex-none" />
+          <span className="text-sm text-gray-600">Order</span>
+          <strong className="text-sm text-navy">{order.code}</strong>
         </div>
 
-        <div className="modal-body">
-          <div className="conversion-box" style={{ marginBottom: 16 }}>
-            <ArrowUpRight size={17} />
-            <span>Order</span>
-            <strong>{order.code}</strong>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 16px", marginBottom: 16, fontSize: 13 }}>
-            <div><small style={{ color: "var(--muted)" }}>Client</small><br /><strong>{order.clientName}</strong></div>
-            <div><small style={{ color: "var(--muted)" }}>Phone</small><br /><strong>{order.phone}</strong></div>
-            <div><small style={{ color: "var(--muted)" }}>Service</small><br /><strong>{order.serviceType}</strong></div>
-            <div><small style={{ color: "var(--muted)" }}>Dimensions</small><br /><strong>{order.dimensions}</strong></div>
-            <div><small style={{ color: "var(--muted)" }}>Quantity</small><br /><strong>{order.quantity}</strong></div>
-            <div><small style={{ color: "var(--muted)" }}>Due</small><br /><strong>{formatDue(order.preferredDueDate)}</strong></div>
-          </div>
-
-          <form className="modal-form" onSubmit={(event) => {
-            event.preventDefault();
-            if (submitting) return;
-            if (machineId && materialId && quantity > 0) {
-              setSubmitting(true);
-              onSave({ machineId, materialId, quantity, unit: material?.baseUnit ?? material?.unit ?? "m\u00B2", priority: order.priority });
-            }
-          }}>
-            <label>
-              Assigned machine
-              <select value={machineId} onChange={(event) => setMachineId(event.target.value)}>
-                {machines.map((entry) => (
-                  <option key={entry.id} value={entry.id}>{entry.name} · {entry.code} · {entry.status}</option>
-                ))}
-              </select>
-            </label>
-            {machine && (machine.status === "Maintenance" || machine.status === "Unavailable") ? (
-              <p style={{ color: "var(--danger, #e53935)", fontSize: 12, margin: "-8px 0 8px" }}>{machine.name} is {machine.status.toLowerCase()} and cannot accept new jobs.</p>
-            ) : null}
-
-            <label>
-              Raw material
-              <select value={materialId} onChange={(event) => setMaterialId(event.target.value)}>
-                {materials.map((entry) => (
-                  <option key={entry.id} value={entry.id}>{entry.name} · {formatQuantity(entry.quantity, entry.baseUnit ?? entry.unit)}</option>
-                ))}
-              </select>
-            </label>
-            {material && quantity > material.quantity ? (
-              <p style={{ color: "var(--danger, #e53935)", fontSize: 12, margin: "-8px 0 8px" }}>
-                Stock shortfall — {material.name} has {formatQuantity(material.quantity, material.unit)} available but {quantity} {material?.baseUnit ?? material?.unit} is required.
-              </p>
-            ) : null}
-
-            <label>
-              Planned material usage ({material?.baseUnit ?? material?.unit})
-              <input type="number" min="0.1" step="0.1" value={quantity} onChange={(event) => setQuantity(Number(event.target.value))} />
-            </label>
-
-            <div className="conversion-box">
-              <ArrowUpRight size={17} />
-              <span>Available after production</span>
-              <strong>{material ? formatQuantity(Math.max(0, material.quantity - quantity), material.unit) : "—"}</strong>
-            </div>
-
-            <div className="modal-actions">
-              <button type="button" className="button tertiary" onClick={onClose} disabled={submitting}>Cancel</button>
-              <button type="submit" className={`button primary${submitting ? " pending" : ""}`} disabled={submitting}>
-                {submitting ? "Creating…" : "Create job card"} <ArrowUpRight size={16} />
-              </button>
-            </div>
-          </form>
+        {/* Order Details Grid */}
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <div><small className="text-muted-foreground">Client</small><br /><strong className="text-navy">{order.clientName}</strong></div>
+          <div><small className="text-muted-foreground">Phone</small><br /><strong className="text-navy">{order.phone}</strong></div>
+          <div><small className="text-muted-foreground">Service</small><br /><strong className="text-navy">{order.serviceType}</strong></div>
+          <div><small className="text-muted-foreground">Dimensions</small><br /><strong className="text-navy">{order.dimensions}</strong></div>
+          <div><small className="text-muted-foreground">Quantity</small><br /><strong className="text-navy">{order.quantity}</strong></div>
+          <div><small className="text-muted-foreground">Due</small><br /><strong className="text-navy">{formatDue(order.preferredDueDate)}</strong></div>
         </div>
-      </section>
-    </div>
+
+        {/* Form */}
+        <div className="space-y-4">
+          <label className="block">
+            <span className="block text-sm font-semibold text-navy mb-2">Assigned machine</span>
+            <select 
+              value={machineId} 
+              onChange={(event) => setMachineId(event.target.value)}
+              className="w-full px-3 py-2 bg-white border border-line rounded-lg text-sm text-ink outline-none focus:border-cyan"
+            >
+              {machines.map((entry) => (
+                <option key={entry.id} value={entry.id}>{entry.name} · {entry.code} · {entry.status}</option>
+              ))}
+            </select>
+          </label>
+          {machine && (machine.status === "Maintenance" || machine.status === "Unavailable") ? (
+            <p className="text-sm text-danger">{machine.name} is {machine.status.toLowerCase()} and cannot accept new jobs.</p>
+          ) : null}
+
+          <label className="block">
+            <span className="block text-sm font-semibold text-navy mb-2">Raw material</span>
+            <select 
+              value={materialId} 
+              onChange={(event) => setMaterialId(event.target.value)}
+              className="w-full px-3 py-2 bg-white border border-line rounded-lg text-sm text-ink outline-none focus:border-cyan"
+            >
+              {materials.map((entry) => (
+                <option key={entry.id} value={entry.id}>{entry.name} · {formatQuantity(entry.quantity, entry.baseUnit ?? entry.unit)}</option>
+              ))}
+            </select>
+          </label>
+          {material && quantity > material.quantity ? (
+            <p className="text-sm text-danger">
+              Stock shortfall — {material.name} has {formatQuantity(material.quantity, material.unit)} available but {quantity} {material?.baseUnit ?? material?.unit} is required.
+            </p>
+          ) : null}
+
+          <label className="block">
+            <span className="block text-sm font-semibold text-navy mb-2">Planned material usage ({material?.baseUnit ?? material?.unit})</span>
+            <input 
+              type="number" 
+              min="0.1" 
+              step="0.1" 
+              value={quantity} 
+              onChange={(event) => setQuantity(Number(event.target.value))}
+              className="w-full px-3 py-2 bg-white border border-line rounded-lg text-sm text-ink outline-none focus:border-cyan"
+            />
+          </label>
+
+          {/* Stock After Production */}
+          <div className="flex items-center gap-3 p-3 bg-green/10 rounded-lg border border-green/20">
+            <ArrowUpRight size={17} className="text-green flex-none" />
+            <span className="text-sm text-gray-600">Available after production</span>
+            <strong className="text-sm text-navy">{material ? formatQuantity(Math.max(0, material.quantity - quantity), material.unit) : "—"}</strong>
+          </div>
+        </div>
+      </div>
+    </ModalShell>
   );
 }
