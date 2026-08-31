@@ -7,6 +7,7 @@ export function ModalShell({
   title,
   subtitle,
   step,
+  kicker,
   children,
   footer,
   onClose,
@@ -14,6 +15,7 @@ export function ModalShell({
   title: string;
   subtitle: string;
   step?: number;
+  kicker?: string;
   children: ReactNode;
   footer?: ReactNode;
   onClose: () => void;
@@ -28,7 +30,7 @@ export function ModalShell({
         <div className="flex items-start justify-between p-6 border-b border-gray-100">
           <div className="flex-1">
             <span className="block text-[10px] font-bold tracking-wider text-cyan-dark mb-1">
-              {step ? `STEP ${step} OF 3` : "OPERATIONS ENTRY"}
+              {kicker ? kicker : step ? `STEP ${step} OF 3` : "OPERATIONS ENTRY"}
             </span>
             <h2 className="text-lg font-bold text-navy mb-1">{title}</h2>
             <p className="text-sm text-gray-600">{subtitle}</p>

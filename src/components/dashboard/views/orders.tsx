@@ -172,8 +172,9 @@ export function OrdersView({
               <div className="min-w-0">
                 <StatusPill 
                   variant={order.status === "Completed" ? "success" : order.overdue ? "warning" : "info"}
-                  label={order.status}
-                />
+                >
+                  {order.status}
+                </StatusPill>
                 {order.machineName ? <small className="block text-xs text-gray-500 mt-1">{order.machineName}</small> : null}
               </div>
               
