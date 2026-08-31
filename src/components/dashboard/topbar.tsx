@@ -1,0 +1,105 @@
+"use client";
+
+import { useState } from "react";
+import { useMutation, useQuery } from "convex/react";
+import { Bell, Menu, PanelLeftClose, PanelLeftOpen, Search } from "lucide-react";
+import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
+import { navItems, type View } from "./nav-config";
+import { UserMenu } from "./user-menu";
+import { NotificationModal } from "./notification-modal";
+import type { Profile } from "@/lib/operations-types";
+import { cn } from "@/lib/utils";
+
+export function Topbar({
+  activeView,
+  onMenu,
+  onToggleSidebar,
+  sidebarCollapsed,
+  profile,
+  companyName,
+  onOpenSettings,
+}: {
+  activeView: View;
+  onMenu: () => void;
+  onToggleSidebar: () => void;
+  sidebarCollapsed: boolean;
+  profile: Profile | null;
+  companyName?: string;
+  onOpenSettings: () => void;
+}) {
+  const current = navItems.find((item) => item.id === activeView);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const notifications = useQuery(api.notifications.list, profile ? {} : "skip");
+  const unreadCount = useQuery(api.notifications.unreadCount, profile ? {} : "skip");
+  const markRead = useMutation(api.notifications.markRead);
+  const markAllRead = useMutation(api.notifications.markAllRead);
+
+  return (
+    <>
+      <header className="h-[65px] px-[34px] flex items-center justify-between bg-white border-b border-line">
+        <div className="flex items-center gap-5">
+          <button 
+            className="md:hidden grid place-items-center w-[34px] h-[34px] rounded-lg bg-[#f3f7f9] text-[#48606f] transition-colors hover:bg-[#e4f1f4] hover:text-navy"
+            aria-label="Open navigation" 
+            onClick={onMenu}
+          >
+            <Menu size={19} />
+          </button>
+          
+          <button 
+            className="hidden md:grid place-items-center w-[34px] h-[34px] rounded-lg bg-[#f3f7f9] text-[#48606f] transition-colors hover:bg-[#e4f1f4] hover:text-navy"
+            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} 
+            onClick={onToggleSidebar}
+          >
+            {sidebarCollapsed ? <PanelLeftOpen size={19} /> : <PanelLeftClose size={19} />}
+          </button>
+          
+          <div className="flex items-center gap-[9px] text-xs text-[#78909e]">
+            <span>{companyName ?? "YT Advertising"}</span>
+            <i className="text-[#c3d0d7] not-italic">/</i>
+            <strong className="font-semibold text-[#29475b]">{current?.english}</strong>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-5">
+          <div className="w-[245px] h-[34px] flex items-center gap-[7px] px-[7px_7px_7px_10px] border border-line rounded-lg text-[#8499a5]">
+            <Search size={17} />
+            <input 
+              className="flex-1 min-w-0 border-0 outline-0 bg-transparent text-[11px] text-[#314a59] placeholder:text-[#a2b1ba]"
+              placeholder="Search material, job card..." 
+            />
+            <kbd className="font-mono text-[9px] px-1 py-[3px] bg-[#f0f4f6] rounded-[3px] text-[#8fa0ab]">
+              ⌘ K
+            </kbd>
+          </div>
+          
+          <button 
+            className="relative grid place-items-center w-[34px] h-[34px] rounded-lg bg-[#f3f7f9] text-[#48606f] transition-colors hover:bg-[#e4f1f4] hover:text-navy"
+            aria-label={`${unreadCount ?? 0} unread notifications`} 
+            aria-expanded={notificationsOpen} 
+            onClick={() => setNotificationsOpen(true)}
+          >
+            <Bell size={19} />
+            {unreadCount ? (
+              <b className="absolute right-1 top-[3px] grid place-items-center w-[14px] h-[14px] rounded-full bg-coral text-white font-mono text-[9px]">
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </b>
+            ) : null}
+          </button>
+          
+          <UserMenu profile={profile} onOpenSettings={onOpenSettings} />
+        </div>
+      </header>
+      
+      {notificationsOpen && notifications ? (
+        <NotificationModal
+          notifications={notifications}
+          onMarkRead={(id) => void markRead({ notificationId: id as Id<"notifications"> })}
+          onMarkAllRead={() => void markAllRead()}
+          onClose={() => setNotificationsOpen(false)}
+        />
+      ) : null}
+    </>
+  );
+}

@@ -1,7 +1,8 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { requireActiveProfile, requirePermission } from "./users";
-import { resolveEtbValue } from "./materialUsage";
+import { resolveEtbValueFromConfig } from "./materialUsage";
+import { ensureSystemConfig } from "./systemConfigs";
 
 /**
  * Physical Stock Reconciliation engine.
@@ -28,7 +29,8 @@ export const countMaterial = mutation({
     const systemQuantity = Number((material.quantity ?? 0).toFixed(3));
     const countedQuantity = Number(args.countedQuantity.toFixed(3));
     const variance = Number((countedQuantity - systemQuantity).toFixed(3));
-    const etbValue = resolveEtbValue(material);
+    const config = await ensureSystemConfig(ctx, identity._id);
+    const etbValue = resolveEtbValueFromConfig(material, config);
     const monetaryLoss = variance < 0 ? Number((-variance * etbValue).toFixed(2)) : 0;
 
     const id = await ctx.db.insert("reconciliations", {

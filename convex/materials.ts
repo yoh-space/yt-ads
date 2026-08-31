@@ -5,7 +5,7 @@ import { unit, purchaseUnit, accent } from "./schema";
 import { convertToBase, type InputUnit } from "./units";
 import { requirePermission } from "./users";
 import { notifyRoles } from "./notificationHelpers";
-import { findMaterialSpecification } from "../shared/material-specifications";
+import { findMaterialSpecification } from "../src/shared/material-specifications";
 import { classifyMaterialProductionType, resolveEtbValue, effectiveConsumptionRate, isRollMaterial, isSheetMaterial } from "./materialUsage";
 
 export const list = query({

@@ -20,7 +20,7 @@ The application uses the **Next.js App Router** for the web interface, **Convex*
 ## Repository structure
 
 ```text
-app/                         Next.js App Router pages and Better Auth route
+src/app/                     Next.js App Router pages and Better Auth route
 components/dashboard/        Live dashboard, views, modals, and operator workspaces
 convex/                      Convex schema, queries, mutations, auth, and validation
 lib/                         Shared frontend types, auth clients, and conversion helpers

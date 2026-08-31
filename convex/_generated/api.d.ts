@@ -26,6 +26,7 @@ import type * as orders from "../orders.js";
 import type * as reconciliation from "../reconciliation.js";
 import type * as reports from "../reports.js";
 import type * as seed from "../seed.js";
+import type * as systemConfigs from "../systemConfigs.js";
 import type * as types from "../types.js";
 import type * as units from "../units.js";
 import type * as users from "../users.js";
@@ -56,6 +57,7 @@ declare const fullApi: ApiFromModules<{
   reconciliation: typeof reconciliation;
   reports: typeof reports;
   seed: typeof seed;
+  systemConfigs: typeof systemConfigs;
   types: typeof types;
   units: typeof units;
   users: typeof users;

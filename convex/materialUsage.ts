@@ -15,6 +15,28 @@ type MaterialLike = {
   rollWidth?: number;
 };
 
+/**
+ * Shape of the workspace's central operational & financial configuration
+ * record. Used as the source of truth for ETB valuations, ink consumption
+ * and risk thresholds by the rest of the backend.
+ */
+export type SystemConfig = {
+  key: string;
+  etbPerSquareMetre: number;
+  etbPerLitre: number;
+  etbPerPiece: number;
+  etbPerMetre: number;
+  etbPerSheet: number;
+  materialOverrides: Array<{ materialName: string; etbValue: number }>;
+  inkMlPerSquareMetre: number;
+  maxAllowedWastePercent: number;
+  minOffcutAreaSquareMetre: number;
+  requireAdminPinForExceptions: boolean;
+  maxDirectStockOutEtb: number;
+  updatedAt: number;
+  updatedBy?: string;
+};
+
 /** Category names that map to sheet/roll materials depleted by printed/cut area (m²). */
 const AREA_CATEGORIES = new Set([
   "Banner",
@@ -42,18 +64,51 @@ const UNIT_CATEGORIES = new Set([
   "Display hardware",
 ]);
 
-/** Fallback ETB valuation per base unit when the material has no explicit value. */
-const DEFAULT_ETB_BY_UNIT: Record<string, number> = {
-  "m²": 250,
-  "m": 150,
-  "pcs": 120,
-  "piece": 120,
-  "L": 900,
-  "sheet": 400,
+/**
+ * Bundled defaults for the workspace's central operational & financial
+ * configuration. Used as a synchronous fallback and as the seed for the first
+ * `systemConfigs` row. Authoritative figures come from the database and are
+ * resolved via `resolveEtbValueFromConfig` /
+ * `resolveInkConsumptionRateFromConfig` whenever a `SystemConfig` is
+ * available.
+ */
+export const DEFAULT_SYSTEM_CONFIG: Omit<SystemConfig, "updatedAt" | "updatedBy"> = {
+  key: "default",
+  etbPerSquareMetre: 250,
+  etbPerLitre: 900,
+  etbPerPiece: 120,
+  etbPerMetre: 150,
+  etbPerSheet: 400,
+  materialOverrides: [],
+  inkMlPerSquareMetre: 12,
+  maxAllowedWastePercent: 5,
+  minOffcutAreaSquareMetre: 0.05,
+  requireAdminPinForExceptions: true,
+  maxDirectStockOutEtb: 2000,
 };
 
-/** Default ink consumption in millilitres per square metre of printed area. */
-export const DEFAULT_INK_ML_PER_M2 = 12;
+/**
+ * Synchronous fallback map for unit-rate lookups. Kept so any code path that
+ * still needs a value without a database context (snapshot generation, unit
+ * tests, ad-hoc CLI scripts) can resolve a sane baseline. Authoritative
+ * valuations live in `systemConfigs` and are resolved via
+ * `resolveEtbValueFromConfig` whenever a `SystemConfig` is available.
+ */
+const FALLBACK_ETB_BY_UNIT: Record<string, number> = {
+  "m²": DEFAULT_SYSTEM_CONFIG.etbPerSquareMetre,
+  "m": DEFAULT_SYSTEM_CONFIG.etbPerMetre,
+  "pcs": DEFAULT_SYSTEM_CONFIG.etbPerPiece,
+  "piece": DEFAULT_SYSTEM_CONFIG.etbPerPiece,
+  "L": DEFAULT_SYSTEM_CONFIG.etbPerLitre,
+  "sheet": DEFAULT_SYSTEM_CONFIG.etbPerSheet,
+};
+
+/**
+ * Fallback ink consumption in millilitres per square metre of printed area.
+ * Authoritative value is stored in `systemConfigs` and resolved via
+ * `resolveInkConsumptionRateFromConfig`.
+ */
+export const DEFAULT_INK_ML_PER_M2 = DEFAULT_SYSTEM_CONFIG.inkMlPerSquareMetre;
 
 const AREA_ROLL_CATEGORIES = new Set(["Banner", "Sticker roll", "Film", "Fabric roll"]);
 const AREA_SHEET_CATEGORIES = new Set(["Rigid sheet", "Foam board"]);
@@ -75,19 +130,80 @@ export function classifyMaterialProductionType(material: MaterialLike): Producti
   return "unit";
 }
 
-/** Resolves the ETB value of one base unit of the material, with a sensible fallback. */
+/**
+ * Synchronous ETB lookup that prefers the material's own stored value and
+ * otherwise falls back to the bundled default rates. Use this only when a
+ * `SystemConfig` is not available (e.g. unit tests or pure helpers); backend
+ * handlers should pass the active `SystemConfig` to
+ * `resolveEtbValueFromConfig`.
+ */
 export function resolveEtbValue(material: MaterialLike): number {
   if (typeof material.etbValue === "number" && material.etbValue > 0) return material.etbValue;
   const baseUnit = material.baseUnit ?? material.unit ?? "m²";
-  return DEFAULT_ETB_BY_UNIT[baseUnit] ?? 120;
+  return FALLBACK_ETB_BY_UNIT[baseUnit] ?? DEFAULT_SYSTEM_CONFIG.etbPerPiece;
 }
 
-/** Resolves the ink consumption rate (mL of ink per m² printed), defaulting when unset. */
+/**
+ * Authoritative ETB valuation. Order of precedence:
+ *   1. Material-specific override stored in `systemConfigs.materialOverrides`
+ *   2. The material's own `etbValue` field (explicit per-material value)
+ *   3. The unit-rate in the active `SystemConfig`
+ *   4. The bundled fallback rate for the base unit
+ */
+export function resolveEtbValueFromConfig(
+  material: MaterialLike,
+  config: Pick<SystemConfig, "etbPerSquareMetre" | "etbPerLitre" | "etbPerPiece" | "etbPerMetre" | "etbPerSheet" | "materialOverrides">,
+): number {
+  if (material.name) {
+    const key = material.name.trim().toLowerCase();
+    const override = config.materialOverrides.find((entry) => entry.materialName.trim().toLowerCase() === key);
+    if (override && override.etbValue > 0) return override.etbValue;
+  }
+  if (typeof material.etbValue === "number" && material.etbValue > 0) return material.etbValue;
+  const baseUnit = material.baseUnit ?? material.unit ?? "m²";
+  switch (baseUnit) {
+    case "m²":
+      return config.etbPerSquareMetre;
+    case "L":
+      return config.etbPerLitre;
+    case "m":
+      return config.etbPerMetre;
+    case "sheet":
+      return config.etbPerSheet;
+    case "piece":
+    case "pcs":
+      return config.etbPerPiece;
+    default:
+      return FALLBACK_ETB_BY_UNIT[baseUnit] ?? config.etbPerPiece;
+  }
+}
+
+/**
+ * Synchronous ink consumption lookup. Prefers the material's own stored
+ * `consumptionRate` and otherwise falls back to the bundled default. Backend
+ * handlers should pass the active `SystemConfig` to
+ * `resolveInkConsumptionRateFromConfig`.
+ */
 export function resolveInkConsumptionRate(material: MaterialLike): number {
   if (typeof material.consumptionRate === "number" && material.consumptionRate > 0) {
     return material.consumptionRate;
   }
   return DEFAULT_INK_ML_PER_M2;
+}
+
+/**
+ * Authoritative ink consumption rate. Prefers a per-material override stored
+ * on the material itself; otherwise falls back to the active `SystemConfig`'s
+ * workspace-wide rate.
+ */
+export function resolveInkConsumptionRateFromConfig(
+  material: MaterialLike,
+  config: Pick<SystemConfig, "inkMlPerSquareMetre">,
+): number {
+  if (typeof material.consumptionRate === "number" && material.consumptionRate > 0) {
+    return material.consumptionRate;
+  }
+  return config.inkMlPerSquareMetre;
 }
 
 /** Resolves the effective consumption rate for a material (mL/m² for ink only). */

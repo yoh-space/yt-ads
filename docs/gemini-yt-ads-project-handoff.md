@@ -65,7 +65,7 @@ The codebase is a working prototype/early production slice, not a fully complete
 | UI runtime | React 19 and TypeScript |
 | Database/backend | Convex reactive queries and mutations |
 | Authentication | Better Auth through the Convex Better Auth component |
-| Styling | Global CSS in `app/globals.css`; no utility CSS framework is the main design system |
+| Styling | Global CSS in `src/app/globals.css`; no utility CSS framework is the main design system |
 | Icons | `lucide-react` |
 | Tests | Vitest |
 | Package manager | pnpm |
@@ -268,7 +268,7 @@ components/dashboard/operations-dashboard.tsx
 components/dashboard/sidebar.tsx
 components/dashboard/topbar.tsx
 components/dashboard/user-menu.tsx
-app/globals.css
+src/app/globals.css
 ```
 
 The current shell includes:
@@ -277,8 +277,8 @@ The current shell includes:
 - A collapsible desktop sidebar and mobile open/close behavior.
 - A topbar with mobile menu, sidebar collapse button, dynamic company breadcrumb, search field placeholder, notification bell, unread badge, and user menu.
 - A user menu showing avatar initials, name, English role label, Account settings, and sign out.
-- Route-level loading through `app/loading.tsx` and `InventoryLoader`.
-- A global client error boundary at `app/error.tsx`; auth/profile/session-looking errors redirect to sign-in, while other failures show retry/sign-in actions.
+- Route-level loading through `src/app/loading.tsx` and `InventoryLoader`.
+- A global client error boundary at `src/app/error.tsx`; auth/profile/session-looking errors redirect to sign-in, while other failures show retry/sign-in actions.
 
 ### 7.3 Main dashboard views
 
@@ -421,9 +421,9 @@ convex/auth.ts
 convex/auth.config.ts
 lib/auth-client.ts
 lib/auth-server.ts
-app/api/auth/[...all]/route.ts
-app/sign-in/page.tsx
-app/sign-up/page.tsx
+src/app/api/auth/[...all]/route.ts
+src/app/sign-in/page.tsx
+src/app/sign-up/page.tsx
 ```
 
 Better Auth currently enables email/password authentication without required email verification. Google OAuth is conditionally enabled only when these Convex deployment environment variables exist:
@@ -697,11 +697,11 @@ Do not claim a feature is deployed merely because `pnpm build` passes. Distingui
 | `components/dashboard/notification-modal.tsx` | Newest-first notification presentation and read actions |
 | `components/dashboard/material-requests-panel.tsx` | Minimal material custody UI |
 | `components/dashboard/views/*` | Overview, inventory, jobs, machines, offcuts, reports, and audit views |
-| `app/sign-in/page.tsx` | Email/password and Google sign-in entry |
-| `app/sign-up/page.tsx` | Email/password and Google sign-up entry |
-| `app/error.tsx` | Global error recovery/auth redirect UX |
-| `app/loading.tsx` | Route-level loading UX |
-| `app/globals.css` | Full visual system, responsive layout, modal/form styling |
+| `src/app/sign-in/page.tsx` | Email/password and Google sign-in entry |
+| `src/app/sign-up/page.tsx` | Email/password and Google sign-up entry |
+| `src/app/error.tsx` | Global error recovery/auth redirect UX |
+| `src/app/loading.tsx` | Route-level loading UX |
+| `src/app/globals.css` | Full visual system, responsive layout, modal/form styling |
 | `lib/operations-types.ts` | Frontend shared domain types and role labels |
 | `lib/auth-client.ts` | Better Auth browser client |
 

@@ -282,6 +282,7 @@ export default defineSchema({
     serviceType: v.string(),
     dimensions: v.string(),
     quantity: v.string(),
+    amount: v.optional(v.number()),
     fileStorageId: v.optional(v.id("_storage")),
     fileName: v.optional(v.string()),
     preferredDueDate: v.number(),
@@ -405,4 +406,46 @@ export default defineSchema({
     .index("by_material", ["materialId"])
     .index("by_created", ["createdAt"])
     .index("by_status", ["status"]),
+
+  /**
+   * Centralised operational & financial configuration. A single row keyed by
+   * `key` ("default") stores ETB valuation rates per base unit, ink
+   * consumption, waste / offcut rules, risk controls, and per-material price
+   * overrides. Consumed dynamically by reconciliation and material-usage
+   * handlers instead of hardcoded fallbacks.
+   */
+  systemConfigs: defineTable({
+    key: v.string(),
+    /** ETB valuation rate per square metre for area materials. */
+    etbPerSquareMetre: v.number(),
+    /** ETB valuation rate per litre of ink. */
+    etbPerLitre: v.number(),
+    /** ETB valuation rate per unit hardware (piece / pcs). */
+    etbPerPiece: v.number(),
+    /** ETB valuation rate per metre of linear material. */
+    etbPerMetre: v.number(),
+    /** ETB valuation rate per sheet (rigid boards). */
+    etbPerSheet: v.number(),
+    /**
+     * Per-material custom ETB price overrides, keyed by canonical material
+     * name. Applied ahead of the unit default rates during valuation.
+     */
+    materialOverrides: v.array(v.object({
+      materialName: v.string(),
+      etbValue: v.number(),
+    })),
+    /** Ink consumption in mL per m² of printed area. */
+    inkMlPerSquareMetre: v.number(),
+    /** Maximum tolerated waste rate as a percentage (0–100). */
+    maxAllowedWastePercent: v.number(),
+    /** Minimum offcut registration size in m². Smaller offcuts are not tracked. */
+    minOffcutAreaSquareMetre: v.number(),
+    /** When true, direct exception stock-outs require an admin PIN reference note. */
+    requireAdminPinForExceptions: v.boolean(),
+    /** ETB threshold above which a direct stock-out must be approved. */
+    maxDirectStockOutEtb: v.number(),
+    updatedAt: v.number(),
+    updatedBy: v.optional(v.string()),
+  })
+    .index("by_key", ["key"]),
 });

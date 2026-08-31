@@ -16,6 +16,7 @@ type OrderDoc = {
   serviceType: string;
   dimensions: string;
   quantity: string;
+  amount?: number;
   fileStorageId?: string;
   fileName?: string;
   preferredDueDate: number;
@@ -138,6 +139,7 @@ export const createWalkIn = mutation({
     serviceType: v.string(),
     dimensions: v.string(),
     quantity: v.string(),
+    amount: v.optional(v.number()),
     preferredDueDate: v.number(),
     priority: v.optional(orderPriority),
     notes: v.optional(v.string()),
@@ -156,6 +158,9 @@ export const createWalkIn = mutation({
     if (!Number.isFinite(args.preferredDueDate) || args.preferredDueDate < Date.now() - 60_000) {
       throw new Error("Preferred due date must be in the future.");
     }
+    if (args.amount !== undefined && (!Number.isFinite(args.amount) || args.amount < 0)) {
+      throw new Error("Order value must be zero or greater.");
+    }
 
     const code = `ORD-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
     const now = Date.now();
@@ -166,6 +171,7 @@ export const createWalkIn = mutation({
       serviceType,
       dimensions,
       quantity,
+      amount: args.amount === undefined ? undefined : Number(args.amount.toFixed(2)),
       preferredDueDate: args.preferredDueDate,
       status: "Received",
       priority: args.priority ?? "Medium",

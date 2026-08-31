@@ -6,7 +6,7 @@ import { authComponent, createAuth } from "./auth";
 import { requireAdmin } from "./users";
 import { convertToBase, type InputUnit } from "./units";
 import { api } from "./_generated/api";
-import { MATERIAL_SPECIFICATIONS, type MaterialSpecificationDefinition } from "../shared/material-specifications";
+import { MATERIAL_SPECIFICATIONS, type MaterialSpecificationDefinition } from "../src/shared/material-specifications";
 
 /**
  * Populates the demo operations dataset (materials, machines, job cards,
