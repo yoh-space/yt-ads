@@ -31,6 +31,10 @@ export type Priority = "High" | "Medium" | "Normal";
 
 export type Accent = "cyan" | "gold" | "violet" | "blue" | "green";
 
+export type ProductionType = "area" | "ink" | "unit";
+
+export type ReconciliationStatus = "Open" | "Reviewed" | "Resolved";
+
 export const ROLES: Role[] = [
   "owner",
   "manager",

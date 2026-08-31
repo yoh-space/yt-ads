@@ -6,6 +6,7 @@ import { convertToBase, type InputUnit } from "./units";
 import { requirePermission } from "./users";
 import { notifyRoles } from "./notificationHelpers";
 import { findMaterialSpecification } from "../shared/material-specifications";
+import { classifyMaterialProductionType, resolveEtbValue, effectiveConsumptionRate, isRollMaterial, isSheetMaterial } from "./materialUsage";
 
 export const list = query({
   args: {},
@@ -100,6 +101,12 @@ export const create = mutation({
       scrapRule: args.scrapRule?.trim() || undefined,
       accent: args.accent,
       active: true,
+      productionType: classifyMaterialProductionType({ name: canonicalName, category: catalog?.category, baseUnit }),
+      consumptionRate: effectiveConsumptionRate({ name: canonicalName, category: catalog?.category, baseUnit }),
+      etbValue: resolveEtbValue({ name: canonicalName, category: catalog?.category, baseUnit }),
+      rollWidth: isRollMaterial({ name: canonicalName, category: catalog?.category }) ? catalog?.specificationOptions?.some((o) => /meter/i.test(o)) ? 3.2 : undefined : undefined,
+      sheetWidth: isSheetMaterial({ name: canonicalName, category: catalog?.category }) ? catalog?.specificationOptions?.includes("18mm") ? 1.22 : undefined : undefined,
+      sheetLength: isSheetMaterial({ name: canonicalName, category: catalog?.category }) ? catalog?.specificationOptions?.includes("18mm") ? 2.44 : undefined : undefined,
     });
     return (await ctx.db.get(id))!;
   },

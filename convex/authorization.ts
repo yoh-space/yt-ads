@@ -36,7 +36,9 @@ export type Permission =
   | "order.view"
   | "order.create"
   | "order.manage"
-  | "stock.exception";
+  | "stock.exception"
+  | "reconciliation.record"
+  | "reconciliation.review";
 
 const ALL: Permission[] = [
   "dashboard.view",
@@ -70,6 +72,8 @@ const ALL: Permission[] = [
   "order.create",
   "order.manage",
   "stock.exception",
+  "reconciliation.record",
+  "reconciliation.review",
 ];
 
 const OPERATIONS: Permission[] = [
@@ -129,6 +133,8 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "order.create",
     "order.manage",
     "stock.exception",
+    "reconciliation.record",
+    "reconciliation.review",
   ],
   storekeeper: [
     "dashboard.view",
@@ -156,6 +162,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "order.create",
     "order.manage",
     "stock.exception",
+    "reconciliation.record",
   ],
   laser_operator: [...OPERATIONS],
   cnc_operator: [...OPERATIONS],

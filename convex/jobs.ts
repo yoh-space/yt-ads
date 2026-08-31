@@ -5,6 +5,8 @@ import { requireActiveProfile, requirePermission } from "./users";
 import { canAccessJob } from "./authorization";
 import { notifyRoles, notifyUser } from "./notificationHelpers";
 import { assertProductionQuantities } from "./validation";
+import { classifyMaterialProductionType, computeJobConsumption, resolveEtbValue } from "./materialUsage";
+import { calculateOffcutArea } from "./units";
 
 async function notifyOrderCompletion(ctx: any, orderId: any, actorAuthUserId: string) {
   const order = await ctx.db.get(orderId);
@@ -115,6 +117,9 @@ export const create = mutation({
     unit,
     due: v.string(),
     priority,
+    length: v.optional(v.number()),
+    width: v.optional(v.number()),
+    deductOnComplete: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const { identity } = await requirePermission(ctx, "job.create");
@@ -148,6 +153,9 @@ export const create = mutation({
       priority: args.priority,
       createdBy: identity._id,
       createdAt: Date.now(),
+      length: args.length && Number.isFinite(args.length) && args.length > 0 ? Number(args.length.toFixed(3)) : undefined,
+      width: args.width && Number.isFinite(args.width) && args.width > 0 ? Number(args.width.toFixed(3)) : undefined,
+      deductOnComplete: args.deductOnComplete,
     });
     if (machine.status !== "Running") {
       await ctx.db.patch(args.machineId, { status: "Running", activeJob: code });
@@ -193,6 +201,102 @@ export const recordProduction = mutation({
   },
 });
 
+async function consumeFromOffcuts(ctx: any, jobId: any, materialId: any, baseQuantity: number, actorId: string) {
+  const available = await ctx.db
+    .query("offcuts")
+    .withIndex("by_material_status", (q: any) => q.eq("materialId", materialId).eq("status", "available"))
+    .collect();
+  if (available.length === 0 || baseQuantity <= 0) return 0;
+  const sorted = available.sort((a: any, b: any) => a.area - b.area);
+  let covered = 0;
+  for (const offcut of sorted) {
+    if (baseQuantity - covered <= 0) break;
+    const usedFromOffcut = Math.min(offcut.area, Number((baseQuantity - covered).toFixed(3)));
+    covered = Number((covered + usedFromOffcut).toFixed(3));
+    await ctx.db.insert("offcutConsumptions", {
+      jobCardId: jobId,
+      materialId,
+      offcutId: offcut._id,
+      area: usedFromOffcut,
+      unit: "m²",
+      consumedBy: actorId,
+      createdAt: Date.now(),
+    });
+    const remainingArea = Number((offcut.area - usedFromOffcut).toFixed(3));
+    if (remainingArea <= 0.01) {
+      await ctx.db.patch(offcut._id, { status: "consumed", usable: offcut.usable });
+    } else {
+      await ctx.db.patch(offcut._id, { area: remainingArea, width: Math.max(0.01, Number((offcut.width * (remainingArea / offcut.area)).toFixed(3))), status: "available" });
+    }
+  }
+  return covered;
+}
+
+async function recordAutomaticDeduction(ctx: any, job: any, material: any, actorId: string) {
+  if (job.deductOnComplete === false) return { deducted: false, reason: "Automatic deduction disabled for this job." };
+
+  const bom = computeJobConsumption(material, {
+    length: job.length,
+    width: job.width,
+    quantity: job.quantity,
+    fallbackArea: job.quantity,
+  });
+
+  let rawToDeduct = bom.baseQuantity;
+  if (bom.productionType === "area") {
+    const covered = await consumeFromOffcuts(ctx, job._id, job.materialId, bom.baseQuantity, actorId);
+    rawToDeduct = Number((Math.max(0, bom.baseQuantity - covered)).toFixed(3));
+  }
+
+  let leftover = 0;
+  if (bom.productionType === "area" && rawToDeduct > 0 && material.quantity !== undefined) {
+    leftover = Number((material.quantity - rawToDeduct).toFixed(3));
+    if (leftover < 0) leftover = 0;
+  }
+
+  const newQuantity = Number((material.quantity - rawToDeduct).toFixed(3));
+  if (newQuantity < 0) throw new Error(`Insufficient ${material.name} stock to complete this job (needed ${rawToDeduct} ${bom.unit}).`);
+  await ctx.db.patch(job.materialId, { quantity: newQuantity });
+
+  await ctx.db.insert("stockMovements", {
+    materialId: job.materialId,
+    direction: "out",
+    quantity: rawToDeduct,
+    unit: bom.unit,
+    baseUnit: bom.unit,
+    baseQuantity: rawToDeduct,
+    movementType: "STANDARD",
+    note: `Automatic job completion deduction ${job.code} (${bom.productionType}, ${bom.areaM2} m² printed${bom.productionType === "ink" ? ` · ${bom.inkMl} mL ink` : ""})`,
+    createdBy: actorId,
+    createdAt: Date.now(),
+  });
+
+  if (bom.productionType === "area") {
+    await ctx.db.insert("productionLogs", {
+      jobCardId: job._id,
+      machineId: job.machineId,
+      inputQuantity: bom.baseQuantity,
+      outputQuantity: bom.baseQuantity,
+      wasteQuantity: 0,
+      unit: job.unit,
+      operatorId: actorId,
+      createdAt: Date.now(),
+    });
+  }
+
+  const etb = resolveEtbValue(material);
+  return {
+    deducted: true,
+    productionType: bom.productionType,
+    baseQuantity: bom.baseQuantity,
+    rawToDeduct,
+    areaM2: bom.areaM2,
+    inkMl: bom.inkMl,
+    unit: bom.unit,
+    etbValue: etb,
+  };
+}
+
 export const complete = mutation({
   args: { jobId: v.id("jobCards") },
   handler: async (ctx, args) => {
@@ -206,16 +310,10 @@ export const complete = mutation({
     }
     if (job.status === "Completed") return;
 
-    const loggedInput = await getProductionTotals(ctx, args.jobId);
-    const remaining = Number((job.quantity - loggedInput).toFixed(2));
-    if (remaining > 0) {
-      await recordProductionInternal(ctx, {
-        jobCardId: args.jobId,
-        inputQuantity: remaining,
-        outputQuantity: remaining,
-        wasteQuantity: 0,
-      }, identity._id);
-    }
+    const material = await ctx.db.get(job.materialId);
+    if (!material) throw new Error("Job material not found.");
+
+    const deduction = await recordAutomaticDeduction(ctx, job, material, identity._id);
 
     await ctx.db.patch(args.jobId, { status: "Completed" });
     if (job.orderId) {
@@ -231,5 +329,6 @@ export const complete = mutation({
       relatedTable: "jobCards",
       relatedId: args.jobId,
     });
+    return { success: true, deduction };
   },
 });

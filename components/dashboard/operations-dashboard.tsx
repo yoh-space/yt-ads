@@ -19,11 +19,13 @@ import { JobsView } from "./views/jobs";
 import { MachinesView } from "./views/machines";
 import { OffcutsView } from "./views/offcuts";
 import { ReportsView } from "./views/reports";
+import { ReconciliationView } from "./views/reconciliation";
 import { AuditLogView } from "./views/audit-log";
 import { SettingsView } from "./views/settings";
 import { OrdersView, OrderConvertModal } from "./views/orders";
 import { StockModal } from "./modals/stock-modal";
 import { OffcutModal, type NewOffcutInput } from "./modals/offcut-modal";
+import { ReconciliationModal, type NewReconciliationInput } from "./modals/reconciliation-modal";
 import { MaterialModal, type NewMaterialInput } from "./modals/material-modal";
 import { ScrapModal, type NewScrapInput } from "./modals/scrap-modal";
 import { MachineModal, type NewMachineInput } from "./modals/machine-modal";
@@ -71,6 +73,8 @@ function OperationsDashboardInner() {
   const canIssueRequest = Boolean(profile && hasPermission(role, "request.issue"));
   const canRecordException = Boolean(profile && hasPermission(role, "stock.exception"));
   const canCreateOrder = Boolean(profile && hasPermission(role, "order.create"));
+  const canRecordReconciliation = Boolean(profile && hasPermission(role, "reconciliation.record"));
+  const canReviewReconciliation = Boolean(profile && hasPermission(role, "reconciliation.review"));
   const materialRequests = useQuery(api.materialRequests.list, profile?.active ? {} : "skip");
   const ordersQuery = useQuery(api.orders.list, canViewOrders && profile?.active ? {} : "skip");
   const exceptionsQuery = useQuery(api.orders.listExceptions, canViewOrders && profile?.active ? {} : "skip");
@@ -95,6 +99,8 @@ function OperationsDashboardInner() {
   const recordExceptionStockOut = useMutation(api.orders.recordExceptionStockOut);
   const notifyOverdue = useMutation(api.orders.notifyOverdue);
   const createWalkIn = useMutation(api.orders.createWalkIn);
+  const countMaterial = useMutation(api.reconciliation.countMaterial);
+  const reviewReconciliation = useMutation(api.reconciliation.review);
 
   const [activeView, setActiveView] = useState<View>("overview");
   const [modal, setModal] = useState<Modal>(null);
@@ -280,6 +286,7 @@ function OperationsDashboardInner() {
               ) : null}
               {visibleView === "machines" && canCreateMachine ? <button className="button primary" onClick={() => openModal("machine", "machine.create")}><Plus size={16} />Add machine</button> : null}
               {visibleView === "overview" && canCreateOrder ? <button className="button primary" onClick={() => openModal("order", "order.create")}><Plus size={16} />New Customer Order</button> : null}
+              {visibleView === "reconciliation" && canRecordReconciliation ? <button className="button primary" onClick={() => openModal("reconciliation", "reconciliation.record")}><Plus size={16} />Record physical count</button> : null}
             </div>
           </section>
 
@@ -350,6 +357,7 @@ function OperationsDashboardInner() {
             <OffcutsView offcuts={offcuts} scraps={scraps} canCreate={canCreateOffcut} canScrap={canCreateScrap} onCreate={() => openModal("offcut", "offcut.create")} onScrap={() => openModal("scrap", "scrap.create")} />
           ) : null}
           {visibleView === "reports" ? <ReportsView /> : null}
+          {visibleView === "reconciliation" ? <ReconciliationView materials={materials} canRecord={canRecordReconciliation} canReview={canReviewReconciliation} onCount={() => openModal("reconciliation", "reconciliation.record")} onReview={(id, status) => finishMutation(`review-recon-${id}`, reviewReconciliation({ reconciliationId: id as Id<"reconciliations">, status }), "Reconciliation record reviewed")} /> : null}
           {visibleView === "audit" ? <AuditLogView /> : null}
           {visibleView === "settings" && resolvedProfile ? <SettingsView profile={resolvedProfile} /> : null}
         </div>
@@ -474,6 +482,19 @@ function OperationsDashboardInner() {
         />
       ) : null}
       {convertOrderTarget ? <OrderConvertModal order={convertOrderTarget} machines={machines} materials={materials} onClose={() => setConvertOrderTarget(null)} onSave={(input) => finishMutation(`convert-${convertOrderTarget.id}`, convertOrder({ orderId: convertOrderTarget.id as Id<"customerOrders">, machineId: input.machineId as Id<"machines">, materialId: input.materialId as Id<"materials">, quantity: input.quantity, unit: input.unit, priority: input.priority }).then((result) => { setConvertOrderTarget(null); return result; }), "Order converted to a job card")} /> : null}
+      {modal === "reconciliation" && canRecordReconciliation ? (
+        <ReconciliationModal
+          materials={materials}
+          onClose={() => setModal(null)}
+          onSave={(input: NewReconciliationInput) => {
+            finishMutation(
+              "record-reconciliation",
+              countMaterial({ materialId: input.materialId as Id<"materials">, countedQuantity: input.countedQuantity, note: input.note }),
+              "Physical count recorded · variance computed",
+            );
+          }}
+        />
+      ) : null}
     </div>
   );
 }

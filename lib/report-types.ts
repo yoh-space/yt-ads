@@ -51,6 +51,31 @@ export type ReportSummary = {
     authorizationNote?: string;
     createdAt: number;
   }>;
+  executive: {
+    totalConsumptionETB: number;
+    totalConsumptionBaseQuantity: number;
+    theftAlerts: Array<{
+      materialName: string;
+      variance: number;
+      unit: string;
+      monetaryLoss: number;
+      countDate: number;
+    }>;
+    theftAlertsTotalLoss: number;
+    scrapCount: number;
+    scrapQuantity: number;
+    recordedScrapUnit: string;
+    scrapRate: number;
+    exceptionStockOuts: Array<{
+      id: string;
+      materialName: string;
+      quantity: number;
+      unit: string;
+      reason: string;
+      operatorName: string;
+      createdAt: number;
+    }>;
+  };
   consumption: {
     topMaterials: Array<{
       materialName: string;

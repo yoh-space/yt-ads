@@ -100,7 +100,7 @@ jspm_packages/
 # Temporary folders
 tmp/
 temp/
-
+opencode.json
 # Database
 *.db
 *.sqlite

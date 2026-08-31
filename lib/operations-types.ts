@@ -66,6 +66,8 @@ export type StockException = {
   createdAt: number;
 };
 export type Accent = "cyan" | "gold" | "violet" | "blue" | "green";
+export type ProductionType = "area" | "ink" | "unit";
+export type ReconciliationStatus = "Open" | "Reviewed" | "Resolved";
 
 export type Material = {
   id: string;
@@ -88,6 +90,12 @@ export type Material = {
   reorderRule?: string;
   scrapRule?: string;
   accent: "cyan" | "gold" | "violet" | "blue" | "green";
+  productionType?: ProductionType;
+  consumptionRate?: number;
+  etbValue?: number;
+  rollWidth?: number;
+  sheetWidth?: number;
+  sheetLength?: number;
 };
 
 export type Machine = {
@@ -120,6 +128,9 @@ export type JobCard = {
   orderId?: string;
   orderStatus?: CustomerOrderStatus;
   orderOverdue?: boolean;
+  length?: number;
+  width?: number;
+  deductOnComplete?: boolean;
 };
 
 export type Offcut = {
@@ -177,6 +188,42 @@ export type Profile = {
   role: Role;
   active: boolean;
   image?: string;
+};
+
+export type ReconciliationRecord = {
+  id: string;
+  materialId: string;
+  materialName: string;
+  materialUnit: Unit;
+  status: ReconciliationStatus;
+  systemQuantity: number;
+  countedQuantity: number;
+  variance: number;
+  etbValue?: number;
+  monetaryLoss?: number;
+  countedBy: string;
+  countedByName: string;
+  reviewedBy?: string;
+  reviewedByName?: string;
+  note?: string;
+  createdAt: number;
+  reviewedAt?: number;
+};
+
+export type ReconciliationSummary = {
+  openCounts: number;
+  shortageCounts: number;
+  surplusCounts: number;
+  totalMonetaryLoss: number;
+  countRecords: number;
+  currentVariances: Array<{
+    materialId: string;
+    materialName: string;
+    unit: Unit;
+    variance: number;
+    monetaryLoss: number;
+    countDate: number;
+  }>;
 };
 
 export const roleLabels: Record<Role, { am: string; en: string; initial: string }> = {

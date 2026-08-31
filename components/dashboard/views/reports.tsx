@@ -257,6 +257,72 @@ export function ReportsView() {
         </article>
       </section>
 
+      <section className="report-stat-grid executive-stat-grid">
+        <article className="report-stat coral">
+          <span className="report-stat-icon"><TrendingDown size={18} /></span>
+          <strong>{formatCurrency(report.executive.totalConsumptionETB)}</strong>
+          <p>አጠቃላይ የእቃ ውጪ</p>
+          <small>
+            {report.executive.totalConsumptionBaseQuantity.toLocaleString("en-US", { maximumFractionDigits: 0 })} base units of material value consumed
+          </small>
+        </article>
+        <article className="report-stat gold">
+          <span className="report-stat-icon"><AlertTriangle size={18} /></span>
+          <strong>{formatCurrency(report.executive.theftAlertsTotalLoss)}</strong>
+          <p>የሌብነት/የእቃ ጉድለት</p>
+          <small>
+            {report.executive.theftAlerts.length} shortage alert{report.executive.theftAlerts.length !== 1 ? "s" : ""} · estimated total loss
+          </small>
+        </article>
+        <article className="report-stat cyan">
+          <span className="report-stat-icon"><Trash2 size={18} /></span>
+          <strong>{report.executive.scrapRate}%</strong>
+          <p>የተመዘገበ ብክነት</p>
+          <small>
+            {report.executive.scrapQuantity.toLocaleString("en-US", { maximumFractionDigits: 1 })} {report.executive.recordedScrapUnit} logged
+          </small>
+        </article>
+        <article className="report-stat violet">
+          <span className="report-stat-icon"><XCircle size={18} /></span>
+          <strong>{report.executive.exceptionStockOuts.length}</strong>
+          <p>Exception Stock-Outs</p>
+          <small>
+            Materials issued without a job card in this period
+          </small>
+        </article>
+      </section>
+
+      {report.executive.theftAlerts.length > 0 ? (
+        <section className="panel report-panel report-exception-section">
+          <div className="panel-head">
+            <div>
+              <span className="panel-kicker coral">STOCK DISCREPANCY / THEFT ALERTS</span>
+              <h2>የእቃ ጉድለት ማንቂያ</h2>
+              <p>Negative physical-count variance, ranked by monetary loss in ETB.</p>
+            </div>
+            <AlertTriangle size={19} className="report-head-icon" />
+          </div>
+          <div className="report-exception-table">
+            <div className="report-table-header">
+              <span>Material</span>
+              <span>Variance</span>
+              <span>Monetary Loss</span>
+              <span>Count Date</span>
+            </div>
+            {report.executive.theftAlerts.map((alert) => (
+              <div className="report-table-row" key={alert.materialName}>
+                <span className="exception-material">{alert.materialName}</span>
+                <span className="exception-qty shortage-text">
+                  -{Math.abs(alert.variance).toLocaleString("en-US", { maximumFractionDigits: 2 })} {alert.unit}
+                </span>
+                <span className="warning-text">{formatCurrency(alert.monetaryLoss)}</span>
+                <span className="exception-date">{formatDate(alert.countDate)}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       {report.exceptions.length > 0 ? (
         <section className="panel report-panel report-exception-section">
           <div className="panel-head">

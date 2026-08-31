@@ -1,6 +1,8 @@
 import { query } from "./_generated/server";
 import { v } from "convex/values";
+import type { Id } from "./_generated/dataModel";
 import { requireActiveProfile } from "./users";
+import { resolveEtbValue } from "./materialUsage";
 
 const period = v.union(
   v.literal("weekly"),
@@ -100,6 +102,7 @@ export const getSummary = query({
       orders,
       exceptions,
       users,
+      reconciliations,
     ] = await Promise.all([
       ctx.db.query("materials").collect(),
       ctx.db.query("machines").collect(),
@@ -111,6 +114,7 @@ export const getSummary = query({
       ctx.db.query("customerOrders").collect(),
       ctx.db.query("stockExceptions").collect(),
       ctx.db.query("users").collect(),
+      ctx.db.query("reconciliations").collect(),
     ]);
 
     const userNames = new Map(users.map((user) => [user.authUserId, user.name]));
@@ -242,6 +246,45 @@ export const getSummary = query({
       .sort((a, b) => b.logCount - a.logCount)
       .slice(0, 10);
 
+    const totalConsumptionETB = consumptionByMaterial.size > 0
+      ? Array.from(consumptionByMaterial.entries()).reduce((sum, [matId, data]) => {
+          const material = materialDocs.get(matId as Id<"materials">);
+          return sum + data.totalConsumed * resolveEtbValue(material ?? { name: "Unknown" });
+        }, 0)
+      : 0;
+
+    const latestByMaterial = new Map<string, (typeof reconciliations)[number]>();
+    for (const record of [...reconciliations].sort((a, b) => b.createdAt - a.createdAt)) {
+      if (!latestByMaterial.has(record.materialId)) latestByMaterial.set(record.materialId, record);
+    }
+    const theftAlerts = Array.from(latestByMaterial.values())
+      .filter((record) => record.variance < 0)
+      .map((record) => {
+        const material = materialDocs.get(record.materialId);
+        const etb = record.etbValue ?? resolveEtbValue(material ?? { name: "Unknown" });
+        return {
+          materialName: material?.name ?? "Unknown material",
+          variance: record.variance,
+          unit: material?.baseUnit ?? material?.unit ?? "m²",
+          monetaryLoss: Number(((-record.variance) * etb).toFixed(2)),
+          countDate: record.createdAt,
+        };
+      })
+      .sort((a, b) => b.monetaryLoss - a.monetaryLoss);
+    const theftAlertsTotalLoss = theftAlerts.reduce((sum, alert) => sum + alert.monetaryLoss, 0);
+    const scrapQuantity = periodScraps.reduce((sum, scrap) => sum + scrap.quantity, 0);
+    const scrapUnit = wasteByUnit.length > 0 ? wasteByUnit[0].unit : "m²";
+    const scrapRate = plannedQuantity > 0 ? Number(((scrapQuantity / plannedQuantity) * 100).toFixed(1)) : 0;
+    const exceptionStockOuts = periodExceptions.map((exception) => ({
+      id: exception._id,
+      materialName: materialNames.get(exception.materialId) ?? "Unknown material",
+      quantity: exception.quantity,
+      unit: exception.unit,
+      reason: exception.reason,
+      operatorName: userNames.get(exception.createdBy) ?? exception.createdBy,
+      createdAt: exception.createdAt,
+    }));
+
     return {
       period: args.period,
       startAt,
@@ -305,6 +348,17 @@ export const getSummary = query({
           estimatedETB: Math.round(estimatedETB),
         },
         operatorActivity,
+      },
+      executive: {
+        totalConsumptionETB: Math.round(totalConsumptionETB),
+        totalConsumptionBaseQuantity: Number(Array.from(consumptionByMaterial.values()).reduce((sum, data) => sum + data.totalConsumed, 0).toFixed(2)),
+        theftAlerts,
+        theftAlertsTotalLoss: Math.round(theftAlertsTotalLoss),
+        scrapCount: periodScraps.length,
+        scrapQuantity: Number(scrapQuantity.toFixed(2)),
+        recordedScrapUnit: scrapUnit,
+        scrapRate,
+        exceptionStockOuts,
       },
     };
   },

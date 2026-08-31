@@ -103,6 +103,19 @@ export const offcutStatus = v.union(
   v.literal("consumed"),
 );
 
+/** How a material is depleted for automatic job-card deduction. */
+export const productionType = v.union(
+  v.literal("area"),
+  v.literal("ink"),
+  v.literal("unit"),
+);
+
+export const reconciliationStatus = v.union(
+  v.literal("Open"),
+  v.literal("Reviewed"),
+  v.literal("Resolved"),
+);
+
 export const materialRequestStatus = v.union(
   v.literal("Requested"),
   v.literal("Partially Issued"),
@@ -202,6 +215,12 @@ export default defineSchema({
     scrapRule: v.optional(v.string()),
     accent,
     active: v.boolean(),
+    productionType: v.optional(productionType),
+    consumptionRate: v.optional(v.number()),
+    etbValue: v.optional(v.number()),
+    rollWidth: v.optional(v.number()),
+    sheetWidth: v.optional(v.number()),
+    sheetLength: v.optional(v.number()),
   })
     .index("by_category", ["category"])
     .index("by_unit", ["unit"]),
@@ -308,9 +327,13 @@ export default defineSchema({
     createdBy: v.string(),
     createdAt: v.number(),
     orderId: v.optional(v.id("customerOrders")),
+    length: v.optional(v.number()),
+    width: v.optional(v.number()),
+    deductOnComplete: v.optional(v.boolean()),
   })
     .index("by_status", ["status"])
-    .index("by_machine", ["machineId"]),
+    .index("by_machine", ["machineId"])
+    .index("by_created", ["createdAt"]),
 
   productionLogs: defineTable({
     jobCardId: v.id("jobCards"),
@@ -336,9 +359,24 @@ export default defineSchema({
     status: offcutStatus,
     createdBy: v.string(),
     createdAt: v.string(),
+    jobCardId: v.optional(v.id("jobCards")),
+    source: v.optional(v.union(v.literal("manual"), v.literal("job_auto"))),
   })
     .index("by_material", ["materialId"])
-    .index("by_status", ["status"]),
+    .index("by_status", ["status"])
+    .index("by_material_status", ["materialId", "status"]),
+
+  offcutConsumptions: defineTable({
+    jobCardId: v.id("jobCards"),
+    materialId: v.id("materials"),
+    offcutId: v.id("offcuts"),
+    area: v.number(),
+    unit,
+    consumedBy: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_job_card", ["jobCardId"])
+    .index("by_offcut", ["offcutId"]),
 
   scraps: defineTable({
     materialId: v.id("materials"),
@@ -349,4 +387,22 @@ export default defineSchema({
     createdBy: v.string(),
     createdAt: v.string(),
   }).index("by_material", ["materialId"]),
+
+  reconciliations: defineTable({
+    materialId: v.id("materials"),
+    status: reconciliationStatus,
+    systemQuantity: v.number(),
+    countedQuantity: v.number(),
+    variance: v.number(),
+    etbValue: v.optional(v.number()),
+    monetaryLoss: v.optional(v.number()),
+    countedBy: v.string(),
+    reviewedBy: v.optional(v.string()),
+    note: v.optional(v.string()),
+    createdAt: v.number(),
+    reviewedAt: v.optional(v.number()),
+  })
+    .index("by_material", ["materialId"])
+    .index("by_created", ["createdAt"])
+    .index("by_status", ["status"]),
 });
