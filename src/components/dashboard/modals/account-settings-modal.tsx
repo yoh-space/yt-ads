@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
+import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { authClient } from "@/lib/auth-client";
@@ -51,9 +52,13 @@ export function AccountSettingsModal({
       const result = await authClient.updateUser({ name, image: image.trim() || null });
       if (result.error) throw new Error(result.error.message ?? "Unable to update the authentication profile.");
       await updateApplicationProfile({ name, image: image.trim() || undefined });
-      setMessage("Profile updated.");
+      const profileMessage = "Profile updated.";
+      setMessage(profileMessage);
+      toast.success(profileMessage);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to update profile.");
+      const message = error instanceof Error ? error.message : "Unable to update profile.";
+      setMessage(message);
+      toast.error(message);
     } finally {
       setBusy(false);
     }
@@ -72,9 +77,13 @@ export function AccountSettingsModal({
       if (result.error) throw new Error(result.error.message ?? "Unable to change password.");
       setCurrentPassword("");
       setNewPassword("");
-      setMessage("Password changed. Other sessions were signed out.");
+      const message = "Password changed. Other sessions were signed out.";
+      setMessage(message);
+      toast.success(message);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to change password.");
+      const message = error instanceof Error ? error.message : "Unable to change password.";
+      setMessage(message);
+      toast.error(message);
     } finally {
       setBusy(false);
     }
@@ -87,9 +96,15 @@ export function AccountSettingsModal({
       const result = await authClient.linkSocial({ provider: "google", callbackURL: window.location.href });
       if (result.error) throw new Error(result.error.message ?? "Unable to start Google linking.");
       if (result.data?.url) window.location.assign(result.data.url);
-      else setMessage("Google linking started.");
+      else {
+        const message = "Google linking started.";
+        setMessage(message);
+        toast.success(message);
+      }
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Google linking is not configured yet.");
+      const message = error instanceof Error ? error.message : "Google linking is not configured yet.";
+      setMessage(message);
+      toast.error(message);
       setBusy(false);
     }
   }
@@ -100,9 +115,13 @@ export function AccountSettingsModal({
     setMessage("");
     try {
       await updateCompanySettings({ companyName, logoUrl: logoUrl.trim() || undefined });
-      setMessage("Company branding updated.");
+      const message = "Company branding updated.";
+      setMessage(message);
+      toast.success(message);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to update company settings.");
+      const message = error instanceof Error ? error.message : "Unable to update company settings.";
+      setMessage(message);
+      toast.error(message);
     } finally {
       setBusy(false);
     }
@@ -111,18 +130,26 @@ export function AccountSettingsModal({
   async function changeRole(userId: Id<"users">, nextRole: Role) {
     try {
       await setRole({ userId, role: nextRole });
-      setMessage("Role updated.");
+      const message = `Role updated to ${roleLabels[nextRole].en}.`;
+      setMessage(message);
+      toast.success(message);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to update role.");
+      const message = error instanceof Error ? error.message : "Unable to update role.";
+      setMessage(message);
+      toast.error(message);
     }
   }
 
   async function changeActive(userId: Id<"users">, active: boolean) {
     try {
       await setActive({ userId, active });
-      setMessage(active ? "Profile activated." : "Profile revoked.");
+      const message = active ? "Profile activated." : "Profile revoked.";
+      setMessage(message);
+      toast.success(message);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to update profile access.");
+      const message = error instanceof Error ? error.message : "Unable to update profile access.";
+      setMessage(message);
+      toast.error(message);
     }
   }
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
+import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import {
@@ -172,8 +173,16 @@ export function OperationsDashboard() {
     safeMutation(
       `complete-job-${jobId}`,
       completeJobMutation({ jobId: jobId as Id<"jobCards"> }),
-      () => setNotice("የሥራ ካርዱ ተጠናቋል፤ መዝገቡ ተዘምኗል"),
-      (error: unknown) => setNotice(error instanceof Error ? error.message : "Unable to complete the job card."),
+      () => {
+        const message = "የሥራ ካርዱ ተጠናቋል፤ መዝገቡ ተዘምኗል";
+        setNotice(message);
+        toast.success(message);
+      },
+      (error: unknown) => {
+        const message = error instanceof Error ? error.message : "Unable to complete the job card.";
+        setNotice(message);
+        toast.error(message);
+      },
     );
   }
 
@@ -214,8 +223,16 @@ export function OperationsDashboard() {
         outputQuantity,
         wasteQuantity,
       }),
-      () => setNotice("የምርት መዝገቡ ተቀምጧል፤ ክምችት ተዘምኗል"),
-      (error: unknown) => setNotice(error instanceof Error ? error.message : "Unable to save the production log."),
+      () => {
+        const message = "የምርት መዝገቡ ተቀምጧል፤ ክምችት ተዘምኗል";
+        setNotice(message);
+        toast.success(message);
+      },
+      (error: unknown) => {
+        const message = error instanceof Error ? error.message : "Unable to save the production log.";
+        setNotice(message);
+        toast.error(message);
+      },
     );
   }
 
@@ -225,14 +242,19 @@ export function OperationsDashboard() {
       promise,
       (result: T) => {
         if (result && typeof result === "object" && "success" in result && !(result as { success: boolean }).success) {
-          setNotice((result as { error?: string }).error ?? "The operation could not be completed.");
+          const message = (result as { error?: string }).error ?? "The operation could not be completed.";
+          setNotice(message);
+          toast.error(message);
           return;
         }
         setNotice(successMessage);
         setModal(null);
+        toast.success(successMessage);
       },
       (error: unknown) => {
-        setNotice(error instanceof Error ? error.message : "The operation could not be completed.");
+        const message = error instanceof Error ? error.message : "The operation could not be completed.";
+        setNotice(message);
+        toast.error(message);
       },
     );
   }

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useMutation } from "convex/react";
+import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import { authClient } from "@/lib/auth-client";
 import type { Profile } from "@/lib/operations-types";
@@ -33,9 +34,13 @@ export function SecuritySettingsModal({
       if (result.error) throw new Error(result.error.message ?? "Unable to change password.");
       setCurrentPassword("");
       setNewPassword("");
-      setMessage("Password changed. Other sessions were signed out.");
+      const message = "Password changed. Other sessions were signed out.";
+      setMessage(message);
+      toast.success(message);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to change password.");
+      const message = error instanceof Error ? error.message : "Unable to change password.";
+      setMessage(message);
+      toast.error(message);
     } finally {
       setBusy(false);
     }
@@ -48,9 +53,15 @@ export function SecuritySettingsModal({
       const result = await authClient.linkSocial({ provider: "google", callbackURL: window.location.href });
       if (result.error) throw new Error(result.error.message ?? "Unable to start Google linking.");
       if (result.data?.url) window.location.assign(result.data.url);
-      else setMessage("Google linking started.");
+      else {
+        const message = "Google linking started.";
+        setMessage(message);
+        toast.success(message);
+      }
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Google linking is not configured yet.");
+      const message = error instanceof Error ? error.message : "Google linking is not configured yet.";
+      setMessage(message);
+      toast.error(message);
       setBusy(false);
     }
   }

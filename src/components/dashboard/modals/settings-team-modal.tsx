@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
+import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { roleLabels, type Profile, type Role } from "@/lib/operations-types";
@@ -27,17 +28,24 @@ export function TeamSettingsModal({
     try {
       await setRole({ userId, role: nextRole });
       setMessage("Role updated.");
+      toast.success(`Role updated to ${roleLabels[nextRole].en}.`);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to update role.");
+      const message = error instanceof Error ? error.message : "Unable to update role.";
+      setMessage(message);
+      toast.error(message);
     }
   }
 
   async function changeActive(userId: Id<"users">, active: boolean) {
     try {
       await setActive({ userId, active });
-      setMessage(active ? "Profile activated." : "Profile revoked.");
+      const message = active ? "Profile activated." : "Profile revoked.";
+      setMessage(message);
+      toast.success(message);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to update profile access.");
+      const message = error instanceof Error ? error.message : "Unable to update profile access.";
+      setMessage(message);
+      toast.error(message);
     }
   }
 

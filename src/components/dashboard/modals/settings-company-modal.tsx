@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
+import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import { Building2, Save } from "lucide-react";
 import { ModalShell } from "./modal-shell";
@@ -26,9 +27,13 @@ export function CompanySettingsModal({ onClose }: { onClose: () => void }) {
     setMessage("");
     try {
       await updateCompanySettings({ companyName, logoUrl: logoUrl.trim() || undefined });
-      setMessage("Company branding updated.");
+      const message = "Company branding updated.";
+      setMessage(message);
+      toast.success(message);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to update company settings.");
+      const message = error instanceof Error ? error.message : "Unable to update company settings.";
+      setMessage(message);
+      toast.error(message);
     } finally {
       setBusy(false);
     }

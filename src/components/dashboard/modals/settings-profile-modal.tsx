@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useMutation } from "convex/react";
+import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import { authClient } from "@/lib/auth-client";
 import type { Profile } from "@/lib/operations-types";
@@ -29,9 +30,13 @@ export function ProfileSettingsModal({
       const result = await authClient.updateUser({ name, image: image.trim() || null });
       if (result.error) throw new Error(result.error.message ?? "Unable to update the authentication profile.");
       await updateApplicationProfile({ name, image: image.trim() || undefined });
-      setMessage("Profile updated.");
+      const message = "Profile updated.";
+      setMessage(message);
+      toast.success(message);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to update profile.");
+      const message = error instanceof Error ? error.message : "Unable to update profile.";
+      setMessage(message);
+      toast.error(message);
     } finally {
       setBusy(false);
     }
