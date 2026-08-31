@@ -296,7 +296,7 @@ export function ReportsView() {
         <section className="panel report-panel report-exception-section">
           <div className="panel-head">
             <div>
-              <span className="panel-kicker coral">STOCK DISCREPANCY / THEFT ALERTS</span>
+              <span className="panel-kicker coral">STOCK DISCREPANCY ALERTS</span>
               <h2>የእቃ ጉድለት ማንቂያ</h2>
               <p>Negative physical-count variance, ranked by monetary loss in ETB.</p>
             </div>

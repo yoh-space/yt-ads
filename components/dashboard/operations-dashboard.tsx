@@ -286,7 +286,7 @@ function OperationsDashboardInner() {
               ) : null}
               {visibleView === "machines" && canCreateMachine ? <button className="button primary" onClick={() => openModal("machine", "machine.create")}><Plus size={16} />Add machine</button> : null}
               {visibleView === "overview" && canCreateOrder ? <button className="button primary" onClick={() => openModal("order", "order.create")}><Plus size={16} />New Customer Order</button> : null}
-              {visibleView === "reconciliation" && canRecordReconciliation ? <button className="button primary" onClick={() => openModal("reconciliation", "reconciliation.record")}><Plus size={16} />Record physical count</button> : null}
+              {visibleView === "reconciliation" }
             </div>
           </section>
 

@@ -38,14 +38,6 @@ export function AuditLogView() {
 
   return (
     <div className="audit-view">
-      <section className="audit-summary panel">
-        <div>
-          <span className="panel-kicker">TRANSPARENCY REGISTER</span>
-          <h2>የእንቅስቃሴ መዝገብ <small>Audit Log</small></h2>
-          <p>Every available activity is shown with an actor, timestamp, and operational detail.</p>
-        </div>
-        <History size={25} className="audit-summary-icon" />
-      </section>
 
       <section className="audit-toolbar panel">
         <div className="audit-filters" aria-label="Activity category">

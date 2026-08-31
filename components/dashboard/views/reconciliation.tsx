@@ -56,7 +56,7 @@ export function ReconciliationView({
         <div>
           <span className="panel-kicker">PHYSICAL STOCK AUDIT</span>
           <h2>የእቃ ቆጠራ ማረጋገጫ <small>Reconciliation</small></h2>
-          <p>Count physical stock and compare it against the system balance to surface shortages (theft/leakage) and surpluses.</p>
+          <p>Count physical stock and compare it against the system balance to surface shortages (leakage) and surpluses.</p>
         </div>
         <div className="report-toolbar-right">
           {canRecord ? <button className="button primary" onClick={onCount}><PackagePlus size={16} />Record physical count</button> : null}
@@ -94,7 +94,7 @@ export function ReconciliationView({
         <section className="panel report-panel">
           <div className="panel-head">
             <div>
-              <span className="panel-kicker coral">STOCK LEAKAGE / THEFT ALERTS</span>
+              <span className="panel-kicker coral">STOCK LEAKAGE ALERTS</span>
               <h2>የእቃ ጉድለት ማንቂያ</h2>
               <p>Current variance per material, ranked by monetary loss. Negative variance = shortage.</p>
             </div>
