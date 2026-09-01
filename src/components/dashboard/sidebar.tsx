@@ -30,7 +30,7 @@ export function Sidebar({
   return (
     <aside className={cn(
       // Base sidebar shell
-      "fixed z-20 top-0 left-0 h-full w-[284px] flex flex-col",
+      "fixed z-20 top-0 left-0 h-full w-[284px] flex flex-col scrollbar-none",
       "bg-[radial-gradient(1100px_380px_at_-15%_-12%,rgba(25,196,210,0.16),transparent_62%),radial-gradient(900px_480px_at_118%_115%,rgba(136,116,220,0.14),transparent_55%)] bg-navy",
       "border-r border-white/10 shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_20px_55px_rgba(5,34,54,0.35)]",
       "transition-all duration-300 ease-out",
