@@ -4,9 +4,9 @@ type Vars = Record<string, string | number>;
 
 export const copy = {
   am: {
-    start: "እንኳን ወደ <b>YT Advertisement</b> የቴሌግራም ቦት በደህና መጡ! 🖨️\n\nእኛ ጋር የህትመት፣ የፖስተርና የማስታወቂያ ስራዎችን በሙያዊነት ማዘዝ ይችላሉ። ትዕዛዝ ለማስመዝገብ መጀመሪያ የስልክ ቁጥርዎ ያስፈልገናል።\n\nከታች <b>« 📱 ስልክ ቁጥርዎን ያጋሩ (Share Contact) »</b> የሚለውን ቁልፍ ተጭነው ቁጥርዎን ያጋሩ።",
+    start: "እንኳን ወደ <b>YT Advertisement</b> የቴሌግራም ቦት በደህና መጡ! 🖨️\n\nእኛ ጋር የህትመት፣ የፖስተርና የማስታወቂያ ስራዎችን በዚህ ቴሌግራም ቦት አማካኝነት ማዘዝ ይችላሉ። ትዕዛዝ ለማስመዝገብ መጀመሪያ የስልክ ቁጥርዎ ያስፈልገናል።\n\nከታች <b>« 📱 ስልክ ቁጥርዎን ያጋሩን (Share Contact) »</b> የሚለውን ቁልፍ ተጭነው ቁጥርዎን ያጋሩ።",
     contactSaved: "✅ ስልክ ቁጥርዎ ተመዝግቧል (<code>{phone}</code>)።\n\nአሁን በ Mini App ውስጥ ዋጋዎችን በምስል አይተው ትዕዛዝ ማዘዝ ይችላሉ — ከታች ያለውን ቁልፍ ይጫኑ።",
-    mainIntro: "ከታች ካለው ምናሌ የሚፈልጉትን ይምረጡ።",
+    mainIntro: "ከታች ካለው ምርጫ የሚፈልጉትን ይምረጡ።",
     serviceChoice: "ምን አይነት የህትመት ስራ ማዘዝ ይፈልጋሉ?",
     serviceSpecPrompt: "የሚፈልጉትን ስራ ይጻፉ ለምሳሌ፦ <i>የመኪና ስቲከር</i>፣ <i>UV ህትመት</i> ወይም <i>CNC የአሽከርካሪ ሰሌዳ</i>።",
     dimensionsPrompt: "የህትመቱን መጠን ወይም ስፋት በሜትር ያስገቡ (ለምሳሌ፦ 2x3 ወይም 1.5x2)፦",
@@ -21,7 +21,7 @@ export const copy = {
     orderStatusTitle: "📦 <b>{code}</b> — {status}\n\n• ስራ፦ {service}\n• ስፋት፦ {dimensions}\n• የተመዘገበው፦ {date}",
     orderNotFound: "ይቅርታ፣ ይህ የትዕዛዝ መለያ አልተገኘም። ትክክለኛውን መለያ መላክዎን ያረጋግጡ ወይም በ <i>Mini App</i> ውስጥ ያረጋግጡ።",
     address: "<b>{company}</b>\n\n📍 {address}\n📞 {phone}\n\nየስራ ሰአታት፦ ሰኞ – ቅዳሜ 8፡30 – 18፡00",
-    miniAppOffer: "የህትመት ዋጋዎችን በቀጥታ በምስል አይተው ለማዘዝ ከታች ያለውን ይጫኑ፦",
+    miniAppOffer: "የህትመት ዋጋዎችን አይተው ለማዘዝ ከታች ያለውን ይጫኑ፦",
     languagePrompt: "እባክዎ የሚፈልጉትን ቋንቋ ይምረጡ / Please select your preferred language:",
     languageChanged: "ቋንቋዎ ተቀይሯል ✔ / Language updated ✔",
     flowCancelled: "ትዕዛዙ ተሰርዟል።",
