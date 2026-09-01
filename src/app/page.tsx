@@ -1,7 +1,7 @@
-import { PublicLanding } from "@/components/public/public-landing";
+import { TelegramMiniAppOrder } from "@/components/public/public-landing";
 
 export const dynamic = "force-dynamic";
 
 export default function Home() {
-  return <PublicLanding />;
+  return <TelegramMiniAppOrder />;
 }

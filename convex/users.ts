@@ -62,6 +62,65 @@ export const getCompanySettings = query({
   },
 });
 
+/**
+ * Creates or updates a Telegram customer profile (the `telegramUsers` table,
+ * separate from staff application profiles) when the bot receives a shared
+ * contact. Called by the bot webhook with no user identity, so like the other
+ * bot-facing handlers it performs its own input validation instead of RBAC.
+ */
+export const upsertUser = mutation({
+  args: {
+    telegramId: v.string(),
+    phone: v.string(),
+    name: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const telegramId = args.telegramId.trim();
+    const phone = args.phone.replace(/[^+\d]/g, "").trim();
+    if (!telegramId) throw new Error("Telegram ID is required.");
+    if (!/^\+?\d{7,15}$/.test(phone)) throw new Error("Enter a valid phone number.");
+    const name = args.name?.trim() || undefined;
+    const now = Date.now();
+    const existing = await ctx.db
+      .query("telegramUsers")
+      .withIndex("by_telegram_id", (q) => q.eq("telegramId", telegramId))
+      .unique();
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        phone,
+        name: name ?? existing.name,
+        updatedAt: now,
+      });
+      return (await ctx.db.get(existing._id))!;
+    }
+    const id = await ctx.db.insert("telegramUsers", {
+      telegramId,
+      phone,
+      name,
+      createdAt: now,
+      updatedAt: now,
+    });
+    return (await ctx.db.get(id))!;
+  },
+});
+
+/**
+ * Returns the Telegram customer profile for a Telegram user id, including the
+ * verified phone number. Public so the Mini App (whose visitors are Telegram
+ * customers, not signed-in staff) can read their own phone for order submission.
+ */
+export const getByTelegramId = query({
+  args: { telegramId: v.string() },
+  handler: async (ctx, args) => {
+    const telegramId = args.telegramId.trim();
+    if (!telegramId) return null;
+    return ctx.db
+      .query("telegramUsers")
+      .withIndex("by_telegram_id", (q) => q.eq("telegramId", telegramId))
+      .unique();
+  },
+});
+
 /** Creates an application profile for a real Better Auth identity on first sign-in. */
 export const ensureProfile = mutation({
   args: {},

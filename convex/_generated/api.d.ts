@@ -28,6 +28,7 @@ import type * as reports from "../reports.js";
 import type * as security from "../security.js";
 import type * as seed from "../seed.js";
 import type * as systemConfigs from "../systemConfigs.js";
+import type * as telegramSessions from "../telegramSessions.js";
 import type * as types from "../types.js";
 import type * as units from "../units.js";
 import type * as users from "../users.js";
@@ -60,6 +61,7 @@ declare const fullApi: ApiFromModules<{
   security: typeof security;
   seed: typeof seed;
   systemConfigs: typeof systemConfigs;
+  telegramSessions: typeof telegramSessions;
   types: typeof types;
   units: typeof units;
   users: typeof users;

@@ -70,7 +70,8 @@ export const publicInfo = query({
 export const submit = mutation({
   args: {
     clientName: v.string(),
-    phone: v.string(),
+    phone: v.optional(v.string()),
+    telegramId: v.optional(v.string()),
     serviceType: v.string(),
     dimensions: v.string(),
     quantity: v.string(),
@@ -82,12 +83,29 @@ export const submit = mutation({
   },
   handler: async (ctx, args) => {
     const clientName = args.clientName.trim();
-    const phone = normalizePhone(args.phone);
     const serviceType = args.serviceType.trim();
     const dimensions = args.dimensions.trim();
     const quantity = args.quantity.trim();
-    if (!clientName || !phone || !serviceType || !dimensions || !quantity) {
-      throw new Error("Client, phone, service, dimensions, and quantity are required.");
+    if (!clientName || !serviceType || !dimensions || !quantity) {
+      throw new Error("Client, service, dimensions, and quantity are required.");
+    }
+
+    // The verified phone lives on the customer's Telegram profile; the manual
+    // `phone` field only supports submissions from outside the Mini App.
+    let phone: string;
+    if (args.telegramId !== undefined && args.telegramId.trim() !== "") {
+      const profile = await ctx.db
+        .query("telegramUsers")
+        .withIndex("by_telegram_id", (q) => q.eq("telegramId", args.telegramId!.trim()))
+        .unique();
+      if (!profile?.phone) {
+        throw new Error("No phone number on file for this Telegram user. Send /start to the bot and share your contact first.");
+      }
+      phone = profile.phone;
+    } else if (args.phone !== undefined && args.phone.trim() !== "") {
+      phone = normalizePhone(args.phone);
+    } else {
+      throw new Error("A phone number is required.");
     }
     if (!/^\+?[\d ]{7,18}$/.test(phone)) throw new Error("Enter a valid phone number.");
     if (!Number.isFinite(args.preferredDueDate) || args.preferredDueDate < Date.now() - 60_000) {
@@ -445,6 +463,9 @@ export const createTelegramOrder = mutation({
     serviceType: v.string(),
     dimensions: v.optional(v.string()),
     quantity: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    fileStorageId: v.optional(v.id("_storage")),
+    fileName: v.optional(v.string()),
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -453,17 +474,22 @@ export const createTelegramOrder = mutation({
     if (!customerName || !serviceType) {
       throw new Error("Customer name and service type are required.");
     }
+    const phone = args.phone?.trim();
+    if (phone !== undefined && phone.trim() !== "" && !/^\+?[\d ]{7,18}$/.test(phone)) {
+      throw new Error("Enter a valid phone number.");
+    }
 
     const code = `ORD-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
     const now = Date.now();
     const dueDate = now + 7 * 24 * 60 * 60 * 1000;
     const noteParts = [`Telegram chat: ${args.telegramChatId}`];
+    if (args.fileName?.trim()) noteParts.push(`Attached file: ${args.fileName.trim()}`);
     if (args.notes?.trim()) noteParts.push(args.notes.trim());
 
     const id = await ctx.db.insert("customerOrders", {
       code,
       clientName: customerName,
-      phone: "telegram",
+      phone: phone && phone.trim() !== "" ? phone.trim() : "telegram",
       serviceType,
       dimensions: args.dimensions?.trim() || "TBD",
       quantity: args.quantity?.trim() || "1",
@@ -472,6 +498,8 @@ export const createTelegramOrder = mutation({
       priority: "Medium",
       source: "public_portal",
       notes: noteParts.join(" · "),
+      fileStorageId: args.fileStorageId,
+      fileName: args.fileName?.trim() || undefined,
       createdBy: undefined,
       createdAt: now,
       updatedAt: now,

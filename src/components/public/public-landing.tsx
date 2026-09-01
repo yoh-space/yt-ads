@@ -1,272 +1,378 @@
 "use client";
 
-import Link from "next/link";
-import { FormEvent, useState } from "react";
-import { ArrowRight, CheckCircle2, FileUp, MapPin, Phone, Send, Sparkles } from "lucide-react";
+import { FormEvent, useEffect, useState, useMemo, useRef } from "react";
+import { 
+  FileUp, 
+  Send, 
+  CheckCircle2, 
+  Ruler, 
+  Layers, 
+  Printer, 
+  Sparkles,
+  User,
+  Info,
+  X
+} from "lucide-react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { Button, Input, Select } from "@/components/ui";
 import { cn } from "@/lib/utils";
+import { bootstrapTelegramWebApp, sendTelegramOrderResult } from "@/lib/telegram-webapp";
 
-const services = ["Large Format", "UV Flatbed", "CNC Router", "Laser Cutter", "DTF Printing", "Plotter & Vinyl"];
-const serviceTypes = ["Large Format", "UV Flatbed", "CNC Router", "Laser Cutter", "DTF Printing", "Plotter & Vinyl", "Signage / Branding"];
+const serviceCategories = [
+  { id: "Large Format", label: "Large Format", desc: "Flex Banner, Sticker" },
+  { id: "UV Flatbed", label: "UV Flatbed", desc: "Rigid boards, Acrylic" },
+  { id: "CNC Router", label: "CNC Router", desc: "3D Letters, Panels" },
+  { id: "Laser Cutter", label: "Laser Cutter", desc: "Acrylic & Foam cut" },
+  { id: "DTF Printing", label: "DTF Print", desc: "T-Shirts & Apparel" },
+  { id: "Signage / Branding", label: "Signage", desc: "Lightboxes, Boards" },
+];
 
-export function PublicLanding() {
+export function TelegramMiniAppOrder() {
   const info = useQuery(api.orders.publicInfo);
   const generateUploadUrl = useMutation(api.orders.generateUploadUrl);
   const submitOrder = useMutation(api.orders.submit);
-  const [form, setForm] = useState({ clientName: "", phone: "", serviceType: serviceTypes[0], dimensions: "", quantity: "", preferredDueDate: "", notes: "" });
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Expand and mark the Mini App ready when opened inside a Telegram client.
+  useEffect(() => {
+    bootstrapTelegramWebApp();
+  }, []);
+
+  const [form, setForm] = useState({
+    clientName: "",
+    phone: "",
+    serviceType: serviceCategories[0].id,
+    dimensions: "",
+    quantity: "1",
+    notes: "",
+  });
+
   const [file, setFile] = useState<File | null>(null);
   const [message, setMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
-  const company = info ?? { companyName: "YT Advertisement", address: "Jemo Kafdem Building, Addis Ababa", phone: "0951082102", logoUrl: undefined };
+
+  // Auto-calculate surface area preview if user types dimensions like 2x3 or 1.5x2
+  const estimatedArea = useMemo(() => {
+    if (!form.dimensions) return null;
+    const match = form.dimensions.match(/(\d+(?:\.\d+)?)\s*[xX*×]\s*(\d+(?:\.\d+)?)/);
+    if (match) {
+      const area = parseFloat(match[1]) * parseFloat(match[2]);
+      const qty = parseInt(form.quantity) || 1;
+      return (area * qty).toFixed(2);
+    }
+    return null;
+  }, [form.dimensions, form.quantity]);
+
+  // Handle file change with size check (e.g., max 50MB)
+  const handleFileChange = (selectedFile: File | null) => {
+    if (selectedFile && selectedFile.size > 50 * 1024 * 1024) {
+      setMessage({
+        tone: "error",
+        text: "የፋይሉ መጠን ከ 50MB ማነስ አለበት።",
+      });
+      return;
+    }
+    setMessage(null);
+    setFile(selectedFile);
+  };
 
   async function uploadSelectedFile() {
     if (!file) return undefined;
     const uploadUrl = await generateUploadUrl({});
-    const response = await fetch(uploadUrl, { method: "POST", headers: { "Content-Type": file.type || "application/octet-stream" }, body: file });
-    if (!response.ok) throw new Error("The selected file could not be uploaded.");
-    const result = await response.json() as { storageId: string };
+    const response = await fetch(uploadUrl, {
+      method: "POST",
+      headers: { "Content-Type": file.type || "application/octet-stream" },
+      body: file,
+    });
+    if (!response.ok) throw new Error("ለዲዛይኑ የተመረጠውን ፋይል መጫን አልተቻለም።");
+    const result = (await response.json()) as { storageId: string };
     return result.storageId as Id<"_storage">;
   }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     setMessage(null);
+
+    // Client-side quick validations
+    const cleanPhone = form.phone.trim().replace(/\s+/g, "");
+    const ethiopianPhoneRegex = /^(?:\+251|0)?(9|7)\d{8}$/;
+    
+    if (!ethiopianPhoneRegex.test(cleanPhone)) {
+      setMessage({
+        tone: "error",
+        text: "እባክዎን ትክክለኛ የኢትዮጵያ ስልክ ቁጥር ያስገቡ (ምሳሌ፦ 0911... ወይም 0711...)",
+      });
+      return;
+    }
+
+    if (parseInt(form.quantity) < 1 || isNaN(parseInt(form.quantity))) {
+      setMessage({
+        tone: "error",
+        text: "እባክዎን ትክክለኛ የብዛት ቁጥር ያስገቡ።",
+      });
+      return;
+    }
+
     setBusy(true);
     try {
-      if (!form.preferredDueDate) throw new Error("Choose a preferred due date.");
       const fileStorageId = await uploadSelectedFile();
       const result = await submitOrder({
-        clientName: form.clientName,
-        phone: form.phone,
+        clientName: form.clientName.trim(),
+        phone: cleanPhone,
         serviceType: form.serviceType,
-        dimensions: form.dimensions,
+        dimensions: form.dimensions.trim(),
         quantity: form.quantity,
-        preferredDueDate: new Date(`${form.preferredDueDate}T17:00:00`).getTime(),
-        notes: form.notes || undefined,
+        preferredDueDate: Date.now() + 7 * 24 * 60 * 60 * 1000,
+        notes: form.notes ? form.notes.trim() : undefined,
         fileStorageId,
         fileName: file?.name,
       });
-      setMessage({ tone: "success", text: `Request received. Your tracking code is ${result.code}. Save it to check progress.` });
-      setForm({ clientName: "", phone: "", serviceType: serviceTypes[0], dimensions: "", quantity: "", preferredDueDate: "", notes: "" });
+
+      setMessage({
+        tone: "success",
+        text: `ትዕዛዝዎ በተሳካ ሁኔታ ተልኳል! የመከታተያ ኮድዎ፡ ${result.code}`,
+      });
+
+      // Return the finished order to the Telegram chat when run as a Mini App.
+      sendTelegramOrderResult({
+        code: result.code,
+        clientName: form.clientName.trim(),
+        serviceType: form.serviceType,
+        dimensions: form.dimensions.trim(),
+        quantity: form.quantity,
+      });
+
+      // Reset Form State
+      setForm({
+        clientName: "",
+        phone: "",
+        serviceType: serviceCategories[0].id,
+        dimensions: "",
+        quantity: "1",
+        notes: "",
+      });
       setFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     } catch (error) {
-      setMessage({ tone: "error", text: error instanceof Error ? error.message : "Unable to submit the request." });
+      setMessage({
+        tone: "error",
+        text: error instanceof Error ? error.message : "ትዕዛዙን መላክ አልተቻለም።",
+      });
     } finally {
       setBusy(false);
     }
   }
 
-  return <main className="min-h-screen bg-gradient-to-b from-white to-gray-50">
-    <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-100 px-6 py-4">
-      <div className="max-w-7xl mx-auto flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-3">
-          <div className="relative w-10 h-10 grid place-items-center rounded-xl overflow-hidden border border-cyan bg-gradient-to-br from-[#00799a] to-[#18c1ce] text-white text-lg font-extrabold">
-            <span>Y</span>
-            <i className="absolute w-3 h-3 -right-1 -bottom-1 bg-gold rotate-45" />
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-900 pb-28">
+      {/* Telegram App Header */}
+      <header className="sticky top-0 z-40 bg-white border-b border-slate-200 px-4 py-3 shadow-sm flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-cyan-600 text-white font-black grid place-items-center text-sm shadow-sm">
+            YT
           </div>
           <div>
-            <strong className="block text-lg font-bold text-navy leading-tight">{company.companyName}</strong>
-            <small className="block text-xs font-mono tracking-wider text-gray-500 uppercase">Signage · Print · Production</small>
+            <h1 className="text-sm font-bold leading-none text-slate-800">
+              {info?.companyName ?? "YT Advertisement"}
+            </h1>
+            <p className="text-[11px] text-slate-500 mt-0.5">አዲስ የህትመት ትዕዛዝ ማዘጋጃ</p>
           </div>
-        </Link>
+        </div>
+        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+          <Sparkles size={11} /> Quick Order
+        </span>
+      </header>
+
+      <form onSubmit={submit} className="p-4 space-y-5 max-w-lg mx-auto">
         
-        <div className="hidden md:flex items-center gap-8">
-          <a href="#services" className="text-sm font-medium text-gray-600 hover:text-navy transition-colors">Capabilities</a>
-          <a href="#request" className="text-sm font-medium text-gray-600 hover:text-navy transition-colors">Request a project</a>
-          <Link href="/track"><Button size="small" variant="secondary">Track order</Button></Link>
-          <Link href="/sign-in"><Button size="small" variant="primary">Team sign in</Button></Link>
-        </div>
-      </div>
-    </nav>
-
-    <section className="relative px-6 py-20 lg:py-32">
-      <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
-        <div className="space-y-8">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-cyan/10 text-cyan-dark text-sm font-semibold">
-            <Sparkles size={14} /> 
-            BUILT FOR VISIBLE BRANDS
-          </div>
-          
-          <h1 className="text-4xl lg:text-6xl font-black text-navy leading-tight">
-            Make your next space impossible to miss.
-          </h1>
-          
-          <p className="text-lg text-gray-600 leading-relaxed max-w-xl">
-            YT Advertisement turns ideas into high-impact signage, print, cut, and installation-ready production from Jemo Kafdem Building in Addis Ababa.
-          </p>
-          
-          <div className="flex flex-col sm:flex-row gap-4">
-            <a href="#request" className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-navy text-white font-semibold rounded-lg shadow-lg hover:bg-[#074d76] transition-colors">
-              Start a project <ArrowRight size={16} />
-            </a>
-            <Link href="/track">
-              <Button variant="ghost" className="w-full sm:w-auto">Check order status</Button>
-            </Link>
-          </div>
-          
-          <div className="flex items-center gap-8 pt-8 border-t border-gray-100">
-            <div className="text-center">
-              <strong className="block text-2xl font-bold text-navy">6</strong>
-              <span className="text-sm text-gray-500">workshop capabilities</span>
-            </div>
-            <div className="text-center">
-              <strong className="block text-2xl font-bold text-navy">1</strong>
-              <span className="text-sm text-gray-500">realtime production queue</span>
-            </div>
-            <div className="text-center">
-              <strong className="block text-2xl font-bold text-navy">24/7</strong>
-              <span className="text-sm text-gray-500">client tracking</span>
-            </div>
-          </div>
-        </div>
-        
-        <div className="relative">
-          <div className="absolute inset-0 bg-gradient-to-tr from-cyan/20 to-blue/20 rounded-3xl blur-3xl" />
-          <div className="relative bg-gradient-to-br from-navy to-[#0a2f47] text-white p-8 lg:p-12 rounded-3xl shadow-2xl">
-            <div className="text-4xl lg:text-6xl font-black mb-4">YT</div>
-            <div className="text-xl lg:text-2xl font-bold mb-2">MAKE IT<br />VISIBLE</div>
-            <div className="text-sm font-mono tracking-wider text-cyan opacity-75">ADVERTISE WITH INTENT</div>
-            <div className="absolute -bottom-4 left-8 right-8 bg-black/20 text-xs font-mono tracking-wider text-center py-2 rounded-lg">
-              LARGE FORMAT · UV · CNC · LASER · DTF
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section id="services" className="px-6 py-20 bg-gray-50">
-      <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-16">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-cyan/10 text-cyan-dark text-sm font-semibold mb-6">
-            WORKSHOP CAPABILITIES
-          </div>
-          <h2 className="text-3xl lg:text-4xl font-black text-navy mb-4">From first cut to finished face.</h2>
-          <p className="text-lg text-gray-600 max-w-3xl mx-auto">One team, one realtime workflow, and the machinery to move a project from request to pickup.</p>
-        </div>
-        
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {services.map((service, index) => (
-            <article key={service} className="bg-white p-8 rounded-2xl shadow-sm hover:shadow-lg transition-shadow">
-              <div className="flex items-start gap-4 mb-4">
-                <span className="flex-none w-8 h-8 bg-cyan/10 text-cyan-dark rounded-lg grid place-items-center text-sm font-bold">
-                  0{index + 1}
-                </span>
-                <h3 className="text-xl font-bold text-navy">{service}</h3>
-              </div>
-              <p className="text-gray-600 leading-relaxed">
-                {["Banners, wall graphics, vehicle wraps, and high-volume branded surfaces.", "Direct-to-board production for rigid, detailed, and durable graphics.", "Precision routing for dimensional letters, panels, and branded fixtures.", "Clean profile cuts for acrylic, foam, and detailed signage parts.", "Apparel and transfer production with color-controlled output.", "Fast vinyl graphics, decals, and repeatable contour cutting."][index]}
-              </p>
-            </article>
-          ))}
-        </div>
-      </div>
-    </section>
-
-    <section id="request" className="px-6 py-20">
-      <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16">
-        <div>
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-cyan/10 text-cyan-dark text-sm font-semibold mb-6">
-            CLIENT REQUEST PORTAL
-          </div>
-          <h2 className="text-3xl lg:text-4xl font-black text-navy mb-4">Tell us what needs to be made.</h2>
-          <p className="text-lg text-gray-600 mb-8">Share the essentials. Our team will review the request, assign the right machine, and return a clear production path.</p>
-          
-          <div className="space-y-4">
-            <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
-              <MapPin size={18} className="text-cyan" />
-              <div>
-                <strong className="block font-semibold text-navy">Visit the workshop</strong>
-                <span className="text-gray-600">{company.address}</span>
-              </div>
-            </div>
-            <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
-              <Phone size={18} className="text-cyan" />
-              <div>
-                <strong className="block font-semibold text-navy">Call the team</strong>
-                <a href={`tel:${company.phone}`} className="text-cyan hover:text-cyan-dark transition-colors">{company.phone}</a>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <form className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100" onSubmit={submit}>
-          <div className="grid md:grid-cols-2 gap-6 mb-6">
-            <label className="block">
-              <span className="block text-sm font-semibold text-navy mb-2">Your name or company</span>
-              <Input required value={form.clientName} onChange={(event) => setForm({ ...form, clientName: event.target.value })} placeholder="e.g. Addis Breweries" />
-            </label>
-            <label className="block">
-              <span className="block text-sm font-semibold text-navy mb-2">Phone number</span>
-              <Input required value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} placeholder="09…" />
-            </label>
-            <label className="block">
-              <span className="block text-sm font-semibold text-navy mb-2">Service type</span>
-              <Select value={form.serviceType} onChange={(event) => setForm({ ...form, serviceType: event.target.value })}>
-                {serviceTypes.map((service) => <option key={service}>{service}</option>)}
-              </Select>
-            </label>
-            <label className="block">
-              <span className="block text-sm font-semibold text-navy mb-2">Preferred due date</span>
-              <Input required type="date" value={form.preferredDueDate} onChange={(event) => setForm({ ...form, preferredDueDate: event.target.value })} />
-            </label>
-            <label className="block">
-              <span className="block text-sm font-semibold text-navy mb-2">Dimensions / specification</span>
-              <Input required value={form.dimensions} onChange={(event) => setForm({ ...form, dimensions: event.target.value })} placeholder="e.g. 3m × 1.2m, acrylic 5mm" />
-            </label>
-            <label className="block">
-              <span className="block text-sm font-semibold text-navy mb-2">Quantity</span>
-              <Input required value={form.quantity} onChange={(event) => setForm({ ...form, quantity: event.target.value })} placeholder="e.g. 4 pieces or 18 m²" />
-            </label>
-          </div>
-          
-          <label className="block mb-6">
-            <span className="block text-sm font-semibold text-navy mb-2">Project notes</span>
-            <textarea 
-              rows={3} 
-              value={form.notes} 
-              onChange={(event) => setForm({ ...form, notes: event.target.value })} 
-              placeholder="Colors, installation notes, or anything the workshop should know"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-cyan focus:border-transparent resize-none"
-            />
+        {/* Section 1: Service Type (Visual Chips) */}
+        <section className="space-y-2">
+          <label className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+            <Printer size={14} className="text-cyan-600" /> 1. የህትመት አይነት መረጣ
           </label>
-          
-          <label className="flex items-center gap-4 p-4 border-2 border-dashed border-gray-200 rounded-lg mb-6 cursor-pointer hover:border-cyan transition-colors">
-            <FileUp size={17} className="text-gray-400" />
-            <div className="flex-1">
-              <span className="block font-medium text-navy">
-                {file ? file.name : "Attach artwork or reference file (optional)"}
+          <div className="grid grid-cols-2 gap-2">
+            {serviceCategories.map((srv) => {
+              const active = form.serviceType === srv.id;
+              return (
+                <button
+                  type="button"
+                  key={srv.id}
+                  onClick={() => setForm({ ...form, serviceType: srv.id })}
+                  className={cn(
+                    "p-3 rounded-xl border text-left transition-all active:scale-95 flex flex-col justify-between",
+                    active
+                      ? "border-cyan-600 bg-cyan-50/60 ring-2 ring-cyan-500/20 text-cyan-950 font-semibold"
+                      : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                  )}
+                >
+                  <span className="text-xs font-bold block">{srv.label}</span>
+                  <span className="text-[10px] text-slate-400 block mt-0.5">{srv.desc}</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* Section 2: Dimensions & Quantity */}
+        <section className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-sm space-y-3">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+              <Ruler size={14} className="text-cyan-600" /> 2. መጠን እና ብዛት
+            </label>
+            {estimatedArea && (
+              <span className="text-[11px] font-bold text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded-md">
+                ጠቅላላ ስፋት: {estimatedArea} m²
               </span>
-              <small className="text-gray-500">PDF, PNG, JPG, SVG, or other production reference</small>
-            </div>
-            <input type="file" onChange={(event) => setFile(event.target.files?.[0] ?? null)} className="sr-only" />
-          </label>
-          
-          {message ? (
-            <div className={cn(
-              "flex items-center gap-3 p-4 rounded-lg mb-6",
-              message.tone === "success" ? "bg-green/10 text-green-dark" : "bg-red/10 text-red"
-            )}>
-              {message.tone === "success" ? <CheckCircle2 size={16} /> : null}
-              {message.text}
-            </div>
-          ) : null}
-          
-          <Button size="full" variant="primary" type="submit" disabled={busy}>
-            {busy ? "Sending request…" : "Send project request"} <Send size={16} />
-          </Button>
-        </form>
-      </div>
-    </section>
+            )}
+          </div>
 
-    <footer className="px-6 py-8 bg-navy text-white">
-      <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-        <span>© {new Date().getFullYear()} {company.companyName}</span>
-        <span className="text-sm text-gray-300">{company.address}</span>
-        <Link href="/track" className="text-cyan hover:text-white transition-colors">Track an order →</Link>
-      </div>
-    </footer>
-  </main>;
+          <div className="grid grid-cols-3 gap-2">
+            <div className="col-span-2">
+              <span className="text-[11px] text-slate-500 font-medium block mb-1">መጠን (ርዝመት x ጎን)</span>
+              <input
+                required
+                value={form.dimensions}
+                onChange={(e) => setForm({ ...form, dimensions: e.target.value })}
+                placeholder="ምሳሌ፦ 2x3 ሜትር"
+                className="w-full h-11 px-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:bg-white transition-all"
+              />
+            </div>
+
+            <div>
+              <span className="text-[11px] text-slate-500 font-medium block mb-1">ብዛት</span>
+              <input
+                required
+                type="number"
+                min="1"
+                value={form.quantity}
+                onChange={(e) => setForm({ ...form, quantity: e.target.value })}
+                placeholder="1"
+                className="w-full h-11 px-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:bg-white text-center font-bold transition-all"
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* Section 3: Artwork File Upload */}
+        <section className="space-y-1.5">
+          <label className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+            <Layers size={14} className="text-cyan-600" /> 3. የዲዛይን ፋይል (አማራጭ)
+          </label>
+
+          <div className="relative">
+            <label className="flex items-center gap-3 p-3.5 bg-white border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer hover:border-cyan-500 active:bg-slate-50 transition-all">
+              <div className="w-9 h-9 rounded-xl bg-cyan-50 text-cyan-600 grid place-items-center shrink-0">
+                <FileUp size={18} />
+              </div>
+              <div className="flex-1 overflow-hidden pr-6">
+                <span className="text-xs font-semibold text-slate-800 block truncate">
+                  {file ? file.name : "ፋይል ወይም ዲዛይን ይላኩ"}
+                </span>
+                <span className="text-[10px] text-slate-400 block">PDF, PNG, JPG, AI, CDR (Max 50MB)</span>
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                onChange={(e) => handleFileChange(e.target.files?.[0] ?? null)}
+                className="sr-only"
+              />
+            </label>
+
+            {file && (
+              <button
+                type="button"
+                onClick={() => {
+                  setFile(null);
+                  if (fileInputRef.current) fileInputRef.current.value = "";
+                }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors"
+                title="ፋይሉን ሰርዝ"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+        </section>
+
+        {/* Section 4: Customer Contact Info */}
+        <section className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-sm space-y-3">
+          <label className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5 border-b border-slate-100 pb-2">
+            <User size={14} className="text-cyan-600" /> 4. የደንበኛ መረጃ
+          </label>
+
+          <div className="space-y-2.5">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <span className="text-[11px] text-slate-500 font-medium block mb-1">ስም / ድርጅት</span>
+                <input
+                  required
+                  value={form.clientName}
+                  onChange={(e) => setForm({ ...form, clientName: e.target.value })}
+                  placeholder="ስም ያስገቡ"
+                  className="w-full h-11 px-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:bg-white transition-all"
+                />
+              </div>
+
+              <div>
+                <span className="text-[11px] text-slate-500 font-medium block mb-1">ስልክ ቁጥር</span>
+                <input
+                  required
+                  type="tel"
+                  value={form.phone}
+                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  placeholder="09... / 07..."
+                  className="w-full h-11 px-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:bg-white transition-all"
+                />
+              </div>
+            </div>
+
+            <div>
+              <span className="text-[11px] text-slate-500 font-medium block mb-1">ተጨማሪ ማብራሪያ / ማስታወሻ (አማራጭ)</span>
+              <textarea
+                rows={2}
+                value={form.notes}
+                onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                placeholder="የከለር ምርጫ፣ የገጠማ ቦታ ወይም ሌላ ማስታወሻ..."
+                className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:bg-white resize-none transition-all"
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* Feedback Message */}
+        {message && (
+          <div
+            className={cn(
+              "p-3.5 rounded-xl text-xs font-semibold flex items-center gap-2.5 transition-all",
+              message.tone === "success"
+                ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                : "bg-rose-50 text-rose-800 border border-rose-200"
+            )}
+          >
+            {message.tone === "success" ? (
+              <CheckCircle2 size={16} className="shrink-0 text-emerald-600" />
+            ) : (
+              <Info size={16} className="shrink-0 text-rose-600" />
+            )}
+            <span>{message.text}</span>
+          </div>
+        )}
+
+        {/* Fixed Sticky Bottom Action Button for Mobile */}
+        <div className="fixed bottom-0 left-0 right-0 p-3 bg-white/95 backdrop-blur-md border-t border-slate-200 z-50">
+          <button
+            type="submit"
+            disabled={busy}
+            className="w-full max-w-lg mx-auto h-12 bg-slate-900 hover:bg-slate-800 active:scale-[0.99] text-white font-bold rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 transition-all cursor-pointer"
+          >
+            {busy ? "ትዕዛዝዎ እየተላከ ነው..." : "ትዕዛዝ ላክ (Submit Order)"}
+            <Send size={15} />
+          </button>
+        </div>
+      </form>
+    </div>
+  );
 }

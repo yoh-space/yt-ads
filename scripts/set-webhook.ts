@@ -21,11 +21,22 @@ async function main() {
   }
 
   const webhookUrl = `${appUrl.replace(/\/$/, "")}/api/telegram`;
-  const endpoint = `${TELEGRAM_API}/bot${token}/setWebhook?url=${encodeURIComponent(webhookUrl)}`;
+  const endpoint = `${TELEGRAM_API}/bot${token}/setWebhook`;
 
   console.log(`Registering webhook -> ${webhookUrl}`);
 
-  const response = await fetch(endpoint, { method: "GET" });
+  const payload: Record<string, unknown> = {
+    url: webhookUrl,
+    allowed_updates: ["message", "callback_query", "my_chat_member"],
+  };
+  const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
+  if (webhookSecret) payload.secret_token = webhookSecret;
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
   const result = (await response.json()) as { ok: boolean; description?: string };
 
   if (result.ok) {

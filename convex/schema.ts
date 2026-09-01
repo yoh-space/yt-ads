@@ -448,4 +448,32 @@ export default defineSchema({
     updatedBy: v.optional(v.string()),
   })
     .index("by_key", ["key"]),
+
+  /**
+   * Telegram bot session state keyed per chat. `data` holds the JSON-serialized
+   * grammY session (language preference, active flow step, and order draft).
+   * Written transactionally by the bot webhook through the Convex-backed
+   * session storage adapter so language and in-progress orders survive restarts.
+   */
+  telegramSessions: defineTable({
+    key: v.string(),
+    data: v.string(),
+    updatedAt: v.number(),
+  })
+    .index("by_key", ["key"]),
+
+  /**
+   * Telegram customer profiles (distinct from the staff `users` table, which is
+   * tied to Better Auth identities). The bot upserts a row when a customer taps
+   * the share-contact button, keyed by Telegram user id, so the Mini App can
+   * submit orders with the verified phone instead of a manual input field.
+   */
+  telegramUsers: defineTable({
+    telegramId: v.string(),
+    phone: v.string(),
+    name: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_telegram_id", ["telegramId"]),
 });
