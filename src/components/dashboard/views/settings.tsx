@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import type { SettingsCategory } from "../nav-config";
 import { Button, Input } from "@/components/ui";
+import { cn } from "@/lib/utils";
 
 const roleOptions = Object.keys(roleLabels) as Role[];
 
@@ -54,45 +55,82 @@ export function SettingsView({ profile }: { profile: Profile }) {
   const selected = categories.find((c) => c.id === activeCategory) ?? categories[0];
 
   return (
-    <div className="settings-layout">
-      <aside className="settings-sidebar">
-        <div className="settings-sidebar-head">
-          <h3>Settings</h3>
-          <p>Manage your account and workspace</p>
-        </div>
-        <nav className="settings-nav">
-          {categories.map((category) => (
-            <button
-              key={category.id}
-              className={`settings-nav-item ${activeCategory === category.id ? "active" : ""}`}
-              onClick={() => setActiveCategory(category.id)}
-            >
-              <span className="settings-nav-icon">{category.icon}</span>
-              <span className="settings-nav-text">
-                <strong>{category.title}</strong>
-                <small>{category.description}</small>
-              </span>
-              <ChevronRight size={16} className="settings-nav-chevron" />
-            </button>
-          ))}
-        </nav>
-      </aside>
+    <div className="min-h-screen bg-canvas">
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-8">
+          {/* Settings Sidebar */}
+          <aside className="space-y-6">
+            <div className="bg-white border border-line rounded-lg p-6 shadow-sm">
+              <h3 className="text-lg font-bold text-navy mb-2">Settings</h3>
+              <p className="text-sm text-gray-600">Manage your account and workspace</p>
+            </div>
+            
+            <nav className="space-y-2">
+              {categories.map((category) => (
+                <button
+                  key={category.id}
+                  className={cn(
+                    "w-full flex items-center gap-3 p-4 text-left rounded-lg border transition-colors focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2",
+                    activeCategory === category.id
+                      ? "bg-cyan/10 border-cyan/20 text-cyan-dark"
+                      : "bg-white border-line text-gray-700 hover:bg-gray-50 hover:border-gray-300"
+                  )}
+                  onClick={() => setActiveCategory(category.id)}
+                >
+                  <div className={cn(
+                    "flex items-center justify-center w-8 h-8 rounded-lg",
+                    activeCategory === category.id
+                      ? "bg-cyan/20 text-cyan"
+                      : "bg-gray-100 text-gray-600"
+                  )}>
+                    {category.icon}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-sm">{category.title}</span>
+                      {category.badge && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-navy/10 text-navy">
+                          {category.badge}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">{category.description}</p>
+                  </div>
+                  <ChevronRight size={16} className="text-gray-400 flex-none" />
+                </button>
+              ))}
+            </nav>
+          </aside>
 
-      <div className="settings-content">
-        <div className="settings-content-head">
-          <span className="settings-content-icon">{selected.icon}</span>
-          <div>
-            <h2>{selected.title}</h2>
-            <p>{selected.description}</p>
+          {/* Settings Content */}
+          <div className="space-y-6">
+            <div className="bg-white border border-line rounded-lg p-6 shadow-sm">
+              <div className="flex items-start gap-4">
+                <div className={cn(
+                  "flex items-center justify-center w-10 h-10 rounded-lg",
+                  "bg-cyan/10 text-cyan"
+                )}>
+                  {selected.icon}
+                </div>
+                <div className="flex-1">
+                  <h2 className="text-xl font-bold text-navy">{selected.title}</h2>
+                  <p className="text-sm text-gray-600 mt-1">{selected.description}</p>
+                </div>
+                {selected.badge && (
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-navy text-white">
+                    {selected.badge}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {activeCategory === "profile" && <ProfilePanel profile={profile} />}
+            {activeCategory === "security" && <SecurityPanel isOwner={isOwner} />}
+            {activeCategory === "team" && <TeamPanel profile={profile} />}
+            {activeCategory === "company" && <CompanyPanel />}
+            {activeCategory === "operations" && isOwner && <OperationalPanel />}
           </div>
-          {selected.badge ? <span className="settings-badge">{selected.badge}</span> : null}
         </div>
-
-        {activeCategory === "profile" ? <ProfilePanel profile={profile} /> : null}
-        {activeCategory === "security" ? <SecurityPanel isOwner={isOwner} /> : null}
-        {activeCategory === "team" ? <TeamPanel profile={profile} /> : null}
-        {activeCategory === "company" ? <CompanyPanel /> : null}
-        {activeCategory === "operations" && isOwner ? <OperationalPanel /> : null}
       </div>
     </div>
   );
@@ -123,26 +161,79 @@ function ProfilePanel({ profile }: { profile: Profile }) {
   }
 
   return (
-    <div className="settings-content-card">
-      <div className="settings-preview">
-        <div className="settings-preview-avatar">
-          {profile.image ? <img src={profile.image} alt="" /> : <span>{profile.name.charAt(0).toUpperCase()}</span>}
-        </div>
-        <div className="settings-preview-info">
-          <strong>{profile.name}</strong>
-          <small>{profile.email}</small>
-          <span className="settings-preview-role">{profile.role.replace(/_/g, " ")}</span>
+    <div className="bg-white border border-line rounded-lg shadow-sm overflow-hidden">
+      {/* Profile Preview */}
+      <div className="p-6 border-b border-line bg-gray-50">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center justify-center w-16 h-16 rounded-full bg-navy text-white text-xl font-bold overflow-hidden">
+            {profile.image ? (
+              <img src={profile.image} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <span>{profile.name.charAt(0).toUpperCase()}</span>
+            )}
+          </div>
+          <div>
+            <div className="font-semibold text-navy text-lg">{profile.name}</div>
+            <div className="text-sm text-gray-600">{profile.email}</div>
+            <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-cyan/10 text-cyan mt-2">
+              {profile.role.replace(/_/g, " ")}
+            </div>
+          </div>
         </div>
       </div>
-      <section className="settings-section">
-        <div className="settings-section-head"><UserRound size={17} /><div><strong>Profile information</strong><span>{profile.email}</span></div></div>
-        <form onSubmit={saveProfile}>
-          <label>Display name<Input required value={name} onChange={(e) => setName(e.target.value)} /></label>
-          <label>Profile image URL<Input placeholder="Optional image URL" value={image} onChange={(e) => setImage(e.target.value)} /></label>
-          <Button variant="primary" type="submit" disabled={busy}><Save size={15} />Save profile</Button>
+      
+      {/* Profile Form */}
+      <div className="p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <UserRound size={17} className="text-cyan" />
+          <div>
+            <div className="font-semibold text-navy">Profile information</div>
+            <div className="text-sm text-gray-600">{profile.email}</div>
+          </div>
+        </div>
+        
+        <form onSubmit={saveProfile} className="space-y-4">
+          <div>
+            <label className="block text-sm font-semibold text-navy mb-2">
+              Display name
+            </label>
+            <Input 
+              required 
+              value={name} 
+              onChange={(e) => setName(e.target.value)}
+              className="w-full"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-semibold text-navy mb-2">
+              Profile image URL
+            </label>
+            <Input 
+              placeholder="Optional image URL" 
+              value={image} 
+              onChange={(e) => setImage(e.target.value)}
+              className="w-full"
+            />
+          </div>
+          
+          <Button 
+            variant="primary" 
+            type="submit" 
+            disabled={busy}
+            className="inline-flex items-center gap-2"
+          >
+            <Save size={15} />
+            Save profile
+          </Button>
         </form>
-      </section>
-      {message ? <p className="form-message">{message}</p> : null}
+        
+        {message && (
+          <div className="mt-4 p-3 bg-green/10 border border-green/20 rounded-lg text-sm text-green">
+            {message}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

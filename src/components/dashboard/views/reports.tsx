@@ -22,6 +22,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { ReportPeriod } from "@/lib/report-types";
+import { cn } from "@/lib/utils";
 
 const periods: Array<{ id: ReportPeriod; label: string; english: string }> = [
   { id: "weekly", label: "ሳምንታዊ", english: "Weekly" },
@@ -85,8 +86,11 @@ export function ReportsView({ canSeeFinancial = false }: { canSeeFinancial?: boo
 
   if (!report) {
     return (
-      <div className="report-loading">
-        <RefreshCw size={16} /> ሪፖርቱ እየተዘጋጀ ነው…
+      <div className="flex items-center justify-center min-h-64 bg-white border border-line rounded-lg shadow-sm">
+        <div className="flex items-center gap-2 text-gray-500">
+          <RefreshCw size={16} className="animate-spin" /> 
+          ሪፖርቱ እየተዘጋጀ ነው…
+        </div>
       </div>
     );
   }
@@ -105,55 +109,70 @@ export function ReportsView({ canSeeFinancial = false }: { canSeeFinancial?: boo
       : 0;
 
   return (
-    <div className="reports-view">
-      <section className="report-toolbar panel">
-        <div>
-          <span className="panel-kicker">PERIOD REPORT</span>
-          <h2>
-            {periodLabel?.label} ሪፖርት <small>{periodLabel?.english}</small>
-          </h2>
-          <p>
-            {formatDate(report.startAt)} — {formatDate(report.endAt)} ·{" "}
-            {report.days} days
-          </p>
-        </div>
-        <div className="report-toolbar-right">
-          <div className="period-switcher" aria-label="Report period">
-            {periods.map((period) => (
-              <button
-                key={period.id}
-                className={selectedPeriod === period.id ? "selected" : ""}
-                onClick={() => setSelectedPeriod(period.id)}
-              >
-                {period.label}
-                <small>{period.english}</small>
-              </button>
-            ))}
+    <div className="space-y-8">
+      {/* Report Header */}
+      <div className="bg-white border border-line rounded-lg p-6 shadow-sm">
+        <div className="flex items-start justify-between">
+          <div>
+            <span className="text-xs font-mono font-bold tracking-wider text-cyan-dark uppercase">
+              PERIOD REPORT
+            </span>
+            <h2 className="text-xl font-bold text-navy mt-1">
+              {periodLabel?.label} ሪፖርት <span className="text-sm font-normal text-gray-600">{periodLabel?.english}</span>
+            </h2>
+            <p className="text-sm text-gray-600 mt-1">
+              {formatDate(report.startAt)} — {formatDate(report.endAt)} · {report.days} days
+            </p>
           </div>
-          {selectedPeriod === "custom" ? (
-            <div className="report-date-range">
-              <label>
-                <Calendar size={12} />
-                <input
-                  type="date"
-                  value={customStart}
-                  max={customEnd}
-                  onChange={(e) => setCustomStart(e.target.value)}
-                />
-              </label>
-              <span className="date-sep">—</span>
-              <label>
+          
+          <div className="flex items-center gap-4">
+            {/* Period Switcher */}
+            <div className="flex items-center gap-1 p-1 bg-gray-100 rounded-lg">
+              {periods.map((period) => (
+                <button
+                  key={period.id}
+                  className={cn(
+                    "px-3 py-2 text-sm font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2",
+                    selectedPeriod === period.id
+                      ? "bg-white text-navy shadow-sm"
+                      : "text-gray-600 hover:text-gray-900"
+                  )}
+                  onClick={() => setSelectedPeriod(period.id)}
+                >
+                  <div className="text-center">
+                    <div>{period.label}</div>
+                    <div className="text-xs text-gray-500">{period.english}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+            
+            {/* Custom Date Range */}
+            {selectedPeriod === "custom" && (
+              <div className="flex items-center gap-2 p-2 bg-gray-50 border border-line rounded-lg">
+                <div className="flex items-center gap-1 px-2 py-1 bg-white border border-line rounded text-sm">
+                  <Calendar size={12} className="text-gray-400" />
+                  <input
+                    type="date"
+                    value={customStart}
+                    max={customEnd}
+                    onChange={(e) => setCustomStart(e.target.value)}
+                    className="border-0 bg-transparent text-navy focus:outline-none"
+                  />
+                </div>
+                <span className="text-gray-400">—</span>
                 <input
                   type="date"
                   value={customEnd}
                   min={customStart}
                   onChange={(e) => setCustomEnd(e.target.value)}
+                  className="px-2 py-1 bg-white border border-line rounded text-sm text-navy focus:outline-none focus:ring-2 focus:ring-cyan"
                 />
-              </label>
-            </div>
-          ) : null}
+              </div>
+            )}
+          </div>
         </div>
-      </section>
+      </div>
 
       <section className="report-stat-grid">
         <article className="report-stat cyan">

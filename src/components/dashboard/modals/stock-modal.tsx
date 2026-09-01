@@ -8,6 +8,7 @@ import type { InputUnit } from "@/lib/units";
 import type { Material } from "@/lib/operations-types";
 import { convertToBase, formatQuantity } from "@/lib/units";
 import { ModalShell } from "./modal-shell";
+import { cn } from "@/lib/utils";
 
 function inputUnitsFor(material?: Material): InputUnit[] {
   if (!material) return [];
@@ -89,13 +90,40 @@ export function StockModal({
       subtitle="Record a purchase-unit movement and convert it into the tracked base unit."
       onClose={onClose}
     >
-      <form className="modal-form" onSubmit={handleSubmit(onSubmit)}>
-        <div className="choice-row">
-          <button type="button" className={direction === "in" ? "selected in" : ""} onClick={() => setValue("direction", "in")}><ArrowDownRight size={18} />Stock In</button>
-          <button type="button" className={direction === "out" ? "selected out" : ""} onClick={() => setValue("direction", "out")}><ArrowUpRight size={18} />Stock Out</button>
+      <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
+        <div className="flex gap-3 p-3 bg-gray-50 border border-line rounded-lg">
+          <button 
+            type="button" 
+            className={cn(
+              "flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2",
+              direction === "in"
+                ? "bg-green text-white shadow-sm focus:ring-green"
+                : "bg-white text-gray-600 border border-line hover:bg-gray-50 focus:ring-gray-300"
+            )}
+            onClick={() => setValue("direction", "in")}
+          >
+            <ArrowDownRight size={18} />
+            Stock In
+          </button>
+          <button 
+            type="button" 
+            className={cn(
+              "flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2",
+              direction === "out"
+                ? "bg-coral text-white shadow-sm focus:ring-coral"
+                : "bg-white text-gray-600 border border-line hover:bg-gray-50 focus:ring-gray-300"
+            )}
+            onClick={() => setValue("direction", "out")}
+          >
+            <ArrowUpRight size={18} />
+            Stock Out
+          </button>
         </div>
-        <label>
-          Material
+        
+        <div>
+          <label className="block text-sm font-semibold text-navy mb-2">
+            Material
+          </label>
           <select
             {...register("materialId")}
             onChange={(event) => {
@@ -103,37 +131,99 @@ export function StockModal({
               setValue("materialId", event.target.value);
               setValue("inputUnit", (next?.purchaseUnit ?? next?.unit ?? "m²") as InputUnit);
             }}
+            className="w-full px-3 py-2 text-sm border border-line rounded-lg bg-white text-navy focus:outline-none focus:ring-2 focus:ring-cyan focus:border-transparent transition-colors"
           >
-            {materials.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+            {materials.map((entry) => (
+              <option key={entry.id} value={entry.id}>{entry.name}</option>
+            ))}
           </select>
-          {errors.materialId ? <small className="field-error">{errors.materialId.message}</small> : null}
-          {material?.specification ? <small className="settings-help">{material.specification}{material.specificationValue ? `: ${material.specificationValue}` : " — choose the configured variant in master data"}</small> : null}
-        </label>
-        <div className="two-field">
-          <label>
-            Purchase quantity
-            <input type="number" min="0.001" step="0.001" {...register("quantity", { valueAsNumber: true })} />
-            {errors.quantity ? <small className="field-error">{errors.quantity.message}</small> : null}
-          </label>
-          <label>
-            Entry unit
-            <select {...register("inputUnit")}>
-              {inputUnits.map((option) => <option key={option} value={option}>{option}</option>)}
+          {errors.materialId && (
+            <small className="block mt-1 text-xs font-medium text-coral">
+              {errors.materialId.message}
+            </small>
+          )}
+          {material?.specification && (
+            <small className="block mt-1 text-xs text-gray-500">
+              {material.specification}
+              {material.specificationValue ? `: ${material.specificationValue}` : " — choose the configured variant in master data"}
+            </small>
+          )}
+        </div>
+        
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-semibold text-navy mb-2">
+              Purchase quantity
+            </label>
+            <input 
+              type="number" 
+              min="0.001" 
+              step="0.001" 
+              {...register("quantity", { valueAsNumber: true })}
+              className="w-full px-3 py-2 text-sm border border-line rounded-lg bg-white text-navy placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan focus:border-transparent transition-colors"
+            />
+            {errors.quantity && (
+              <small className="block mt-1 text-xs font-medium text-coral">
+                {errors.quantity.message}
+              </small>
+            )}
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-navy mb-2">
+              Entry unit
+            </label>
+            <select 
+              {...register("inputUnit")}
+              className="w-full px-3 py-2 text-sm border border-line rounded-lg bg-white text-navy focus:outline-none focus:ring-2 focus:ring-cyan focus:border-transparent transition-colors"
+            >
+              {inputUnits.map((option) => (
+                <option key={option} value={option}>{option}</option>
+              ))}
             </select>
-            {errors.inputUnit ? <small className="field-error">{errors.inputUnit.message}</small> : null}
+            {errors.inputUnit && (
+              <small className="block mt-1 text-xs font-medium text-coral">
+                {errors.inputUnit.message}
+              </small>
+            )}
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-3 p-3 bg-cyan/10 rounded-lg border border-cyan/20">
+          <Sparkles size={17} className="text-cyan flex-none" />
+          <span className="text-sm text-gray-600">Normalized base quantity</span>
+          <span className="font-semibold text-navy ml-auto">
+            {formatQuantity(converted, material?.baseUnit ?? material?.unit ?? "m²")}
+          </span>
+        </div>
+        
+        {material?.conversionRatio ? (
+          <small className="text-xs text-gray-500">
+            1 {material.purchaseUnit ?? "purchase unit"} = {material.conversionRatio} {material.baseUnit ?? material.unit}
+          </small>
+        ) : (
+          <small className="text-xs text-gray-500">
+            No conversion ratio is configured for this material. Confirm it before receiving roll or sheet stock.
+          </small>
+        )}
+        
+        <div>
+          <label className="block text-sm font-semibold text-navy mb-2">
+            Reference note
           </label>
+          <input 
+            placeholder="Supplier, job card, or issue reason" 
+            {...register("note")}
+            className="w-full px-3 py-2 text-sm border border-line rounded-lg bg-white text-navy placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan focus:border-transparent transition-colors"
+          />
         </div>
-        <div className="conversion-box">
-          <Sparkles size={17} />
-          <span>Normalized base quantity</span>
-          <strong>{formatQuantity(converted, material?.baseUnit ?? material?.unit ?? "m²")}</strong>
-        </div>
-        {material?.conversionRatio ? <small className="settings-help">1 {material.purchaseUnit ?? "purchase unit"} = {material.conversionRatio} {material.baseUnit ?? material.unit}</small> : <small className="settings-help">No conversion ratio is configured for this material. Confirm it before receiving roll or sheet stock.</small>}
-        <label>
-          Reference note
-          <input placeholder="Supplier, job card, or issue reason" {...register("note")} />
-        </label>
-        <button className="button primary full" type="submit">Save stock movement <ArrowUpRight size={16} /></button>
+        
+        <button 
+          className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold rounded-lg bg-navy text-white shadow-sm transition-colors hover:bg-navy-2 focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2"
+          type="submit"
+        >
+          Save stock movement 
+          <ArrowUpRight size={16} />
+        </button>
       </form>
     </ModalShell>
   );

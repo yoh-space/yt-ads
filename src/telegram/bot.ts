@@ -2,7 +2,6 @@ import {
   Bot,
   session,
   type Context,
-  type Other,
   type SessionFlavor,
 } from "grammy";
 import { fetchMutation, fetchQuery } from "convex/nextjs";
@@ -473,7 +472,7 @@ export function createBot(token: string): Bot<MyContext> {
   // send to HTML unless a caller opts out.
   bot.api.config.use((prev, method, payload) => {
     if (method === "sendMessage" && !("parse_mode" in payload)) {
-      payload.parse_mode = "HTML";
+      (payload as { parse_mode?: string }).parse_mode = "HTML";
     }
     return prev(method, payload);
   });

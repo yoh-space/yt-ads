@@ -36,25 +36,80 @@ export function OffcutModal({
       onClose={onClose}
     >
       <form
-        className="modal-form"
+        className="space-y-6"
         onSubmit={(event) => {
           event.preventDefault();
           onSave({ materialId, width, length, location });
         }}
       >
-        <label>
-          Sheet material
-          <select value={materialId} onChange={(event) => setMaterialId(event.target.value)}>
-            {sheetMaterials.map((entry) => <option value={entry.id} key={entry.id}>{entry.name}</option>)}
+        <div>
+          <label className="block text-sm font-semibold text-navy mb-2">
+            Sheet material
+          </label>
+          <select 
+            value={materialId} 
+            onChange={(event) => setMaterialId(event.target.value)}
+            className="w-full px-3 py-2 text-sm border border-line rounded-lg bg-white text-navy focus:outline-none focus:ring-2 focus:ring-cyan focus:border-transparent transition-colors"
+          >
+            {sheetMaterials.map((entry) => (
+              <option value={entry.id} key={entry.id}>{entry.name}</option>
+            ))}
           </select>
-        </label>
-        <div className="two-field">
-          <label>Width (m)<input type="number" min="0.1" step="0.1" value={width} onChange={(event) => setWidth(Number(event.target.value))} /></label>
-          <label>Length (m)<input type="number" min="0.1" step="0.1" value={length} onChange={(event) => setLength(Number(event.target.value))} /></label>
         </div>
-        <div className="conversion-box"><Scissors size={17} /><span>Usable area returned</span><strong>{area} m²</strong></div>
-        <label>Rack location<input value={location} onChange={(event) => setLocation(event.target.value)} /></label>
-        <button className="button primary full" type="submit">Return to active inventory <ArrowUpRight size={16} /></button>
+        
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-semibold text-navy mb-2">
+              Width (m)
+            </label>
+            <input 
+              type="number" 
+              min="0.1" 
+              step="0.1" 
+              value={width} 
+              onChange={(event) => setWidth(Number(event.target.value))}
+              className="w-full px-3 py-2 text-sm border border-line rounded-lg bg-white text-navy placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan focus:border-transparent transition-colors"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-navy mb-2">
+              Length (m)
+            </label>
+            <input 
+              type="number" 
+              min="0.1" 
+              step="0.1" 
+              value={length} 
+              onChange={(event) => setLength(Number(event.target.value))}
+              className="w-full px-3 py-2 text-sm border border-line rounded-lg bg-white text-navy placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan focus:border-transparent transition-colors"
+            />
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-3 p-3 bg-green/10 rounded-lg border border-green/20">
+          <Scissors size={17} className="text-green flex-none" />
+          <span className="text-sm text-gray-600">Usable area returned</span>
+          <span className="font-semibold text-navy ml-auto">{area} m²</span>
+        </div>
+        
+        <div>
+          <label className="block text-sm font-semibold text-navy mb-2">
+            Rack location
+          </label>
+          <input 
+            value={location} 
+            onChange={(event) => setLocation(event.target.value)}
+            className="w-full px-3 py-2 text-sm border border-line rounded-lg bg-white text-navy placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan focus:border-transparent transition-colors"
+          />
+        </div>
+        
+        <button 
+          className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold rounded-lg bg-navy text-white shadow-sm transition-colors hover:bg-navy-2 focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2"
+          type="submit"
+        >
+          Return to active inventory 
+          <ArrowUpRight size={16} />
+        </button>
       </form>
     </ModalShell>
   );
