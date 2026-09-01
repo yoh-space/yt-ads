@@ -92,7 +92,7 @@ const MANAGEMENT_ROLES: Role[] = ["owner", "manager", "admin", "storekeeper"];
 /** Frontend mirror of the backend RBAC map (keep in sync with convex/authorization.ts). */
 export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   owner: [...ALL],
-  manager: ALL.filter((permission) => permission !== "company_settings.update"),
+  manager: ALL.filter((permission) => permission !== "company_settings.update" && permission !== "reconciliation.review"),
   admin: [
     "dashboard.view",
     "material.view",
@@ -124,7 +124,6 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "order.manage",
     "stock.exception",
     "reconciliation.record",
-    "reconciliation.review",
   ],
   storekeeper: [
     "dashboard.view",
@@ -146,7 +145,6 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "request.issue",
     "request.acknowledge",
     "team.view",
-    "reports.view",
     "audit.view",
     "order.view",
     "order.create",

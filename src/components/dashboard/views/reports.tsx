@@ -63,7 +63,7 @@ function formatDaysLeft(days: number | null) {
   return `${days}d`;
 }
 
-export function ReportsView() {
+export function ReportsView({ canSeeFinancial = false }: { canSeeFinancial?: boolean }) {
   const [selectedPeriod, setSelectedPeriod] = useState<ReportPeriod>("weekly");
   const [customStart, setCustomStart] = useState(() => {
     const d = new Date();
@@ -182,8 +182,8 @@ export function ReportsView() {
           <span className="report-stat-icon">
             <DollarSign size={18} />
           </span>
-          <strong>{formatCurrency(report.financial.estimatedRevenue)}</strong>
-          <p>የተገመተ ገንዘብ</p>
+          <strong>{canSeeFinancial ? formatCurrency(report.financial.estimatedRevenue) : formatNumber(report.financial.pendingOrders)}</strong>
+          <p>{canSeeFinancial ? "የተገመተ ገንዘብ" : "Pending Orders"}</p>
           <small>
             {report.financial.pendingOrders} pending orders · {report.financial.completedOrders} done
           </small>
@@ -248,8 +248,8 @@ export function ReportsView() {
           <span className="report-stat-icon">
             <Flame size={18} />
           </span>
-          <strong>{formatCurrency(report.machineEfficiency.wasteValue.estimatedETB)}</strong>
-          <p>የወጪ ዋጋ</p>
+          <strong>{canSeeFinancial ? formatCurrency(report.machineEfficiency.wasteValue.estimatedETB) : formatNumber(report.executive.scrapCount)}</strong>
+          <p>{canSeeFinancial ? "የወጪ ዋጋ" : "የተመዘገበ Scrap"}</p>
           <small>
             {report.machineEfficiency.wasteValue.totalWasteQuantity.toLocaleString("en-US", { maximumFractionDigits: 1 })}{" "}
             {report.machineEfficiency.wasteValue.wasteUnit} total waste
@@ -260,16 +260,16 @@ export function ReportsView() {
       <section className="report-stat-grid executive-stat-grid">
         <article className="report-stat coral">
           <span className="report-stat-icon"><TrendingDown size={18} /></span>
-          <strong>{formatCurrency(report.executive.totalConsumptionETB)}</strong>
-          <p>አጠቃላይ የእቃ ውጪ</p>
+          <strong>{canSeeFinancial ? formatCurrency(report.executive.totalConsumptionETB) : formatNumber(report.executive.totalConsumptionBaseQuantity)}</strong>
+          <p>{canSeeFinancial ? "አጠቃላይ የእቃ ውጪ" : "ተጠቃሚ የእቃ መጠን"}</p>
           <small>
             {report.executive.totalConsumptionBaseQuantity.toLocaleString("en-US", { maximumFractionDigits: 0 })} base units of material value consumed
           </small>
         </article>
         <article className="report-stat gold">
           <span className="report-stat-icon"><AlertTriangle size={18} /></span>
-          <strong>{formatCurrency(report.executive.theftAlertsTotalLoss)}</strong>
-          <p>የሌብነት/የእቃ ጉድለት</p>
+          <strong>{canSeeFinancial ? formatCurrency(report.executive.theftAlertsTotalLoss) : formatNumber(report.executive.theftAlerts.length)}</strong>
+          <p>{canSeeFinancial ? "የሌብነት/የእቃ ጉድለት" : "ንቁ የመለያ ማንቂያዎች"}</p>
           <small>
             {report.executive.theftAlerts.length} shortage alert{report.executive.theftAlerts.length !== 1 ? "s" : ""} · estimated total loss
           </small>
@@ -298,7 +298,7 @@ export function ReportsView() {
             <div>
               <span className="panel-kicker coral">STOCK DISCREPANCY ALERTS</span>
               <h2>የእቃ ጉድለት ማንቂያ</h2>
-              <p>Negative physical-count variance, ranked by monetary loss in ETB.</p>
+              <p>{canSeeFinancial ? "Negative physical-count variance, ranked by monetary loss in ETB." : "Negative physical-count variance across materials."}</p>
             </div>
             <AlertTriangle size={19} className="report-head-icon" />
           </div>
@@ -306,7 +306,7 @@ export function ReportsView() {
             <div className="report-table-header">
               <span>Material</span>
               <span>Variance</span>
-              <span>Monetary Loss</span>
+              {canSeeFinancial ? <span>Monetary Loss</span> : null}
               <span>Count Date</span>
             </div>
             {report.executive.theftAlerts.map((alert) => (
@@ -315,7 +315,7 @@ export function ReportsView() {
                 <span className="exception-qty shortage-text">
                   -{Math.abs(alert.variance).toLocaleString("en-US", { maximumFractionDigits: 2 })} {alert.unit}
                 </span>
-                <span className="warning-text">{formatCurrency(alert.monetaryLoss)}</span>
+                {canSeeFinancial ? <span className="warning-text">{formatCurrency(alert.monetaryLoss)}</span> : null}
                 <span className="exception-date">{formatDate(alert.countDate)}</span>
               </div>
             ))}

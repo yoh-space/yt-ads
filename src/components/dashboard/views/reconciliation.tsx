@@ -20,16 +20,22 @@ function formatCurrency(n: number) {
   return `ETB ${n.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
 }
 
+function formatNumber(n: number) {
+  return n.toLocaleString("en-US", { maximumFractionDigits: 0 });
+}
+
 export function ReconciliationView({
   materials,
   canRecord,
   canReview,
+  canSeeFinancial,
   onCount,
   onReview,
 }: {
   materials: Material[];
   canRecord: boolean;
   canReview: boolean;
+  canSeeFinancial: boolean;
   onCount: () => void;
   onReview: (id: string, status: "Reviewed" | "Resolved", note?: string) => void;
 }) {
@@ -84,9 +90,9 @@ export function ReconciliationView({
         </article>
         <article className="report-stat coral">
           <span className="report-stat-icon"><TrendingDown size={18} /></span>
-          <strong>{formatCurrency(summary.totalMonetaryLoss)}</strong>
-          <p>የገንዘብ ኪሳራ</p>
-          <small>Total monetary loss (ETB)</small>
+          <strong>{canSeeFinancial ? formatCurrency(summary.totalMonetaryLoss) : formatNumber(summary.shortageCounts)}</strong>
+          <p>{canSeeFinancial ? "የገንዘብ ኪሳራ" : "Shortages"}</p>
+          <small>{canSeeFinancial ? "Total monetary loss (ETB)" : "Shortage records count"}</small>
         </article>
       </section>
 
@@ -96,7 +102,7 @@ export function ReconciliationView({
             <div>
               <span className="panel-kicker coral">STOCK LEAKAGE ALERTS</span>
               <h2>የእቃ ጉድለት ማንቂያ</h2>
-              <p>Current variance per material, ranked by monetary loss. Negative variance = shortage.</p>
+              <p>{canSeeFinancial ? "Current variance per material, ranked by monetary loss. Negative variance = shortage." : "Current variance per material. Negative variance = shortage."}</p>
             </div>
             <AlertTriangle size={19} className="report-head-icon" />
           </div>
@@ -105,7 +111,7 @@ export function ReconciliationView({
               <span>Material</span>
               <span>Variance</span>
               <span>State</span>
-              <span>Monetary Loss</span>
+              {canSeeFinancial ? <span>Monetary Loss</span> : null}
               <span>Count Date</span>
             </div>
             {summary.currentVariances.map((v) => {
@@ -121,18 +127,22 @@ export function ReconciliationView({
                       {shortage ? "Shortage" : "Surplus"}
                     </span>
                   </span>
-                  <span className={shortage ? "warning-text" : "success-text"}>
-                    {shortage ? formatCurrency(v.monetaryLoss) : "—"}
-                  </span>
+                  {canSeeFinancial ? (
+                    <span className={shortage ? "warning-text" : "success-text"}>
+                      {shortage ? formatCurrency(v.monetaryLoss) : "—"}
+                    </span>
+                  ) : null}
                   <span className="exception-date">{formatDate(v.countDate)}</span>
                 </div>
               );
             })}
           </div>
-          <div className="report-note" style={{ marginTop: 16 }}>
-            <AlertTriangle size={17} />
-            <p><strong>Alert:</strong> total monetary loss from shortages is <b>{formatCurrency(summary.totalMonetaryLoss)}</b>. Review each shortage against recent job-card deductions and exception stock-outs.</p>
-          </div>
+          {canSeeFinancial ? (
+            <div className="report-note" style={{ marginTop: 16 }}>
+              <AlertTriangle size={17} />
+              <p><strong>Alert:</strong> total monetary loss from shortages is <b>{formatCurrency(summary.totalMonetaryLoss)}</b>. Review each shortage against recent job-card deductions and exception stock-outs.</p>
+            </div>
+          ) : null}
         </section>
       ) : null}
 
@@ -175,7 +185,7 @@ export function ReconciliationView({
                       </b>
                     </p>
                     <small>
-                      {shortage ? `Estimated loss ${formatCurrency(record.monetaryLoss ?? 0)} · ` : ""}
+                      {shortage && canSeeFinancial ? `Estimated loss ${formatCurrency(record.monetaryLoss ?? 0)} · ` : ""}
                       Counted by {record.countedByName} · {formatDate(record.createdAt)}
                       {record.note ? ` · ${record.note}` : ""}
                     </small>
@@ -197,7 +207,7 @@ export function ReconciliationView({
 
       <section className="audit-note">
         <XCircle size={16} />
-        <p><strong>Control note:</strong> negative variance is a shortage — its ETB value flags potential stock leakage or theft and should be investigated by the owner before resolution.</p>
+        <p><strong>Control note:</strong> negative variance is a shortage that flags potential stock leakage or theft. Final review and resolution are owner-only actions.</p>
       </section>
     </div>
   );

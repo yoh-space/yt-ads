@@ -1,9 +1,9 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { authComponent } from "./auth";
 import { unit, purchaseUnit, accent } from "./schema";
 import { convertToBase, type InputUnit } from "./units";
-import { requirePermission } from "./users";
+import { requirePermission, requireActiveProfile } from "./users";
+import { canViewFinancial } from "./authorization";
 import { notifyRoles } from "./notificationHelpers";
 import { findMaterialSpecification } from "../src/shared/material-specifications";
 import { classifyMaterialProductionType, resolveEtbValue, effectiveConsumptionRate, isRollMaterial, isSheetMaterial } from "./materialUsage";
@@ -11,11 +11,13 @@ import { classifyMaterialProductionType, resolveEtbValue, effectiveConsumptionRa
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    await authComponent.getAuthUser(ctx);
-    return ctx.db
+    const { profile } = await requireActiveProfile(ctx);
+    const rows = await ctx.db
       .query("materials")
       .filter((q) => q.eq(q.field("active"), true))
       .collect();
+    if (canViewFinancial(profile.role)) return rows;
+    return rows.map((material) => ({ ...material, etbValue: undefined as number | undefined }));
   },
 });
 

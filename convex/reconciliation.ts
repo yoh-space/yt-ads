@@ -1,6 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { requireActiveProfile, requirePermission } from "./users";
+import { requireActiveProfile, requirePermission, requireRoles } from "./users";
+import { canViewFinancial } from "./authorization";
 import { resolveEtbValueFromConfig } from "./materialUsage";
 import { ensureSystemConfig } from "./systemConfigs";
 
@@ -56,7 +57,7 @@ export const review = mutation({
     note: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const { identity } = await requirePermission(ctx, "reconciliation.review");
+    const { identity } = await requireRoles(ctx, ["owner"]);
     const record = await ctx.db.get(args.reconciliationId);
     if (!record) throw new Error("Reconciliation record not found.");
     await ctx.db.patch(args.reconciliationId, {
@@ -72,7 +73,8 @@ export const review = mutation({
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    await requireActiveProfile(ctx);
+    const { profile } = await requireActiveProfile(ctx);
+    const canSeeFinancial = canViewFinancial(profile.role);
     const [records, materials, users] = await Promise.all([
       ctx.db.query("reconciliations").withIndex("by_created").collect(),
       ctx.db.query("materials").collect(),
@@ -89,6 +91,8 @@ export const list = query({
         return {
           ...rest,
           id: _id,
+          etbValue: canSeeFinancial ? rest.etbValue : undefined as number | undefined,
+          monetaryLoss: canSeeFinancial ? rest.monetaryLoss : undefined as number | undefined,
           materialName: material?.name ?? "Unknown material",
           materialUnit: material?.baseUnit ?? material?.unit ?? "m²",
           countedByName: userName.get(record.countedBy) ?? record.countedBy,
@@ -102,7 +106,8 @@ export const list = query({
 export const summary = query({
   args: {},
   handler: async (ctx) => {
-    await requireActiveProfile(ctx);
+    const { profile } = await requireActiveProfile(ctx);
+    const canSeeFinancial = canViewFinancial(profile.role);
     const [records, materials] = await Promise.all([
       ctx.db.query("reconciliations").withIndex("by_created").collect(),
       ctx.db.query("materials").collect(),
@@ -124,7 +129,7 @@ export const summary = query({
           materialName: material?.name ?? "Unknown material",
           unit: material?.baseUnit ?? material?.unit ?? "m²",
           variance: record.variance,
-          monetaryLoss: record.monetaryLoss ?? 0,
+          monetaryLoss: canSeeFinancial ? record.monetaryLoss ?? 0 : 0,
           countDate: record.createdAt,
         };
       })
@@ -133,7 +138,7 @@ export const summary = query({
       openCounts: openCounts.length,
       shortageCounts: shortages.length,
       surplusCounts: surpluses.length,
-      totalMonetaryLoss: Number(totalMonetaryLoss.toFixed(2)),
+      totalMonetaryLoss: canSeeFinancial ? Number(totalMonetaryLoss.toFixed(2)) : 0,
       countRecords: records.length,
       currentVariances,
     };

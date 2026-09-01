@@ -1,5 +1,6 @@
 import { query } from "./_generated/server";
-import { requireActiveProfile } from "./users";
+import { requireActiveProfile, requireRoles } from "./users";
+import { canViewFinancial } from "./authorization";
 import { resolveEtbValue } from "./materialUsage";
 
 const MATERIAL_PULSE_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
@@ -97,8 +98,13 @@ export const getState = query({
       };
     });
 
+    const canSeeFinancial = canViewFinancial(profile.role);
+    const sanitizedMaterials = visibleMaterials.map((material) =>
+      canSeeFinancial ? material : { ...material, etbValue: undefined as number | undefined },
+    );
+
     return {
-      materials: visibleMaterials,
+      materials: sanitizedMaterials,
       machines,
       jobs: enrichedJobs,
       offcuts: visibleOffcuts,
@@ -135,7 +141,7 @@ export const getState = query({
 export const financialMetrics = query({
   args: {},
   handler: async (ctx) => {
-    await requireActiveProfile(ctx);
+    await requireRoles(ctx, ["owner"]);
     const startOfDay = getStartOfDay();
 
     const [orders, jobs, movements, materials, reconciliations] = await Promise.all([

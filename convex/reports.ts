@@ -1,7 +1,8 @@
 import { query } from "./_generated/server";
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
-import { requireActiveProfile } from "./users";
+import { requireRoles } from "./users";
+import { canViewFinancial } from "./authorization";
 import { resolveEtbValue } from "./materialUsage";
 
 const period = v.union(
@@ -73,7 +74,8 @@ export const getSummary = query({
     endAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    await requireActiveProfile(ctx);
+    const { profile } = await requireRoles(ctx, ["owner", "manager", "admin"]);
+    const canSeeFinancial = canViewFinancial(profile.role);
 
     const now = Date.now();
     let startAt: number;
@@ -324,7 +326,7 @@ export const getSummary = query({
         completedOrders,
         overdueOrders,
         pendingOrders,
-        estimatedRevenue,
+        estimatedRevenue: canSeeFinancial ? estimatedRevenue : 0,
       },
       exceptions: periodExceptions.map((exception) => ({
         id: exception._id,
@@ -345,15 +347,15 @@ export const getSummary = query({
         wasteValue: {
           totalWasteQuantity: Number(totalWasteQuantity.toFixed(2)),
           wasteUnit,
-          estimatedETB: Math.round(estimatedETB),
+          estimatedETB: canSeeFinancial ? Math.round(estimatedETB) : 0,
         },
         operatorActivity,
       },
       executive: {
-        totalConsumptionETB: Math.round(totalConsumptionETB),
+        totalConsumptionETB: canSeeFinancial ? Math.round(totalConsumptionETB) : 0,
         totalConsumptionBaseQuantity: Number(Array.from(consumptionByMaterial.values()).reduce((sum, data) => sum + data.totalConsumed, 0).toFixed(2)),
-        theftAlerts,
-        theftAlertsTotalLoss: Math.round(theftAlertsTotalLoss),
+        theftAlerts: canSeeFinancial ? theftAlerts : theftAlerts.map((alert) => ({ ...alert, monetaryLoss: 0 })),
+        theftAlertsTotalLoss: canSeeFinancial ? Math.round(theftAlertsTotalLoss) : 0,
         scrapCount: periodScraps.length,
         scrapQuantity: Number(scrapQuantity.toFixed(2)),
         recordedScrapUnit: scrapUnit,

@@ -29,6 +29,7 @@ function validateNumber(value: number, label: string, options: { min?: number; m
 export const getSystemConfig = query({
   args: {},
   handler: async (ctx) => {
+    await requireOwner(ctx);
     const row = await ctx.db
       .query("systemConfigs")
       .withIndex("by_key", (q) => q.eq("key", CONFIG_KEY))

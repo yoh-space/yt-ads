@@ -132,7 +132,6 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "order.manage",
     "stock.exception",
     "reconciliation.record",
-    "reconciliation.review",
   ],
   storekeeper: [
     "material.view",
@@ -146,7 +145,6 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "request.view",
     "request.issue",
     "request.acknowledge",
-    "reports.view",
     "audit.view",
     "stock.exception",
     "reconciliation.record",
@@ -159,6 +157,15 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
 
 export function hasPermission(role: Role, permission: Permission): boolean {
   return ROLE_PERMISSIONS[role].includes(permission);
+}
+
+/**
+ * Whether a role may view monetary (ETB) values in read responses. Only the
+ * owner sees financial figures; every other role receives masked payloads at
+ * the backend query layer so sensitive values never reach the client.
+ */
+export function canViewFinancial(role: Role): boolean {
+  return role === "owner";
 }
 
 export function hasAnyPermission(role: Role, permissions: Permission[]): boolean {

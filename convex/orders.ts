@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { authComponent } from "./auth";
 import { exceptionReason, orderPriority, orderStatus, unit } from "./schema";
 import { requireAnyPermission, requirePermission } from "./users";
+import { canViewFinancial } from "./authorization";
 import { notifyRoles } from "./notificationHelpers";
 
 const PUBLIC_TRACKING_STATUSES = new Set(["Received", "In Production", "Ready for Pickup", "Completed"]);
@@ -215,7 +216,7 @@ export const track = query({
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    await requirePermission(ctx, "order.view");
+    const { profile } = await requirePermission(ctx, "order.view");
     const orders = await ctx.db.query("customerOrders").withIndex("by_due_date").collect();
     const machines = await ctx.db.query("machines").collect();
     const machineNames = new Map(machines.map((machine) => [machine._id, machine.name]));
@@ -223,8 +224,10 @@ export const list = query({
       const rank = { High: 0, Medium: 1, Low: 2 } as const;
       return rank[left.priority] - rank[right.priority] || left.preferredDueDate - right.preferredDueDate;
     });
+    const canSeeFinancial = canViewFinancial(profile.role);
     return Promise.all(ordered.map(async (order) => ({
       ...order,
+      amount: canSeeFinancial ? order.amount : undefined,
       machineName: order.machineId ? machineNames.get(order.machineId) : undefined,
       overdue: order.status !== "Completed" && order.preferredDueDate < Date.now(),
       fileUrl: order.fileStorageId ? await ctx.storage.getUrl(order.fileStorageId) : undefined,

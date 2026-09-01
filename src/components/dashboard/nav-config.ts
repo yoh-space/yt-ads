@@ -34,7 +34,7 @@ export const roleVisibleViews: Record<Role, View[]> = {
   owner: ["overview", "orders", "inventory", "jobs", "machines", "offcuts", "reports", "reconciliation", "audit", "settings"],
   manager: ["overview", "orders", "inventory", "jobs", "machines", "offcuts", "reports", "reconciliation", "audit", "settings"],
   admin: ["overview", "orders", "inventory", "jobs", "machines", "offcuts", "reports", "reconciliation", "audit", "settings"],
-  storekeeper: ["overview", "orders", "inventory", "jobs", "machines", "offcuts", "reports", "reconciliation", "audit", "settings"],
+  storekeeper: ["overview", "orders", "inventory", "jobs", "machines", "offcuts", "reconciliation", "audit", "settings"],
   laser_operator: ["jobs", "machines", "offcuts", "settings"],
   cnc_operator: ["jobs", "machines", "offcuts", "settings"],
   plotter_operator: ["jobs", "machines", "offcuts", "settings"],

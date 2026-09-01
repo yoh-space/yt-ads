@@ -54,8 +54,9 @@ export function OperationsDashboard() {
   const profile = useQuery(api.users.getCurrentProfile);
   const companySettings = useQuery(api.users.getCompanySettings);
   const state = useQuery(api.dashboard.getState, profile?.active ? {} : "skip");
-  const financialMetrics = useQuery(api.dashboard.financialMetrics, profile?.active ? {} : "skip");
   const role = profile?.role ?? "admin";
+  const isOwner = role === "owner";
+  const financialMetrics = useQuery(api.dashboard.financialMetrics, isOwner && profile?.active ? {} : "skip");
   const canViewOrders = Boolean(profile && hasPermission(role, "order.view"));
   const canManageOrders = Boolean(profile && hasPermission(role, "order.manage"));
   const canRecordStock = Boolean(profile && hasPermission(role, "stock.record"));
@@ -120,7 +121,7 @@ export function OperationsDashboard() {
 
   if (profile === undefined || companySettings === undefined) return <InventoryLoader />;
   if (profile === null || !profile.active) return <DashboardAccessDenied />;
-  if (state === undefined || materialRequests === undefined || reconciliationSummary === undefined || financialMetrics === undefined || (canViewOrders && (ordersQuery === undefined || exceptionsQuery === undefined))) {
+  if (state === undefined || materialRequests === undefined || reconciliationSummary === undefined || (isOwner && financialMetrics === undefined) || (canViewOrders && (ordersQuery === undefined || exceptionsQuery === undefined))) {
     return <InventoryLoader />;
   }
 
@@ -433,8 +434,8 @@ export function OperationsDashboard() {
           {visibleView === "offcuts" ? (
             <OffcutsView offcuts={offcuts} scraps={scraps} canCreate={canCreateOffcut} canScrap={canCreateScrap} onCreate={() => openModal("offcut", "offcut.create")} onScrap={() => openModal("scrap", "scrap.create")} />
           ) : null}
-          {visibleView === "reports" ? <ReportsView /> : null}
-          {visibleView === "reconciliation" ? <ReconciliationView materials={materials} canRecord={canRecordReconciliation} canReview={canReviewReconciliation} onCount={() => openModal("reconciliation", "reconciliation.record")} onReview={(id, status) => finishMutation(`review-recon-${id}`, reviewReconciliation({ reconciliationId: id as Id<"reconciliations">, status }), "Reconciliation record reviewed")} /> : null}
+          {visibleView === "reports" ? <ReportsView canSeeFinancial={isOwner} /> : null}
+          {visibleView === "reconciliation" ? <ReconciliationView materials={materials} canRecord={canRecordReconciliation} canReview={canReviewReconciliation} canSeeFinancial={isOwner} onCount={() => openModal("reconciliation", "reconciliation.record")} onReview={(id, status) => finishMutation(`review-recon-${id}`, reviewReconciliation({ reconciliationId: id as Id<"reconciliations">, status }), "Reconciliation record reviewed")} /> : null}
           {visibleView === "audit" ? <AuditLogView /> : null}
           {visibleView === "settings" && resolvedProfile ? <SettingsView profile={resolvedProfile} /> : null}
         </div>

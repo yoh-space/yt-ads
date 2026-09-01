@@ -4,7 +4,9 @@ import {
   AlertTriangle,
   Box,
   CircleAlert,
+  ClipboardList,
   Command,
+  Factory,
   MoreHorizontal,
   MoveUpRight,
   Printer,
@@ -79,47 +81,86 @@ export function Overview({
   const lossPositive = auditedStockLoss > 0;
   return (
     <>
-      {/* Financial Overview Cards */}
-      <section className="grid grid-cols-4 gap-[14px] mb-[18px]" aria-label="Financial oversight executive cards">
-        <StatCard
-          variant="sales"
-          icon={<Wallet size={20} />}
-          label="የዛሬ ጠቅላላ ሽያጭ · TODAY'S TOTAL SALES"
-          value={formatEtb(todaysSales)}
-          description="የዛሬ የተመዘገቡ የደንበኛ ትዕዛዞች አጠቃላይ የገንዘብ እሴት (ETB)"
-          metadata={`${todaysOrderCount} order${todaysOrderCount === 1 ? "" : "s"} created today · live revenue feed`}
-        />
+      {financialMetrics ? (
+        <section className="grid grid-cols-4 gap-[14px] mb-[18px]" aria-label="Financial oversight executive cards">
+          <StatCard
+            variant="sales"
+            icon={<Wallet size={20} />}
+            label="የዛሬ ጠቅላላ ሽያጭ · TODAY'S TOTAL SALES"
+            value={formatEtb(todaysSales)}
+            description="የዛሬ የተመዘገቡ የደንበኛ ትዕዛዞች አጠቃላይ የገንዘብ እሴት (ETB)"
+            metadata={`${todaysOrderCount} order${todaysOrderCount === 1 ? "" : "s"} created today · live revenue feed`}
+          />
 
-        <StatCard
-          variant="cost"
-          icon={<Coins size={20} />}
-          label="የወጣ ጥሬ ዕቃ ወጪ · PRODUCTION MATERIAL COST"
-          value={formatEtb(todaysMaterialCost)}
-          description="ዛሬ ለሥራ ካርዶች የተሰጠ ጥሬ ዕቃ ወጪ (በመሠረታዊ ዋጋ)"
-          metadata={`${todaysJobCount} job card${todaysJobCount === 1 ? "" : "s"} processed today · ETB per base unit`}
-        />
+          <StatCard
+            variant="cost"
+            icon={<Coins size={20} />}
+            label="የወጣ ጥሬ ዕቃ ወጪ · PRODUCTION MATERIAL COST"
+            value={formatEtb(todaysMaterialCost)}
+            description="ዛሬ ለሥራ ካርዶች የተሰጠ ጥሬ ዕቃ ወጪ (በመሠረታዊ ዋጋ)"
+            metadata={`${todaysJobCount} job card${todaysJobCount === 1 ? "" : "s"} processed today · ETB per base unit`}
+          />
 
-        <StatCard
-          variant="profit"
-          icon={<TrendingUp size={20} />}
-          label="የተጣራ የትርፍ ግምት · ESTIMATED NET PROFIT"
-          value={profitNegative ? `-${formatEtb(Math.abs(todaysNetProfit))}` : formatEtb(todaysNetProfit)}
-          description="ሽያጭ − የጥሬ ዕቃ ወጪ · የቀን ዋና የፋይናንስ አፈጻጸም አመልካች"
-          metadata={`Sales ${formatEtb(todaysSales)} − Material ${formatEtb(todaysMaterialCost)}`}
-          isNegative={profitNegative}
-        />
+          <StatCard
+            variant="profit"
+            icon={<TrendingUp size={20} />}
+            label="የተጣራ የትርፍ ግምት · ESTIMATED NET PROFIT"
+            value={profitNegative ? `-${formatEtb(Math.abs(todaysNetProfit))}` : formatEtb(todaysNetProfit)}
+            description="ሽያጭ − የጥሬ ዕቃ ወጪ · የቀን ዋና የፋይናንስ አፈጻጸም አመልካች"
+            metadata={`Sales ${formatEtb(todaysSales)} − Material ${formatEtb(todaysMaterialCost)}`}
+            isNegative={profitNegative}
+          />
 
-        <StatCard
-          variant="alert"
-          icon={<AlertTriangle size={20} />}
-          label="በብክነት የጎደለ ሀብት · AUDITED STOCK LOSS"
-          value={lossPositive ? `-${formatEtb(auditedStockLoss)}` : "0 ETB"}
-          description="ከቅርብ ጊዜ የክምችት ኦዲት (ሪኮንሲሌሽን) የተገኘ አጠቃላይ የገንዘብ ኪሣራ"
-          metadata={`${auditedShortageCount} material${auditedShortageCount === 1 ? "" : "s"} with negative count variance`}
-          isAlert={lossPositive}
-          isNegative={lossPositive}
-        />
-      </section>
+          <StatCard
+            variant="alert"
+            icon={<AlertTriangle size={20} />}
+            label="በብክነት የጎደለ ሀብት · AUDITED STOCK LOSS"
+            value={lossPositive ? `-${formatEtb(auditedStockLoss)}` : "0 ETB"}
+            description="ከቅርብ ጊዜ የክምችት ኦዲት (ሪኮንሲሌሽን) የተገኘ አጠቃላይ የገንዘብ ኪሣራ"
+            metadata={`${auditedShortageCount} material${auditedShortageCount === 1 ? "" : "s"} with negative count variance`}
+            isAlert={lossPositive}
+            isNegative={lossPositive}
+          />
+        </section>
+      ) : (
+        <section className="grid grid-cols-4 gap-[14px] mb-[18px]" aria-label="Operational overview cards">
+          <StatCard
+            variant="sales"
+            icon={<ClipboardList size={20} />}
+            label="ዛሬ የተመዘገቡ ትዕዛዞች · TODAY'S ORDERS"
+            value={String(orderStats.todaysOrders)}
+            description="ዛሬ የመጡ የደንበኛ ትዕዛዞች ብዛት"
+            metadata={`${orderStats.queueOrders} queued · ${orderStats.activeProductionOrders} in production today`}
+          />
+
+          <StatCard
+            variant="cost"
+            icon={<Factory size={20} />}
+            label="ንቁ ማሽኖች · ACTIVE MACHINES"
+            value={String(machines.filter((m) => m.status === "Running").length)}
+            description="በአሁኑ ጊዜ በስራ ላይ ያሉ ማሽኖች"
+            metadata={`${machines.length} total registered machines`}
+          />
+
+          <StatCard
+            variant="profit"
+            icon={<Scissors size={20} />}
+            label="ንቁ የሥራ ካርዶች · ACTIVE JOBS"
+            value={String(jobs.filter((job) => job.status !== "Completed").length)}
+            description="ሊጠናቀቁ ያሉ የሥራ ካርዶች"
+            metadata={`${jobs.filter((job) => job.status === "In production").length} in production now`}
+          />
+
+          <StatCard
+            variant="alert"
+            icon={<AlertTriangle size={20} />}
+            label="ዝቅተኛ ክምችት · LOW STOCK"
+            value={String(lowStock.length)}
+            description="ከመደበኛ ደረጃ በታች ያሉ እቃዎች"
+            metadata="Reorder levels apply · no financial values shown for this role"
+          />
+        </section>
+      )}
 
       {/* Job Board & Material Pulse - Bottom Grid */}
       <section className="grid grid-cols-[1.55fr_1fr] gap-[14px] mb-[14px]">
