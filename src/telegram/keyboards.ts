@@ -14,12 +14,12 @@ export const SHARE_CONTACT_LABEL = "📱 ስልክ ቁጥርዎን ያጋሩ (Sh
 
 const mainMenuLabels: Record<Language, Record<string, string>> = {
   am: {
-    [REPLY_NEW_ORDER]: "✍️ አዲስ ትዕዛዝ ስጥ (በፅሁፍ)",
-    [REPLY_MINI_APP]: "🛍️ በ Mini App አዝዝ (በምስል/በቪዥዋል)",
+    [REPLY_NEW_ORDER]: "✍️ አዲስ ትዕዛዝ",
+    [REPLY_MINI_APP]: "🛍️ በ Mini App አዝዝ",
     [REPLY_ORDER_STATUS]: "📦 የትዕዛዝ ሁኔታ",
     [REPLY_CONTACT]: "📞 አድራሻ እና ስልክ",
     [REPLY_LANGUAGE]: "🌐 ቋንቋ / Language",
-    [REPLY_PHONE]: "📱 ስልክ ቁጥሬን ላክ",
+    [REPLY_PHONE]: "📱 ስልክ ቁጥር አጋራ",
   },
   en: {
     [REPLY_NEW_ORDER]: "✍️ Place New Order (by text)",
@@ -53,7 +53,7 @@ export function mainMenuKeyboard(lang: Language): Keyboard {
     .text(labelFor(lang, REPLY_CONTACT))
     .resized()
     .persistent()
-    .placeholder(lang === "am" ? "የምናሌ ምርጫ…" : "Choose an option…");
+    .placeholder(lang === "am" ? "ምርጫ ..." : "Choose an option…");
   return keyboard;
 }
 
