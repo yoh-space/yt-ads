@@ -1,8 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { AlertTriangle, PackageMinus } from "lucide-react";
 import type { ExceptionReason, Material } from "@/lib/operations-types";
 import { formatQuantity } from "@/lib/units";
+import { ModalShell } from "./modal-shell";
+import { Button, Input, Select } from "@/components/ui";
 
 const reasons: ExceptionReason[] = ["Sample Print", "Minor Repair", "Test Cut", "Internal Maintenance"];
 
@@ -13,5 +16,82 @@ export function ExceptionStockModal({ materials, onClose, onSave }: { materials:
   const [authorizationNote, setAuthorizationNote] = useState("");
   const material = materials.find((entry) => entry.id === materialId);
   const unit = material?.baseUnit ?? material?.unit ?? "m²";
-  return <div className="modal-backdrop"><section className="modal-card"><div className="modal-header"><div><span className="panel-kicker">EXCEPTION STOCK-OUT</span><h2>Fast material issue</h2><p>For small tasks that do not need a formal job card. Every issue is audited separately.</p></div><button className="icon-button" onClick={onClose} aria-label="Close">×</button></div><form className="modal-form" onSubmit={(event) => { event.preventDefault(); if (materialId && quantity > 0) onSave({ materialId, quantity, unit, reason, authorizationNote: authorizationNote.trim() || undefined }); }}><label>Material<select value={materialId} onChange={(event) => setMaterialId(event.target.value)}>{materials.map((entry) => <option key={entry.id} value={entry.id}>{entry.name} · {formatQuantity(entry.quantity, entry.baseUnit ?? entry.unit)}</option>)}</select></label><label>Quantity ({unit})<input type="number" min="0.01" step="0.01" value={quantity} onChange={(event) => setQuantity(Number(event.target.value))} /></label><label>Reason<select value={reason} onChange={(event) => setReason(event.target.value as ExceptionReason)}>{reasons.map((entry) => <option key={entry} value={entry}>{entry}</option>)}</select></label><label>Quick authorization note <span className="field-hint">Manager/owner authorization context</span><input placeholder="Optional PIN reference or note — never store a secret" value={authorizationNote} onChange={(event) => setAuthorizationNote(event.target.value)} /></label><div className="conversion-box"><strong>Immediate deduction</strong><span>{quantity} {unit} from the material balance</span></div><div className="modal-actions"><button type="button" className="button tertiary" onClick={onClose}>Cancel</button><button type="submit" className="button primary">Record exception stock-out</button></div></form></section></div>;
+
+  return (
+    <ModalShell
+      kicker="EXCEPTION STOCK-OUT"
+      title="Fast material issue"
+      subtitle="For small tasks that do not need a formal job card. Every issue is audited separately."
+      onClose={onClose}
+    >
+      <form
+        className="space-y-5"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (materialId && quantity > 0) onSave({ materialId, quantity, unit, reason, authorizationNote: authorizationNote.trim() || undefined });
+        }}
+      >
+        <div>
+          <label className="block text-sm font-semibold text-navy mb-1.5" htmlFor="exception-material">Material</label>
+          <Select id="exception-material" value={materialId} onChange={(event) => setMaterialId(event.target.value)} className="w-full">
+            {materials.map((entry) => <option key={entry.id} value={entry.id}>{entry.name} · {formatQuantity(entry.quantity, entry.baseUnit ?? entry.unit)}</option>)}
+          </Select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-navy mb-1.5" htmlFor="exception-quantity">Quantity ({unit})</label>
+          <Input
+            id="exception-quantity"
+            type="number"
+            min="0.01"
+            step="0.01"
+            value={quantity}
+            onChange={(event) => setQuantity(Number(event.target.value))}
+            className="w-full"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-navy mb-1.5" htmlFor="exception-reason">Reason</label>
+          <Select id="exception-reason" value={reason} onChange={(event) => setReason(event.target.value as ExceptionReason)} className="w-full">
+            {reasons.map((entry) => <option key={entry} value={entry}>{entry}</option>)}
+          </Select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-navy mb-1.5" htmlFor="exception-note">
+            Quick authorization note
+            <span className="ml-1 text-xs font-normal text-gray-500">Manager/owner authorization context</span>
+          </label>
+          <Input
+            id="exception-note"
+            placeholder="Optional PIN reference or note — never store a secret"
+            value={authorizationNote}
+            onChange={(event) => setAuthorizationNote(event.target.value)}
+            className="w-full"
+          />
+        </div>
+
+        <div className="flex items-center gap-3 p-4 rounded-lg bg-cyan/5 border border-cyan/20">
+          <span className="flex items-center justify-center w-9 h-9 rounded-lg bg-white border border-line text-coral flex-none">
+            <PackageMinus size={16} />
+          </span>
+          <div>
+            <strong className="block text-sm font-semibold text-navy">Immediate deduction</strong>
+            <span className="text-xs text-gray-600">{quantity} {unit} from the material balance</span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 text-xs text-gray-500 bg-gold/10 border border-gold/20 rounded-lg px-3 py-2.5">
+          <AlertTriangle size={14} className="text-gold flex-none" />
+          Exceptions are excluded from job-card accounting and flagged in the audit report.
+        </div>
+
+        <div className="flex items-center justify-end gap-3 pt-1">
+          <Button variant="tertiary" type="button" onClick={onClose}>Cancel</Button>
+          <Button type="submit">Record exception stock-out</Button>
+        </div>
+      </form>
+    </ModalShell>
+  );
 }

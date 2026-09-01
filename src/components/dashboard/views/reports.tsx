@@ -174,51 +174,76 @@ export function ReportsView({ canSeeFinancial = false }: { canSeeFinancial?: boo
         </div>
       </div>
 
-      <section className="report-stat-grid">
-        <article className="report-stat cyan">
-          <span className="report-stat-icon">
-            <Boxes size={18} />
-          </span>
-          <strong>{report.inventory.trackedMaterials}</strong>
-          <p>የሚከታተሉ እቃዎች</p>
-          <small>
-            {report.inventory.lowStockMaterials} low-stock ·{" "}
-            {report.inventory.movementCount} movements
-          </small>
-        </article>
-        <article className="report-stat gold">
-          <span className="report-stat-icon">
-            <Inbox size={18} />
-          </span>
-          <strong>{report.financial.totalOrders}</strong>
-          <p>ጠቅላላ ትዕዛዞች</p>
-          <small>
-            {report.financial.completedOrders} completed ·{" "}
-            {report.financial.overdueOrders} overdue
-          </small>
-        </article>
-        <article className="report-stat violet">
-          <span className="report-stat-icon">
-            <DollarSign size={18} />
-          </span>
-          <strong>{canSeeFinancial ? formatCurrency(report.financial.estimatedRevenue) : formatNumber(report.financial.pendingOrders)}</strong>
-          <p>{canSeeFinancial ? "የተገመተ ገንዘብ" : "Pending Orders"}</p>
-          <small>
+      {/* Main Statistics Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Inventory Card */}
+        <div className="bg-white border border-line rounded-lg p-6 shadow-sm">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-cyan/10 text-cyan">
+              <Boxes size={18} />
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-navy">{report.inventory.trackedMaterials}</div>
+              <div className="text-sm text-gray-600">የሚከታተሉ እቃዎች</div>
+            </div>
+          </div>
+          <div className="text-xs text-gray-500">
+            {report.inventory.lowStockMaterials} low-stock · {report.inventory.movementCount} movements
+          </div>
+        </div>
+
+        {/* Orders Card */}
+        <div className="bg-white border border-line rounded-lg p-6 shadow-sm">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-gold/10 text-gold">
+              <Inbox size={18} />
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-navy">{report.financial.totalOrders}</div>
+              <div className="text-sm text-gray-600">ጠቅላላ ትዕዛዞች</div>
+            </div>
+          </div>
+          <div className="text-xs text-gray-500">
+            {report.financial.completedOrders} completed · {report.financial.overdueOrders} overdue
+          </div>
+        </div>
+
+        {/* Financial Card */}
+        <div className="bg-white border border-line rounded-lg p-6 shadow-sm">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-violet/10 text-violet">
+              <DollarSign size={18} />
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-navy">
+                {canSeeFinancial ? formatCurrency(report.financial.estimatedRevenue) : formatNumber(report.financial.pendingOrders)}
+              </div>
+              <div className="text-sm text-gray-600">
+                {canSeeFinancial ? "የተገመተ ገንዘብ" : "Pending Orders"}
+              </div>
+            </div>
+          </div>
+          <div className="text-xs text-gray-500">
             {report.financial.pendingOrders} pending orders · {report.financial.completedOrders} done
-          </small>
-        </article>
-        <article className="report-stat coral">
-          <span className="report-stat-icon">
-            <Factory size={18} />
-          </span>
-          <strong>{report.production.jobCardsCreated}</strong>
-          <p>የተፈጠሩ ሥራዎች</p>
-          <small>
-            {report.production.completedJobs} completed · {completionRate}%
-            completion
-          </small>
-        </article>
-      </section>
+          </div>
+        </div>
+
+        {/* Production Card */}
+        <div className="bg-white border border-line rounded-lg p-6 shadow-sm">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-coral/10 text-coral">
+              <Factory size={18} />
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-navy">{report.production.jobCardsCreated}</div>
+              <div className="text-sm text-gray-600">የተፈጠሩ ሥራዎች</div>
+            </div>
+          </div>
+          <div className="text-xs text-gray-500">
+            {report.production.completedJobs} completed · {completionRate}% completion
+          </div>
+        </div>
+      </div>
 
       <section className="report-stat-grid">
         <article className="report-stat violet">
@@ -677,12 +702,15 @@ export function ReportsView({ canSeeFinancial = false }: { canSeeFinancial?: boo
         </section>
       ) : null}
 
-      <section className="report-note">
-        <BarChart3 size={17} />
-        <p>
-          <strong>Data note:</strong> {report.seededDataNote}
-        </p>
-      </section>
+      {/* Footer Note */}
+      <div className="bg-white border border-line rounded-lg p-4 shadow-sm">
+        <div className="flex items-center gap-2 text-sm text-gray-600">
+          <BarChart3 size={17} className="text-cyan" />
+          <div>
+            <span className="font-semibold">Data note:</span> {report.seededDataNote}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
