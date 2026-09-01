@@ -89,7 +89,7 @@ export function SettingsView({ profile }: { profile: Profile }) {
         </div>
 
         {activeCategory === "profile" ? <ProfilePanel profile={profile} /> : null}
-        {activeCategory === "security" ? <SecurityPanel /> : null}
+        {activeCategory === "security" ? <SecurityPanel isOwner={isOwner} /> : null}
         {activeCategory === "team" ? <TeamPanel profile={profile} /> : null}
         {activeCategory === "company" ? <CompanyPanel /> : null}
         {activeCategory === "operations" && isOwner ? <OperationalPanel /> : null}
@@ -148,11 +148,61 @@ function ProfilePanel({ profile }: { profile: Profile }) {
 }
 
 /* ──────── Security ──────── */
-function SecurityPanel() {
+function SecurityPanel({ isOwner = false }: { isOwner?: boolean }) {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+
+  const [sessions, setSessions] = useState<Array<{
+    token: string;
+    ipAddress?: string | null;
+    userAgent?: string | null;
+    createdAt?: Date;
+    expiresAt?: Date;
+  }> | null>(null);
+  const [currentToken, setCurrentToken] = useState<string | null>(null);
+  const [sessionMessage, setSessionMessage] = useState("");
+
+  async function loadSessions() {
+    try {
+      const [sessionResult, listResult] = await Promise.all([
+        authClient.getSession(),
+        authClient.listSessions(),
+      ]);
+      setCurrentToken(sessionResult.data?.session.token ?? null);
+      setSessions(listResult.data ?? []);
+    } catch {
+      setSessions([]);
+    }
+  }
+
+  useEffect(() => {
+    if (isOwner) void loadSessions();
+  }, [isOwner]);
+
+  async function revokeSession(token: string) {
+    setSessionMessage("");
+    const result = await authClient.revokeSession({ token });
+    if (result.error) {
+      setSessionMessage(result.error.message ?? "Unable to revoke the session.");
+      return;
+    }
+    setSessionMessage("Session revoked.");
+    await loadSessions();
+  }
+
+  function sessionSummary(userAgent?: string | null): string {
+    if (!userAgent) return "Unknown device";
+    const os = /Windows/i.test(userAgent) ? "Windows" : /Mac OS X/i.test(userAgent) ? "macOS" : /Android/i.test(userAgent) ? "Android" : /iPhone/i.test(userAgent) ? "iPhone" : /iPad/i.test(userAgent) ? "iPad" : /Linux/i.test(userAgent) ? "Linux" : "Unknown OS";
+    const browser = /Edg\//i.test(userAgent) ? "Edge" : /Chrome\//i.test(userAgent) || /CriOS\//i.test(userAgent) ? "Chrome" : /Firefox\//i.test(userAgent) || /FxiOS\//i.test(userAgent) ? "Firefox" : /Safari\//i.test(userAgent) ? "Safari" : "Browser";
+    return `${browser} · ${os}`;
+  }
+
+  function formatSessionTime(timestamp?: Date) {
+    if (!timestamp) return "—";
+    return new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(timestamp));
+  }
 
   async function changePassword(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -201,6 +251,40 @@ function SecurityPanel() {
         <small className="settings-help">Google OAuth must be configured in the Convex deployment before linking is available.</small>
       </section>
       {message ? <p className="form-message">{message}</p> : null}
+
+      {isOwner ? (
+        <section className="settings-section">
+          <div className="settings-section-head"><Shield size={17} /><div><strong>Active sessions</strong><span>Owner-only: review and revoke sign-in sessions.</span></div></div>
+          {sessions === null ? (
+            <div className="empty-state">Loading sessions…</div>
+          ) : sessions.length === 0 ? (
+            <div className="empty-state">No active sessions found.</div>
+          ) : (
+            <div className="team-list">
+              {sessions.map((session) => {
+                const isCurrent = session.token === currentToken;
+                return (
+                  <div className="team-row" key={session.token}>
+                    <div className="min-w-0">
+                      <strong>{sessionSummary(session.userAgent)}</strong>
+                      <small>
+                        IP {session.ipAddress ?? "unknown"} · signed in {formatSessionTime(session.createdAt)}
+                        {session.expiresAt ? ` · expires ${formatSessionTime(session.expiresAt)}` : ""}
+                        {isCurrent ? " · this device" : ""}
+                      </small>
+                    </div>
+                    <span className={`status-pill ${isCurrent ? "success" : "info"}`}>{isCurrent ? "Current" : "Active"}</span>
+                    {!isCurrent ? (
+                      <Button size="tiny" variant="secondary" type="button" onClick={() => void revokeSession(session.token)}>Revoke</Button>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {sessionMessage ? <p className="form-message">{sessionMessage}</p> : null}
+        </section>
+      ) : null}
     </div>
   );
 }
