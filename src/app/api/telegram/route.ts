@@ -24,7 +24,9 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    await getTelegramBot().handleUpdate(update);
+    const bot = getTelegramBot();
+    await bot.init();
+    await bot.handleUpdate(update);
   } catch (error) {
     console.error("Telegram webhook error:", error);
   }
