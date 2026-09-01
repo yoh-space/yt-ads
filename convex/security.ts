@@ -1,4 +1,4 @@
-import { action } from "./_generated/server";
+import { query } from "./_generated/server";
 import { authComponent } from "./auth";
 
 /**
@@ -7,7 +7,7 @@ import { authComponent } from "./auth";
  * session; the sender in "src/app/api/auth/[...all]/route.ts" is responsible
  * for the Telegram delivery so the bot token stays in the Next.js runtime.
  */
-export const checkOwnerLogin = action({
+export const checkOwnerLogin = query({
   args: {},
   handler: async (ctx) => {
     const identity = await authComponent.safeGetAuthUser(ctx);

@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { fetchAction } from "convex/nextjs";
+import { fetchQuery } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
 
 export const dynamic = "force-dynamic";
@@ -104,7 +104,7 @@ async function sendOwnerLoginAlert(request: NextRequest, response: Response) {
   const token = await convexTokenFromSession(sessionToken);
   if (!token) return;
 
-  const info = await fetchAction(api.security.checkOwnerLogin, {}, { token });
+  const info = await fetchQuery(api.security.checkOwnerLogin, {}, { token });
   if (!info.isOwner) return;
 
   const message = `⚠️ Security Alert: ${info.userName} (${info.role}) logged in from ${deviceLabel(request)} (IP: ${clientIp(request)}).`;
