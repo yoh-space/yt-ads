@@ -4,7 +4,10 @@ import { AlertTriangle, CheckCircle2, ClipboardCheck, PackagePlus, RefreshCw, Sc
 import { useMemo, useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import type { Material, ReconciliationRecord, ReconciliationSummary } from "@/lib/operations-types";
+import type { Material } from "@/lib/operations-types";
+import { cn } from "@/lib/utils";
+import { Button, StatusPill } from "@/components/ui";
+import { DataTable, PanelHead, StatCard } from "./report-atoms";
 
 function formatDate(timestamp: number) {
   return new Intl.DateTimeFormat("en-GB", {
@@ -52,150 +55,162 @@ export function ReconciliationView({
 
   if (!summary || !records) {
     return (
-      <div className="report-loading"><RefreshCw size={16} /> የክምችት ማረጋገጫ እየተዘጋጀ ነው…</div>
+      <div className="flex items-center justify-center min-h-[240px] bg-white border border-line rounded-lg shadow-sm">
+        <div className="flex items-center gap-2 text-sm text-gray-500">
+          <RefreshCw size={16} className="animate-spin" /> የክምችት ማረጋገጫ እየተዘጋጀ ነው…
+        </div>
+      </div>
     );
   }
 
   return (
-    <div className="reconciliation-view">
-      <section className="report-toolbar panel">
+    <div className="space-y-6">
+      {/* Toolbar / actions */}
+      <section className="bg-white border border-line rounded-xl p-6 shadow-sm flex flex-col sm:flex-row items-start gap-5 justify-between">
         <div>
-          <span className="panel-kicker">PHYSICAL STOCK AUDIT</span>
-          <h2>የእቃ ቆጠራ ማረጋገጫ <small>Reconciliation</small></h2>
-          <p>Count physical stock and compare it against the system balance to surface shortages (leakage) and surpluses.</p>
+          <span className="block text-xs font-mono font-bold tracking-wider text-cyan-dark uppercase">PHYSICAL STOCK AUDIT</span>
+          <h2 className="text-lg font-bold text-navy mt-1">
+            የእቃ ቆጠራ ማረጋገጫ <span className="text-sm font-normal text-gray-600">Reconciliation</span>
+          </h2>
+          <p className="text-sm text-gray-600 mt-1">
+            Count physical stock and compare it against the system balance to surface shortages (leakage) and surpluses.
+          </p>
         </div>
-        <div className="report-toolbar-right">
-          {canRecord ? <button className="button primary" onClick={onCount}><PackagePlus size={16} />Record physical count</button> : null}
-        </div>
+        {canRecord ? (
+          <Button onClick={onCount} className="flex-none">
+            <PackagePlus size={16} />Record physical count
+          </Button>
+        ) : null}
       </section>
 
-      <section className="report-stat-grid">
-        <article className="report-stat cyan">
-          <span className="report-stat-icon"><Scale size={18} /></span>
-          <strong>{summary.countRecords}</strong>
-          <p>ጠቅላላ ቆጠራ</p>
-          <small>Total count records</small>
-        </article>
-        <article className="report-stat gold">
-          <span className="report-stat-icon"><ClipboardCheck size={18} /></span>
-          <strong>{summary.openCounts}</strong>
-          <p>ክፍት ቆጠራ</p>
-          <small>Pending review</small>
-        </article>
-        <article className="report-stat violet">
-          <span className="report-stat-icon"><AlertTriangle size={18} /></span>
-          <strong>{summary.shortageCounts}</strong>
-          <p>የእቃ ጉድለት</p>
-          <small>Shortage records count</small>
-        </article>
-        <article className="report-stat coral">
-          <span className="report-stat-icon"><TrendingDown size={18} /></span>
-          <strong>{canSeeFinancial ? formatCurrency(summary.totalMonetaryLoss) : formatNumber(summary.shortageCounts)}</strong>
-          <p>{canSeeFinancial ? "የገንዘብ ኪሳራ" : "Shortages"}</p>
-          <small>{canSeeFinancial ? "Total monetary loss (ETB)" : "Shortage records count"}</small>
-        </article>
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard tone="cyan" icon={<Scale size={18} />} value={summary.countRecords} label="ጠቅላላ ቆጠራ" sub="Total count records" />
+        <StatCard tone="gold" icon={<ClipboardCheck size={18} />} value={summary.openCounts} label="ክፍት ቆጠራ" sub="Pending review" />
+        <StatCard tone="violet" icon={<AlertTriangle size={18} />} value={summary.shortageCounts} label="የእቃ ጉድለት" sub="Shortage records count" />
+        <StatCard
+          tone="coral"
+          icon={<TrendingDown size={18} />}
+          value={canSeeFinancial ? formatCurrency(summary.totalMonetaryLoss) : formatNumber(summary.shortageCounts)}
+          label={canSeeFinancial ? "የገንዘብ ኪሳራ" : "Shortages"}
+          sub={canSeeFinancial ? "Total monetary loss (ETB)" : "Shortage records count"}
+        />
       </section>
 
       {summary.currentVariances.length ? (
-        <section className="panel report-panel">
-          <div className="panel-head">
-            <div>
-              <span className="panel-kicker coral">STOCK LEAKAGE ALERTS</span>
-              <h2>የእቃ ጉድለት ማንቂያ</h2>
-              <p>{canSeeFinancial ? "Current variance per material, ranked by monetary loss. Negative variance = shortage." : "Current variance per material. Negative variance = shortage."}</p>
-            </div>
-            <AlertTriangle size={19} className="report-head-icon" />
-          </div>
-          <div className="report-exception-table">
-            <div className="report-table-header">
-              <span>Material</span>
-              <span>Variance</span>
-              <span>State</span>
-              {canSeeFinancial ? <span>Monetary Loss</span> : null}
-              <span>Count Date</span>
-            </div>
-            {summary.currentVariances.map((v) => {
-              const shortage = v.variance < 0;
-              return (
-                <div className="report-table-row" key={v.materialId}>
-                  <span className="exception-material">{v.materialName}</span>
-                  <span className={`exception-qty ${shortage ? "shortage-text" : "success-text"}`}>
-                    {shortage ? "-" : "+"}{Math.abs(v.variance).toLocaleString("en-US", { maximumFractionDigits: 2 })} {v.unit}
-                  </span>
-                  <span>
-                    <span className={`status-pill ${shortage ? "warning" : "success"}`}>
-                      {shortage ? "Shortage" : "Surplus"}
-                    </span>
-                  </span>
-                  {canSeeFinancial ? (
-                    <span className={shortage ? "warning-text" : "success-text"}>
-                      {shortage ? formatCurrency(v.monetaryLoss) : "—"}
-                    </span>
-                  ) : null}
-                  <span className="exception-date">{formatDate(v.countDate)}</span>
-                </div>
-              );
-            })}
+        <section className="bg-white border border-line rounded-xl p-6 shadow-sm">
+          <PanelHead
+            kicker="STOCK LEAKAGE ALERTS"
+            tone="coral"
+            title="የእቃ ጉድለት ማንቂያ"
+            note={canSeeFinancial ? "Current variance per material, ranked by monetary loss. Negative variance = shortage." : "Current variance per material. Negative variance = shortage."}
+            icon={<AlertTriangle size={19} />}
+          />
+          <div className="mt-4">
+            <DataTable
+              minWidth={canSeeFinancial ? "grid-cols-[2fr_1fr_1fr_1fr_1fr]" : "grid-cols-[2fr_1fr_1fr_1fr]"}
+              cols={[
+                { label: "Material" },
+                { label: "Variance" },
+                { label: "State" },
+                ...(canSeeFinancial ? [{ label: "Monetary Loss" }] : []),
+                { label: "Count Date" },
+              ]}
+              rows={summary.currentVariances.map((v) => {
+                const shortage = v.variance < 0;
+                return {
+                  key: v.materialId,
+                  cells: [
+                    <span key="m" className="text-sm font-semibold text-navy">{v.materialName}</span>,
+                    <span key="v" className={cn("text-sm font-medium", shortage ? "text-coral" : "text-green")}>
+                      {shortage ? "-" : "+"}{Math.abs(v.variance).toLocaleString("en-US", { maximumFractionDigits: 2 })} {v.unit}
+                    </span>,
+                    <span key="s">
+                      <StatusPill variant={shortage ? "warning" : "success"}>{shortage ? "Shortage" : "Surplus"}</StatusPill>
+                    </span>,
+                    ...(canSeeFinancial
+                      ? [<span key="l" className={cn("text-sm", shortage ? "text-gold" : "text-green")}>{shortage ? formatCurrency(v.monetaryLoss) : "—"}</span>]
+                      : []),
+                    <span key="d" className="text-sm text-gray-500">{formatDate(v.countDate)}</span>,
+                  ],
+                };
+              })}
+            />
           </div>
           {canSeeFinancial ? (
-            <div className="report-note" style={{ marginTop: 16 }}>
-              <AlertTriangle size={17} />
-              <p><strong>Alert:</strong> total monetary loss from shortages is <b>{formatCurrency(summary.totalMonetaryLoss)}</b>. Review each shortage against recent job-card deductions and exception stock-outs.</p>
+            <div className="mt-4 flex items-start gap-2.5 p-4 bg-gold/10 border border-gold/20 rounded-lg text-sm text-gray-600">
+              <AlertTriangle size={17} className="text-gold flex-none mt-0.5" />
+              <p>
+                <strong className="text-navy">Alert:</strong> total monetary loss from shortages is <b className="text-gold">{formatCurrency(summary.totalMonetaryLoss)}</b>. Review each shortage against recent job-card deductions and exception stock-outs.
+              </p>
             </div>
           ) : null}
         </section>
       ) : null}
 
-      <section className="panel audit-panel">
-        <div className="panel-head">
-          <div>
-            <span className="panel-kicker">RECONCILIATION HISTORY</span>
-            <h2>የተመዘገቡ ቆጠራዎች</h2>
-            <p>Physical counts, variance, and status per material.</p>
+      {/* Reconciliation history */}
+      <section className="bg-white border border-line rounded-xl shadow-sm">
+        <div className="p-6">
+          <PanelHead
+            kicker="RECONCILIATION HISTORY"
+            title="የተመዘገቡ ቆጠራዎች"
+            note="Physical counts, variance, and status per material."
+            icon={<ClipboardCheck size={19} />}
+          />
+        </div>
+
+        <div className="px-6 pb-2">
+          <div className="inline-flex items-center gap-1 p-1 bg-gray-100 rounded-lg" aria-label="Reconciliation filter">
+            {(["all", "open", "shortage"] as const).map((f) => (
+              <button
+                key={f}
+                className={cn(
+                  "px-3 py-1.5 text-sm font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-cyan",
+                  filter === f ? "bg-white text-navy shadow-sm" : "text-gray-600 hover:text-gray-900",
+                )}
+                onClick={() => setFilter(f)}
+              >
+                {f === "all" ? "All" : f === "open" ? "Open" : "Shortages"}
+              </button>
+            ))}
           </div>
-          <ClipboardCheck size={19} className="report-head-icon" />
         </div>
-        <div className="audit-filters" aria-label="Reconciliation filter" style={{ marginBottom: 16 }}>
-          {(["all", "open", "shortage"] as const).map((f) => (
-            <button key={f} className={filter === f ? "selected" : ""} onClick={() => setFilter(f)}>
-              {f === "all" ? "All" : f === "open" ? "Open" : "Shortages"}
-            </button>
-          ))}
-        </div>
+
         {filtered.length === 0 ? (
-          <div className="empty-state">No reconciliation records in this view yet.</div>
+          <div className="m-6 p-10 text-center text-sm text-gray-500 bg-gray-50 border border-dashed border-line rounded-lg">
+            No reconciliation records in this view yet.
+          </div>
         ) : (
-          <div className="audit-list">
+          <div className="p-6 pt-3 space-y-2.5">
             {filtered.map((record) => {
               const shortage = record.variance < 0;
               return (
-                <article className="audit-entry" key={record.id}>
-                  <span className={`audit-icon ${shortage ? "coral" : "cyan"}`}>
+                <article key={record.id} className="flex items-center gap-4 p-4 bg-white border border-line rounded-lg hover:border-cyan/40 hover:bg-cyan/5 transition-colors">
+                  <span className={cn("flex items-center justify-center w-10 h-10 rounded-lg flex-none", shortage ? "bg-coral/10 text-coral" : "bg-cyan/10 text-cyan-dark")}>
                     {shortage ? <AlertTriangle size={16} /> : record.variance > 0 ? <TrendingUp size={16} /> : <CheckCircle2 size={16} />}
                   </span>
-                  <div className="audit-entry-main">
-                    <div className="audit-entry-title">
-                      <strong>{record.materialName}</strong>
-                      <span>{record.materialUnit}</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <strong className="text-sm font-semibold text-navy">{record.materialName}</strong>
+                      <span className="text-xs text-gray-500">{record.materialUnit}</span>
                     </div>
-                    <p>
+                    <p className="text-sm text-gray-600 mt-0.5">
                       System {record.systemQuantity} · Counted {record.countedQuantity} ·{" "}
-                      <b className={shortage ? "warning-text" : "success-text"}>
+                      <b className={shortage ? "text-coral" : "text-green"}>
                         Variance {shortage ? "-" : record.variance > 0 ? "+" : ""}{Math.abs(record.variance)} {record.materialUnit}
                       </b>
                     </p>
-                    <small>
+                    <small className="block text-xs text-gray-500 mt-0.5">
                       {shortage && canSeeFinancial ? `Estimated loss ${formatCurrency(record.monetaryLoss ?? 0)} · ` : ""}
                       Counted by {record.countedByName} · {formatDate(record.createdAt)}
                       {record.note ? ` · ${record.note}` : ""}
                     </small>
                   </div>
-                  <div className="audit-entry-actions">
-                    <span className={`status-pill ${record.status === "Open" ? "warning" : record.status === "Resolved" ? "success" : "info"}`}>
+                  <div className="flex items-center gap-2 flex-none">
+                    <StatusPill variant={record.status === "Open" ? "warning" : record.status === "Resolved" ? "success" : "info"}>
                       {record.status}
-                    </span>
+                    </StatusPill>
                     {canReview && record.status === "Open" ? (
-                      <button className="button secondary small" onClick={() => onReview(record.id, "Reviewed")}>Review</button>
+                      <Button size="small" variant="secondary" onClick={() => onReview(record.id, "Reviewed")}>Review</Button>
                     ) : null}
                   </div>
                 </article>
@@ -205,10 +220,12 @@ export function ReconciliationView({
         )}
       </section>
 
-      <section className="audit-note">
-        <XCircle size={16} />
-        <p><strong>Control note:</strong> negative variance is a shortage that flags potential stock leakage or theft. Final review and resolution are owner-only actions.</p>
-      </section>
+      <div className="flex items-start gap-2.5 p-4 bg-coral/5 border border-coral/15 rounded-lg text-sm text-gray-600">
+        <XCircle size={16} className="text-coral flex-none mt-0.5" />
+        <p>
+          <strong className="text-navy">Control note:</strong> negative variance is a shortage that flags potential stock leakage or theft. Final review and resolution are owner-only actions.
+        </p>
+      </div>
     </div>
   );
 }

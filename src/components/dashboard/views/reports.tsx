@@ -5,7 +5,6 @@ import {
   BarChart3,
   Boxes,
   Calendar,
-  CheckCircle2,
   Clock,
   DollarSign,
   Factory,
@@ -23,6 +22,7 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { ReportPeriod } from "@/lib/report-types";
 import { cn } from "@/lib/utils";
+import { DataTable, PanelHead, ReportLine, ReportList, StatCard } from "./report-atoms";
 
 const periods: Array<{ id: ReportPeriod; label: string; english: string }> = [
   { id: "weekly", label: "ሳምንታዊ", english: "Weekly" },
@@ -64,6 +64,8 @@ function formatDaysLeft(days: number | null) {
   return `${days}d`;
 }
 
+/* ─────────────────────────── view ─────────────────────────── */
+
 export function ReportsView({ canSeeFinancial = false }: { canSeeFinancial?: boolean }) {
   const [selectedPeriod, setSelectedPeriod] = useState<ReportPeriod>("weekly");
   const [customStart, setCustomStart] = useState(() => {
@@ -86,10 +88,9 @@ export function ReportsView({ canSeeFinancial = false }: { canSeeFinancial?: boo
 
   if (!report) {
     return (
-      <div className="flex items-center justify-center min-h-64 bg-white border border-line rounded-lg shadow-sm">
-        <div className="flex items-center gap-2 text-gray-500">
-          <RefreshCw size={16} className="animate-spin" /> 
-          ሪፖርቱ እየተዘጋጀ ነው…
+      <div className="flex items-center justify-center min-h-[240px] bg-white border border-line rounded-lg shadow-sm">
+        <div className="flex items-center gap-2 text-sm text-gray-500">
+          <RefreshCw size={16} className="animate-spin" /> ሪፖርቱ እየተዘጋጀ ነው…
         </div>
       </div>
     );
@@ -109,10 +110,10 @@ export function ReportsView({ canSeeFinancial = false }: { canSeeFinancial?: boo
       : 0;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Report Header */}
       <div className="bg-white border border-line rounded-lg p-6 shadow-sm">
-        <div className="flex items-start justify-between">
+        <div className="flex flex-col xl:flex-row items-start justify-between gap-5">
           <div>
             <span className="text-xs font-mono font-bold tracking-wider text-cyan-dark uppercase">
               PERIOD REPORT
@@ -124,9 +125,8 @@ export function ReportsView({ canSeeFinancial = false }: { canSeeFinancial?: boo
               {formatDate(report.startAt)} — {formatDate(report.endAt)} · {report.days} days
             </p>
           </div>
-          
-          <div className="flex items-center gap-4">
-            {/* Period Switcher */}
+
+          <div className="flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-1 p-1 bg-gray-100 rounded-lg">
               {periods.map((period) => (
                 <button
@@ -146,8 +146,7 @@ export function ReportsView({ canSeeFinancial = false }: { canSeeFinancial?: boo
                 </button>
               ))}
             </div>
-            
-            {/* Custom Date Range */}
+
             {selectedPeriod === "custom" && (
               <div className="flex items-center gap-2 p-2 bg-gray-50 border border-line rounded-lg">
                 <div className="flex items-center gap-1 px-2 py-1 bg-white border border-line rounded text-sm">
@@ -175,541 +174,416 @@ export function ReportsView({ canSeeFinancial = false }: { canSeeFinancial?: boo
       </div>
 
       {/* Main Statistics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* Inventory Card */}
-        <div className="bg-white border border-line rounded-lg p-6 shadow-sm">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-cyan/10 text-cyan">
-              <Boxes size={18} />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-navy">{report.inventory.trackedMaterials}</div>
-              <div className="text-sm text-gray-600">የሚከታተሉ እቃዎች</div>
-            </div>
-          </div>
-          <div className="text-xs text-gray-500">
-            {report.inventory.lowStockMaterials} low-stock · {report.inventory.movementCount} movements
-          </div>
-        </div>
-
-        {/* Orders Card */}
-        <div className="bg-white border border-line rounded-lg p-6 shadow-sm">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-gold/10 text-gold">
-              <Inbox size={18} />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-navy">{report.financial.totalOrders}</div>
-              <div className="text-sm text-gray-600">ጠቅላላ ትዕዛዞች</div>
-            </div>
-          </div>
-          <div className="text-xs text-gray-500">
-            {report.financial.completedOrders} completed · {report.financial.overdueOrders} overdue
-          </div>
-        </div>
-
-        {/* Financial Card */}
-        <div className="bg-white border border-line rounded-lg p-6 shadow-sm">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-violet/10 text-violet">
-              <DollarSign size={18} />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-navy">
-                {canSeeFinancial ? formatCurrency(report.financial.estimatedRevenue) : formatNumber(report.financial.pendingOrders)}
-              </div>
-              <div className="text-sm text-gray-600">
-                {canSeeFinancial ? "የተገመተ ገንዘብ" : "Pending Orders"}
-              </div>
-            </div>
-          </div>
-          <div className="text-xs text-gray-500">
-            {report.financial.pendingOrders} pending orders · {report.financial.completedOrders} done
-          </div>
-        </div>
-
-        {/* Production Card */}
-        <div className="bg-white border border-line rounded-lg p-6 shadow-sm">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-coral/10 text-coral">
-              <Factory size={18} />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-navy">{report.production.jobCardsCreated}</div>
-              <div className="text-sm text-gray-600">የተፈጠሩ ሥራዎች</div>
-            </div>
-          </div>
-          <div className="text-xs text-gray-500">
-            {report.production.completedJobs} completed · {completionRate}% completion
-          </div>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          tone="cyan"
+          icon={<Boxes size={18} />}
+          value={report.inventory.trackedMaterials}
+          label="የሚከታተሉ እቃዎች"
+          sub={`${report.inventory.lowStockMaterials} low-stock · ${report.inventory.movementCount} movements`}
+        />
+        <StatCard
+          tone="gold"
+          icon={<Inbox size={18} />}
+          value={report.financial.totalOrders}
+          label="ጠቅላላ ትዕዛዞች"
+          sub={`${report.financial.completedOrders} completed · ${report.financial.overdueOrders} overdue`}
+        />
+        <StatCard
+          tone="violet"
+          icon={<DollarSign size={18} />}
+          value={canSeeFinancial ? formatCurrency(report.financial.estimatedRevenue) : formatNumber(report.financial.pendingOrders)}
+          label={canSeeFinancial ? "የተገመተ ገንዘብ" : "Pending Orders"}
+          sub={`${report.financial.pendingOrders} pending orders · ${report.financial.completedOrders} done`}
+        />
+        <StatCard
+          tone="coral"
+          icon={<Factory size={18} />}
+          value={report.production.jobCardsCreated}
+          label="የተፈጠሩ ሥራዎች"
+          sub={`${report.production.completedJobs} completed · ${completionRate}% completion`}
+        />
       </div>
 
-      <section className="report-stat-grid">
-        <article className="report-stat violet">
-          <span className="report-stat-icon">
-            <BarChart3 size={18} />
-          </span>
-          <strong>
-            {report.production.outputQuantity.toLocaleString("en-US", {
-              maximumFractionDigits: 0,
-            })}
-          </strong>
-          <p>የተመዘገበ ምርት</p>
-          <small>
-            {report.production.logCount} production logs · {completionRate}% of
-            planned
-          </small>
-        </article>
-        <article className="report-stat coral">
-          <span className="report-stat-icon">
-            <Trash2 size={18} />
-          </span>
-          <strong>
-            {report.production.wasteQuantity.toLocaleString("en-US", {
-              maximumFractionDigits: 0,
-            })}
-          </strong>
-          <p>ብክነት</p>
-          <small>
-            {report.production.wasteRate}% waste rate ·{" "}
-            {report.recovery.scrapRecords} scrap records
-          </small>
-        </article>
-        <article className="report-stat gold">
-          <span className="report-stat-icon">
-            <AlertTriangle size={18} />
-          </span>
-          <strong>{report.exceptions.length}</strong>
-          <p>Direct Exception Stock-Out</p>
-          <small>
-            {report.exceptions.length > 0
-              ? `Last: ${report.exceptions[0].materialName}`
-              : "No exceptions recorded"}
-          </small>
-        </article>
-        <article className="report-stat cyan">
-          <span className="report-stat-icon">
-            <Flame size={18} />
-          </span>
-          <strong>{canSeeFinancial ? formatCurrency(report.machineEfficiency.wasteValue.estimatedETB) : formatNumber(report.executive.scrapCount)}</strong>
-          <p>{canSeeFinancial ? "የወጪ ዋጋ" : "የተመዘገበ Scrap"}</p>
-          <small>
-            {report.machineEfficiency.wasteValue.totalWasteQuantity.toLocaleString("en-US", { maximumFractionDigits: 1 })}{" "}
-            {report.machineEfficiency.wasteValue.wasteUnit} total waste
-          </small>
-        </article>
+      {/* Operational statistics */}
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          tone="violet"
+          icon={<BarChart3 size={18} />}
+          value={report.production.outputQuantity.toLocaleString("en-US", { maximumFractionDigits: 0 })}
+          label="የተመዘገበ ምርት"
+          sub={`${report.production.logCount} production logs · ${completionRate}% of planned`}
+        />
+        <StatCard
+          tone="coral"
+          icon={<Trash2 size={18} />}
+          value={report.production.wasteQuantity.toLocaleString("en-US", { maximumFractionDigits: 0 })}
+          label="ብክነት"
+          sub={`${report.production.wasteRate}% waste rate · ${report.recovery.scrapRecords} scrap records`}
+        />
+        <StatCard
+          tone="gold"
+          icon={<AlertTriangle size={18} />}
+          value={report.exceptions.length}
+          label="Direct Exception Stock-Out"
+          sub={report.exceptions.length > 0 ? `Last: ${report.exceptions[0].materialName}` : "No exceptions recorded"}
+        />
+        <StatCard
+          tone="cyan"
+          icon={<Flame size={18} />}
+          value={canSeeFinancial ? formatCurrency(report.machineEfficiency.wasteValue.estimatedETB) : formatNumber(report.executive.scrapCount)}
+          label={canSeeFinancial ? "የወጪ ዋጋ" : "የተመዘገበ Scrap"}
+          sub={`${report.machineEfficiency.wasteValue.totalWasteQuantity.toLocaleString("en-US", { maximumFractionDigits: 1 })} ${report.machineEfficiency.wasteValue.wasteUnit} total waste`}
+        />
       </section>
 
-      <section className="report-stat-grid executive-stat-grid">
-        <article className="report-stat coral">
-          <span className="report-stat-icon"><TrendingDown size={18} /></span>
-          <strong>{canSeeFinancial ? formatCurrency(report.executive.totalConsumptionETB) : formatNumber(report.executive.totalConsumptionBaseQuantity)}</strong>
-          <p>{canSeeFinancial ? "አጠቃላይ የእቃ ውጪ" : "ተጠቃሚ የእቃ መጠን"}</p>
-          <small>
-            {report.executive.totalConsumptionBaseQuantity.toLocaleString("en-US", { maximumFractionDigits: 0 })} base units of material value consumed
-          </small>
-        </article>
-        <article className="report-stat gold">
-          <span className="report-stat-icon"><AlertTriangle size={18} /></span>
-          <strong>{canSeeFinancial ? formatCurrency(report.executive.theftAlertsTotalLoss) : formatNumber(report.executive.theftAlerts.length)}</strong>
-          <p>{canSeeFinancial ? "የሌብነት/የእቃ ጉድለት" : "ንቁ የመለያ ማንቂያዎች"}</p>
-          <small>
-            {report.executive.theftAlerts.length} shortage alert{report.executive.theftAlerts.length !== 1 ? "s" : ""} · estimated total loss
-          </small>
-        </article>
-        <article className="report-stat cyan">
-          <span className="report-stat-icon"><Trash2 size={18} /></span>
-          <strong>{report.executive.scrapRate}%</strong>
-          <p>የተመዘገበ ብክነት</p>
-          <small>
-            {report.executive.scrapQuantity.toLocaleString("en-US", { maximumFractionDigits: 1 })} {report.executive.recordedScrapUnit} logged
-          </small>
-        </article>
-        <article className="report-stat violet">
-          <span className="report-stat-icon"><XCircle size={18} /></span>
-          <strong>{report.executive.exceptionStockOuts.length}</strong>
-          <p>Exception Stock-Outs</p>
-          <small>
-            Materials issued without a job card in this period
-          </small>
-        </article>
+      {/* Executive statistics */}
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          tone="coral"
+          icon={<TrendingDown size={18} />}
+          value={canSeeFinancial ? formatCurrency(report.executive.totalConsumptionETB) : formatNumber(report.executive.totalConsumptionBaseQuantity)}
+          label={canSeeFinancial ? "አጠቃላይ የእቃ ውጪ" : "ተጠቃሚ የእቃ መጠን"}
+          sub={`${report.executive.totalConsumptionBaseQuantity.toLocaleString("en-US", { maximumFractionDigits: 0 })} base units of material value consumed`}
+        />
+        <StatCard
+          tone="gold"
+          icon={<AlertTriangle size={18} />}
+          value={canSeeFinancial ? formatCurrency(report.executive.theftAlertsTotalLoss) : formatNumber(report.executive.theftAlerts.length)}
+          label={canSeeFinancial ? "የሌብነት/የእቃ ጉድለት" : "ንቁ የመለያ ማንቂያዎች"}
+          sub={`${report.executive.theftAlerts.length} shortage alert${report.executive.theftAlerts.length !== 1 ? "s" : ""} · estimated total loss`}
+        />
+        <StatCard
+          tone="cyan"
+          icon={<Trash2 size={18} />}
+          value={`${report.executive.scrapRate}%`}
+          label="የተመዘገበ ብክነት"
+          sub={`${report.executive.scrapQuantity.toLocaleString("en-US", { maximumFractionDigits: 1 })} ${report.executive.recordedScrapUnit} logged`}
+        />
+        <StatCard
+          tone="violet"
+          icon={<XCircle size={18} />}
+          value={report.executive.exceptionStockOuts.length}
+          label="Exception Stock-Outs"
+          sub="Materials issued without a job card in this period"
+        />
       </section>
 
       {report.executive.theftAlerts.length > 0 ? (
-        <section className="panel report-panel report-exception-section">
-          <div className="panel-head">
-            <div>
-              <span className="panel-kicker coral">STOCK DISCREPANCY ALERTS</span>
-              <h2>የእቃ ጉድለት ማንቂያ</h2>
-              <p>{canSeeFinancial ? "Negative physical-count variance, ranked by monetary loss in ETB." : "Negative physical-count variance across materials."}</p>
-            </div>
-            <AlertTriangle size={19} className="report-head-icon" />
-          </div>
-          <div className="report-exception-table">
-            <div className="report-table-header">
-              <span>Material</span>
-              <span>Variance</span>
-              {canSeeFinancial ? <span>Monetary Loss</span> : null}
-              <span>Count Date</span>
-            </div>
-            {report.executive.theftAlerts.map((alert) => (
-              <div className="report-table-row" key={alert.materialName}>
-                <span className="exception-material">{alert.materialName}</span>
-                <span className="exception-qty shortage-text">
-                  -{Math.abs(alert.variance).toLocaleString("en-US", { maximumFractionDigits: 2 })} {alert.unit}
-                </span>
-                {canSeeFinancial ? <span className="warning-text">{formatCurrency(alert.monetaryLoss)}</span> : null}
-                <span className="exception-date">{formatDate(alert.countDate)}</span>
-              </div>
-            ))}
+        <section className="bg-white border border-line rounded-xl p-6 shadow-sm">
+          <PanelHead
+            kicker="STOCK DISCREPANCY ALERTS"
+            tone="coral"
+            title="የእቃ ጉድለት ማንቂያ"
+            note={canSeeFinancial ? "Negative physical-count variance, ranked by monetary loss in ETB." : "Negative physical-count variance across materials."}
+            icon={<AlertTriangle size={19} />}
+          />
+          <div className="mt-4">
+            <DataTable
+              minWidth={canSeeFinancial ? "grid-cols-[2fr_1fr_1fr_1fr]" : "grid-cols-[2fr_1fr_1fr]"}
+              cols={[
+                { label: "Material" },
+                { label: "Variance" },
+                ...(canSeeFinancial ? [{ label: "Monetary Loss" }] : []),
+                { label: "Count Date" },
+              ]}
+              rows={report.executive.theftAlerts.map((alert) => ({
+                key: alert.materialName,
+                cells: [
+                  <span key="m" className="text-sm font-semibold text-navy">{alert.materialName}</span>,
+                  <span key="v" className="text-sm font-medium text-coral">
+                    -{Math.abs(alert.variance).toLocaleString("en-US", { maximumFractionDigits: 2 })} {alert.unit}
+                  </span>,
+                  ...(canSeeFinancial ? [<span key="l" className="text-sm font-medium text-gold">{formatCurrency(alert.monetaryLoss)}</span>] : []),
+                  <span key="d" className="text-sm text-gray-500">{formatDate(alert.countDate)}</span>,
+                ],
+              }))}
+            />
           </div>
         </section>
       ) : null}
 
       {report.exceptions.length > 0 ? (
-        <section className="panel report-panel report-exception-section">
-          <div className="panel-head">
-            <div>
-              <span className="panel-kicker">DIRECT EXCEPTION STOCK-OUT</span>
-              <h2>ከትዕዛዝ ያልተፈለገ የእቃ ማውደም</h2>
-              <p>
-                Materials issued without job cards during this period
-              </p>
-            </div>
-            <AlertTriangle size={19} className="report-head-icon" />
-          </div>
-          <div className="report-exception-table">
-            <div className="report-table-header">
-              <span>Material</span>
-              <span>Quantity</span>
-              <span>Reason</span>
-              <span>Operator</span>
-              <span>Date</span>
-            </div>
-            {report.exceptions.map((exception) => (
-              <div className="report-table-row" key={exception.id}>
-                <span className="exception-material">{exception.materialName}</span>
-                <span className="exception-qty">
-                  {exception.quantity.toLocaleString("en-US", { maximumFractionDigits: 1 })} {exception.unit}
-                </span>
-                <span className={`exception-reason reason-${exception.reason.toLowerCase().replace(/\s+/g, "-")}`}>
-                  {exception.reason}
-                </span>
-                <span className="exception-operator">{exception.operatorName}</span>
-                <span className="exception-date">{formatDate(exception.createdAt)}</span>
-              </div>
-            ))}
+        <section className="bg-white border border-line rounded-xl p-6 shadow-sm">
+          <PanelHead
+            kicker="DIRECT EXCEPTION STOCK-OUT"
+            tone="coral"
+            title="ከትዕዛዝ ያልተፈለገ የእቃ ማውደም"
+            note="Materials issued without job cards during this period"
+            icon={<AlertTriangle size={19} />}
+          />
+          <div className="mt-4">
+            <DataTable
+              minWidth="grid-cols-[2fr_1fr_1.5fr_1fr_1fr]"
+              cols={[
+                { label: "Material" },
+                { label: "Quantity" },
+                { label: "Reason" },
+                { label: "Operator" },
+                { label: "Date" },
+              ]}
+              rows={report.exceptions.map((exception) => ({
+                key: exception.id,
+                cells: [
+                  <span key="m" className="text-sm font-semibold text-navy">{exception.materialName}</span>,
+                  <span key="q" className="text-sm font-medium text-coral">
+                    {exception.quantity.toLocaleString("en-US", { maximumFractionDigits: 1 })} {exception.unit}
+                  </span>,
+                  <span key="r" className="text-sm text-gray-600">{exception.reason}</span>,
+                  <span key="o" className="text-sm text-gray-600">{exception.operatorName}</span>,
+                  <span key="d" className="text-sm text-gray-500">{formatDate(exception.createdAt)}</span>,
+                ],
+              }))}
+            />
           </div>
         </section>
       ) : null}
 
-      <section className="report-grid">
-        <article className="panel report-panel">
-          <div className="panel-head">
-            <div>
-              <span className="panel-kicker">INVENTORY MOVEMENT</span>
-              <h2>የእቃ እንቅስቃሴ</h2>
-              <p>Material movement recorded during this period</p>
-            </div>
-            <Boxes size={19} className="report-head-icon" />
-          </div>
-          <div className="report-list">
-            <div className="report-line">
-              <span>Stock-in</span>
-              <strong>{formatUnitMap(report.inventory.stockInByUnit)}</strong>
-            </div>
-            <div className="report-line">
-              <span>Stock-out</span>
-              <strong>{formatUnitMap(report.inventory.stockOutByUnit)}</strong>
-            </div>
-            <div className="report-line">
-              <span>Current active stock</span>
-              <strong>
-                {report.inventory.totalBaseQuantity.toLocaleString("en-US", {
-                  maximumFractionDigits: 2,
-                })}{" "}
-                base units
-              </strong>
-            </div>
-            <div className="report-line">
-              <span>Low-stock materials</span>
-              <strong
-                className={
-                  report.inventory.lowStockMaterials > 0
-                    ? "warning-text"
-                    : "success-text"
-                }
-              >
-                {report.inventory.lowStockMaterials}
-              </strong>
-            </div>
+      {/* Movement / Production / Recovery lists */}
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <article className="bg-white border border-line rounded-xl p-6 shadow-sm">
+          <PanelHead
+            kicker="INVENTORY MOVEMENT"
+            title="የእቃ እንቅስቃሴ"
+            note="Material movement recorded during this period"
+            icon={<Boxes size={19} />}
+          />
+          <div className="mt-3">
+            <ReportList>
+              <ReportLine label="Stock-in">{formatUnitMap(report.inventory.stockInByUnit)}</ReportLine>
+              <ReportLine label="Stock-out">{formatUnitMap(report.inventory.stockOutByUnit)}</ReportLine>
+              <ReportLine label="Current active stock">
+                {report.inventory.totalBaseQuantity.toLocaleString("en-US", { maximumFractionDigits: 2 })} base units
+              </ReportLine>
+              <ReportLine label="Low-stock materials">
+                <span className={report.inventory.lowStockMaterials > 0 ? "text-gold" : "text-green"}>
+                  {report.inventory.lowStockMaterials}
+                </span>
+              </ReportLine>
+            </ReportList>
           </div>
         </article>
 
-        <article className="panel report-panel">
-          <div className="panel-head">
-            <div>
-              <span className="panel-kicker">PRODUCTION PULSE</span>
-              <h2>የምርት አፈጻጸም</h2>
-              <p>Output, input, and waste from production logs</p>
-            </div>
-            <Factory size={19} className="report-head-icon" />
-          </div>
-          <div className="report-list">
-            <div className="report-line">
-              <span>Production input</span>
-              <strong>
-                {report.production.inputQuantity.toLocaleString("en-US", {
-                  maximumFractionDigits: 2,
-                })}
-              </strong>
-            </div>
-            <div className="report-line">
-              <span>Good output</span>
-              <strong className="success-text">
-                {report.production.outputQuantity.toLocaleString("en-US", {
-                  maximumFractionDigits: 2,
-                })}
-              </strong>
-            </div>
-            <div className="report-line">
-              <span>Waste output</span>
-              <strong className="warning-text">
-                {report.production.wasteQuantity.toLocaleString("en-US", {
-                  maximumFractionDigits: 2,
-                })}
-              </strong>
-            </div>
-            <div className="report-line">
-              <span>Machines running</span>
-              <strong>
-                {report.production.runningMachines} /{" "}
-                {report.production.machineCount}
-              </strong>
-            </div>
+        <article className="bg-white border border-line rounded-xl p-6 shadow-sm">
+          <PanelHead
+            kicker="PRODUCTION PULSE"
+            title="የምርት አፈጻጸም"
+            note="Output, input, and waste from production logs"
+            icon={<Factory size={19} />}
+          />
+          <div className="mt-3">
+            <ReportList>
+              <ReportLine label="Production input">
+                {report.production.inputQuantity.toLocaleString("en-US", { maximumFractionDigits: 2 })}
+              </ReportLine>
+              <ReportLine label="Good output">
+                <span className="text-green">
+                  {report.production.outputQuantity.toLocaleString("en-US", { maximumFractionDigits: 2 })}
+                </span>
+              </ReportLine>
+              <ReportLine label="Waste output">
+                <span className="text-gold">
+                  {report.production.wasteQuantity.toLocaleString("en-US", { maximumFractionDigits: 2 })}
+                </span>
+              </ReportLine>
+              <ReportLine label="Machines running">
+                {report.production.runningMachines} / {report.production.machineCount}
+              </ReportLine>
+            </ReportList>
           </div>
         </article>
 
-        <article className="panel report-panel">
-          <div className="panel-head">
-            <div>
-              <span className="panel-kicker">RECOVERY &amp; WASTE</span>
-              <h2>ቅሪት እና Scrap</h2>
-              <p>Reusable material recovery and unusable waste</p>
-            </div>
-            <Scissors size={19} className="report-head-icon" />
-          </div>
-          <div className="report-list">
-            <div className="report-line">
-              <span>Offcut returns</span>
-              <strong>{report.recovery.offcutReturns}</strong>
-            </div>
-            <div className="report-line">
-              <span>Reusable offcuts</span>
-              <strong className="success-text">
-                {report.recovery.reusableOffcuts}
-              </strong>
-            </div>
-            <div className="report-line">
-              <span>Scrap records</span>
-              <strong>{report.recovery.scrapRecords}</strong>
-            </div>
-            <div className="report-line">
-              <span>Scrap quantity</span>
-              <strong className="warning-text">
-                {report.recovery.scrapQuantity.toLocaleString("en-US", {
-                  maximumFractionDigits: 2,
-                })}
-              </strong>
-            </div>
+        <article className="bg-white border border-line rounded-xl p-6 shadow-sm">
+          <PanelHead
+            kicker="RECOVERY & WASTE"
+            title="ቅሪት እና Scrap"
+            note="Reusable material recovery and unusable waste"
+            icon={<Scissors size={19} />}
+          />
+          <div className="mt-3">
+            <ReportList>
+              <ReportLine label="Offcut returns">{report.recovery.offcutReturns}</ReportLine>
+              <ReportLine label="Reusable offcuts">
+                <span className="text-green">{report.recovery.reusableOffcuts}</span>
+              </ReportLine>
+              <ReportLine label="Scrap records">{report.recovery.scrapRecords}</ReportLine>
+              <ReportLine label="Scrap quantity">
+                <span className="text-gold">
+                  {report.recovery.scrapQuantity.toLocaleString("en-US", { maximumFractionDigits: 2 })}
+                </span>
+              </ReportLine>
+            </ReportList>
           </div>
         </article>
       </section>
 
-      <section className="report-grid">
-        <article className="panel report-panel">
-          <div className="panel-head">
-            <div>
-              <span className="panel-kicker">TOP MATERIAL CONSUMPTION</span>
-              <h2>ከፍተኛ የተጠቀሙ እቃዎች</h2>
-              <p>Most consumed materials during this period</p>
-            </div>
-            <TrendingDown size={19} className="report-head-icon" />
-          </div>
-          <div className="report-list">
+      {/* Consumption / reorder / machine efficiency */}
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <article className="bg-white border border-line rounded-xl p-6 shadow-sm">
+          <PanelHead
+            kicker="TOP MATERIAL CONSUMPTION"
+            title="ከፍተኛ የተጠቀሙ እቃዎች"
+            note="Most consumed materials during this period"
+            icon={<TrendingDown size={19} />}
+          />
+          <div className="mt-3">
             {report.consumption.topMaterials.length === 0 ? (
-              <div className="report-line">
-                <span>No consumption recorded</span>
-                <strong>—</strong>
-              </div>
+              <p className="text-sm text-gray-500">No consumption recorded</p>
             ) : (
-              report.consumption.topMaterials.map((item, index) => {
-                const maxConsumed = report.consumption.topMaterials[0]?.totalConsumed ?? 1;
-                const pct = Math.round((item.totalConsumed / maxConsumed) * 100);
-                return (
-                  <div className="report-consumption-row" key={item.materialName}>
-                    <div className="consumption-header">
-                      <span className="consumption-rank">#{index + 1}</span>
-                      <span className="consumption-name">{item.materialName}</span>
-                      <span className="consumption-qty">
-                        {item.totalConsumed.toLocaleString("en-US", { maximumFractionDigits: 1 })} {item.unit}
-                      </span>
+              <ReportList>
+                {report.consumption.topMaterials.map((item, index) => {
+                  const maxConsumed = report.consumption.topMaterials[0]?.totalConsumed ?? 1;
+                  const pct = Math.round((item.totalConsumed / maxConsumed) * 100);
+                  return (
+                    <div key={item.materialName} className="py-3">
+                      <div className="flex items-center justify-between gap-3 mb-1.5">
+                        <span className="flex items-center gap-2 text-sm font-semibold text-navy">
+                          <span className="flex items-center justify-center w-5 h-5 rounded bg-cyan/10 text-cyan-dark text-[10px] font-mono">
+                            {index + 1}
+                          </span>
+                          <span className="truncate">{item.materialName}</span>
+                        </span>
+                        <span className="text-sm text-gray-600 flex-none">
+                          {item.totalConsumed.toLocaleString("en-US", { maximumFractionDigits: 1 })} {item.unit}
+                        </span>
+                      </div>
+                      <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+                        <div className="h-full rounded-full bg-cyan" style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className="mt-1 block text-xs text-gray-500">{item.movementCount} movements</span>
                     </div>
-                    <div className="consumption-bar-track">
-                      <div
-                        className="consumption-bar-fill"
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                    <span className="consumption-meta">{item.movementCount} movements</span>
-                  </div>
-                );
-              })
+                  );
+                })}
+              </ReportList>
             )}
           </div>
         </article>
 
-        <article className="panel report-panel">
-          <div className="panel-head">
-            <div>
-              <span className="panel-kicker">REORDER FORECAST</span>
-              <h2>የእቃ ማስቀመጫ ትንበያ</h2>
-              <p>Materials at or below reorder level with estimated stock-out days</p>
-            </div>
-            <Clock size={19} className="report-head-icon" />
-          </div>
-          <div className="report-list">
-            {report.consumption.reorderAlerts.length === 0 ? (
-              <div className="report-line">
-                <span>No materials below reorder level</span>
-                <strong className="success-text">All stocked</strong>
-              </div>
-            ) : (
-              report.consumption.reorderAlerts.map((alert) => (
-                <div className="report-reorder-row" key={alert.materialName}>
-                  <div className="reorder-info">
-                    <span className="reorder-name">{alert.materialName}</span>
-                    <span className="reorder-stock">
-                      {alert.currentStock.toLocaleString("en-US", { maximumFractionDigits: 1 })} / {alert.reorderAt.toLocaleString("en-US", { maximumFractionDigits: 1 })} {alert.unit}
+        <article className="bg-white border border-line rounded-xl p-6 shadow-sm">
+          <PanelHead
+            kicker="REORDER FORECAST"
+            title="የእቃ ማስቀመጫ ትንበያ"
+            note="Materials at or below reorder level with estimated stock-out days"
+            icon={<Clock size={19} />}
+          />
+          <div className="mt-3">
+            <ReportList>
+              {report.consumption.reorderAlerts.length === 0 ? (
+                <p className="text-sm text-gray-500 py-2">No materials below reorder level</p>
+              ) : (
+                report.consumption.reorderAlerts.map((alert) => (
+                  <div key={alert.materialName} className="flex items-center justify-between gap-3 py-2.5">
+                    <div className="min-w-0">
+                      <span className="block text-sm font-semibold text-navy truncate">{alert.materialName}</span>
+                      <span className="block text-xs text-gray-500">
+                        {alert.currentStock.toLocaleString("en-US", { maximumFractionDigits: 1 })} / {alert.reorderAt.toLocaleString("en-US", { maximumFractionDigits: 1 })} {alert.unit}
+                      </span>
+                    </div>
+                    <span
+                      className={cn(
+                        "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold flex-none",
+                        alert.estimatedDaysLeft !== null && alert.estimatedDaysLeft <= 3
+                          ? "bg-coral/10 text-coral"
+                          : alert.estimatedDaysLeft !== null && alert.estimatedDaysLeft <= 7
+                            ? "bg-gold/10 text-gold"
+                            : "bg-cyan/10 text-cyan-dark",
+                      )}
+                    >
+                      <TrendingDown size={11} />
+                      {formatDaysLeft(alert.estimatedDaysLeft)}
                     </span>
                   </div>
-                  <span
-                    className={`reorder-estimate ${
-                      alert.estimatedDaysLeft !== null && alert.estimatedDaysLeft <= 3
-                        ? "critical"
-                        : alert.estimatedDaysLeft !== null && alert.estimatedDaysLeft <= 7
-                          ? "warning"
-                          : "normal"
-                    }`}
-                  >
-                    <TrendingDown size={11} />
-                    {formatDaysLeft(alert.estimatedDaysLeft)}
-                  </span>
-                </div>
-              ))
-            )}
+                ))
+              )}
+            </ReportList>
           </div>
         </article>
 
-        <article className="panel report-panel">
-          <div className="panel-head">
-            <div>
-              <span className="panel-kicker">MACHINE EFFICIENCY</span>
-              <h2>የማሽን አቀናብር</h2>
-              <p>Utilization summary by machine type</p>
-            </div>
-            <Factory size={19} className="report-head-icon" />
-          </div>
-          <div className="report-list">
+        <article className="bg-white border border-line rounded-xl p-6 shadow-sm">
+          <PanelHead
+            kicker="MACHINE EFFICIENCY"
+            title="የማሽን አቀናብር"
+            note="Utilization summary by machine type"
+            icon={<Factory size={19} />}
+          />
+          <div className="mt-3">
             {report.machineEfficiency.byType.length === 0 ? (
-              <div className="report-line">
-                <span>No active machines</span>
-                <strong>—</strong>
-              </div>
+              <p className="text-sm text-gray-500">No active machines</p>
             ) : (
-              report.machineEfficiency.byType.map((machine) => {
-                const totalLogs = report.machineEfficiency.byType.reduce(
-                  (sum, m) => sum + m.logCount,
-                  0,
-                );
-                const logPct =
-                  totalLogs > 0
-                    ? Math.round((machine.logCount / totalLogs) * 100)
-                    : 0;
-                return (
-                  <div className="report-machine-row" key={machine.machineType}>
-                    <div className="machine-header">
-                      <span className="machine-type">{machine.machineType}</span>
-                      <span className="machine-count">
-                        {machine.machineCount} unit{machine.machineCount > 1 ? "s" : ""}
-                      </span>
+              <ReportList>
+                {report.machineEfficiency.byType.map((machine) => {
+                  const totalLogs = report.machineEfficiency.byType.reduce(
+                    (sum, m) => sum + m.logCount,
+                    0,
+                  );
+                  const logPct = totalLogs > 0 ? Math.round((machine.logCount / totalLogs) * 100) : 0;
+                  return (
+                    <div key={machine.machineType} className="py-3">
+                      <div className="flex items-center justify-between gap-3 mb-1.5">
+                        <span className="text-sm font-semibold text-navy">{machine.machineType}</span>
+                        <span className="text-xs text-gray-500">{machine.machineCount} unit{machine.machineCount > 1 ? "s" : ""}</span>
+                      </div>
+                      <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+                        <div className="h-full rounded-full bg-violet" style={{ width: `${logPct}%` }} />
+                      </div>
+                      <div className="mt-1.5 flex items-center gap-2 text-xs text-gray-500 flex-wrap">
+                        <span>{machine.jobCount} jobs</span>
+                        <span className="w-1 h-1 rounded-full bg-gray-300" />
+                        <span>{machine.logCount} logs</span>
+                        <span className="w-1 h-1 rounded-full bg-gray-300" />
+                        <span>{machine.totalOutput.toLocaleString("en-US", { maximumFractionDigits: 1 })} out</span>
+                        {machine.totalWaste > 0 ? (
+                          <>
+                            <span className="w-1 h-1 rounded-full bg-gray-300" />
+                            <span className="text-gold">{machine.totalWaste.toLocaleString("en-US", { maximumFractionDigits: 1 })} waste</span>
+                          </>
+                        ) : null}
+                      </div>
                     </div>
-                    <div className="machine-bar-track">
-                      <div
-                        className="machine-bar-fill"
-                        style={{ width: `${logPct}%` }}
-                      />
-                    </div>
-                    <div className="machine-stats">
-                      <span>{machine.jobCount} jobs</span>
-                      <span>{machine.logCount} logs</span>
-                      <span>
-                        {machine.totalOutput.toLocaleString("en-US", { maximumFractionDigits: 1 })} out
-                      </span>
-                      {machine.totalWaste > 0 ? (
-                        <span className="warning-text">
-                          {machine.totalWaste.toLocaleString("en-US", { maximumFractionDigits: 1 })} waste
-                        </span>
-                      ) : null}
-                    </div>
-                  </div>
-                );
-              })
+                  );
+                })}
+              </ReportList>
             )}
           </div>
         </article>
       </section>
 
       {report.machineEfficiency.operatorActivity.length > 0 ? (
-        <section className="panel report-panel">
-          <div className="panel-head">
-            <div>
-              <span className="panel-kicker">OPERATOR PRODUCTIVITY</span>
-              <h2>የኦፕሬተር ተጠያቂነት</h2>
-              <p>Activity summary per operator during this period</p>
-            </div>
-            <Users size={19} className="report-head-icon" />
-          </div>
-          <div className="report-exception-table">
-            <div className="report-table-header report-table-operators">
-              <span>Operator</span>
-              <span>Jobs Created</span>
-              <span>Production Logs</span>
-              <span>Output</span>
-            </div>
-            {report.machineEfficiency.operatorActivity.map((op) => (
-              <div className="report-table-row report-table-operators" key={op.operatorName}>
-                <span className="exception-operator">{op.operatorName}</span>
-                <span>{op.jobCount}</span>
-                <span>{op.logCount}</span>
-                <span>
-                  {op.outputQuantity.toLocaleString("en-US", { maximumFractionDigits: 1 })}
-                </span>
-              </div>
-            ))}
+        <section className="bg-white border border-line rounded-xl p-6 shadow-sm">
+          <PanelHead
+            kicker="OPERATOR PRODUCTIVITY"
+            title="የኦፕሬተር ተጠያቂነት"
+            note="Activity summary per operator during this period"
+            icon={<Users size={19} />}
+          />
+          <div className="mt-4">
+            <DataTable
+              minWidth="grid-cols-[2fr_1fr_1fr_1fr]"
+              cols={[
+                { label: "Operator" },
+                { label: "Jobs Created" },
+                { label: "Production Logs" },
+                { label: "Output" },
+              ]}
+              rows={report.machineEfficiency.operatorActivity.map((op) => ({
+                key: op.operatorName,
+                cells: [
+                  <span key="o" className="text-sm font-semibold text-navy">{op.operatorName}</span>,
+                  <span key="j" className="text-sm text-gray-600">{op.jobCount}</span>,
+                  <span key="l" className="text-sm text-gray-600">{op.logCount}</span>,
+                  <span key="q" className="text-sm text-gray-600">{op.outputQuantity.toLocaleString("en-US", { maximumFractionDigits: 1 })}</span>,
+                ],
+              }))}
+            />
           </div>
         </section>
       ) : null}
 
-      {/* Footer Note */}
-      <div className="bg-white border border-line rounded-lg p-4 shadow-sm">
-        <div className="flex items-center gap-2 text-sm text-gray-600">
-          <BarChart3 size={17} className="text-cyan" />
-          <div>
-            <span className="font-semibold">Data note:</span> {report.seededDataNote}
-          </div>
-        </div>
+      <div className="flex items-start gap-2.5 p-4 bg-cyan/5 border border-cyan/20 rounded-lg text-sm text-gray-600">
+        <BarChart3 size={17} className="text-cyan-dark flex-none mt-0.5" />
+        <p>
+          <strong className="text-navy">Data note:</strong> {report.seededDataNote}
+        </p>
       </div>
     </div>
   );

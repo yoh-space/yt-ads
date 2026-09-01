@@ -8,6 +8,8 @@ import { PackagePlus, Scale } from "lucide-react";
 import type { Material } from "@/lib/operations-types";
 import { formatQuantity } from "@/lib/units";
 import { ModalShell } from "./modal-shell";
+import { Button, Input, Select } from "@/components/ui";
+import { cn } from "@/lib/utils";
 
 export type NewReconciliationInput = {
   materialId: string;
@@ -65,44 +67,58 @@ export function ReconciliationModal({
 
   return (
     <ModalShell title="Physical stock count" subtitle="Record the physically counted quantity for a material. The system balance and variance are computed automatically." onClose={onClose}>
-      <form className="modal-form" onSubmit={handleSubmit(onSubmit)}>
-        <label>
-          Material
-          <select {...register("materialId")}>
+      <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
+        <div>
+          <label className="block text-sm font-semibold text-navy mb-1.5" htmlFor="recon-material">Material</label>
+          <Select id="recon-material" {...register("materialId")} className="w-full">
             {materials.map((entry) => <option key={entry.id} value={entry.id}>{entry.name} · {formatQuantity(entry.quantity, entry.baseUnit ?? entry.unit)}</option>)}
-          </select>
-          {errors.materialId ? <small className="field-error">{errors.materialId.message}</small> : null}
-        </label>
-        <div className="conversion-box">
-          <Scale size={17} />
-          <span>System expected balance</span>
-          <strong>{formatQuantity(systemQuantity, unit)}</strong>
+          </Select>
+          {errors.materialId ? <small className="block mt-1 text-xs font-medium text-coral">{errors.materialId.message}</small> : null}
         </div>
-        <label>
-          Physical counted quantity ({unit})
-          <input type="number" min="0" step="0.01" {...register("countedQuantity", { valueAsNumber: true })} />
-          {errors.countedQuantity ? <small className="field-error">{errors.countedQuantity.message}</small> : null}
-        </label>
-        <div className={`conversion-box ${shortage ? "shortage-box" : variance > 0 ? "surplus-box" : ""}`}>
-          <Scale size={17} />
-          <span>Variance (counted − system)</span>
-          <strong className={shortage ? "warning-text" : variance > 0 ? "success-text" : ""}>
+
+        <div className="flex items-center gap-3 p-4 rounded-lg bg-gray-50 border border-line">
+          <span className="flex items-center justify-center w-9 h-9 rounded-lg bg-white border border-line text-cyan-dark flex-none">
+            <Scale size={17} />
+          </span>
+          <div>
+            <strong className="block text-sm font-semibold text-navy">System expected balance</strong>
+            <span className="text-xs text-gray-600">{formatQuantity(systemQuantity, unit)}</span>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-navy mb-1.5" htmlFor="recon-count">Physical counted quantity ({unit})</label>
+          <Input id="recon-count" type="number" min="0" step="0.01" {...register("countedQuantity", { valueAsNumber: true })} className="w-full" />
+          {errors.countedQuantity ? <small className="block mt-1 text-xs font-medium text-coral">{errors.countedQuantity.message}</small> : null}
+        </div>
+
+        <div className={cn("flex items-center justify-between gap-3 p-4 rounded-lg border", shortage ? "bg-coral/5 border-coral/25" : variance > 0 ? "bg-green/5 border-green/25" : "bg-gray-50 border-line")}>
+          <span className="flex items-center gap-3 text-sm text-gray-600">
+            <Scale size={17} className={shortage ? "text-coral" : variance > 0 ? "text-green" : "text-gray-400"} />
+            Variance (counted − system)
+          </span>
+          <strong className={cn("text-sm font-semibold", shortage ? "text-coral" : variance > 0 ? "text-green" : "text-navy")}>
             {shortage ? "-" : variance > 0 ? "+" : ""}{variance.toLocaleString("en-US", { maximumFractionDigits: 3 })} {unit}
           </strong>
         </div>
+
         {shortage ? (
-          <div className="conversion-box shortage-box">
-            <span>Estimated monetary loss (ETB)</span>
-            <strong className="warning-text">ETB {estimatedLoss.toLocaleString("en-US", { maximumFractionDigits: 0 })}</strong>
+          <div className="flex items-center justify-between gap-3 p-4 rounded-lg bg-gold/10 border border-gold/25">
+            <span className="text-sm text-gray-600">Estimated monetary loss (ETB)</span>
+            <strong className="text-sm font-semibold text-gold">ETB {estimatedLoss.toLocaleString("en-US", { maximumFractionDigits: 0 })}</strong>
           </div>
         ) : null}
-        <label>
-          Note <span className="field-hint">Count source, order/cycle, or observations</span>
-          <input placeholder="e.g. End-of-week shelf count, Rack B" {...register("note")} />
-        </label>
-        <div className="modal-actions">
-          <button type="button" className="button tertiary" onClick={onClose}>Cancel</button>
-          <button type="submit" className="button primary"><PackagePlus size={16} />Record count</button>
+
+        <div>
+          <label className="block text-sm font-semibold text-navy mb-1.5" htmlFor="recon-note">
+            Note <span className="ml-1 text-xs font-normal text-gray-500">Count source, order/cycle, or observations</span>
+          </label>
+          <Input id="recon-note" placeholder="e.g. End-of-week shelf count, Rack B" {...register("note")} className="w-full" />
+        </div>
+
+        <div className="flex items-center justify-end gap-3 pt-1">
+          <Button variant="tertiary" type="button" onClick={onClose}>Cancel</Button>
+          <Button type="submit"><PackagePlus size={16} />Record count</Button>
         </div>
       </form>
     </ModalShell>

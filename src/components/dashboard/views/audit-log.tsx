@@ -8,13 +8,14 @@ import {
   getSortedRowModel,
   useReactTable,
   type ColumnDef,
-  type ColumnSort,
   type SortingState,
 } from "@tanstack/react-table";
 import { Boxes, ChevronLeft, ChevronRight, ClipboardList, Factory, History, RefreshCw, Scissors, Trash2 } from "lucide-react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { AuditCategory, AuditEvent } from "@/lib/report-types";
+import { cn } from "@/lib/utils";
+import { PanelHead } from "./report-atoms";
 
 const filters: Array<{ id: AuditCategory; label: string; english: string }> = [
   { id: "all", label: "ሁሉም", english: "All activity" },
@@ -38,9 +39,16 @@ function activityIcon(category: AuditEvent["category"]) {
   if (category === "inventory") return Boxes;
   if (category === "recovery") return Scissors;
   if (category === "production") return Factory;
-  if (category === "orders") return ClipboardList;
   return ClipboardList;
 }
+
+const categoryTone: Record<AuditCategory, string> = {
+  all: "bg-gray-100 text-gray-600",
+  inventory: "bg-cyan/10 text-cyan-dark",
+  production: "bg-violet/10 text-violet",
+  recovery: "bg-green/10 text-green",
+  orders: "bg-gold/10 text-gold",
+};
 
 const PAGE_SIZE = 10;
 
@@ -56,7 +64,7 @@ export function AuditLogView() {
         header: "",
         cell: ({ row }) => {
           const Icon = activityIcon(row.original.category);
-          return <span className={`audit-icon ${row.original.category}`}><Icon size={16} /></span>;
+          return <span className={cn("flex items-center justify-center w-9 h-9 rounded-lg flex-none", categoryTone[row.original.category])}><Icon size={16} /></span>;
         },
       },
       {
@@ -65,10 +73,13 @@ export function AuditLogView() {
         cell: ({ row }) => {
           const event = row.original;
           return (
-            <div className="audit-entry-main">
-              <div className="audit-entry-title"><strong>{event.action}</strong><span>{event.actorName}</span></div>
-              <p>{event.summary}</p>
-              <small>{event.detail}</small>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <strong className="text-sm font-semibold text-navy">{event.action}</strong>
+                <span className="text-xs text-gray-500">{event.actorName}</span>
+              </div>
+              <p className="text-sm text-gray-600 mt-0.5">{event.summary}</p>
+              {event.detail ? <small className="block text-xs text-gray-500 mt-0.5">{event.detail}</small> : null}
             </div>
           );
         },
@@ -77,7 +88,9 @@ export function AuditLogView() {
         accessorKey: "at",
         header: "When",
         cell: ({ row }) => (
-          <time dateTime={new Date(row.original.at).toISOString()}>{formatActivityTime(row.original.at)}</time>
+          <time dateTime={new Date(row.original.at).toISOString()} className="text-sm text-gray-500">
+            {formatActivityTime(row.original.at)}
+          </time>
         ),
       },
     ],
@@ -103,62 +116,78 @@ export function AuditLogView() {
   const pageCount = table.getPageCount();
 
   return (
-    <div className="audit-view">
-
-      <section className="audit-toolbar panel">
-        <div className="audit-filters" aria-label="Activity category">
+    <div className="space-y-6">
+      {/* Toolbar / category filters */}
+      <section className="bg-white border border-line rounded-xl p-5 shadow-sm flex flex-col sm:flex-row items-start gap-4 justify-between">
+        <div className="flex flex-wrap items-center gap-1 p-1 bg-gray-100 rounded-lg" aria-label="Activity category">
           {filters.map((filter) => (
             <button
               key={filter.id}
-              className={selectedCategory === filter.id ? "selected" : ""}
+              className={cn(
+                "px-3 py-1.5 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-cyan",
+                selectedCategory === filter.id ? "bg-white text-navy shadow-sm" : "text-gray-600 hover:text-gray-900",
+              )}
               onClick={() => setSelectedCategory(filter.id)}
             >
-              {filter.label}<small>{filter.english}</small>
+              {filter.label}<small className={cn("ml-1 text-xs", selectedCategory === filter.id ? "text-gray-500" : "text-gray-400")}>{filter.english}</small>
             </button>
           ))}
         </div>
-        <span className="audit-count">{events?.length ?? 0} activities</span>
+        <span className="text-xs text-gray-500 flex-none sm:mt-2">{events?.length ?? 0} activities</span>
       </section>
 
-      <section className="panel audit-panel">
-        <div className="panel-head">
-          <div>
-            <span className="panel-kicker">ACTIVITY HISTORY</span>
-            <h2>የተመዘገቡ እንቅስቃሴዎች</h2>
-            <p>Created records and auditable movements from the current data set</p>
-          </div>
-          <History size={19} className="report-head-icon" />
+      <section className="bg-white border border-line rounded-xl shadow-sm">
+        <div className="p-6">
+          <PanelHead
+            kicker="ACTIVITY HISTORY"
+            title="የተመዘገቡ እንቅስቃሴዎች"
+            note="Created records and auditable movements from the current data set"
+            icon={<History size={19} />}
+          />
         </div>
+
         {!events ? (
-          <div className="report-loading"><RefreshCw size={16} /> መዝገቡ እየተጫነ ነው…</div>
+          <div className="m-6 flex items-center justify-center gap-2 p-10 text-sm text-gray-500 bg-gray-50 border border-line rounded-lg">
+            <RefreshCw size={16} className="animate-spin" /> መዝገቡ እየተጫነ ነው…
+          </div>
         ) : rows.length === 0 ? (
-          <div className="empty-state">በዚህ ምድብ የተመዘገበ እንቅስቃሴ የለም</div>
+          <div className="m-6 p-10 text-center text-sm text-gray-500 bg-gray-50 border border-dashed border-line rounded-lg">
+            በዚህ ምድብ የተመዘገበ እንቅስቃሴ የለም
+          </div>
         ) : (
           <>
-            <div className="audit-list">
+            <div className="px-6 pb-2 space-y-2.5">
               {rows.map((row) => (
-                <article className="audit-entry" key={row.original.id}>
+                <article
+                  key={row.original.id}
+                  className="flex items-center gap-4 p-4 bg-white border border-line rounded-lg hover:border-cyan/40 hover:bg-cyan/5 transition-colors"
+                >
                   {flexRender(row.getVisibleCells()[0].column.columnDef.cell, row.getVisibleCells()[0].getContext())}
-                  {flexRender(row.getVisibleCells()[1].column.columnDef.cell, row.getVisibleCells()[1].getContext())}
-                  {flexRender(row.getVisibleCells()[2].column.columnDef.cell, row.getVisibleCells()[2].getContext())}
+                  <div className="min-w-0 flex-1">
+                    {flexRender(row.getVisibleCells()[1].column.columnDef.cell, row.getVisibleCells()[1].getContext())}
+                  </div>
+                  <div className="flex-none">
+                    {flexRender(row.getVisibleCells()[2].column.columnDef.cell, row.getVisibleCells()[2].getContext())}
+                  </div>
                 </article>
               ))}
             </div>
-            <div className="audit-pagination">
+
+            <div className="flex items-center justify-end gap-3 p-4 border-t border-line">
               <button
                 onClick={() => table.previousPage()}
                 disabled={!table.getCanPreviousPage()}
-                className="button tertiary small"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-gray-100 text-gray-600 transition-colors hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <ChevronLeft size={14} />Prev
               </button>
-              <span className="audit-page-indicator">
+              <span className="text-xs text-gray-500">
                 Page {table.getState().pagination.pageIndex + 1} of {pageCount}
               </span>
               <button
                 onClick={() => table.nextPage()}
                 disabled={!table.getCanNextPage()}
-                className="button tertiary small"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-gray-100 text-gray-600 transition-colors hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Next<ChevronRight size={14} />
               </button>
@@ -167,10 +196,12 @@ export function AuditLogView() {
         )}
       </section>
 
-      <section className="audit-note">
-        <Trash2 size={16} />
-        <p><strong>Transparency note:</strong> seeded data includes job cards and offcuts. Production, stock, and scrap events appear here as soon as those actions are recorded.</p>
-      </section>
+      <div className="flex items-start gap-2.5 p-4 bg-cyan/5 border border-cyan/20 rounded-lg text-sm text-gray-600">
+        <Trash2 size={16} className="text-cyan-dark flex-none mt-0.5" />
+        <p>
+          <strong className="text-navy">Transparency note:</strong> seeded data includes job cards and offcuts. Production, stock, and scrap events appear here as soon as those actions are recorded.
+        </p>
+      </div>
     </div>
   );
 }
