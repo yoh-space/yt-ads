@@ -435,6 +435,57 @@ export const recordExceptionStockOut = mutation({
   },
 });
 
+export const createTelegramOrder = mutation({
+  args: {
+    telegramChatId: v.string(),
+    customerName: v.string(),
+    serviceType: v.string(),
+    dimensions: v.optional(v.string()),
+    quantity: v.optional(v.string()),
+    notes: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const customerName = args.customerName.trim();
+    const serviceType = args.serviceType.trim();
+    if (!customerName || !serviceType) {
+      throw new Error("Customer name and service type are required.");
+    }
+
+    const code = `ORD-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+    const now = Date.now();
+    const dueDate = now + 7 * 24 * 60 * 60 * 1000;
+    const noteParts = [`Telegram chat: ${args.telegramChatId}`];
+    if (args.notes?.trim()) noteParts.push(args.notes.trim());
+
+    const id = await ctx.db.insert("customerOrders", {
+      code,
+      clientName: customerName,
+      phone: "telegram",
+      serviceType,
+      dimensions: args.dimensions?.trim() || "TBD",
+      quantity: args.quantity?.trim() || "1",
+      preferredDueDate: dueDate,
+      status: "Received",
+      priority: "Medium",
+      source: "public_portal",
+      notes: noteParts.join(" · "),
+      createdBy: undefined,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await notifyOrderRoles(ctx, {
+      title: "New Telegram order received",
+      message: `${code} · ${customerName} requested ${serviceType} via Telegram.`,
+      type: "order_received",
+      relatedTable: "customerOrders",
+      relatedId: id,
+    });
+
+    return { code, orderId: id };
+  },
+});
+
 export const listExceptions = query({
   args: {},
   handler: async (ctx) => {
