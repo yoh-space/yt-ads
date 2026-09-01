@@ -108,15 +108,6 @@ export function miniAppKeyboard(appUrl: string, lang: Language): InlineKeyboard 
     .text(lang === "am" ? "🌐 ቋንቋ ይቀይሩ" : "🌐 Change language", "open:language");
 }
 
-export function startKeyboard(appUrl: string, lang: Language): InlineKeyboard {
-  return new InlineKeyboard()
-    .webApp(lang === "am" ? "🛍️ በ Mini App አዝዝ" : "🛍️ Order in Mini App", appUrl)
-    .row()
-    .text(lang === "am" ? "🌐 ቋንቋ ይቀይሩ" : "🌐 Change language", "open:language")
-    .row()
-    .text(lang === "am" ? "✍️ በፅሁፍ አዝዝ" : "✍️ Order by text", "flow:service");
-}
-
 export function languagePicker(): InlineKeyboard {
   return new InlineKeyboard()
     .text("🇪🇹 አማርኛ", "lang:am")

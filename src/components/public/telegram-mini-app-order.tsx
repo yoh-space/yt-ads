@@ -11,7 +11,11 @@ import {
   Sparkles,
   User,
   Info,
-  X
+  X,
+  AlertTriangle,
+  BadgeCheck,
+  Loader2,
+  Phone
 } from "lucide-react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -39,9 +43,20 @@ export function TelegramMiniAppOrder() {
     bootstrapTelegramWebApp();
   }, []);
 
+  // The logged-in Telegram customer; the phone number is read from their
+  // profile (captured by the bot's share-contact flow), never typed here.
+  const [telegramId, setTelegramId] = useState<string | null>(null);
+  useEffect(() => {
+    const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+    if (tgUser?.id) setTelegramId(String(tgUser.id));
+  }, []);
+
+  const userProfile = useQuery(api.users.getByTelegramId, telegramId ? { telegramId } : "skip");
+  const verifiedPhone = userProfile?.phone ?? null;
+  const phoneReady = verifiedPhone !== null;
+
   const [form, setForm] = useState({
     clientName: "",
-    phone: "",
     serviceType: serviceCategories[0].id,
     dimensions: "",
     quantity: "1",
@@ -94,14 +109,12 @@ export function TelegramMiniAppOrder() {
     event.preventDefault();
     setMessage(null);
 
-    // Client-side quick validations
-    const cleanPhone = form.phone.trim().replace(/\s+/g, "");
-    const ethiopianPhoneRegex = /^(?:\+251|0)?(9|7)\d{8}$/;
-    
-    if (!ethiopianPhoneRegex.test(cleanPhone)) {
+    // The phone number comes from the customer's Telegram profile — it cannot
+    // be submitted until they shared their contact with the bot via /start.
+    if (!telegramId || !phoneReady) {
       setMessage({
         tone: "error",
-        text: "እባክዎን ትክክለኛ የኢትዮጵያ ስልክ ቁጥር ያስገቡ (ምሳሌ፦ 0911... ወይም 0711...)",
+        text: "ስልክ ቁጥርዎ አልተገኘም። እባክዎ በመጀመሪያ ለቦቱ «/start» ይላኩና ቁጥርዎን ያጋሩ።",
       });
       return;
     }
@@ -119,7 +132,8 @@ export function TelegramMiniAppOrder() {
       const fileStorageId = await uploadSelectedFile();
       const result = await submitOrder({
         clientName: form.clientName.trim(),
-        phone: cleanPhone,
+        phone: verifiedPhone,
+        telegramId,
         serviceType: form.serviceType,
         dimensions: form.dimensions.trim(),
         quantity: form.quantity,
@@ -146,7 +160,6 @@ export function TelegramMiniAppOrder() {
       // Reset Form State
       setForm({
         clientName: "",
-        phone: "",
         serviceType: serviceCategories[0].id,
         dimensions: "",
         quantity: "1",
@@ -304,29 +317,41 @@ export function TelegramMiniAppOrder() {
           </label>
 
           <div className="space-y-2.5">
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <span className="text-[11px] text-slate-500 font-medium block mb-1">ስም / ድርጅት</span>
-                <input
-                  required
-                  value={form.clientName}
-                  onChange={(e) => setForm({ ...form, clientName: e.target.value })}
-                  placeholder="ስም ያስገቡ"
-                  className="w-full h-11 px-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:bg-white transition-all"
-                />
-              </div>
+            <div>
+              <span className="text-[11px] text-slate-500 font-medium block mb-1">ስም / ድርጅት</span>
+              <input
+                required
+                value={form.clientName}
+                onChange={(e) => setForm({ ...form, clientName: e.target.value })}
+                placeholder="ስም ያስገቡ"
+                className="w-full h-11 px-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:bg-white transition-all"
+              />
+            </div>
 
-              <div>
-                <span className="text-[11px] text-slate-500 font-medium block mb-1">ስልክ ቁጥር</span>
-                <input
-                  required
-                  type="tel"
-                  value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                  placeholder="09... / 07..."
-                  className="w-full h-11 px-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:bg-white transition-all"
-                />
-              </div>
+            <div>
+              <span className="text-[11px] text-slate-500 font-medium block mb-1">ስልክ ቁጥር (ከቦት በራስ-ሰር የተቀላቀለ)</span>
+              {telegramId === null ? (
+                <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold">
+                  <AlertTriangle size={15} className="shrink-0 text-amber-500" />
+                  ይህ ቅጽ በቴሌግራም ቦቱ ውስጥ መከፈት አለበት።
+                </div>
+              ) : userProfile === undefined ? (
+                <div className="flex items-center gap-2 p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-500 text-xs font-semibold">
+                  <Loader2 size={15} className="shrink-0 animate-spin text-slate-400" />
+                  ስልክ ቁጥር በማግኘት ላይ...
+                </div>
+              ) : verifiedPhone ? (
+                <div className="flex items-center gap-2 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold">
+                  <BadgeCheck size={15} className="shrink-0 text-emerald-600" />
+                  <Phone size={13} className="shrink-0 text-emerald-600" />
+                  {verifiedPhone}
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold">
+                  <AlertTriangle size={15} className="shrink-0 text-amber-500" />
+                  ስልክ ቁጥርዎ አልተገኘም። እባክዎ በመጀመሪያ ለቦቱ «/start» ይላኩና ቁጥርዎን ያጋሩ።
+                </div>
+              )}
             </div>
 
             <div>
@@ -365,7 +390,7 @@ export function TelegramMiniAppOrder() {
         <div className="fixed bottom-0 left-0 right-0 p-3 bg-white/95 backdrop-blur-md border-t border-slate-200 z-50">
           <button
             type="submit"
-            disabled={busy}
+            disabled={busy || !phoneReady}
             className="w-full max-w-lg mx-auto h-12 bg-slate-900 hover:bg-slate-800 active:scale-[0.99] text-white font-bold rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 transition-all cursor-pointer"
           >
             {busy ? "ትዕዛዝዎ እየተላከ ነው..." : "ትዕዛዝ ላክ (Submit Order)"}

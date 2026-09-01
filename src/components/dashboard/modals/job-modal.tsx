@@ -113,76 +113,166 @@ export function JobModal({
 
   const stepError = (field: keyof JobForm) => {
     const message = fieldError(field);
-    return message ? <small className="field-error">{message}</small> : null;
+    return message ? (
+      <small className="block mt-1 text-xs font-medium text-coral">
+        {message}
+      </small>
+    ) : null;
   };
 
   return (
     <ModalShell title="Create job card" subtitle="Link order, machinery, and material deduction in one workflow." step={step} onClose={onClose}>
-      <form className="modal-form" onSubmit={goNext}>
+      <form className="space-y-6" onSubmit={goNext}>
         {step === 1 ? (
-          <>
-            <label>
-              Client / order owner
-              <input autoFocus placeholder="e.g. Addis Breweries" {...register("client")} />
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-semibold text-navy mb-2">
+                Client / order owner
+              </label>
+              <input 
+                autoFocus 
+                placeholder="e.g. Addis Breweries" 
+                {...register("client")}
+                className="w-full px-3 py-2 text-sm border border-line rounded-lg bg-white text-navy placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan focus:border-transparent transition-colors"
+              />
               {stepError("client")}
-            </label>
-            <label>
-              Job description
-              <input placeholder="e.g. Building facade branding" {...register("title")} />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-navy mb-2">
+                Job description
+              </label>
+              <input 
+                placeholder="e.g. Building facade branding" 
+                {...register("title")}
+                className="w-full px-3 py-2 text-sm border border-line rounded-lg bg-white text-navy placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan focus:border-transparent transition-colors"
+              />
               {stepError("title")}
-            </label>
-          </>
+            </div>
+          </div>
         ) : null}
+        
         {step === 2 ? (
-          <>
-            <label>
-              Assigned machine
-              <select {...register("machineId")}>
-                {machines.map((entry) => <option value={entry.id} key={entry.id}>{entry.name} · {entry.code}</option>)}
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-semibold text-navy mb-2">
+                Assigned machine
+              </label>
+              <select 
+                {...register("machineId")}
+                className="w-full px-3 py-2 text-sm border border-line rounded-lg bg-white text-navy focus:outline-none focus:ring-2 focus:ring-cyan focus:border-transparent transition-colors"
+              >
+                {machines.map((entry) => (
+                  <option value={entry.id} key={entry.id}>
+                    {entry.name} · {entry.code}
+                  </option>
+                ))}
               </select>
               {stepError("machineId")}
-            </label>
-            <div className="assignment-preview"><Wrench size={18} /><div><strong>{machine?.name}</strong><span>Tracks consumption in {machine?.materialUnit} for this workflow</span></div></div>
-          </>
+            </div>
+            
+            {machine && (
+              <div className="flex items-center gap-3 p-3 bg-cyan/10 rounded-lg border border-cyan/20">
+                <Wrench size={18} className="text-cyan flex-none" />
+                <div>
+                  <div className="font-semibold text-navy">{machine.name}</div>
+                  <div className="text-sm text-gray-600">
+                    Tracks consumption in {machine.materialUnit} for this workflow
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         ) : null}
+        
         {step === 3 ? (
-          <>
-            <label>
-              Raw material
-              <select {...register("materialId")}>
-                {materials.map((entry) => <option value={entry.id} key={entry.id}>{entry.name} · {formatQuantity(entry.quantity, entry.unit)}</option>)}
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-semibold text-navy mb-2">
+                Raw material
+              </label>
+              <select 
+                {...register("materialId")}
+                className="w-full px-3 py-2 text-sm border border-line rounded-lg bg-white text-navy focus:outline-none focus:ring-2 focus:ring-cyan focus:border-transparent transition-colors"
+              >
+                {materials.map((entry) => (
+                  <option value={entry.id} key={entry.id}>
+                    {entry.name} · {formatQuantity(entry.quantity, entry.unit)}
+                  </option>
+                ))}
               </select>
               {stepError("materialId")}
-            </label>
-            <label>
-              Planned material usage ({material?.unit ?? "m²"})
-              <input type="number" min="0.1" step="0.1" {...register("quantity", { valueAsNumber: true })} />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-semibold text-navy mb-2">
+                Planned material usage ({material?.unit ?? "m²"})
+              </label>
+              <input 
+                type="number" 
+                min="0.1" 
+                step="0.1" 
+                {...register("quantity", { valueAsNumber: true })}
+                className="w-full px-3 py-2 text-sm border border-line rounded-lg bg-white text-navy placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan focus:border-transparent transition-colors"
+              />
               {stepError("quantity")}
-            </label>
-            <label>
-              Due
-              <select {...register("due")}>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-semibold text-navy mb-2">
+                Due
+              </label>
+              <select 
+                {...register("due")}
+                className="w-full px-3 py-2 text-sm border border-line rounded-lg bg-white text-navy focus:outline-none focus:ring-2 focus:ring-cyan focus:border-transparent transition-colors"
+              >
                 <option>Newly scheduled</option>
                 <option>Today, 16:30</option>
                 <option>Tomorrow, 10:00</option>
                 <option>Tomorrow, 15:00</option>
               </select>
-            </label>
-            <label>
-              Priority
-              <select {...register("priority")}>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-semibold text-navy mb-2">
+                Priority
+              </label>
+              <select 
+                {...register("priority")}
+                className="w-full px-3 py-2 text-sm border border-line rounded-lg bg-white text-navy focus:outline-none focus:ring-2 focus:ring-cyan focus:border-transparent transition-colors"
+              >
                 <option>High</option>
                 <option>Medium</option>
                 <option>Normal</option>
               </select>
-            </label>
-            <div className="conversion-box"><Box size={17} /><span>Available after job</span><strong>{material ? formatQuantity(Math.max(0, material.quantity - quantity), material.unit) : "—"}</strong></div>
+            </div>
+            
+            <div className="flex items-center gap-3 p-3 bg-green/10 rounded-lg border border-green/20">
+              <Box size={17} className="text-green flex-none" />
+              <span className="text-sm text-gray-600">Available after job</span>
+              <span className="font-semibold text-navy ml-auto">
+                {material ? formatQuantity(Math.max(0, material.quantity - quantity), material.unit) : "—"}
+              </span>
+            </div>
+            
             <input type="hidden" {...register("unit")} value={material?.unit ?? "m²"} />
-          </>
+          </div>
         ) : null}
-        <div className="modal-actions">
-          <button type="button" className="button tertiary" onClick={() => (step === 1 ? onClose() : setStep(step - 1))}>{step === 1 ? "Cancel" : "Back"}</button>
-          <button className="button primary" type="submit">{step === 3 ? "Create job card" : "Continue"} <ArrowUpRight size={16} /></button>
+        
+        <div className="flex items-center justify-between pt-4 border-t border-line">
+          <button 
+            type="button" 
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg border border-line bg-white text-navy transition-colors hover:border-gray-300 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2"
+            onClick={() => (step === 1 ? onClose() : setStep(step - 1))}
+          >
+            {step === 1 ? "Cancel" : "Back"}
+          </button>
+          <button 
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-navy text-white shadow-sm transition-colors hover:bg-navy-2 focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2"
+            type="submit"
+          >
+            {step === 3 ? "Create job card" : "Continue"} 
+            <ArrowUpRight size={16} />
+          </button>
         </div>
       </form>
     </ModalShell>

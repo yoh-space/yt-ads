@@ -23,8 +23,8 @@ import {
   miniAppKeyboard,
   phoneNumberKeyboard,
   servicePicker,
+  shareContactKeyboard,
   skipFileKeyboard,
-  startKeyboard,
 } from "./keyboards";
 import {
   formatOrderSummary,
@@ -288,13 +288,49 @@ async function finalizeOrder(ctx: MyContext, phone: string) {
   });
 }
 
-async function handleContact(ctx: MyContext, phoneNumber?: string) {
-  const phone = normalizePhone(phoneNumber ?? "");
+/**
+ * Handles a shared contact. During the text-order "phone" step it finalizes the
+ * order draft; otherwise it registers the phone number on the customer's
+ * Telegram profile (the /start share-contact flow) and offers the Mini App.
+ */
+async function handleContact(
+  ctx: MyContext,
+  contact: { phone_number?: string; user_id?: number },
+) {
+  const lang = ctx.session.language;
+  const phone = normalizePhone(contact.phone_number ?? "");
   if (!phone) {
-    await ctx.reply(t(ctx.session.language, "phoneInvalid"));
+    await ctx.reply(t(lang, "phoneInvalid"));
     return;
   }
-  await finalizeOrder(ctx, phone);
+  if (ctx.session.step === "phone") {
+    await finalizeOrder(ctx, phone);
+    return;
+  }
+
+  // Only accept the customer's own contact, not one shared on another user's
+  // behalf, so profiles always hold the sender's verified number.
+  const telegramId = ctx.from?.id;
+  if (telegramId === undefined || (contact.user_id !== undefined && contact.user_id !== telegramId)) {
+    await ctx.reply(t(lang, "phoneInvalid"));
+    return;
+  }
+  const name = customerDisplayName(ctx);
+  try {
+    await fetchMutation(api.users.upsertUser, {
+      telegramId: String(telegramId),
+      phone,
+      name: name === "Telegram user" ? undefined : name,
+    });
+  } catch (error) {
+    console.error("Failed to save the shared contact:", error);
+    await ctx.reply(t(lang, "errorGeneric"));
+    return;
+  }
+  await ctx.reply(t(lang, "contactSaved", { phone }), {
+    reply_markup: miniAppKeyboard(appUrl(), lang),
+  });
+  await ctx.reply(t(lang, "mainIntro"), { reply_markup: mainMenuKeyboard(lang) });
 }
 
 async function handleTypedPhone(ctx: MyContext, text: string) {
@@ -375,7 +411,7 @@ async function handleMessage(ctx: MyContext) {
 
   // Shared phone number (reply keyboard with request_contact).
   if (msg.contact) {
-    await handleContact(ctx, msg.contact.phone_number);
+    await handleContact(ctx, msg.contact);
     return;
   }
 
@@ -433,6 +469,15 @@ async function handleMessage(ctx: MyContext) {
 export function createBot(token: string): Bot<MyContext> {
   const bot = new Bot<MyContext>(token);
 
+  // All bot copy is authored with Telegram HTML tags; default every message
+  // send to HTML unless a caller opts out.
+  bot.api.config.use((prev, method, payload) => {
+    if (method === "sendMessage" && !("parse_mode" in payload)) {
+      payload.parse_mode = "HTML";
+    }
+    return prev(method, payload);
+  });
+
   bot.use(
     session({
       initial: initialSession,
@@ -451,10 +496,7 @@ export function createBot(token: string): Bot<MyContext> {
     ctx.session.step = undefined;
     ctx.session.draft = undefined;
     await ctx.reply(t(ctx.session.language, "start"), {
-      reply_markup: startKeyboard(appUrl(), ctx.session.language),
-    });
-    await ctx.reply(t(ctx.session.language, "mainIntro"), {
-      reply_markup: mainMenuKeyboard(ctx.session.language),
+      reply_markup: shareContactKeyboard(),
     });
   });
 

@@ -1,4 +1,4 @@
-import { TelegramMiniAppOrder } from "@/components/public/public-landing";
+import { TelegramMiniAppOrder } from "@/components/public/telegram-mini-app-order";
 
 export const dynamic = "force-dynamic";
 

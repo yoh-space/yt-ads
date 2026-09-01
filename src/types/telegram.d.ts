@@ -13,7 +13,16 @@ declare global {
         close?(): void;
         colorScheme?: "light" | "dark";
         initData?: string;
-        initDataUnsafe?: Record<string, unknown>;
+        initDataUnsafe?: {
+          /** The Telegram account the Mini App is opened for. */
+          user?: {
+            id: number;
+            first_name?: string;
+            last_name?: string;
+            username?: string;
+            photo_url?: string;
+          };
+        };
         sendData(data: string): void;
         openLink?(url: string): void;
       };
