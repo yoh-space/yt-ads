@@ -17,7 +17,7 @@ import {
   Wallet,
   Coins,
 } from "lucide-react";
-import type { CustomerOrder, JobCard, Machine, Material } from "@/lib/operations-types";
+import type { CustomerOrder, JobCard, Machine, Material, Role } from "@/lib/operations-types";
 import { formatQuantity } from "@/lib/units";
 import { statusTone } from "../helpers";
 import type { View } from "../nav-config";
@@ -76,6 +76,7 @@ export function Overview({
   reconciliationVariances,
   financialMetrics,
   kpis,
+  role,
   onView,
   onFilterJobs,
   onComplete,
@@ -92,6 +93,7 @@ export function Overview({
   reconciliationVariances: Array<{ variance: number; monetaryLoss: number }>;
   financialMetrics: FinancialMetrics | null;
   kpis?: Kpis;
+  role: Role;
   onView: (view: View) => void;
   onFilterJobs: (status: JobCard["status"] | "open") => void;
   onComplete: (id: string) => void;
@@ -332,18 +334,19 @@ export function Overview({
         </Panel>
       </section>
       {/* Machine Workflow & Alerts - Main Grid */}
-      <section className="grid grid-cols-[1.55fr_1fr] gap-[14px]">
-        <Panel>
-          <PanelHeader
-            kicker="MACHINE WORKFLOW"
-            title="የማሽን የሥራ ሁኔታ"
-            subtitle="Machine workflow status"
-            action={
-              <Button variant="text" onClick={() => onView("machines")}>
-                View all <MoveUpRight size={14} />
-              </Button>
-            }
-          />
+      <section className={cn("grid gap-[14px]", role === "owner" ? "grid-cols-1" : "grid-cols-[1.55fr_1fr]")}>
+        {role === "owner" ? null : (
+          <Panel>
+            <PanelHeader
+              kicker="MACHINE WORKFLOW"
+              title="የማሽን የሥራ ሁኔታ"
+              subtitle="Machine workflow status"
+              action={
+                <Button variant="text" onClick={() => onView("machines")}>
+                  View all <MoveUpRight size={14} />
+                </Button>
+              }
+            />
           {/* Machine Status Strip */}
           <div className="grid grid-cols-5 gap-2 px-[17px] pt-1 pb-[10px]">
             <div className="flex flex-col items-center p-[9px_4px] border border-[#e4edf1] rounded-[7px] bg-[#f8fafb] text-center">
@@ -405,6 +408,7 @@ export function Overview({
             ))}
           </div>
         </Panel>
+        )}
 
         <Panel>
           <PanelHeader

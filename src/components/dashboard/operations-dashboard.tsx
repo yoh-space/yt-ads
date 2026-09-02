@@ -389,6 +389,7 @@ export function OperationsDashboard() {
               reconciliationVariances={reconciliationSummary?.currentVariances ?? []}
               financialMetrics={(financialMetrics ?? null) as FinancialMetrics | null}
               kpis={kpis}
+              role={resolvedRole}
               onView={openView}
               onFilterJobs={filterJobsFromOverview}
               onComplete={completeJob}

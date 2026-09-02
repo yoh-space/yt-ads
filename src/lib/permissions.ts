@@ -156,6 +156,12 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   cnc_operator: [...OPERATIONS],
   plotter_operator: [...OPERATIONS],
   printer_operator: [...OPERATIONS],
+  receptionist: [
+    "dashboard.view",
+    "order.view",
+    "order.create",
+    "order.manage",
+  ],
 };
 
 export function hasPermission(role: Role, permission: Permission): boolean {

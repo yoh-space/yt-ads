@@ -31,10 +31,11 @@ export type Modal =
 export type SettingsCategory = "profile" | "security" | "team" | "company" | "operations";
 
 export const roleVisibleViews: Record<Role, View[]> = {
-  owner: ["overview", "orders", "inventory", "jobs", "machines", "offcuts", "reports", "reconciliation", "audit", "settings"],
+  owner: ["overview", "orders", "inventory", "jobs", "reports", "reconciliation", "audit", "settings"],
   manager: ["overview", "orders", "inventory", "jobs", "machines", "offcuts", "reports", "reconciliation", "audit", "settings"],
   admin: ["overview", "orders", "inventory", "jobs", "machines", "offcuts", "reports", "reconciliation", "audit", "settings"],
   storekeeper: ["overview", "orders", "inventory", "jobs", "machines", "offcuts", "reconciliation", "audit", "settings"],
+  receptionist: ["orders"],
   laser_operator: ["jobs", "machines", "offcuts", "settings"],
   cnc_operator: ["jobs", "machines", "offcuts", "settings"],
   plotter_operator: ["jobs", "machines", "offcuts", "settings"],
@@ -59,6 +60,7 @@ export const ROLE_WORKSPACE: Record<Role, { view: View; label: string; english: 
   manager: { view: "overview", label: "የማኔጀር ማዕከል", english: "Manager Analytics" },
   admin: { view: "overview", label: "ዋና ማዕከል", english: "Admin Analytics & Control" },
   storekeeper: { view: "inventory", label: "ክምችት", english: "Storekeeper Inventory" },
+  receptionist: { view: "orders", label: "የተቀባይ ትዕዛዝ ማዕከል", english: "Reception Order Desk" },
   laser_operator: { view: "jobs", label: "የሥራ ካርዶች", english: "Operator Queue" },
   cnc_operator: { view: "jobs", label: "የሥራ ካርዶች", english: "Operator Queue" },
   plotter_operator: { view: "jobs", label: "የሥራ ካርዶች", english: "Operator Queue" },

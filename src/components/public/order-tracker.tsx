@@ -19,6 +19,7 @@ const STATUS_STEP: Record<string, number> = {
   JOB_CARD_CREATED: 0,
   IN_PRODUCTION: 1,
   COMPLETED: 3,
+  READY_FOR_PICKUP: 2,
   Expired: 0,
 };
 

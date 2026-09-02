@@ -5,7 +5,6 @@ import {
   Clock3,
   Copy,
   Download,
-  ExternalLink,
   FileImage,
   ImageIcon,
   Printer,
@@ -24,6 +23,7 @@ const statusTone = {
   "JOB_CARD_CREATED": "info",
   "IN_PRODUCTION": "info",
   "COMPLETED": "success",
+  "READY_FOR_PICKUP": "info",
   "Expired": "danger",
 } as const;
 
@@ -67,7 +67,14 @@ export function OrderDetailsSheet({
   onClose: () => void;
 }) {
   const [copied, setCopied] = useState(false);
-  const downloadName = order.fileName ?? "artwork";
+
+  function downloadFileName() {
+    const original = order.fileName ?? "artwork";
+    const base = original.replace(/\.[^.]+$/, "");
+    const ext = /\.[^.]+$/.exec(original)?.[0] ?? "";
+    const clean = (value: string) => value.replace(/[^a-zA-Z0-9-_ ]+/g, "").trim() || "order";
+    return `${clean(order.clientName)}-${clean(order.code)}-${base}${ext}`;
+  }
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -89,7 +96,7 @@ export function OrderDetailsSheet({
     if (!order.fileUrl) return;
     const link = document.createElement("a");
     link.href = order.fileUrl;
-    link.download = downloadName || "artwork";
+    link.download = downloadFileName();
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -115,10 +122,11 @@ export function OrderDetailsSheet({
 
       {/* Drawer */}
       <div
-        className="relative flex w-full max-w-xl flex-col overflow-hidden bg-white shadow-2xl border-l border-gray-100"
+        className="absolute inset-y-0 right-0 h-full w-full max-w-xl top-0 m-0 p-0 rounded-none flex flex-col overflow-hidden bg-white shadow-2xl border-l border-gray-100"
+        style={{ height: "100vh", minHeight: "100vh" }}
       >
         {/* Fixed Header */}
-        <header className="flex-shrink-0 flex flex-col gap-4 p-6 border-b border-line">
+        <header className="flex-shrink-0 flex flex-col gap-4 p-6 border-b border-line bg-background">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
@@ -149,7 +157,7 @@ export function OrderDetailsSheet({
         </header>
 
         {/* Scrollable Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6 [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-thumb]:hover:bg-gray-400 [&::-webkit-scrollbar-track]:bg-transparent">
+        <div className="flex-1 overflow-y-auto px-6 py-6 pb-16 space-y-6 [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-thumb]:hover:bg-gray-400 [&::-webkit-scrollbar-track]:bg-transparent">
           {/* Service & Specifications */}
           <section className="space-y-3">
             <SectionHeading icon={<ImageIcon size={15} />} title="Service & Specifications" />
@@ -204,19 +212,6 @@ export function OrderDetailsSheet({
                   </div>
                   <StatusPill variant="info">{assetExtension(order.fileName)}</StatusPill>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button size="small" variant="primary" onClick={downloadAsset}>
-                    <Download size={13} />Download Design File
-                  </Button>
-                  <Button size="small" variant="tertiary" onClick={copyAssetUrl}>
-                    {copied ? <><Copy size={13} />Copied!</> : <><Copy size={13} />Copy URL</>}
-                  </Button>
-                  <Button size="small" variant="ghost">
-                    <a className="flex items-center gap-1" href={order.fileUrl} target="_blank" rel="noreferrer">
-                      <ExternalLink size={13} />Open
-                    </a>
-                  </Button>
-                </div>
                 <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-50 border border-line">
                   <input
                     readOnly
@@ -228,12 +223,13 @@ export function OrderDetailsSheet({
                     onClick={copyAssetUrl}
                     className="flex-none inline-flex items-center gap-1 text-xs font-semibold text-cyan hover:text-cyan-dark"
                   >
-                    <Copy size={12} />Copy
+                    <Copy size={12} />{copied ? "Copied!" : "Copy"}
                   </button>
                 </div>
               </>
             ) : (
-              <div className="rounded-lg border border-dashed border-line p-6 text-center text-sm text-gray-400">
+              <div className="flex items-center gap-2 rounded-lg border border-dashed border-line px-3 py-2 text-xs text-muted-foreground">
+                <ImageIcon size={14} className="text-gray-400" />
                 No design file attached to this order.
               </div>
             )}
@@ -280,52 +276,53 @@ export function OrderDetailsSheet({
           </section>
         </div>
 
-        {/* Sticky Footer */}
-        <footer className="flex-shrink-0 flex items-center justify-end gap-3 p-6 border-t border-line bg-muted/30">
-          <Button type="button" variant="tertiary" onClick={onClose}>Close</Button>
-          {canPrice ? (
-            <Button
-              type="button"
-              variant="primary"
-              disabled={isPending(`price-${order.id}`)}
-              onClick={() => onConvert(order)}
-            >
-              <Wrench size={14} />
-              {isPending(`price-${order.id}`) ? "Pricing…" : "Set Price"}
-            </Button>
-          ) : null}
-          {canConfirm ? (
-            <Button
-              type="button"
-              variant="primary"
-              disabled={isPending(`confirm-${order.id}`)}
-              onClick={() => onConvert(order)}
-            >
-              <Wrench size={14} />
-              {isPending(`confirm-${order.id}`) ? "Confirming…" : "Confirm Payment"}
-            </Button>
-          ) : null}
-          {canComplete ? (
-            <Button
-              type="button"
-              variant="primary"
-              disabled={isPending(`order-status-${order.id}`)}
-              onClick={() => onStatus(order.id, "COMPLETED")}
-            >
-              {isPending(`order-status-${order.id}`) ? "Saving…" : "Complete"}
-            </Button>
-          ) : null}
-          {hasArtwork ? (
-            <Button type="button" variant="secondary" onClick={downloadAsset}>
-              <Download size={14} />Download Asset
-            </Button>
-          ) : null}
-          {isDesktopShell() && canManage ? (
-            <Button type="button" variant="tertiary" onClick={() => printNative()}>
-              <Printer size={14} />Receipt
-            </Button>
-          ) : null}
-        </footer>
+        {/* Sticky Footer (only when there are actionable workflow steps) */}
+        {canPrice || canConfirm || canComplete || hasArtwork || (isDesktopShell() && canManage) ? (
+          <footer className="flex-shrink-0 flex items-center justify-end gap-3 p-6 border-t border-line bg-muted/30">
+            {canPrice ? (
+              <Button
+                type="button"
+                variant="primary"
+                disabled={isPending(`price-${order.id}`)}
+                onClick={() => onConvert(order)}
+              >
+                <Wrench size={14} />
+                {isPending(`price-${order.id}`) ? "Pricing…" : "Set Price"}
+              </Button>
+            ) : null}
+            {canConfirm ? (
+              <Button
+                type="button"
+                variant="primary"
+                disabled={isPending(`confirm-${order.id}`)}
+                onClick={() => onConvert(order)}
+              >
+                <Wrench size={14} />
+                {isPending(`confirm-${order.id}`) ? "Confirming…" : "Confirm Payment"}
+              </Button>
+            ) : null}
+            {canComplete ? (
+              <Button
+                type="button"
+                variant="primary"
+                disabled={isPending(`order-status-${order.id}`)}
+                onClick={() => onStatus(order.id, "COMPLETED")}
+              >
+                {isPending(`order-status-${order.id}`) ? "Saving…" : "Complete"}
+              </Button>
+            ) : null}
+            {hasArtwork ? (
+              <Button type="button" variant="secondary" onClick={downloadAsset}>
+                <Download size={14} />Download Asset
+              </Button>
+            ) : null}
+            {isDesktopShell() && canManage ? (
+              <Button type="button" variant="tertiary" onClick={() => printNative()}>
+                <Printer size={14} />Receipt
+              </Button>
+            ) : null}
+          </footer>
+        ) : null}
       </div>
     </div>
   );

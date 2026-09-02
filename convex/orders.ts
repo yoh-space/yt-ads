@@ -9,7 +9,7 @@ import { notifyRoles } from "./notificationHelpers";
 import { ensureSystemConfig } from "./systemConfigs";
 
 /** Statuses a customer may see through public tracking (Expired stays internal). */
-const PUBLIC_TRACKING_STATUSES = new Set(["PENDING_REVIEW", "PRICED_AND_PENDING_PAYMENT", "CONFIRMED_PAID_OR_CREDIT", "JOB_CARD_CREATED", "IN_PRODUCTION", "COMPLETED"]);
+const PUBLIC_TRACKING_STATUSES = new Set(["PENDING_REVIEW", "PRICED_AND_PENDING_PAYMENT", "CONFIRMED_PAID_OR_CREDIT", "JOB_CARD_CREATED", "IN_PRODUCTION", "COMPLETED", "READY_FOR_PICKUP"]);
 
 /**
  * Allowed forward transitions for manual status updates. The payment-gated
@@ -22,7 +22,8 @@ const ALLOWED_STATUS_TRANSITIONS: Record<string, string[]> = {
   CONFIRMED_PAID_OR_CREDIT: ["JOB_CARD_CREATED"],
   JOB_CARD_CREATED: ["IN_PRODUCTION"],
   IN_PRODUCTION: ["COMPLETED"],
-  COMPLETED: [],
+  COMPLETED: ["READY_FOR_PICKUP"],
+  READY_FOR_PICKUP: [],
   Expired: [],
 };
 // convex/orders.ts
@@ -204,6 +205,8 @@ export const createWalkIn = mutation({
     preferredDueDate: v.number(),
     priority: v.optional(orderPriority),
     notes: v.optional(v.string()),
+    fileStorageId: v.optional(v.id("_storage")),
+    fileName: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const { identity } = await requirePermission(ctx, "order.create");

@@ -6,6 +6,7 @@ export const role = v.union(
   v.literal("manager"),
   v.literal("admin"),
   v.literal("storekeeper"),
+  v.literal("receptionist"),
   v.literal("laser_operator"),
   v.literal("cnc_operator"),
   v.literal("plotter_operator"),
@@ -41,6 +42,7 @@ export const orderStatus = v.union(
   v.literal("JOB_CARD_CREATED"),
   v.literal("IN_PRODUCTION"),
   v.literal("COMPLETED"),
+  v.literal("READY_FOR_PICKUP"),
   v.literal("Expired"),
   // Legacy aliases from earlier write paths. These were written to the table
   // before the validator was tightened to the canonical values above. They are

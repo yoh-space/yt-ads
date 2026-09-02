@@ -44,7 +44,7 @@ function inRange(timestamp: number, range: DateRange): boolean {
   return date >= start;
 }
 
-const statuses: Array<CustomerOrderStatus | "all"> = ["all", "PENDING_REVIEW", "PRICED_AND_PENDING_PAYMENT", "CONFIRMED_PAID_OR_CREDIT", "JOB_CARD_CREATED", "IN_PRODUCTION", "COMPLETED", "Expired"];
+const statuses: Array<CustomerOrderStatus | "all"> = ["all", "PENDING_REVIEW", "PRICED_AND_PENDING_PAYMENT", "CONFIRMED_PAID_OR_CREDIT", "JOB_CARD_CREATED", "IN_PRODUCTION", "COMPLETED", "READY_FOR_PICKUP", "Expired"];
 const priorities: Array<OrderPriority | "all"> = ["all", "High", "Medium", "Low"];
 
 function formatDue(timestamp: number) {
@@ -240,7 +240,7 @@ export function OrdersView({
               {/* Status */}
               <div className="min-w-0">
                 <StatusPill 
-                  variant={order.status === "COMPLETED" ? "success" : order.overdue ? "warning" : "info"}
+                  variant={order.status === "COMPLETED" || order.status === "READY_FOR_PICKUP" ? "success" : order.overdue ? "warning" : "info"}
                 >
                   {order.status}
                 </StatusPill>

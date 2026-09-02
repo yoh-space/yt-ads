@@ -510,6 +510,7 @@ function TeamPanel({ profile }: { profile: Profile }) {
     manager: "info",
     admin: "info",
     storekeeper: "neutral",
+    receptionist: "info",
     laser_operator: "neutral",
     cnc_operator: "neutral",
     plotter_operator: "neutral",

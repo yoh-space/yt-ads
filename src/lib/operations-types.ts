@@ -3,6 +3,7 @@ export type Role =
   | "manager"
   | "admin"
   | "storekeeper"
+  | "receptionist"
   | "laser_operator"
   | "cnc_operator"
   | "plotter_operator"
@@ -23,7 +24,7 @@ export type MaterialSpecification =
 export type JobStatus = "Queued" | "In production" | "Completed" | "Paused";
 export type MachineStatus = "Running" | "Available" | "Maintenance" | "Unavailable";
 export type Priority = "High" | "Medium" | "Normal";
-export type CustomerOrderStatus = "PENDING_REVIEW" | "PRICED_AND_PENDING_PAYMENT" | "CONFIRMED_PAID_OR_CREDIT" | "JOB_CARD_CREATED" | "IN_PRODUCTION" | "COMPLETED" | "Expired";
+export type CustomerOrderStatus = "PENDING_REVIEW" | "PRICED_AND_PENDING_PAYMENT" | "CONFIRMED_PAID_OR_CREDIT" | "JOB_CARD_CREATED" | "IN_PRODUCTION" | "COMPLETED" | "READY_FOR_PICKUP" | "Expired";
 export type OrderPriority = "High" | "Medium" | "Low";
 export type OrderSource = "public_portal" | "walk_in";
 export type ExceptionReason = "Sample Print" | "Minor Repair" | "Test Cut" | "Internal Maintenance";
@@ -238,6 +239,7 @@ export const roleLabels: Record<Role, { am: string; en: string; initial: string 
   manager: { am: "ማኔጀር", en: "Manager", initial: "MG" },
   admin: { am: "ዋና ሥራ አስኪያጅ", en: "General Manager", initial: "GM" },
   storekeeper: { am: "መጋዘን ኃላፊ", en: "Storekeeper", initial: "SK" },
+  receptionist: { am: "ተቀባይ", en: "Receptionist", initial: "RC" },
   laser_operator: { am: "Laser ኦፕሬተር", en: "Laser Cutter", initial: "LC" },
   cnc_operator: { am: "CNC ኦፕሬተር", en: "CNC Router", initial: "CN" },
   plotter_operator: { am: "Plotter ኦፕሬተር", en: "Vinyl Cutter", initial: "PL" },
