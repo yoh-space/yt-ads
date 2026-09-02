@@ -16,13 +16,16 @@ const CANONICAL_ORDER_STATUSES: ReadonlySet<string> = new Set([
   "Expired",
 ]);
 
-/** Map of legacy order-status casing to its canonical value. */
+/** Map of legacy order-status values (casing or pre-lifecycle states) to their canonical value. */
 const ORDER_STATUS_ALIASES: Record<string, string> = {
+  Received: "PENDING_REVIEW",
+  "Recieved": "PENDING_REVIEW",
   Completed: "COMPLETED",
   "In Production": "IN_PRODUCTION",
   "In production": "IN_PRODUCTION",
   in_production: "IN_PRODUCTION",
   completed: "COMPLETED",
+  "Ready for Pickup": "COMPLETED",
 };
 
 /**

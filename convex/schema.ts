@@ -45,10 +45,12 @@ export const orderStatus = v.union(
   // Legacy aliases from earlier write paths. These were written to the table
   // before the validator was tightened to the canonical values above. They are
   // kept only as a bridge so the backfill in `convex/migrations.ts` can read and
-  // normalize existing rows. REMOVE these two literals after the migration has
+  // normalize existing rows. REMOVE these literals after the migration has
   // run against the deployed dataset.
+  v.literal("Received"),
   v.literal("Completed"),
   v.literal("In Production"),
+  v.literal("Ready for Pickup"),
 );
 
 /** Payment verification result recorded by reception during checkout. */
