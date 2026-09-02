@@ -1,7 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { ArrowUpRight, Calendar } from "lucide-react";
+import { useRef, useState, type ChangeEvent } from "react";
+import { ArrowUpRight, Calendar, FileImage, X } from "lucide-react";
+import { useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import type { OrderPriority } from "@/lib/operations-types";
 import { ModalShell } from "./modal-shell";
 
@@ -15,6 +18,8 @@ export type NewOrderInput = {
   preferredDueDate: number;
   priority: OrderPriority;
   notes: string;
+  fileStorageId?: Id<"_storage">;
+  fileName?: string;
 };
 
 const SERVICES = [
@@ -44,6 +49,8 @@ export function OrderCreateModal({
   onClose: () => void;
   onSave: (input: NewOrderInput) => void;
 }) {
+  const generateUploadUrl = useMutation(api.orders.generateUploadUrl);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [step, setStep] = useState(1);
   const [clientName, setClientName] = useState("");
   const [phone, setPhone] = useState("");
@@ -54,9 +61,29 @@ export function OrderCreateModal({
   const [dueDate, setDueDate] = useState(daysFromNow(3));
   const [priority, setPriority] = useState<OrderPriority>("Medium");
   const [notes, setNotes] = useState("");
+  const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [notice, setNotice] = useState("");
 
-  function handleSubmit(event: React.FormEvent) {
+  function onFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const selected = event.target.files?.[0];
+    if (selected) setFile(selected);
+  }
+
+  async function uploadFile(): Promise<Id<"_storage"> | undefined> {
+    if (!file) return undefined;
+    const uploadUrl = await generateUploadUrl({});
+    const response = await fetch(uploadUrl, {
+      method: "POST",
+      headers: { "Content-Type": file.type || "application/octet-stream" },
+      body: file,
+    });
+    if (!response.ok) throw new Error("Unable to upload the design file.");
+    const result = (await response.json()) as { storageId: string };
+    return result.storageId as Id<"_storage">;
+  }
+
+  async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (submitting) return;
     if (step < 3) {
@@ -64,7 +91,25 @@ export function OrderCreateModal({
       return;
     }
     setSubmitting(true);
-    onSave({ clientName, phone, serviceType, dimensions, quantity, amount: amount > 0 ? amount : undefined, preferredDueDate: dueDate, priority, notes });
+    try {
+      const fileStorageId = await uploadFile();
+      onSave({
+        clientName,
+        phone,
+        serviceType,
+        dimensions,
+        quantity,
+        amount: amount > 0 ? amount : undefined,
+        preferredDueDate: dueDate,
+        priority,
+        notes,
+        fileStorageId,
+        fileName: file?.name,
+      });
+    } catch (error) {
+      setSubmitting(false);
+      setNotice(error instanceof Error ? error.message : "Unable to create the order.");
+    }
   }
 
   return (
@@ -82,6 +127,9 @@ export function OrderCreateModal({
       }
     >
       <form id="new-order-form" className="modal-form" onSubmit={handleSubmit}>
+        {notice ? (
+          <div className="rounded-lg border border-line bg-coral/5 px-3 py-2 text-xs text-coral">{notice}</div>
+        ) : null}
         {step === 1 ? (
           <>
             <label>
@@ -117,6 +165,33 @@ export function OrderCreateModal({
               Order value (ETB)
               <input type="number" min="0" step="50" placeholder="e.g. 4500" value={amount || ""} onChange={(e) => setAmount(Number(e.target.value))} />
             </label>
+            <div>
+              <span className="block mb-1">Design file (optional)</span>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.ai,.eps,.cdr,.png,.jpg,.jpeg,.webp,.svg,.gif,.tif,.tiff,.bmp,application/pdf,image/*"
+                onChange={onFileChange}
+                className="w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-cyan/10 file:text-cyan-dark file:font-semibold file:cursor-pointer hover:file:bg-cyan/20"
+              />
+              {file ? (
+                <div className="mt-2 flex items-center justify-between gap-2 rounded-lg border border-line bg-gray-50 px-3 py-2">
+                  <span className="flex items-center gap-2 min-w-0">
+                    <FileImage size={15} className="text-cyan-dark flex-none" />
+                    <strong className="text-xs font-semibold text-navy truncate">{file.name}</strong>
+                    <small className="text-[9px] text-gray-500">{(file.size / 1024).toFixed(0)} KB</small>
+                  </span>
+                  <button
+                    type="button"
+                    className="flex-none text-gray-400 hover:text-coral"
+                    onClick={() => { setFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}
+                    aria-label="Remove design file"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ) : null}
+            </div>
           </>
         ) : null}
         {step === 3 ? (

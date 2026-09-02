@@ -363,7 +363,7 @@ export function OperationsDashboard() {
                   <Plus size={16} />Add machine
                 </button>
               ) : null}
-              {visibleView === "overview" && canCreateOrder ? (
+              {visibleView === "overview" && role !== "owner" && canCreateOrder ? (
                 <button 
                   className="inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold rounded-lg bg-primary text-primary-foreground shadow-custom transition-colors hover:bg-navy-2"
                   onClick={() => openModal("order", "order.create")}
@@ -484,6 +484,8 @@ export function OperationsDashboard() {
                 preferredDueDate: input.preferredDueDate,
                 priority: input.priority,
                 notes: input.notes || undefined,
+                fileStorageId: input.fileStorageId,
+                fileName: input.fileName || undefined,
               }),
               `${input.clientName} ተዘርግቧል እና ትዕዛዝ ተመዝግቧል`,
             );

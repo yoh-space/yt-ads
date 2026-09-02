@@ -65,6 +65,7 @@ export function MachinesView({
     manager: { action: "Coordinate operations", detail: "Manager control room", unit: "All units" },
     admin: { action: "View machine plan", detail: "Monitor every production lane and active allocation.", unit: "Enterprise view" },
     storekeeper: { action: "Issue material", detail: "Confirm issued quantity against the job card and unit rule.", unit: "Store issue mode" },
+    receptionist: { action: "Register customer order", detail: "Take walk-in orders and confirm payment at the front desk.", unit: "Reception desk" },
     laser_operator: { action: "Measure acrylic offcut", detail: "Record usable acrylic or foam sections in square meters.", unit: "Sheet area m\u00B2" },
     cnc_operator: { action: "Confirm board cut", detail: "Track wood or aluminium sheet output against the assigned job.", unit: "Board area m\u00B2" },
     plotter_operator: { action: "Advance vinyl roll", detail: "Capture roll consumption and plotter output in running meters.", unit: "Roll length m" },

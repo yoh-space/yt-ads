@@ -243,6 +243,8 @@ export const createWalkIn = mutation({
       priority: args.priority ?? "Medium",
       source: "walk_in",
       notes: args.notes?.trim() || undefined,
+      fileStorageId: args.fileStorageId,
+      fileName: args.fileName?.trim() || undefined,
       createdBy: identity._id,
       createdAt: now,
       updatedAt: now,
