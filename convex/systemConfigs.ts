@@ -129,11 +129,19 @@ export const updateSystemConfig = mutation({
  * configuration value. Returns the resolved document.
  */
 export async function ensureSystemConfig(ctx: MutationCtx, actorAuthUserId?: string): Promise<SystemConfig> {
-  const existing = await ctx.db
+  let existing = await ctx.db
     .query("systemConfigs")
     .withIndex("by_key", (q) => q.eq("key", CONFIG_KEY))
     .unique();
   if (existing) {
+    // Backfill any newer fields the stored row predates so callers always get
+    // the full typed config without null guards.
+    const patch = {} as Record<string, unknown>;
+    if (existing.orderExpirationHours === undefined) patch.orderExpirationHours = DEFAULT_SYSTEM_CONFIG.orderExpirationHours;
+    if (Object.keys(patch).length > 0) {
+      await ctx.db.patch(existing._id, { ...patch, updatedAt: Date.now() });
+      existing = (await ctx.db.get(existing._id))!;
+    }
     return existing as SystemConfig;
   }
   const id = await ctx.db.insert("systemConfigs", {

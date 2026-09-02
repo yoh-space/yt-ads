@@ -492,7 +492,7 @@ export default defineSchema({
     /** ETB threshold above which a direct stock-out must be approved. */
     maxDirectStockOutEtb: v.number(),
     /** Order expiration window in hours for unpaid/unconfirmed orders. */
-    orderExpirationHours: v.number(),
+    orderExpirationHours: v.optional(v.number()),
     updatedAt: v.number(),
     updatedBy: v.optional(v.string()),
   })
