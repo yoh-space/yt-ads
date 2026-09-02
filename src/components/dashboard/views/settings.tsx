@@ -753,7 +753,7 @@ function OperationalPanel() {
     setMinOffcutAreaSquareMetre(config.minOffcutAreaSquareMetre);
     setRequireAdminPinForExceptions(config.requireAdminPinForExceptions);
     setMaxDirectStockOutEtb(config.maxDirectStockOutEtb);
-    setOrderExpirationHours(config.orderExpirationHours);
+    setOrderExpirationHours(config.orderExpirationHours ?? 12);
     setOverrides(config.materialOverrides.map((row) => ({ materialName: row.materialName, etbValue: row.etbValue })));
     setHydrated(true);
   }, [config, hydrated]);
