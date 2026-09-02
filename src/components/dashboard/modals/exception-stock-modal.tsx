@@ -23,8 +23,15 @@ export function ExceptionStockModal({ materials, onClose, onSave }: { materials:
       title="Fast material issue"
       subtitle="For small tasks that do not need a formal job card. Every issue is audited separately."
       onClose={onClose}
+      footer={
+        <div className="flex items-center justify-end gap-3 w-full">
+          <Button variant="tertiary" type="button" onClick={onClose}>Cancel</Button>
+          <Button type="submit" form="exception-stock-form">Record exception stock-out</Button>
+        </div>
+      }
     >
       <form
+        id="exception-stock-form"
         className="space-y-5"
         onSubmit={(event) => {
           event.preventDefault();
@@ -85,11 +92,6 @@ export function ExceptionStockModal({ materials, onClose, onSave }: { materials:
         <div className="flex items-center gap-2 text-xs text-gray-500 bg-gold/10 border border-gold/20 rounded-lg px-3 py-2.5">
           <AlertTriangle size={14} className="text-gold flex-none" />
           Exceptions are excluded from job-card accounting and flagged in the audit report.
-        </div>
-
-        <div className="flex items-center justify-end gap-3 pt-1">
-          <Button variant="tertiary" type="button" onClick={onClose}>Cancel</Button>
-          <Button type="submit">Record exception stock-out</Button>
         </div>
       </form>
     </ModalShell>

@@ -167,7 +167,7 @@ export function MaterialModal({
       subtitle="Choose a standard material definition and record its exact type or size."
       onClose={onClose}
       footer={
-        <div className="flex items-center justify-between pt-4 border-t border-line">
+        <div className="flex items-center justify-between w-full">
           <button 
             className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg border border-line bg-white text-navy transition-colors hover:border-gray-300 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2"
             type="button" 

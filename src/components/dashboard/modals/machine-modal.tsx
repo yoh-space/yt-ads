@@ -6,6 +6,7 @@ import type { MachineStatus, Role, Unit } from "@/lib/operations-types";
 import { roleLabels } from "@/lib/operations-types";
 import { baseUnitOptions } from "../nav-config";
 import { ModalShell } from "./modal-shell";
+import { Button } from "@/components/ui";
 
 export type NewMachineInput = {
   name: string;
@@ -41,8 +42,16 @@ export function MachineModal({
   const [status, setStatus] = useState<MachineStatus>("Available");
 
   return (
-    <ModalShell title="Add production machine" subtitle="Attach an unlimited number of machines to a dedicated operator workflow." onClose={onClose}>
+    <ModalShell
+      title="Add production machine" subtitle="Attach an unlimited number of machines to a dedicated operator workflow." onClose={onClose}
+      footer={
+        <Button type="submit" form="new-machine-form">
+          Add machine <Plus size={16} />
+        </Button>
+      }
+    >
       <form
+        id="new-machine-form"
         className="modal-form"
         onSubmit={(event) => {
           event.preventDefault();
@@ -86,7 +95,6 @@ export function MachineModal({
           </label>
         </div>
         <label>Status<select value={status} onChange={(event) => setStatus(event.target.value as MachineStatus)}><option>Running</option><option>Available</option><option>Maintenance</option></select></label>
-        <button className="button primary full" type="submit">Add machine <Plus size={16} /></button>
       </form>
     </ModalShell>
   );

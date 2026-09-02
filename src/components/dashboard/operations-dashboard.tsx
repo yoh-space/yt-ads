@@ -184,7 +184,7 @@ export function OperationsDashboard() {
       `complete-job-${jobId}`,
       completeJobMutation({ jobId: jobId as Id<"jobCards"> }),
       () => {
-        const message = "የሥራ ካርዱ ተጠናቋል፤ መዝገቡ ተዘምኗል";
+        const message = "የሥራ ካርዱ ተጠናቋል፤ መዝገቡ update ሆኗል";
         setNotice(message);
         toast.success(message);
       },
@@ -212,7 +212,7 @@ export function OperationsDashboard() {
     finishMutation(
       `issue-${requestId}`,
       issueMaterialRequest({ requestId: requestId as Id<"materialRequests">, issuedQuantity }),
-      "እቃው ተሰጥቷል፤ ክምችቱ ተዘምኗል",
+      "እቃው ተሰጥቷል፤ ክምችቱ update ሆኗል",
     );
   }
 
@@ -234,7 +234,7 @@ export function OperationsDashboard() {
         wasteQuantity,
       }),
       () => {
-        const message = "የምርት መዝገቡ ተቀምጧል፤ ክምችት ተዘምኗል";
+        const message = "የምርት መዝገቡ ተቀምጧል፤ ክምችት update ሆኗል";
         setNotice(message);
         toast.success(message);
       },

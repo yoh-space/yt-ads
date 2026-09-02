@@ -5,6 +5,7 @@ import { ArrowUpRight, Scissors } from "lucide-react";
 import type { Material } from "@/lib/operations-types";
 import { calculateOffcutArea } from "@/lib/units";
 import { ModalShell } from "./modal-shell";
+import { Button } from "@/components/ui";
 
 export type NewOffcutInput = {
   materialId: string;
@@ -34,8 +35,15 @@ export function OffcutModal({
       title="Log usable offcut"
       subtitle="Return a reusable sheet piece to active inventory and a physical rack location."
       onClose={onClose}
+      footer={
+        <Button type="submit" form="offcut-form">
+          Return to active inventory
+          <ArrowUpRight size={16} />
+        </Button>
+      }
     >
       <form
+        id="offcut-form"
         className="space-y-6"
         onSubmit={(event) => {
           event.preventDefault();
@@ -102,14 +110,6 @@ export function OffcutModal({
             className="w-full px-3 py-2 text-sm border border-line rounded-lg bg-white text-navy placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan focus:border-transparent transition-colors"
           />
         </div>
-        
-        <button 
-          className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold rounded-lg bg-navy text-white shadow-sm transition-colors hover:bg-navy-2 focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2"
-          type="submit"
-        >
-          Return to active inventory 
-          <ArrowUpRight size={16} />
-        </button>
       </form>
     </ModalShell>
   );

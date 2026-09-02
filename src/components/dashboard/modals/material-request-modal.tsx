@@ -5,6 +5,7 @@ import { ClipboardPlus } from "lucide-react";
 import type { JobCard, Material, Unit } from "@/lib/operations-types";
 import { formatQuantity } from "@/lib/units";
 import { ModalShell } from "./modal-shell";
+import { Button } from "@/components/ui";
 
 export type NewMaterialRequestInput = {
   jobCardId: string;
@@ -35,11 +36,22 @@ export function MaterialRequestModal({
   const materialOptions = useMemo(() => materials, [materials]);
 
   return (
-    <ModalShell title="Request material" subtitle="One short request for the selected job. The storekeeper will confirm the issued quantity." onClose={onClose}>
+    <ModalShell
+      title="Request material" subtitle="One short request for the selected job. The storekeeper will confirm the issued quantity." onClose={onClose}
+      footer={
+        activeJobs.length === 0 ? undefined : (
+          <div className="flex items-center justify-end gap-3 w-full">
+            <Button variant="tertiary" type="button" onClick={onClose}>Cancel</Button>
+            <Button type="submit" form="material-request-form">Request material <ClipboardPlus size={16} /></Button>
+          </div>
+        )
+      }
+    >
       {activeJobs.length === 0 ? (
         <div className="empty-state">No active job cards are available for a material request.</div>
       ) : (
         <form
+          id="material-request-form"
           className="modal-form"
           onSubmit={(event) => {
             event.preventDefault();
@@ -80,7 +92,6 @@ export function MaterialRequestModal({
             Note <input placeholder="Optional note" value={note} onChange={(event) => setNote(event.target.value)} />
           </label>
           <div className="conversion-box"><ClipboardPlus size={17} /><span>Request stays simple: select, quantity, submit.</span></div>
-          <button className="button primary full" type="submit">Request material <ClipboardPlus size={16} /></button>
         </form>
       )}
     </ModalShell>

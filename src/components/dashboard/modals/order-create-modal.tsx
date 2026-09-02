@@ -68,8 +68,20 @@ export function OrderCreateModal({
   }
 
   return (
-    <ModalShell title="New customer order" subtitle="Register a walk-in or phone order. After acceptance, convert it to a job card with machine and material assignment." step={step} onClose={onClose}>
-      <form className="modal-form" onSubmit={handleSubmit}>
+    <ModalShell
+      title="New customer order" subtitle="Register a walk-in or phone order. After acceptance, convert it to a job card with machine and material assignment."
+      step={step}
+      onClose={onClose}
+      footer={
+        <div className="flex items-center justify-between w-full">
+          <button type="button" className="button tertiary" onClick={() => (step === 1 ? onClose() : setStep(step - 1))}>{step === 1 ? "Cancel" : "Back"}</button>
+          <button className="button primary" type="submit" form="new-order-form" disabled={submitting}>
+            {step === 3 ? (submitting ? "Creating…" : "Create order") : "Continue"} <ArrowUpRight size={16} />
+          </button>
+        </div>
+      }
+    >
+      <form id="new-order-form" className="modal-form" onSubmit={handleSubmit}>
         {step === 1 ? (
           <>
             <label>
@@ -132,12 +144,6 @@ export function OrderCreateModal({
             </div>
           </>
         ) : null}
-        <div className="modal-actions">
-          <button type="button" className="button tertiary" onClick={() => (step === 1 ? onClose() : setStep(step - 1))}>{step === 1 ? "Cancel" : "Back"}</button>
-          <button className="button primary" type="submit" disabled={submitting}>
-            {step === 3 ? (submitting ? "Creating…" : "Create order") : "Continue"} <ArrowUpRight size={16} />
-          </button>
-        </div>
       </form>
     </ModalShell>
   );

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import { Building2, Save } from "lucide-react";
 import { ModalShell } from "./modal-shell";
+import { Button } from "@/components/ui";
 
 export function CompanySettingsModal({ onClose }: { onClose: () => void }) {
   const company = useQuery(api.users.getCompanySettings);
@@ -40,7 +41,15 @@ export function CompanySettingsModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <ModalShell title="Company Profile" subtitle="Manage workspace branding and company information." onClose={onClose}>
+    <ModalShell
+      title="Company Profile" subtitle="Manage workspace branding and company information." onClose={onClose}
+      footer={
+        <Button type="submit" form="company-settings-form" disabled={busy}>
+          <Save size={15} />
+          {busy ? "Saving…" : "Save company settings"}
+        </Button>
+      }
+    >
       <div className="modal-form">
         <section className="settings-section">
           <div className="settings-section-head">
@@ -50,7 +59,7 @@ export function CompanySettingsModal({ onClose }: { onClose: () => void }) {
               <span>Owner-only workspace settings.</span>
             </div>
           </div>
-          <form onSubmit={saveCompany}>
+          <form id="company-settings-form" onSubmit={saveCompany}>
             <label>
               Company name
               <input required value={companyName} onChange={(event) => setCompanyName(event.target.value)} />
@@ -59,10 +68,6 @@ export function CompanySettingsModal({ onClose }: { onClose: () => void }) {
               Logo URL
               <input placeholder="Optional logo image URL" value={logoUrl} onChange={(event) => setLogoUrl(event.target.value)} />
             </label>
-            <button className="button primary" type="submit" disabled={busy}>
-              <Save size={15} />
-              Save company settings
-            </button>
           </form>
         </section>
         {message ? <p className="form-message">{message}</p> : null}

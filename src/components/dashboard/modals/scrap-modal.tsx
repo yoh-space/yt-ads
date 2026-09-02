@@ -7,6 +7,7 @@ import { ArrowUpRight, Trash2 } from "lucide-react";
 import type { Material, Unit } from "@/lib/operations-types";
 import { formatQuantity } from "@/lib/units";
 import { ModalShell } from "./modal-shell";
+import { Button } from "@/components/ui";
 
 export type NewScrapInput = {
   materialId: string;
@@ -56,8 +57,16 @@ export function ScrapModal({
   };
 
   return (
-    <ModalShell title="Log unusable scrap" subtitle="Record non-recoverable waste separately so the wastage metric and discrepancy view remain accurate." onClose={onClose}>
-      <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
+    <ModalShell
+      title="Log unusable scrap" subtitle="Record non-recoverable waste separately so the wastage metric and discrepancy view remain accurate." onClose={onClose}
+      footer={
+        <Button type="submit" form="scrap-form">
+          Save scrap record
+          <ArrowUpRight size={16} />
+        </Button>
+      }
+    >
+      <form id="scrap-form" className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
         <div>
           <label className="block text-sm font-semibold text-navy mb-2">
             Material
@@ -117,14 +126,6 @@ export function ScrapModal({
             {formatQuantity(quantity, material?.unit ?? ("m²" as Unit))}
           </span>
         </div>
-        
-        <button 
-          className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold rounded-lg bg-navy text-white shadow-sm transition-colors hover:bg-navy-2 focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2"
-          type="submit"
-        >
-          Save scrap record 
-          <ArrowUpRight size={16} />
-        </button>
       </form>
     </ModalShell>
   );

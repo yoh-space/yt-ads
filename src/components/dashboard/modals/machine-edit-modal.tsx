@@ -6,6 +6,7 @@ import type { Machine, MachineStatus, Role, Unit } from "@/lib/operations-types"
 import { roleLabels } from "@/lib/operations-types";
 import { baseUnitOptions } from "../nav-config";
 import { ModalShell } from "./modal-shell";
+import { Button } from "@/components/ui";
 
 type MachineEditInput = {
   name?: string;
@@ -41,8 +42,16 @@ export function MachineEditModal({
   const [materialUnit, setMaterialUnit] = useState<Unit>(machine.materialUnit);
 
   return (
-    <ModalShell title={`Edit ${machine.name}`} subtitle="Update machine configuration and operator assignment." onClose={onClose}>
+    <ModalShell
+      title={`Edit ${machine.name}`} subtitle="Update machine configuration and operator assignment." onClose={onClose}
+      footer={
+        <Button type="submit" form="edit-machine-form">
+          Save changes <Save size={16} />
+        </Button>
+      }
+    >
       <form
+        id="edit-machine-form"
         className="modal-form"
         onSubmit={(event) => {
           event.preventDefault();
@@ -84,7 +93,6 @@ export function MachineEditModal({
             </select>
           </label>
         </div>
-        <button className="button primary full" type="submit">Save changes <Save size={16} /></button>
       </form>
     </ModalShell>
   );

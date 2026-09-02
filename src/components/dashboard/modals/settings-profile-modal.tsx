@@ -8,6 +8,7 @@ import { authClient } from "@/lib/auth-client";
 import type { Profile } from "@/lib/operations-types";
 import { Save, UserRound } from "lucide-react";
 import { ModalShell } from "./modal-shell";
+import { Button } from "@/components/ui";
 
 export function ProfileSettingsModal({
   profile,
@@ -43,7 +44,15 @@ export function ProfileSettingsModal({
   }
 
   return (
-    <ModalShell title="Personal Profile" subtitle="Update your name and profile image." onClose={onClose}>
+    <ModalShell
+      title="Personal Profile" subtitle="Update your name and profile image." onClose={onClose}
+      footer={
+        <Button type="submit" form="profile-settings-form" disabled={busy}>
+          <Save size={15} />
+          {busy ? "Saving…" : "Save profile"}
+        </Button>
+      }
+    >
       <div className="modal-form">
         <section className="settings-section">
           <div className="settings-section-head">
@@ -53,7 +62,7 @@ export function ProfileSettingsModal({
               <span>{profile.email}</span>
             </div>
           </div>
-          <form onSubmit={saveProfile}>
+          <form id="profile-settings-form" onSubmit={saveProfile}>
             <label>
               Display name
               <input required value={name} onChange={(event) => setName(event.target.value)} />
@@ -62,10 +71,6 @@ export function ProfileSettingsModal({
               Profile image URL
               <input placeholder="Optional image URL" value={image} onChange={(event) => setImage(event.target.value)} />
             </label>
-            <button className="button primary" type="submit" disabled={busy}>
-              <Save size={15} />
-              Save profile
-            </button>
           </form>
         </section>
         {message ? <p className="form-message">{message}</p> : null}

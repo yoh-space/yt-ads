@@ -308,7 +308,7 @@ export function ReportsView({ canSeeFinancial = false }: { canSeeFinancial?: boo
           <PanelHead
             kicker="DIRECT EXCEPTION STOCK-OUT"
             tone="coral"
-            title="ከትዕዛዝ ያልተፈለገ የእቃ ማውደም"
+            title="ያለ የሥራ ካርድ የተሰጠ እቃ"
             note="Materials issued without job cards during this period"
             icon={<AlertTriangle size={19} />}
           />

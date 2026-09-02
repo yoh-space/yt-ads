@@ -121,8 +121,31 @@ export function JobModal({
   };
 
   return (
-    <ModalShell title="Create job card" subtitle="Link order, machinery, and material deduction in one workflow." step={step} onClose={onClose}>
-      <form className="space-y-6" onSubmit={goNext}>
+    <ModalShell
+      title="Create job card" subtitle="Link order, machinery, and material deduction in one workflow."
+      step={step}
+      onClose={onClose}
+      footer={
+        <div className="flex items-center justify-between w-full">
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg border border-line bg-white text-navy transition-colors hover:border-gray-300 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2"
+            onClick={() => (step === 1 ? onClose() : setStep(step - 1))}
+          >
+            {step === 1 ? "Cancel" : "Back"}
+          </button>
+          <button
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-navy text-white shadow-sm transition-colors hover:bg-navy-2 focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2"
+            type="submit"
+            form="new-job-form"
+          >
+            {step === 3 ? "Create job card" : "Continue"}
+            <ArrowUpRight size={16} />
+          </button>
+        </div>
+      }
+    >
+      <form id="new-job-form" className="space-y-6" onSubmit={goNext}>
         {step === 1 ? (
           <div className="space-y-4">
             <div>
@@ -185,8 +208,7 @@ export function JobModal({
         ) : null}
         
         {step === 3 ? (
-          <div className="space-y-4">
-            <div>
+          <div className="space-y-4">            <div>
               <label className="block text-sm font-semibold text-navy mb-2">
                 Raw material
               </label>
@@ -257,23 +279,6 @@ export function JobModal({
             <input type="hidden" {...register("unit")} value={material?.unit ?? "m²"} />
           </div>
         ) : null}
-        
-        <div className="flex items-center justify-between pt-4 border-t border-line">
-          <button 
-            type="button" 
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg border border-line bg-white text-navy transition-colors hover:border-gray-300 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2"
-            onClick={() => (step === 1 ? onClose() : setStep(step - 1))}
-          >
-            {step === 1 ? "Cancel" : "Back"}
-          </button>
-          <button 
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-navy text-white shadow-sm transition-colors hover:bg-navy-2 focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2"
-            type="submit"
-          >
-            {step === 3 ? "Create job card" : "Continue"} 
-            <ArrowUpRight size={16} />
-          </button>
-        </div>
       </form>
     </ModalShell>
   );

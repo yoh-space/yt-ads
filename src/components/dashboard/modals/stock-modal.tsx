@@ -8,6 +8,7 @@ import type { InputUnit } from "@/lib/units";
 import type { Material } from "@/lib/operations-types";
 import { convertToBase, formatQuantity } from "@/lib/units";
 import { ModalShell } from "./modal-shell";
+import { Button } from "@/components/ui";
 import { cn } from "@/lib/utils";
 
 function inputUnitsFor(material?: Material): InputUnit[] {
@@ -89,8 +90,21 @@ export function StockModal({
       title="Stock movement"
       subtitle="Record a purchase-unit movement and convert it into the tracked base unit."
       onClose={onClose}
+      footer={
+        <div className="flex gap-3 justify-end">
+          <Button type="button" variant="tertiary" onClick={onClose}>Cancel</Button>
+          <Button
+            type="submit"
+            form="stock-movement-form"
+            variant="primary"
+          >
+            Save stock movement
+            <ArrowUpRight size={16} />
+          </Button>
+        </div>
+      }
     >
-      <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
+      <form id="stock-movement-form" className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
         <div className="flex gap-3 p-3 bg-gray-50 border border-line rounded-lg">
           <button 
             type="button" 
@@ -216,14 +230,6 @@ export function StockModal({
             className="w-full px-3 py-2 text-sm border border-line rounded-lg bg-white text-navy placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan focus:border-transparent transition-colors"
           />
         </div>
-        
-        <button 
-          className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold rounded-lg bg-navy text-white shadow-sm transition-colors hover:bg-navy-2 focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2"
-          type="submit"
-        >
-          Save stock movement 
-          <ArrowUpRight size={16} />
-        </button>
       </form>
     </ModalShell>
   );

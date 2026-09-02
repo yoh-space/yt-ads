@@ -66,8 +66,16 @@ export function ReconciliationModal({
   };
 
   return (
-    <ModalShell title="Physical stock count" subtitle="Record the physically counted quantity for a material. The system balance and variance are computed automatically." onClose={onClose}>
-      <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
+    <ModalShell
+      title="Physical stock count" subtitle="Record the physically counted quantity for a material. The system balance and variance are computed automatically." onClose={onClose}
+      footer={
+        <div className="flex items-center justify-end gap-3 w-full">
+          <Button variant="tertiary" type="button" onClick={onClose}>Cancel</Button>
+          <Button type="submit" form="recon-form"><PackagePlus size={16} />Record count</Button>
+        </div>
+      }
+    >
+      <form id="recon-form" className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
         <div>
           <label className="block text-sm font-semibold text-navy mb-1.5" htmlFor="recon-material">Material</label>
           <Select id="recon-material" {...register("materialId")} className="w-full">
@@ -114,11 +122,6 @@ export function ReconciliationModal({
             Note <span className="ml-1 text-xs font-normal text-gray-500">Count source, order/cycle, or observations</span>
           </label>
           <Input id="recon-note" placeholder="e.g. End-of-week shelf count, Rack B" {...register("note")} className="w-full" />
-        </div>
-
-        <div className="flex items-center justify-end gap-3 pt-1">
-          <Button variant="tertiary" type="button" onClick={onClose}>Cancel</Button>
-          <Button type="submit"><PackagePlus size={16} />Record count</Button>
         </div>
       </form>
     </ModalShell>
