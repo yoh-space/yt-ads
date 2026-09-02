@@ -24,7 +24,7 @@ import { ReportsView } from "./views/reports";
 import { ReconciliationView } from "./views/reconciliation";
 import { AuditLogView } from "./views/audit-log";
 import { SettingsView } from "./views/settings";
-import { OrdersView, OrderConvertModal } from "./views/orders";
+import { OrdersView, OrderPriceModal, OrderConfirmModal } from "./views/orders";
 import { StockModal } from "./modals/stock-modal";
 import { OffcutModal, type NewOffcutInput } from "./modals/offcut-modal";
 import { ReconciliationModal, type NewReconciliationInput } from "./modals/reconciliation-modal";
@@ -91,7 +91,8 @@ export function OperationsDashboard() {
   const createMaterialRequest = useMutation(api.materialRequests.create);
   const issueMaterialRequest = useMutation(api.materialRequests.issue);
   const acknowledgeMaterialRequest = useMutation(api.materialRequests.acknowledge);
-  const convertOrder = useMutation(api.orders.convertToJob);
+  const priceOrder = useMutation(api.orders.priceOrder);
+  const confirmOrderAndIssueJobCard = useMutation(api.orders.confirmOrderAndIssueJobCard);
   const updateOrderStatus = useMutation(api.orders.setStatus);
   const recordExceptionStockOut = useMutation(api.orders.recordExceptionStockOut);
   const notifyOverdue = useMutation(api.orders.notifyOverdue);
@@ -560,7 +561,49 @@ export function OperationsDashboard() {
           onSave={requestMaterial}
         />
       ) : null}
-      {convertOrderTarget ? <OrderConvertModal order={convertOrderTarget} machines={machines} materials={materials} onClose={() => setConvertOrderTarget(null)} onSave={(input) => finishMutation(`convert-${convertOrderTarget.id}`, convertOrder({ orderId: convertOrderTarget.id as Id<"customerOrders">, machineId: input.machineId as Id<"machines">, materialId: input.materialId as Id<"materials">, quantity: input.quantity, unit: input.unit, priority: input.priority }).then((result) => { setConvertOrderTarget(null); return result; }), "Order converted to a job card")} /> : null}
+      {convertOrderTarget && convertOrderTarget.status === "PENDING_REVIEW" ? (
+        <OrderPriceModal
+          order={convertOrderTarget}
+          onClose={() => setConvertOrderTarget(null)}
+          onSave={(amount) =>
+            finishMutation(
+              `price-${convertOrderTarget.id}`,
+              priceOrder({ orderId: convertOrderTarget.id as Id<"customerOrders">, amount }).then((result) => {
+                setConvertOrderTarget(null);
+                return result;
+              }),
+              `${convertOrderTarget.code} priced · awaiting payment`,
+            )
+          }
+        />
+      ) : null}
+      {convertOrderTarget && convertOrderTarget.status === "PRICED_AND_PENDING_PAYMENT" ? (
+        <OrderConfirmModal
+          order={convertOrderTarget}
+          machines={machines}
+          materials={materials}
+          onClose={() => setConvertOrderTarget(null)}
+          onSave={(input: { paymentDecision: "PAID" | "APPROVED_CREDIT"; paymentMethod?: string; machineId: string; materialId: string; quantity: number; unit: Material["unit"]; priority?: CustomerOrder["priority"] }) =>
+            finishMutation(
+              `confirm-${convertOrderTarget.id}`,
+              confirmOrderAndIssueJobCard({
+                orderId: convertOrderTarget.id as Id<"customerOrders">,
+                paymentDecision: input.paymentDecision,
+                paymentMethod: input.paymentMethod,
+                machineId: input.machineId as Id<"machines">,
+                materialId: input.materialId as Id<"materials">,
+                quantity: input.quantity,
+                unit: input.unit,
+                priority: input.priority,
+              }).then((result) => {
+                setConvertOrderTarget(null);
+                return result;
+              }),
+              "Order confirmed · job card issued",
+            )
+          }
+        />
+      ) : null}
       {modal === "reconciliation" && canRecordReconciliation ? (
         <ReconciliationModal
           materials={materials}

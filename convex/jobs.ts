@@ -7,6 +7,7 @@ import { notifyRoles, notifyUser } from "./notificationHelpers";
 import { assertProductionQuantities } from "./validation";
 import { classifyMaterialProductionType, computeJobConsumption, resolveEtbValue } from "./materialUsage";
 import { calculateOffcutArea } from "./units";
+import { deductOperatorStock } from "./inventory";
 
 async function notifyOrderCompletion(ctx: any, orderId: any, actorAuthUserId: string) {
   const order = await ctx.db.get(orderId);
@@ -87,7 +88,7 @@ async function recordProductionInternal(ctx: any, args: ProductionInput, operato
   });
   await ctx.db.patch(job._id, { status: "In production" });
   if (job.orderId) {
-    await ctx.db.patch(job.orderId, { status: "In Production", updatedAt: Date.now() });
+    await ctx.db.patch(job.orderId, { status: "IN_PRODUCTION", updatedAt: Date.now() });
   }
   const machine = await ctx.db.get(job.machineId);
   if (machine && machine.status !== "Running") {
@@ -285,6 +286,10 @@ async function recordAutomaticDeduction(ctx: any, job: any, material: any, actor
   }
 
   const etb = resolveEtbValue(material);
+  
+  // Deduct from operator machine stock (tier 2)
+  const floorDeducted = await deductOperatorStock(ctx, job.machineId, job.materialId, rawToDeduct);
+
   return {
     deducted: true,
     productionType: bom.productionType,
@@ -294,6 +299,7 @@ async function recordAutomaticDeduction(ctx: any, job: any, material: any, actor
     inkMl: bom.inkMl,
     unit: bom.unit,
     etbValue: etb,
+    floorDeducted,
   };
 }
 
@@ -317,7 +323,7 @@ export const complete = mutation({
 
     await ctx.db.patch(args.jobId, { status: "Completed" });
     if (job.orderId) {
-      await ctx.db.patch(job.orderId, { status: "Ready for Pickup", updatedAt: Date.now() });
+      await ctx.db.patch(job.orderId, { status: "COMPLETED", updatedAt: Date.now() });
       await notifyOrderCompletion(ctx, job.orderId, identity._id);
     }
     await ctx.db.patch(machine._id, { status: "Available", activeJob: undefined });

@@ -8,7 +8,7 @@ import { Button, Panel, PanelHeader, StatusPill } from "@/components/ui";
 import { ModalShell } from "../modals/modal-shell";
 import { cn } from "@/lib/utils";
 
-const statuses: Array<CustomerOrderStatus | "all"> = ["all", "Received", "In Production", "Ready for Pickup", "Completed"];
+const statuses: Array<CustomerOrderStatus | "all"> = ["all", "PENDING_REVIEW", "PRICED_AND_PENDING_PAYMENT", "CONFIRMED_PAID_OR_CREDIT", "JOB_CARD_CREATED", "IN_PRODUCTION", "COMPLETED", "Expired"];
 const priorities: Array<OrderPriority | "all"> = ["all", "High", "Medium", "Low"];
 
 function formatDue(timestamp: number) {
@@ -44,13 +44,13 @@ export function OrdersView({
   const filtered = useMemo(() => orders.filter((order) => {
     const haystack = `${order.code} ${order.clientName} ${order.phone} ${order.serviceType} ${order.dimensions}`.toLowerCase();
     return (!search || haystack.includes(search.toLowerCase()))
-      && (status === "all" || order.status === status)
+      && (status === "all" ? order.status !== "Expired" : order.status === status)
       && (priority === "all" || order.priority === priority)
       && (machine === "all" || order.machineId === machine);
   }), [machine, orders, priority, search, status]);
 
   const overdue = orders.filter((order) => order.overdue).length;
-  const pending = orders.filter((order) => order.status !== "Completed").length;
+  const pending = orders.filter((order) => order.status !== "COMPLETED").length;
 
   return (
     <div className="space-y-6">
@@ -171,7 +171,7 @@ export function OrdersView({
               {/* Status */}
               <div className="min-w-0">
                 <StatusPill 
-                  variant={order.status === "Completed" ? "success" : order.overdue ? "warning" : "info"}
+                  variant={order.status === "COMPLETED" ? "success" : order.overdue ? "warning" : "info"}
                 >
                   {order.status}
                 </StatusPill>
@@ -180,33 +180,34 @@ export function OrdersView({
               
               {/* Actions */}
               <div className="flex items-center gap-2">
-                {canManage && !order.jobCardId && order.status !== "Completed" ? (
+                {canManage && !order.jobCardId && order.status === "PENDING_REVIEW" ? (
                   <Button 
                     size="small" 
                     variant="primary" 
-                    disabled={isPending(`convert-${order.id}`)} 
+                    disabled={isPending(`price-${order.id}`)} 
                     onClick={() => onConvert(order)}
                   >
                     <Wrench size={13} />
-                    {isPending(`convert-${order.id}`) ? "Creating…" : "Create Job Card"}
+                    {isPending(`price-${order.id}`) ? "Pricing…" : "Price Order"}
                   </Button>
                 ) : null}
-                {canManage && order.jobCardId && order.status === "In Production" ? (
+                {canManage && !order.jobCardId && order.status === "PRICED_AND_PENDING_PAYMENT" ? (
                   <Button 
                     size="small" 
-                    variant="secondary" 
-                    disabled={isPending(`order-status-${order.id}`)} 
-                    onClick={() => onStatus(order.id, "Ready for Pickup")}
+                    variant="primary" 
+                    disabled={isPending(`confirm-${order.id}`)} 
+                    onClick={() => onConvert(order)}
                   >
-                    {isPending(`order-status-${order.id}`) ? "Saving..." : "Ready"}
+                    <Wrench size={13} />
+                    {isPending(`confirm-${order.id}`) ? "Confirming…" : "Confirm & Issue Job Card"}
                   </Button>
                 ) : null}
-                {canManage && order.status === "Ready for Pickup" ? (
+                {canManage && order.jobCardId && order.status === "IN_PRODUCTION" ? (
                   <Button 
                     size="small" 
                     variant="secondary" 
                     disabled={isPending(`order-status-${order.id}`)} 
-                    onClick={() => onStatus(order.id, "Completed")}
+                    onClick={() => onStatus(order.id, "COMPLETED")}
                   >
                     {isPending(`order-status-${order.id}`) ? "Saving..." : "Complete"}
                   </Button>
@@ -222,19 +223,15 @@ export function OrdersView({
   );
 }
 
-export function OrderConvertModal({ order, machines, materials, onClose, onSave }: { order: CustomerOrder; machines: Machine[]; materials: Material[]; onClose: () => void; onSave: (input: { machineId: string; materialId: string; quantity: number; unit: Material["unit"]; priority?: OrderPriority }) => void }) {
-  const [machineId, setMachineId] = useState(machines[0]?.id ?? "");
-  const [materialId, setMaterialId] = useState(materials[0]?.id ?? "");
-  const [quantity, setQuantity] = useState(1);
+export function OrderPriceModal({ order, onClose, onSave }: { order: CustomerOrder; onClose: () => void; onSave: (amount: number) => void }) {
+  const [amount, setAmount] = useState(order.amount || 0);
   const [submitting, setSubmitting] = useState(false);
-  const material = materials.find((entry) => entry.id === materialId);
-  const machine = machines.find((entry) => entry.id === machineId);
 
   return (
     <ModalShell
-      title={`${order.code} → New Job Card`}
-      subtitle="All client details are carried from the customer order. Select machine and material."
-      kicker="CREATE JOB CARD"
+      title={`${order.code} · Set Price`}
+      subtitle="Enter the final total price in ETB. The order will move to payment verification."
+      kicker="PRICE ORDER"
       onClose={onClose}
       footer={
         <div className="flex gap-3 justify-end">
@@ -242,16 +239,87 @@ export function OrderConvertModal({ order, machines, materials, onClose, onSave 
           <Button 
             type="submit" 
             variant="primary" 
-            disabled={submitting}
+            disabled={submitting || amount <= 0}
             onClick={() => {
-              if (submitting) return;
-              if (machineId && materialId && quantity > 0) {
-                setSubmitting(true);
-                onSave({ machineId, materialId, quantity, unit: material?.baseUnit ?? material?.unit ?? "m²", priority: order.priority });
-              }
+              if (submitting || amount <= 0) return;
+              setSubmitting(true);
+              onSave(amount);
             }}
           >
-            {submitting ? "Creating…" : "Create job card"} <ArrowUpRight size={16} />
+            {submitting ? "Saving…" : "Set Price & Request Payment"}
+          </Button>
+        </div>
+      }
+    >
+      <div className="space-y-4">
+        <div className="flex items-center gap-3 p-3 bg-cyan/10 rounded-lg border border-cyan/20">
+          <ArrowUpRight size={17} className="text-cyan flex-none" />
+          <span className="text-sm text-gray-600">Order</span>
+          <strong className="text-sm text-navy">{order.code}</strong>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <div><small className="text-muted-foreground">Client</small><br /><strong className="text-navy">{order.clientName}</strong></div>
+          <div><small className="text-muted-foreground">Service</small><br /><strong className="text-navy">{order.serviceType}</strong></div>
+          <div><small className="text-muted-foreground">Dimensions</small><br /><strong className="text-navy">{order.dimensions}</strong></div>
+          <div><small className="text-muted-foreground">Quantity</small><br /><strong className="text-navy">{order.quantity}</strong></div>
+        </div>
+
+        <label className="block">
+          <span className="block text-sm font-semibold text-navy mb-2">Final Total Price (ETB)</span>
+          <input 
+            type="number" 
+            min="0" 
+            step="0.01" 
+            value={amount} 
+            onChange={(event) => setAmount(Number(event.target.value))}
+            className="w-full px-3 py-2 bg-white border border-line rounded-lg text-sm text-ink outline-none focus:border-cyan"
+          />
+        </label>
+      </div>
+    </ModalShell>
+  );
+}
+
+export function OrderConfirmModal({ order, machines, materials, onClose, onSave }: { order: CustomerOrder; machines: Machine[]; materials: Material[]; onClose: () => void; onSave: (input: { paymentDecision: "PAID" | "APPROVED_CREDIT"; paymentMethod?: string; machineId: string; materialId: string; quantity: number; unit: Material["unit"]; priority?: OrderPriority }) => void }) {
+  const [machineId, setMachineId] = useState(machines[0]?.id ?? "");
+  const [materialId, setMaterialId] = useState(materials[0]?.id ?? "");
+  const [quantity, setQuantity] = useState(1);
+  const [paymentDecision, setPaymentDecision] = useState<"PAID" | "APPROVED_CREDIT">("PAID");
+  const [paymentMethod, setPaymentMethod] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const material = materials.find((entry) => entry.id === materialId);
+  const machine = machines.find((entry) => entry.id === machineId);
+
+  return (
+    <ModalShell
+      title={`${order.code} · Confirm Payment & Issue Job Card`}
+      subtitle="Verify payment method and assign production resources. Job card will be created upon confirmation."
+      kicker="CONFIRM ORDER"
+      onClose={onClose}
+      footer={
+        <div className="flex gap-3 justify-end">
+          <Button type="button" variant="tertiary" onClick={onClose} disabled={submitting}>Cancel</Button>
+          <Button 
+            type="submit" 
+            variant="primary" 
+            disabled={submitting || !machineId || !materialId || quantity <= 0 || (paymentDecision === "PAID" && !paymentMethod.trim())}
+            onClick={() => {
+              if (submitting || !machineId || !materialId || quantity <= 0) return;
+              if (paymentDecision === "PAID" && !paymentMethod.trim()) return;
+              setSubmitting(true);
+              onSave({ 
+                paymentDecision, 
+                paymentMethod: paymentDecision === "PAID" ? paymentMethod.trim() : undefined,
+                machineId, 
+                materialId, 
+                quantity, 
+                unit: material?.baseUnit ?? material?.unit ?? "m²", 
+                priority: order.priority 
+              });
+            }}
+          >
+            {submitting ? "Confirming…" : "Confirm & Create Job Card"} <ArrowUpRight size={16} />
           </Button>
         </div>
       }
@@ -269,12 +337,53 @@ export function OrderConvertModal({ order, machines, materials, onClose, onSave 
           <div><small className="text-muted-foreground">Client</small><br /><strong className="text-navy">{order.clientName}</strong></div>
           <div><small className="text-muted-foreground">Phone</small><br /><strong className="text-navy">{order.phone}</strong></div>
           <div><small className="text-muted-foreground">Service</small><br /><strong className="text-navy">{order.serviceType}</strong></div>
+          <div><small className="text-muted-foreground">Total Price</small><br /><strong className="text-navy">{order.amount ? `${order.amount.toFixed(2)} ETB` : "—"}</strong></div>
           <div><small className="text-muted-foreground">Dimensions</small><br /><strong className="text-navy">{order.dimensions}</strong></div>
           <div><small className="text-muted-foreground">Quantity</small><br /><strong className="text-navy">{order.quantity}</strong></div>
-          <div><small className="text-muted-foreground">Due</small><br /><strong className="text-navy">{formatDue(order.preferredDueDate)}</strong></div>
         </div>
 
-        {/* Form */}
+        {/* Payment Verification Section */}
+        <div className="space-y-3 p-4 bg-gold/10 rounded-lg border border-gold/20">
+          <span className="block text-sm font-semibold text-navy">Payment Verification</span>
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input 
+                type="radio" 
+                name="paymentDecision" 
+                value="PAID" 
+                checked={paymentDecision === "PAID"}
+                onChange={(e) => setPaymentDecision(e.target.value as "PAID" | "APPROVED_CREDIT")}
+                className="w-4 h-4"
+              />
+              <span className="text-sm text-gray-700">Advance Payment Received ✅</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input 
+                type="radio" 
+                name="paymentDecision" 
+                value="APPROVED_CREDIT" 
+                checked={paymentDecision === "APPROVED_CREDIT"}
+                onChange={(e) => setPaymentDecision(e.target.value as "PAID" | "APPROVED_CREDIT")}
+                className="w-4 h-4"
+              />
+              <span className="text-sm text-gray-700">Approved Credit 📒</span>
+            </label>
+          </div>
+          {paymentDecision === "PAID" && (
+            <label className="block mt-2">
+              <span className="block text-xs font-semibold text-navy mb-1">Payment Method</span>
+              <input 
+                type="text" 
+                placeholder="e.g. Cash, Bank Transfer, Mobile Money"
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value)}
+                className="w-full px-3 py-2 bg-white border border-line rounded-lg text-sm text-ink outline-none focus:border-cyan"
+              />
+            </label>
+          )}
+        </div>
+
+        {/* Production Assignment */}
         <div className="space-y-4">
           <label className="block">
             <span className="block text-sm font-semibold text-navy mb-2">Assigned machine</span>

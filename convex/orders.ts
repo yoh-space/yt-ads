@@ -1,12 +1,43 @@
-import { internalMutation, mutation, query } from "./_generated/server";
+import { internalMutation, internalAction, mutation, query, action } from "./_generated/server";
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 import { authComponent } from "./auth";
-import { exceptionReason, orderPriority, orderStatus, unit } from "./schema";
+import { exceptionReason, orderPriority, orderStatus, paymentStatus, unit } from "./schema";
 import { requireAnyPermission, requirePermission } from "./users";
 import { canViewFinancial } from "./authorization";
 import { notifyRoles } from "./notificationHelpers";
+import { ensureSystemConfig } from "./systemConfigs";
 
-const PUBLIC_TRACKING_STATUSES = new Set(["Received", "In Production", "Ready for Pickup", "Completed"]);
+/** Statuses a customer may see through public tracking (Expired stays internal). */
+const PUBLIC_TRACKING_STATUSES = new Set(["PENDING_REVIEW", "PRICED_AND_PENDING_PAYMENT", "CONFIRMED_PAID_OR_CREDIT", "JOB_CARD_CREATED", "IN_PRODUCTION", "COMPLETED"]);
+
+/**
+ * Allowed forward transitions for manual status updates. The payment-gated
+ * stages are driven by `priceOrder` / `confirmOrderAndIssueJobCard`; this map
+ * only guards reception's manual progress actions.
+ */
+const ALLOWED_STATUS_TRANSITIONS: Record<string, string[]> = {
+  PENDING_REVIEW: ["PRICED_AND_PENDING_PAYMENT", "Expired"],
+  PRICED_AND_PENDING_PAYMENT: ["CONFIRMED_PAID_OR_CREDIT", "Expired"],
+  CONFIRMED_PAID_OR_CREDIT: ["JOB_CARD_CREATED"],
+  JOB_CARD_CREATED: ["IN_PRODUCTION"],
+  IN_PRODUCTION: ["COMPLETED"],
+  COMPLETED: [],
+  Expired: [],
+};
+// convex/orders.ts
+
+export const fixStatusCasing = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const orders = await ctx.db.query("customerOrders").collect();
+    for (const order of orders) {
+      if ((order.status as string) === "Completed") {
+        await ctx.db.patch(order._id, { status: "COMPLETED" });
+      }
+    }
+  },
+});
 
 type OrderDoc = {
   _id: string;
@@ -18,10 +49,14 @@ type OrderDoc = {
   dimensions: string;
   quantity: string;
   amount?: number;
+  paymentStatus?: "UNPAID" | "PAID" | "APPROVED_CREDIT";
+  paymentMethod?: string;
+  paymentConfirmedAt?: number;
+  paymentConfirmedBy?: string;
   fileStorageId?: string;
   fileName?: string;
   preferredDueDate: number;
-  status: "Received" | "In Production" | "Ready for Pickup" | "Completed";
+  status: string;
   priority: "High" | "Medium" | "Low";
   source: "public_portal" | "walk_in";
   notes?: string;
@@ -30,6 +65,8 @@ type OrderDoc = {
   createdBy?: string;
   createdAt: number;
   updatedAt: number;
+  expiresAt?: number;
+  telegramChatId?: string;
   overdueInquiryAt?: number;
   lastOverdueNotifiedAt?: number;
 };
@@ -48,10 +85,11 @@ function publicOrder(order: OrderDoc) {
     quantity: order.quantity,
     preferredDueDate: order.preferredDueDate,
     status: order.status,
+    paymentStatus: order.paymentStatus,
     priority: order.priority,
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
-    overdue: order.status !== "Completed" && order.preferredDueDate < Date.now(),
+    overdue: order.status !== "COMPLETED" && order.preferredDueDate < Date.now(),
   };
 }
 
@@ -115,6 +153,8 @@ export const submit = mutation({
     const identity = await authComponent.safeGetAuthUser(ctx);
     const code = `ORD-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
     const now = Date.now();
+    const systemConfig = await ensureSystemConfig(ctx, identity?._id);
+    const expiresAt = now + (systemConfig.orderExpirationHours * 60 * 60 * 1000);
     const id = await ctx.db.insert("customerOrders", {
       code,
       clientName,
@@ -123,7 +163,7 @@ export const submit = mutation({
       dimensions,
       quantity,
       preferredDueDate: args.preferredDueDate,
-      status: "Received",
+      status: "PENDING_REVIEW",
       priority: args.priority ?? "Medium",
       source: "public_portal",
       notes: args.notes?.trim() || undefined,
@@ -132,6 +172,8 @@ export const submit = mutation({
       createdBy: identity?._id,
       createdAt: now,
       updatedAt: now,
+      expiresAt,
+      telegramChatId: args.telegramId,
     });
     await notifyOrderRoles(ctx, {
       title: "New customer order received",
@@ -183,6 +225,8 @@ export const createWalkIn = mutation({
 
     const code = `ORD-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
     const now = Date.now();
+    const systemConfig = await ensureSystemConfig(ctx, identity._id);
+    const expiresAt = now + (systemConfig.orderExpirationHours * 60 * 60 * 1000);
     const id = await ctx.db.insert("customerOrders", {
       code,
       clientName,
@@ -192,13 +236,14 @@ export const createWalkIn = mutation({
       quantity,
       amount: args.amount === undefined ? undefined : Number(args.amount.toFixed(2)),
       preferredDueDate: args.preferredDueDate,
-      status: "Received",
+      status: "PENDING_REVIEW",
       priority: args.priority ?? "Medium",
       source: "walk_in",
       notes: args.notes?.trim() || undefined,
       createdBy: identity._id,
       createdAt: now,
       updatedAt: now,
+      expiresAt,
     });
     await notifyOrderRoles(ctx, {
       title: "New walk-in order created",
@@ -247,7 +292,7 @@ export const list = query({
       ...order,
       amount: canSeeFinancial ? order.amount : undefined,
       machineName: order.machineId ? machineNames.get(order.machineId) : undefined,
-      overdue: order.status !== "Completed" && order.preferredDueDate < Date.now(),
+      overdue: order.status !== "COMPLETED" && order.preferredDueDate < Date.now(),
       fileUrl: order.fileStorageId ? await ctx.storage.getUrl(order.fileStorageId) : undefined,
     })));
   },
@@ -259,12 +304,21 @@ export const setStatus = mutation({
     const { identity } = await requirePermission(ctx, "order.manage");
     const order = await ctx.db.get(args.orderId);
     if (!order) throw new Error("Order not found.");
-    if (order.status === "Completed" && args.status !== "Completed") throw new Error("Completed orders cannot move backwards.");
+    const allowed = ALLOWED_STATUS_TRANSITIONS[order.status] ?? [];
+    if (!allowed.includes(args.status)) {
+      throw new Error(`Orders cannot move from ${order.status} to ${args.status}.`);
+    }
+    if ((args.status === "JOB_CARD_CREATED" || args.status === "IN_PRODUCTION" || args.status === "COMPLETED") && !order.jobCardId) {
+      throw new Error("A job card must be issued (payment confirmed) before an order can enter production stages.");
+    }
+
+    const previousStatus = order.status;
     await ctx.db.patch(args.orderId, { status: args.status, updatedAt: Date.now() });
-    if (order.jobCardId && (args.status === "In Production" || args.status === "Completed")) {
-      const jobStatus = args.status === "In Production" ? "In production" : "Completed";
+    if (order.jobCardId && (args.status === "IN_PRODUCTION" || args.status === "COMPLETED")) {
+      const jobStatus = args.status === "IN_PRODUCTION" ? "In production" : "Completed";
       await ctx.db.patch(order.jobCardId, { status: jobStatus });
     }
+    
     await notifyOrderRoles(ctx, {
       title: "Order status updated",
       message: `${order.code} · ${order.clientName} is now ${args.status}.`,
@@ -273,27 +327,100 @@ export const setStatus = mutation({
       relatedTable: "customerOrders",
       relatedId: args.orderId,
     });
+    
+    if (order.telegramChatId && previousStatus !== args.status) {
+      const systemConfig = await ensureSystemConfig(ctx, identity._id);
+      let message = "";
+      
+      if (args.status === "IN_PRODUCTION") {
+        message = `ማሳወቂያ 🖨️\n\nየትዕዛዝ ቁጥር #${order.code} ህትመት/ማዘጋጀት ስራ ላይ ይገኛል (In Production)።`;
+      } else if (args.status === "COMPLETED") {
+        message = `መልካም ዜና! 🎉\n\nየትዕዛዝ ቁጥር #${order.code} ስራ ሙሉ በሙሉ ተጠናቋል። መጥተው መረከብ ወይም በነጣቂ ማስወሰድ ይችላሉ። የደረሰኝ ቁጥር: #${order.code}። እናመሰግናለን!`;
+      }
+      
+      if (message) {
+        await ctx.scheduler.runAfter(0, internal.orders.sendTelegramNotificationInternal, {
+          chatId: order.telegramChatId,
+          message,
+        });
+      }
+    }
   },
 });
 
-export const convertToJob = mutation({
+/**
+ * Reception step 1 of checkout: records the final total price and moves the
+ * order to PRICED_AND_PENDING_PAYMENT. Job card creation stays blocked until
+ * `confirmOrderAndIssueJobCard` verifies payment.
+ */
+export const priceOrder = mutation({
   args: {
     orderId: v.id("customerOrders"),
+    amount: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const { identity } = await requirePermission(ctx, "order.manage");
+    const order = await ctx.db.get(args.orderId);
+    if (!order) throw new Error("Order not found.");
+    if (!["PENDING_REVIEW", "PRICED_AND_PENDING_PAYMENT"].includes(order.status)) {
+      throw new Error(`Only orders awaiting review or payment can be priced (current status: ${order.status}).`);
+    }
+    if (!Number.isFinite(args.amount) || args.amount < 0) {
+      throw new Error("Order price must be zero or greater.");
+    }
+    await ctx.db.patch(args.orderId, {
+      amount: Number(args.amount.toFixed(2)),
+      status: "PRICED_AND_PENDING_PAYMENT",
+      updatedAt: Date.now(),
+    });
+    return { code: order.code, amount: Number(args.amount.toFixed(2)) };
+  },
+});
+
+/**
+ * Reception step 2 of checkout — the single payment-gated entry point to
+ * production. Confirms advance payment (PAID) or approved credit
+ * (APPROVED_CREDIT), creates the job card, and queues it on the selected
+ * machine. Job card creation is impossible before this mutation runs, and it
+ * additionally notifies the Telegram customer with their receipt when the
+ * order carries a chat id.
+ */
+export const confirmOrderAndIssueJobCard = mutation({
+  args: {
+    orderId: v.id("customerOrders"),
+    amount: v.optional(v.number()),
+    paymentDecision: v.union(v.literal("PAID"), v.literal("APPROVED_CREDIT")),
+    paymentMethod: v.optional(v.string()),
     machineId: v.id("machines"),
     materialId: v.id("materials"),
     quantity: v.number(),
     unit,
     priority: v.optional(orderPriority),
+    deductOnComplete: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const { identity } = await requirePermission(ctx, "order.manage");
     const order = await ctx.db.get(args.orderId);
     const machine = await ctx.db.get(args.machineId);
     const material = await ctx.db.get(args.materialId);
-    if (!order || !machine || !material || !machine.active || !material.active) throw new Error("Order, machine, or material is unavailable.");
+    if (!order || !machine || !material || !machine.active || !material.active) {
+      throw new Error("Order, machine, or material is unavailable.");
+    }
     if (order.jobCardId) throw new Error("This order already has a job card.");
-    if (!Number.isFinite(args.quantity) || args.quantity <= 0) throw new Error("Planned material quantity must be greater than zero.");
-    if (args.unit !== (material.baseUnit ?? material.unit)) throw new Error("Job unit must match the selected material base unit.");
+    if (!["PENDING_REVIEW", "PRICED_AND_PENDING_PAYMENT"].includes(order.status)) {
+      throw new Error(`Only orders awaiting review or payment can be confirmed (current status: ${order.status}).`);
+    }
+
+    const amount = args.amount !== undefined ? args.amount : order.amount;
+    if (amount === undefined || !Number.isFinite(amount) || amount < 0) {
+      throw new Error("Confirm the final price before verifying payment.");
+    }
+    if (!Number.isFinite(args.quantity) || args.quantity <= 0) {
+      throw new Error("Planned material quantity must be greater than zero.");
+    }
+    if (args.unit !== (material.baseUnit ?? material.unit)) {
+      throw new Error("Job unit must match the selected material base unit.");
+    }
     if (machine.status === "Maintenance" || machine.status === "Unavailable") {
       return { success: false as const, error: `${machine.name} is currently ${machine.status.toLowerCase()} and cannot accept new jobs.` };
     }
@@ -301,6 +428,8 @@ export const convertToJob = mutation({
       return { success: false as const, error: `Stock shortfall — ${material.name} has ${material.quantity} ${material.baseUnit ?? material.unit} available but ${args.quantity} ${args.unit} is required.` };
     }
 
+    const now = Date.now();
+    const roundedAmount = Number(amount.toFixed(2));
     const code = `JC-${String(430 + Math.floor(Math.random() * 500)).padStart(4, "0")}`;
     const jobId = await ctx.db.insert("jobCards", {
       code,
@@ -314,20 +443,53 @@ export const convertToJob = mutation({
       due: new Date(order.preferredDueDate).toLocaleString("en-ET", { dateStyle: "medium", timeStyle: "short" }),
       priority: args.priority === "Low" ? "Normal" : args.priority ?? "Normal",
       createdBy: identity._id,
-      createdAt: Date.now(),
+      createdAt: now,
       orderId: args.orderId,
+      deductOnComplete: args.deductOnComplete,
     });
-    await ctx.db.patch(args.orderId, { jobCardId: jobId, machineId: args.machineId, updatedAt: Date.now() });
+    await ctx.db.patch(args.orderId, {
+      amount: roundedAmount,
+      paymentStatus: args.paymentDecision,
+      paymentMethod: args.paymentMethod?.trim() || undefined,
+      paymentConfirmedAt: now,
+      paymentConfirmedBy: identity._id,
+      status: "JOB_CARD_CREATED",
+      jobCardId: jobId,
+      machineId: args.machineId,
+      updatedAt: now,
+    });
     if (machine.status !== "Running") await ctx.db.patch(machine._id, { status: "Running", activeJob: code });
     await notifyRoles(ctx, [machine.operatorRole, "owner", "manager", "admin"], {
-      title: "Order converted to job card",
-      message: `${order.code} is now ${code} on ${machine.name}.`,
+      title: "Paid order issued to production",
+      message: `${order.code} (${order.clientName}) is confirmed ${args.paymentDecision} and queued as ${code} on ${machine.name}.`,
       type: "order_status",
       actorAuthUserId: identity._id,
       relatedTable: "customerOrders",
       relatedId: args.orderId,
     });
-    return { success: true as const, jobId, code };
+
+    // Receipt to the Telegram customer: order id, receipt details, tracking link.
+    if (order.telegramChatId) {
+      const paymentLine = args.paymentDecision === "PAID" ? "ተከፍሏል ✅ (PAID)" : "ብዕር ደንበኛ ተገድዷል 📒 (APPROVED_CREDIT)";
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
+      const tracking = appUrl ? `\n\n📍 የትዕዛዝ ክትትል፦ ${appUrl}/track` : "";
+      const message = [
+        "✅ <b>ክፍያዎ ተረጋግጧል!</b>",
+        "",
+        `• የትዕዛዝ መለያ: <code>${order.code}</code>`,
+        `• ጠቅላላ ዋጋ: <b>${roundedAmount.toFixed(2)} ብር</b>`,
+        `• ክፍያ: ${paymentLine}`,
+        `• የደረሰኝ ቁጥር: <code>${order.code}-${now}</code>`,
+        `• ስራው በ${machine.name} ወደ ቅዝቃዜ ወረፋ ገብቷል።`,
+        tracking,
+      ].join("\n");
+      await ctx.scheduler.runAfter(0, internal.orders.sendTelegramNotificationInternal, {
+        chatId: order.telegramChatId,
+        message,
+      });
+    }
+
+    return { success: true as const, jobId, code, paymentStatus: args.paymentDecision };
   },
 });
 
@@ -336,7 +498,7 @@ export const requestOverdueInquiry = mutation({
   handler: async (ctx, args) => {
     const order = await ctx.db.get(args.orderId);
     if (!order) throw new Error("Order not found.");
-    if (order.status === "Completed" || order.preferredDueDate >= Date.now()) throw new Error("This order is not overdue.");
+    if (order.status === "COMPLETED" || order.preferredDueDate >= Date.now()) throw new Error("This order is not overdue.");
     const now = Date.now();
     if (!order.overdueInquiryAt || now - order.overdueInquiryAt > 60 * 60 * 1000) {
       await notifyOrderRoles(ctx, {
@@ -358,7 +520,7 @@ export const notifyOverdue = mutation({
     const { identity } = await requirePermission(ctx, "order.manage");
     const now = Date.now();
     const overdue = (await ctx.db.query("customerOrders").withIndex("by_due_date").collect()).filter(
-      (order) => order.status !== "Completed" && order.preferredDueDate < now,
+      (order) => order.status !== "COMPLETED" && order.preferredDueDate < now,
     );
     let notified = 0;
     for (const order of overdue) {
@@ -383,7 +545,7 @@ export const notifyOverdueInternal = internalMutation({
   handler: async (ctx) => {
     const now = Date.now();
     const overdue = (await ctx.db.query("customerOrders").withIndex("by_due_date").collect()).filter(
-      (order) => order.status !== "Completed" && order.preferredDueDate < now,
+      (order) => order.status !== "COMPLETED" && order.preferredDueDate < now,
     );
     let notified = 0;
     for (const order of overdue) {
@@ -482,6 +644,8 @@ export const createTelegramOrder = mutation({
     const code = `ORD-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
     const now = Date.now();
     const dueDate = now + 7 * 24 * 60 * 60 * 1000;
+    const systemConfig = await ensureSystemConfig(ctx);
+    const expiresAt = now + (systemConfig.orderExpirationHours * 60 * 60 * 1000);
     const noteParts = [`Telegram chat: ${args.telegramChatId}`];
     if (args.fileName?.trim()) noteParts.push(`Attached file: ${args.fileName.trim()}`);
     if (args.notes?.trim()) noteParts.push(args.notes.trim());
@@ -494,7 +658,7 @@ export const createTelegramOrder = mutation({
       dimensions: args.dimensions?.trim() || "TBD",
       quantity: args.quantity?.trim() || "1",
       preferredDueDate: dueDate,
-      status: "Received",
+      status: "PENDING_REVIEW",
       priority: "Medium",
       source: "public_portal",
       notes: noteParts.join(" · "),
@@ -503,6 +667,8 @@ export const createTelegramOrder = mutation({
       createdBy: undefined,
       createdAt: now,
       updatedAt: now,
+      expiresAt,
+      telegramChatId: args.telegramChatId,
     });
 
     await notifyOrderRoles(ctx, {
@@ -529,5 +695,116 @@ export const listExceptions = query({
     return exceptions
       .sort((left, right) => right.createdAt - left.createdAt)
       .map((entry) => ({ ...entry, materialName: materialNames.get(entry.materialId) ?? "Unknown material" }));
+  },
+});
+
+export const expireOrdersInternal = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    const expiredOrders = await ctx.db
+      .query("customerOrders")
+      .withIndex("by_expires_at")
+      .collect();
+    
+    const systemConfig = await ensureSystemConfig(ctx);
+    let expiredCount = 0;
+    
+    for (const order of expiredOrders) {
+      if (order.status === "Expired" || !order.expiresAt || order.expiresAt >= now) {
+        continue;
+      }
+      
+      await ctx.db.patch(order._id, { 
+        status: "Expired", 
+        updatedAt: now 
+      });
+      
+      if (order.telegramChatId) {
+        const message = `የሰጡት ትዕዛዝ በተቀመጠው የሰዓት ገደብ (${systemConfig.orderExpirationHours} ሰዓት) ውስጥ ክፍያ ስላልተፈጸመለት በሲስተሙ አውቶማቲክ ተሰርዟል። እባክዎን እንደገና ይዘዙ።`;
+        
+        await ctx.scheduler.runAfter(0, internal.orders.sendTelegramNotificationInternal, {
+          chatId: order.telegramChatId,
+          message,
+        });
+      }
+      
+      expiredCount++;
+    }
+    return { expiredCount };
+  },
+});
+
+export const sendTelegramNotification = action({
+  args: {
+    chatId: v.string(),
+    message: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const token = process.env.TELEGRAM_BOT_TOKEN;
+    if (!token) {
+      console.error("TELEGRAM_BOT_TOKEN is not configured");
+      return { success: false };
+    }
+    
+    try {
+      const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: args.chatId,
+          text: args.message,
+          parse_mode: "HTML",
+        }),
+      });
+      
+      if (!response.ok) {
+        const error = await response.text();
+        console.error("Telegram notification failed:", error);
+        return { success: false };
+      }
+      
+      return { success: true };
+    } catch (error) {
+      console.error("Telegram notification error:", error);
+      return { success: false };
+    }
+  },
+});
+
+export const sendTelegramNotificationInternal = internalMutation({
+  args: {
+    chatId: v.string(),
+    message: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const token = process.env.TELEGRAM_BOT_TOKEN;
+    if (!token) {
+      console.error("TELEGRAM_BOT_TOKEN is not configured");
+      return { success: false };
+    }
+    
+    try {
+      const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: args.chatId,
+          text: args.message,
+          parse_mode: "HTML",
+        }),
+      });
+      
+      if (!response.ok) {
+        const error = await response.text();
+        console.error("Telegram notification failed:", error);
+        return { success: false };
+      }
+      
+      return { success: true };
+    } catch (error) {
+      console.error("Telegram notification error:", error);
+      return { success: false };
+    }
   },
 });

@@ -33,6 +33,7 @@ export type SystemConfig = {
   minOffcutAreaSquareMetre: number;
   requireAdminPinForExceptions: boolean;
   maxDirectStockOutEtb: number;
+  orderExpirationHours: number;
   updatedAt: number;
   updatedBy?: string;
 };
@@ -85,6 +86,7 @@ export const DEFAULT_SYSTEM_CONFIG: Omit<SystemConfig, "updatedAt" | "updatedBy"
   minOffcutAreaSquareMetre: 0.05,
   requireAdminPinForExceptions: true,
   maxDirectStockOutEtb: 2000,
+  orderExpirationHours: 12,
 };
 
 /**

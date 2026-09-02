@@ -141,10 +141,10 @@ export const getSummary = query({
 
     const nowMs = Date.now();
     const overdueOrders = periodOrders.filter(
-      (order) => order.status !== "Completed" && order.preferredDueDate < nowMs,
+      (order) => order.status !== "COMPLETED" && order.preferredDueDate < nowMs,
     ).length;
-    const completedOrders = periodOrders.filter((order) => order.status === "Completed").length;
-    const pendingOrders = periodOrders.filter((order) => order.status === "Received").length;
+    const completedOrders = periodOrders.filter((order) => order.status === "COMPLETED").length;
+    const pendingOrders = periodOrders.filter((order) => order.status === "PENDING_REVIEW").length;
 
     const estimatedRevenue = periodOrders.reduce((total, order) => {
       const priorityMultiplier = order.priority === "High" ? 1.2 : order.priority === "Low" ? 0.8 : 1;

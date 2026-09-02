@@ -23,7 +23,7 @@ export type MaterialSpecification =
 export type JobStatus = "Queued" | "In production" | "Completed" | "Paused";
 export type MachineStatus = "Running" | "Available" | "Maintenance" | "Unavailable";
 export type Priority = "High" | "Medium" | "Normal";
-export type CustomerOrderStatus = "Received" | "In Production" | "Ready for Pickup" | "Completed";
+export type CustomerOrderStatus = "PENDING_REVIEW" | "PRICED_AND_PENDING_PAYMENT" | "CONFIRMED_PAID_OR_CREDIT" | "JOB_CARD_CREATED" | "IN_PRODUCTION" | "COMPLETED" | "Expired";
 export type OrderPriority = "High" | "Medium" | "Low";
 export type OrderSource = "public_portal" | "walk_in";
 export type ExceptionReason = "Sample Print" | "Minor Repair" | "Test Cut" | "Internal Maintenance";
@@ -37,6 +37,10 @@ export type CustomerOrder = {
   dimensions: string;
   quantity: string;
   amount?: number;
+  paymentStatus?: "UNPAID" | "PAID" | "APPROVED_CREDIT";
+  paymentMethod?: string;
+  paymentConfirmedAt?: number;
+  paymentConfirmedBy?: string;
   fileName?: string;
   fileUrl?: string;
   preferredDueDate: number;
@@ -49,6 +53,8 @@ export type CustomerOrder = {
   jobCardId?: string;
   createdAt: number;
   updatedAt: number;
+  expiresAt?: number;
+  telegramChatId?: string;
   overdue: boolean;
 };
 

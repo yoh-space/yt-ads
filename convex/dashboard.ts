@@ -64,15 +64,15 @@ export const getState = query({
       return {
         ...job,
         orderStatus: order?.status,
-        orderOverdue: Boolean(order && order.status !== "Completed" && order.preferredDueDate < Date.now()),
+        orderOverdue: Boolean(order && order.status !== "COMPLETED" && order.preferredDueDate < Date.now()),
       };
     });
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     const todaysOrders = orders.filter((order) => order.createdAt >= startOfDay).length;
-    const completedOrders = orders.filter((order) => order.status === "Completed").length;
-    const queueOrders = orders.filter((order) => order.status === "Received").length;
-    const activeProductionOrders = orders.filter((order) => order.status === "In Production").length;
+    const completedOrders = orders.filter((order) => order.status === "COMPLETED").length;
+    const queueOrders = orders.filter((order) => order.status === "PENDING_REVIEW").length;
+    const activeProductionOrders = orders.filter((order) => order.status === "IN_PRODUCTION").length;
 
     const pulseCutoff = Date.now() - MATERIAL_PULSE_WINDOW_MS;
     const consumedByMaterial = new Map<string, number>();

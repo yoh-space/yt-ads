@@ -177,8 +177,8 @@ export const assignNextJob = mutation({
     await ctx.db.patch(args.machineId, { status: "Running", activeJob: nextJob.code });
     if (nextJob.orderId) {
       const order = await ctx.db.get(nextJob.orderId);
-      if (order && order.status === "Received") {
-        await ctx.db.patch(nextJob.orderId, { status: "In Production", updatedAt: Date.now() });
+      if (order && order.status === "PENDING_REVIEW") {
+        await ctx.db.patch(nextJob.orderId, { status: "IN_PRODUCTION", updatedAt: Date.now() });
       }
     }
     await notifyRoles(ctx, [machine.operatorRole, "owner", "manager", "admin"], {

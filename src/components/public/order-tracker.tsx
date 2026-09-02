@@ -5,12 +5,26 @@ import { useState } from "react";
 import { AlertTriangle, ArrowLeft, Check, Clock3, Search } from "lucide-react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import type { TrackedOrder } from "@/lib/operations-types";
+import type { CustomerOrderStatus, TrackedOrder } from "@/lib/operations-types";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui";
 import { cn } from "@/lib/utils";
 
 const steps = ["Received", "In Production", "Ready for Pickup", "Completed"] as const;
+
+const STATUS_STEP: Record<string, number> = {
+  PENDING_REVIEW: 0,
+  PRICED_AND_PENDING_PAYMENT: 0,
+  CONFIRMED_PAID_OR_CREDIT: 0,
+  JOB_CARD_CREATED: 0,
+  IN_PRODUCTION: 1,
+  COMPLETED: 3,
+  Expired: 0,
+};
+
+function statusStep(status: CustomerOrderStatus): number {
+  return STATUS_STEP[status] ?? 0;
+}
 
 function formatDue(timestamp: number) {
   return new Date(timestamp).toLocaleString("en-ET", { dateStyle: "medium", timeStyle: "short" });
@@ -124,7 +138,7 @@ export function OrderTracker() {
       <section className="px-6 pb-16">
         <div className="max-w-4xl mx-auto space-y-6">
           {orders?.map((order) => {
-            const current = steps.indexOf(order.status);
+            const current = statusStep(order.status);
             return (
               <article 
                 key={order.code}
@@ -147,13 +161,13 @@ export function OrderTracker() {
                   
                   <div className={cn(
                     "px-3 py-1 rounded-full text-xs font-semibold",
-                    order.status === "Completed" 
+                    order.status === "COMPLETED" 
                       ? "bg-green-100 text-green-800" 
                       : order.overdue 
                         ? "bg-orange-100 text-orange-800"
                         : "bg-blue-100 text-blue-800"
                   )}>
-                    {order.status}
+                    {steps[statusStep(order.status)]}
                   </div>
                 </div>
 

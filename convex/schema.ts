@@ -28,11 +28,47 @@ export const jobStatus = v.union(
   v.literal("Paused"),
 );
 
+/**
+ * Payment-first customer order lifecycle. Orders enter as unpriced requests
+ * (PENDING_REVIEW) and only reach production after reception prices the order
+ * and confirms payment or credit. `Expired` is a terminal state applied to
+ * unconfirmed orders past their expiration window.
+ */
 export const orderStatus = v.union(
-  v.literal("Received"),
-  v.literal("In Production"),
-  v.literal("Ready for Pickup"),
+  v.literal("PENDING_REVIEW"),
+  v.literal("PRICED_AND_PENDING_PAYMENT"),
+  v.literal("CONFIRMED_PAID_OR_CREDIT"),
+  v.literal("JOB_CARD_CREATED"),
+  v.literal("IN_PRODUCTION"),
+  v.literal("COMPLETED"),
+  v.literal("Expired"),
+  // Legacy aliases from earlier write paths. These were written to the table
+  // before the validator was tightened to the canonical values above. They are
+  // kept only as a bridge so the backfill in `convex/migrations.ts` can read and
+  // normalize existing rows. REMOVE these two literals after the migration has
+  // run against the deployed dataset.
   v.literal("Completed"),
+  v.literal("In Production"),
+);
+
+/** Payment verification result recorded by reception during checkout. */
+export const paymentStatus = v.union(
+  v.literal("UNPAID"),
+  v.literal("PAID"),
+  v.literal("APPROVED_CREDIT"),
+);
+
+/** Packaging unit tracked by the central (parent) inventory tier. */
+export const inventoryUnitType = v.union(
+  v.literal("ROLL"),
+  v.literal("SHEET"),
+  v.literal("LITER"),
+);
+
+/** Lifecycle of a stock batch issued to the production floor. */
+export const operatorStockStatus = v.union(
+  v.literal("ACTIVE"),
+  v.literal("EXHAUSTED"),
 );
 
 export const orderPriority = v.union(
@@ -282,7 +318,13 @@ export default defineSchema({
     serviceType: v.string(),
     dimensions: v.string(),
     quantity: v.string(),
+    /** Final total price confirmed by reception during checkout. */
     amount: v.optional(v.number()),
+    /** Set once reception confirms advance payment or approves credit. */
+    paymentStatus: v.optional(paymentStatus),
+    paymentMethod: v.optional(v.string()),
+    paymentConfirmedAt: v.optional(v.number()),
+    paymentConfirmedBy: v.optional(v.string()),
     fileStorageId: v.optional(v.id("_storage")),
     fileName: v.optional(v.string()),
     preferredDueDate: v.number(),
@@ -295,13 +337,16 @@ export default defineSchema({
     createdBy: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
+    expiresAt: v.optional(v.number()),
+    telegramChatId: v.optional(v.string()),
     overdueInquiryAt: v.optional(v.number()),
     lastOverdueNotifiedAt: v.optional(v.number()),
   })
     .index("by_code", ["code"])
     .index("by_phone", ["phone"])
     .index("by_status", ["status"])
-    .index("by_due_date", ["preferredDueDate"]),
+    .index("by_due_date", ["preferredDueDate"])
+    .index("by_expires_at", ["expiresAt"]),
 
   stockExceptions: defineTable({
     materialId: v.id("materials"),
@@ -444,10 +489,83 @@ export default defineSchema({
     requireAdminPinForExceptions: v.boolean(),
     /** ETB threshold above which a direct stock-out must be approved. */
     maxDirectStockOutEtb: v.number(),
+    /** Order expiration window in hours for unpaid/unconfirmed orders. */
+    orderExpirationHours: v.number(),
     updatedAt: v.number(),
     updatedBy: v.optional(v.string()),
   })
     .index("by_key", ["key"]),
+
+  /**
+   * Two-tier inventory, tier 1 — the central store. One row per tracked
+   * material holding whole packaging units (rolls / sheets / liter containers)
+   * plus the standard conversion factor used when issuing a unit to the
+   * production floor. The linked `materials` row keeps the catalog-level
+   * base-unit quantity used by the existing deduction and reporting logic.
+   */
+  parentInventory: defineTable({
+    materialId: v.id("materials"),
+    unitType: inventoryUnitType,
+    /** Whole packaging units currently held in the central store. */
+    totalStockQuantity: v.number(),
+    /** Conversion factor for ROLL units: base units (m or m²) per roll. */
+    lengthPerRoll: v.optional(v.number()),
+    /** Conversion factor for SHEET units: base units (m²) per sheet. */
+    areaPerSheet: v.optional(v.number()),
+    /** Conversion factor for LITER units: litres per container (default 1). */
+    volumePerContainer: v.optional(v.number()),
+    updatedAt: v.number(),
+  })
+    .index("by_material", ["materialId"])
+    .index("by_unit_type", ["unitType"]),
+
+  /**
+   * Two-tier inventory, tier 2 — stock issued to a specific operator/machine.
+   * Quantities are tracked in base units (m, m², L) so production deduction is
+   * direct: a 50 m roll is issued as 50 and completes at e.g. 32.5 remaining.
+   */
+  operatorMachineStock: defineTable({
+    itemId: v.id("parentInventory"),
+    materialId: v.id("materials"),
+    operatorId: v.string(),
+    machineId: v.id("machines"),
+    /** Whole packaging units issued (e.g. 1 roll). */
+    issuedUnits: v.number(),
+    /** Base units issued (e.g. 50 m) — equals issuedUnits × conversion factor. */
+    issuedQuantity: v.number(),
+    /** Base units still at the machine (e.g. 32.5 m). */
+    currentRemaining: v.number(),
+    status: operatorStockStatus,
+    issuedBy: v.optional(v.string()),
+    issuedAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_item", ["itemId"])
+    .index("by_machine", ["machineId"])
+    .index("by_material_machine", ["materialId", "machineId"])
+    .index("by_status", ["status"]),
+
+  /**
+   * Weekly audit log comparing the system-calculated floor balance against a
+   * physical count. A non-zero discrepancy is written off to both inventory
+   * tiers and stays auditable through `stockMovements`.
+   */
+  weeklyReconciliations: defineTable({
+    machineId: v.id("machines"),
+    operatorId: v.string(),
+    operatorStockId: v.id("operatorMachineStock"),
+    systemCalculatedRemaining: v.number(),
+    physicalActualRemaining: v.number(),
+    /** physical − system (negative = wastage/loss). */
+    discrepancy: v.number(),
+    unit: unit,
+    reconciledBy: v.string(),
+    reconciledAt: v.number(),
+    notes: v.optional(v.string()),
+  })
+    .index("by_machine", ["machineId"])
+    .index("by_stock", ["operatorStockId"])
+    .index("by_reconciled_at", ["reconciledAt"]),
 
   /**
    * Telegram bot session state keyed per chat. `data` holds the JSON-serialized
@@ -476,4 +594,15 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_telegram_id", ["telegramId"]),
+
+  /**
+   * One-shot data migrations. A row is written once a given backfill has run to
+   * completion so idempotent migrations never execute twice against a dataset.
+   * Keyed by the migration's unique name.
+   */
+  migrations: defineTable({
+    key: v.string(),
+    ranAt: v.number(),
+  })
+    .index("by_key", ["key"]),
 });

@@ -61,6 +61,7 @@ export const updateSystemConfig = mutation({
     minOffcutAreaSquareMetre: v.number(),
     requireAdminPinForExceptions: v.boolean(),
     maxDirectStockOutEtb: v.number(),
+    orderExpirationHours: v.number(),
   },
   handler: async (ctx, args) => {
     const { identity, profile } = await requireOwner(ctx);
@@ -73,6 +74,7 @@ export const updateSystemConfig = mutation({
     validateNumber(args.maxAllowedWastePercent, "Maximum allowed waste rate", { min: 0, max: 100 });
     validateNumber(args.minOffcutAreaSquareMetre, "Minimum offcut registration size", { min: 0 });
     validateNumber(args.maxDirectStockOutEtb, "Maximum ETB for direct stock-outs", { min: 0 });
+    validateNumber(args.orderExpirationHours, "Order expiration hours", { min: 1, max: 168 });
 
     const seen = new Set<string>();
     const overrides = args.materialOverrides
@@ -107,6 +109,7 @@ export const updateSystemConfig = mutation({
       minOffcutAreaSquareMetre: args.minOffcutAreaSquareMetre,
       requireAdminPinForExceptions: args.requireAdminPinForExceptions,
       maxDirectStockOutEtb: args.maxDirectStockOutEtb,
+      orderExpirationHours: args.orderExpirationHours,
       updatedAt: Date.now(),
       updatedBy: profile._id,
     };
