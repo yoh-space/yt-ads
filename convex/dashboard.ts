@@ -115,6 +115,94 @@ export const getState = query({
   },
 });
 
+const EXPIRING_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Reactive operational KPIs for the admin/management overview grid. Computes
+ * order-led real-time counters (new orders today, live production, pending
+ * payment, completed today) plus the inventory and expiration alerts. Monetary
+ * figures are gated behind `canViewFinancial` so only the owner sees ETB sums.
+ */
+export const getKpis = query({
+  args: {},
+  handler: async (ctx) => {
+    const { profile } = await requireActiveProfile(ctx);
+    const now = Date.now();
+    const startOfToday = getStartOfDay();
+    const startOfYesterday = startOfToday - 24 * 60 * 60 * 1000;
+
+    const [orders, materials, operatorStock] = await Promise.all([
+      ctx.db.query("customerOrders").collect(),
+      ctx.db.query("materials").collect(),
+      ctx.db.query("operatorMachineStock").collect(),
+    ]);
+
+    const ordersToday = orders.filter((order) => order.createdAt >= startOfToday);
+    const ordersYesterday = orders.filter(
+      (order) => order.createdAt >= startOfYesterday && order.createdAt < startOfToday,
+    );
+
+    const todaysOrdersCount = ordersToday.length;
+    const yesterdayOrdersCount = ordersYesterday.length;
+
+    const inProductionCount = orders.filter((order) => order.status === "IN_PRODUCTION").length;
+
+    const pendingPaymentOrders = orders.filter(
+      (order) =>
+        order.status === "PRICED_AND_PENDING_PAYMENT" ||
+        (order.paymentStatus === "APPROVED_CREDIT" && order.status !== "COMPLETED"),
+    );
+    const pendingPaymentCount = pendingPaymentOrders.length;
+    const pendingPaymentTotal = pendingPaymentOrders.reduce(
+      (sum, order) => sum + (order.amount ?? 0),
+      0,
+    );
+
+    const todaysCompletedCount = orders.filter(
+      (order) => order.status === "COMPLETED" && order.updatedAt >= startOfToday,
+    ).length;
+    const yesterdayCompletedCount = orders.filter(
+      (order) =>
+        order.status === "COMPLETED" &&
+        order.updatedAt >= startOfYesterday &&
+        order.updatedAt < startOfToday,
+    ).length;
+
+    const activeMaterialsAtReorder = materials.filter(
+      (material) => material.active && material.quantity <= material.reorderAt,
+    ).length;
+    const depletedOperatorBatches = operatorStock.filter(
+      (batch) => batch.status === "ACTIVE" && batch.currentRemaining <= 0,
+    ).length;
+    const lowStockAlertCount = activeMaterialsAtReorder + depletedOperatorBatches;
+
+    const expiringSoonCount = orders.filter(
+      (order) =>
+        order.expiresAt !== undefined &&
+        order.expiresAt > now &&
+        order.expiresAt <= now + EXPIRING_WINDOW_MS &&
+        order.status !== "COMPLETED" &&
+        order.status !== "Expired" &&
+        order.paymentStatus !== "PAID",
+    ).length;
+
+    const canSeeFinancial = canViewFinancial(profile.role);
+
+    return {
+      todaysOrdersCount,
+      yesterdayOrdersCount,
+      inProductionCount,
+      pendingPaymentCount,
+      pendingPaymentTotal: canSeeFinancial ? Number(pendingPaymentTotal.toFixed(2)) : 0,
+      todaysCompletedCount,
+      yesterdayCompletedCount,
+      lowStockAlertCount,
+      expiringSoonCount,
+      generatedAt: now,
+    };
+  },
+});
+
 /**
  * Live financial oversight metrics for the owner dashboard. Recomputes on
  * every relevant mutation:

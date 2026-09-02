@@ -3,14 +3,16 @@
 import {
   AlertTriangle,
   Box,
+  CheckCircle2,
   CircleAlert,
-  ClipboardList,
+  Clock,
   Command,
-  Factory,
+  CreditCard,
   MoreHorizontal,
   MoveUpRight,
   Printer,
   Scissors,
+  ShoppingBag,
   TrendingUp,
   Wallet,
   Coins,
@@ -35,8 +37,30 @@ export type FinancialMetrics = {
 
 const ETB_FORMAT = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
 
+export type Kpis = {
+  todaysOrdersCount: number;
+  yesterdayOrdersCount: number;
+  inProductionCount: number;
+  pendingPaymentCount: number;
+  pendingPaymentTotal: number;
+  todaysCompletedCount: number;
+  yesterdayCompletedCount: number;
+  lowStockAlertCount: number;
+  expiringSoonCount: number;
+  generatedAt: number;
+};
+
 function formatEtb(value: number): string {
   return `${ETB_FORMAT.format(Math.round(value))} ETB`;
+}
+
+function trendLabel(current: number, previous: number): string {
+  if (previous <= 0) return current > 0 ? "new vs yesterday" : "no change vs yesterday";
+  const delta = current - previous;
+  const pct = Math.round((delta / previous) * 100);
+  if (delta > 0) return `+${pct}% vs yesterday`;
+  if (delta < 0) return `${pct}% vs yesterday`;
+  return "flat vs yesterday";
 }
 
 export function Overview({
@@ -51,6 +75,7 @@ export function Overview({
   waste,
   reconciliationVariances,
   financialMetrics,
+  kpis,
   onView,
   onFilterJobs,
   onComplete,
@@ -66,6 +91,7 @@ export function Overview({
   waste: number;
   reconciliationVariances: Array<{ variance: number; monetaryLoss: number }>;
   financialMetrics: FinancialMetrics | null;
+  kpis?: Kpis;
   onView: (view: View) => void;
   onFilterJobs: (status: JobCard["status"] | "open") => void;
   onComplete: (id: string) => void;
@@ -81,6 +107,7 @@ export function Overview({
   const lossPositive = auditedStockLoss > 0;
   return (
     <>
+      {/* Financial Status Overview (owner only) */}
       {financialMetrics ? (
         <section className="grid grid-cols-4 gap-[14px] mb-[18px]" aria-label="Financial oversight executive cards">
           <StatCard
@@ -122,45 +149,79 @@ export function Overview({
             isNegative={lossPositive}
           />
         </section>
-      ) : (
-        <section className="grid grid-cols-4 gap-[14px] mb-[18px]" aria-label="Operational overview cards">
+      ) : null}
+
+      {/* Operational KPI Grid (real-time insights) */}
+      {kpis ? (
+        <section className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-[18px]" aria-label="Operational KPI cards">
           <StatCard
-            variant="sales"
-            icon={<ClipboardList size={20} />}
-            label="ዛሬ የተመዘገቡ ትዕዛዞች · TODAY'S ORDERS"
-            value={String(orderStats.todaysOrders)}
-            description="ዛሬ የመጡ የደንበኛ ትዕዛዞች ብዛት"
-            metadata={`${orderStats.queueOrders} queued · ${orderStats.activeProductionOrders} in production today`}
+            interactive
+            onClick={() => onView("orders")}
+            icon={<ShoppingBag size={20} />}
+            label="TODAY'S NEW ORDERS"
+            value={String(kpis.todaysOrdersCount)}
+            description="ንቁ የትዕዛዝ ፍሰት እየተመዘገበ"
+            metadata={trendLabel(kpis.todaysOrdersCount, kpis.yesterdayOrdersCount)}
           />
 
           <StatCard
+            interactive
+            onClick={() => onView("orders")}
             variant="cost"
-            icon={<Factory size={20} />}
-            label="ንቁ ማሽኖች · ACTIVE MACHINES"
-            value={String(machines.filter((m) => m.status === "Running").length)}
-            description="በአሁኑ ጊዜ በስራ ላይ ያሉ ማሽኖች"
-            metadata={`${machines.length} total registered machines`}
+            icon={<Printer size={20} />}
+            label="IN PRODUCTION"
+            value={String(kpis.inProductionCount)}
+            description="በኦፕሬተር ማሽኖች ላይ በመስራት ላይ ያሉ ትዕዛዞች"
+            metadata={`${orderStats.activeProductionOrders} active on machines now`}
           />
 
           <StatCard
+            interactive
+            onClick={() => onView("orders")}
+            variant="cost"
+            icon={<CreditCard size={20} />}
+            label="PENDING PAYMENT / CREDIT"
+            value={String(kpis.pendingPaymentCount)}
+            description="ክፍያ የሚጠብቁ ወይም የጸደቀ ብዕር ያላቸው ትዕዛዞች"
+            metadata={financialMetrics ? `${formatEtb(kpis.pendingPaymentTotal)} outstanding` : "Financial value masked"}
+          />
+
+          <StatCard
+            interactive
+            onClick={() => onView("orders")}
             variant="profit"
-            icon={<Scissors size={20} />}
-            label="ንቁ የሥራ ካርዶች · ACTIVE JOBS"
-            value={String(jobs.filter((job) => job.status !== "Completed").length)}
-            description="ሊጠናቀቁ ያሉ የሥራ ካርዶች"
-            metadata={`${jobs.filter((job) => job.status === "In production").length} in production now`}
+            icon={<CheckCircle2 size={20} />}
+            label="TODAY'S COMPLETED"
+            value={String(kpis.todaysCompletedCount)}
+            description="ዛሬ የተጠናቀቁ ትዕዛዞች"
+            metadata={trendLabel(kpis.todaysCompletedCount, kpis.yesterdayCompletedCount)}
           />
 
           <StatCard
+            interactive
+            onClick={() => onView("inventory")}
             variant="alert"
             icon={<AlertTriangle size={20} />}
-            label="ዝቅተኛ ክምችት · LOW STOCK"
-            value={String(lowStock.length)}
-            description="ከመደበኛ ደረጃ በታች ያሉ እቃዎች"
-            metadata="Reorder levels apply · no financial values shown for this role"
+            label="LOW STOCK ALERT"
+            value={String(kpis.lowStockAlertCount)}
+            description="ከደረጃ በታች ያሉ የክምችት ዕቃዎች (parent & operator stock)"
+            metadata={`${lowStock.length} materials at reorder level`}
+            isAlert={kpis.lowStockAlertCount > 0}
+          />
+
+          <StatCard
+            interactive
+            onClick={() => onView("orders")}
+            variant="alert"
+            icon={<Clock size={20} />}
+            label="EXPIRING SOON"
+            value={String(kpis.expiringSoonCount)}
+            description="የክፍያ ጊዜያቸው እየተቃረበ ያሉ ትዕዛዞች"
+            metadata="Within the next 24 hours"
+            isAlert={kpis.expiringSoonCount > 0}
           />
         </section>
-      )}
+      ) : null}
 
       {/* Job Board & Material Pulse - Bottom Grid */}
       <section className="grid grid-cols-[1.55fr_1fr] gap-[14px] mb-[14px]">

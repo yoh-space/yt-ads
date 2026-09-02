@@ -57,6 +57,7 @@ export function OperationsDashboard() {
   const role = profile?.role ?? "admin";
   const isOwner = role === "owner";
   const financialMetrics = useQuery(api.dashboard.financialMetrics, isOwner && profile?.active ? {} : "skip");
+  const kpis = useQuery(api.dashboard.getKpis, profile?.active ? {} : "skip");
   const canViewOrders = Boolean(profile && hasPermission(role, "order.view"));
   const canManageOrders = Boolean(profile && hasPermission(role, "order.manage"));
   const canRecordStock = Boolean(profile && hasPermission(role, "stock.record"));
@@ -130,7 +131,7 @@ export function OperationsDashboard() {
 
   if (profile === undefined || companySettings === undefined) return <InventoryLoader />;
   if (profile === null || !profile.active) return <DashboardAccessDenied />;
-  if (state === undefined || materialRequests === undefined || reconciliationSummary === undefined || (isOwner && financialMetrics === undefined) || (canViewOrders && (ordersQuery === undefined || exceptionsQuery === undefined))) {
+  if (state === undefined || kpis === undefined || materialRequests === undefined || reconciliationSummary === undefined || (isOwner && financialMetrics === undefined) || (canViewOrders && (ordersQuery === undefined || exceptionsQuery === undefined))) {
     return <InventoryLoader />;
   }
 
@@ -387,6 +388,7 @@ export function OperationsDashboard() {
               waste={averageWaste}
               reconciliationVariances={reconciliationSummary?.currentVariances ?? []}
               financialMetrics={(financialMetrics ?? null) as FinancialMetrics | null}
+              kpis={kpis}
               onView={openView}
               onFilterJobs={filterJobsFromOverview}
               onComplete={completeJob}
