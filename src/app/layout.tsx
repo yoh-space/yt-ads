@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ConvexClientProvider } from "@/components/convex-client-provider";
+import { AutoUpdater } from "@/components/auto-updater";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -11,6 +12,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="am">
       <body>
+        <AutoUpdater />
         <ConvexClientProvider>{children}</ConvexClientProvider>
       </body>
     </html>

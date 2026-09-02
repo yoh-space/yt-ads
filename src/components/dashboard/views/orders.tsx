@@ -1,12 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowUpRight, Clock3, Plus, Search, Wrench, X } from "lucide-react";
+import { ArrowUpRight, Clock3, Plus, Printer, Search, Wrench, X } from "lucide-react";
 import type { CustomerOrder, Machine, Material, OrderPriority, CustomerOrderStatus } from "@/lib/operations-types";
 import { formatQuantity } from "@/lib/units";
 import { Button, Panel, PanelHeader, StatusPill } from "@/components/ui";
 import { ModalShell } from "../modals/modal-shell";
 import { cn } from "@/lib/utils";
+import { isDesktopShell, printNative } from "@/lib/desktop";
 
 const statuses: Array<CustomerOrderStatus | "all"> = ["all", "PENDING_REVIEW", "PRICED_AND_PENDING_PAYMENT", "CONFIRMED_PAID_OR_CREDIT", "JOB_CARD_CREATED", "IN_PRODUCTION", "COMPLETED", "Expired"];
 const priorities: Array<OrderPriority | "all"> = ["all", "High", "Medium", "Low"];
@@ -40,6 +41,7 @@ export function OrdersView({
   const [status, setStatus] = useState<CustomerOrderStatus | "all">("all");
   const [priority, setPriority] = useState<OrderPriority | "all">("all");
   const [machine, setMachine] = useState("all");
+  const [printOrder, setPrintOrder] = useState<CustomerOrder | null>(null);
 
   const filtered = useMemo(() => orders.filter((order) => {
     const haystack = `${order.code} ${order.clientName} ${order.phone} ${order.serviceType} ${order.dimensions}`.toLowerCase();
@@ -212,6 +214,12 @@ export function OrdersView({
                     {isPending(`order-status-${order.id}`) ? "Saving..." : "Complete"}
                   </Button>
                 ) : null}
+                {isDesktopShell() ? (
+                  <Button size="small" variant="tertiary" onClick={() => setPrintOrder(order)}>
+                    <Printer size={13} />
+                    Receipt
+                  </Button>
+                ) : null}
               </div>
             </div>
           ))}
@@ -219,7 +227,67 @@ export function OrdersView({
       </Panel>
 
       <p className="text-xs text-gray-500">Creating a job card from an order carries client details automatically. Material is deducted when production is recorded, not at creation.</p>
+
+      {printOrder ? (
+        <OrderReceiptModal
+          order={printOrder}
+          onClose={() => setPrintOrder(null)}
+          onPrint={() => printNative()}
+        />
+      ) : null}
     </div>
+  );
+}
+
+export function OrderReceiptModal({ order, onClose, onPrint }: { order: CustomerOrder; onClose: () => void; onPrint: () => void }) {
+  return (
+    <ModalShell
+      title={`${order.code} · Customer Receipt`}
+      subtitle="Native print preview for the receptionist handoff sheet."
+      kicker="PRINT RECEIPT"
+      onClose={onClose}
+      footer={
+        <div className="flex gap-3 justify-end">
+          <Button type="button" variant="tertiary" onClick={onClose}>Close</Button>
+          <Button type="button" variant="primary" onClick={onPrint}>
+            <Printer size={15} />Print Receipt
+          </Button>
+        </div>
+      }
+    >
+      <div className="space-y-4 print:block print:shadow-none print:border-0">
+        <div className="border border-line rounded-lg p-5 bg-white">
+          <div className="flex items-center justify-between border-b border-dashed border-line pb-4 mb-4">
+            <div>
+              <strong className="block text-lg font-bold text-navy">YT Advertising</strong>
+              <span className="text-xs text-gray-500">Order Receipt</span>
+            </div>
+            <div className="text-right">
+              <span className="font-mono text-xs font-semibold text-cyan">{order.code}</span>
+              <span className="block text-xs text-gray-500">{formatDue(order.createdAt)}</span>
+            </div>
+          </div>
+
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm print:text-xs">
+            <div><dt className="text-muted-foreground text-xs">Client</dt><dd className="font-semibold text-navy">{order.clientName}</dd></div>
+            <div><dt className="text-muted-foreground text-xs">Phone</dt><dd className="font-semibold text-navy">{order.phone}</dd></div>
+            <div><dt className="text-muted-foreground text-xs">Service</dt><dd className="font-semibold text-navy">{order.serviceType}</dd></div>
+            <div><dt className="text-muted-foreground text-xs">Dimensions</dt><dd className="font-semibold text-navy">{order.dimensions}</dd></div>
+            <div><dt className="text-muted-foreground text-xs">Quantity</dt><dd className="font-semibold text-navy">{order.quantity}</dd></div>
+            <div><dt className="text-muted-foreground text-xs">Due</dt><dd className="font-semibold text-navy">{formatDue(order.preferredDueDate)}</dd></div>
+            <div><dt className="text-muted-foreground text-xs">Priority</dt><dd className="font-semibold text-navy">{order.priority}</dd></div>
+            <div><dt className="text-muted-foreground text-xs">Status</dt><dd className="font-semibold text-navy">{order.status}</dd></div>
+            {order.amount !== undefined ? (
+              <div className="col-span-2 flex items-center justify-between border-t border-dashed border-line pt-3 mt-2">
+                <dt className="text-muted-foreground text-xs">Total</dt>
+                <dd className="font-bold text-navy">ETB {order.amount.toLocaleString()}</dd>
+              </div>
+            ) : null}
+          </dl>
+        </div>
+        <p className="text-[10px] text-gray-400">Handled by YT Advertising reception · {new Date().toLocaleString("en-ET")}</p>
+      </div>
+    </ModalShell>
   );
 }
 

@@ -8,12 +8,17 @@
     "start": "next start",
     "check": "tsc --noEmit",
     "test": "vitest run",
-    "telegram:set-webhook": "tsx scripts/set-webhook.ts"
+    "telegram:set-webhook": "tsx scripts/set-webhook.ts",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
   },
   "dependencies": {
     "@convex-dev/better-auth": "^0.12.5",
     "@hookform/resolvers": "^5.9.1",
     "@tanstack/react-table": "^8.21.3",
+    "@tauri-apps/api": "^2.11.1",
+    "@tauri-apps/plugin-updater": "^2.11.0",
     "better-auth": "~1.6.15",
     "convex": "^1.25.0",
     "grammy": "^1.46.0",
@@ -27,6 +32,7 @@
     "zustand": "^4.5.7"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.11.4",
     "@types/node": "^22.10.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",

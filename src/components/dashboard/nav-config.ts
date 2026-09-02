@@ -46,8 +46,24 @@ export function canAccessView(role: Role, view: View) {
 }
 
 export function defaultViewForRole(role: Role): View {
-  return roleVisibleViews[role][0] ?? "overview";
+  return ROLE_WORKSPACE[role].view;
 }
+
+/**
+ * Desktop workspace landing mapping. Each staff role is redirected to a
+ * dedicated workspace when the Tauri shell signs in, mirroring the role-scoped
+ * routing described for the desktop build. Keep in sync with roleVisibleViews.
+ */
+export const ROLE_WORKSPACE: Record<Role, { view: View; label: string; english: string }> = {
+  owner: { view: "overview", label: "የባለቤት የፋይናንስ እና የክምችት ኦዲት", english: "Owner Analytics & Control" },
+  manager: { view: "overview", label: "የማኔጀር ማዕከል", english: "Manager Analytics" },
+  admin: { view: "overview", label: "ዋና ማዕከል", english: "Admin Analytics & Control" },
+  storekeeper: { view: "inventory", label: "ክምችት", english: "Storekeeper Inventory" },
+  laser_operator: { view: "jobs", label: "የሥራ ካርዶች", english: "Operator Queue" },
+  cnc_operator: { view: "jobs", label: "የሥራ ካርዶች", english: "Operator Queue" },
+  plotter_operator: { view: "jobs", label: "የሥራ ካርዶች", english: "Operator Queue" },
+  printer_operator: { view: "jobs", label: "የሥራ ካርዶች", english: "Operator Queue" },
+};
 
 export const navItems: Array<{
   id: View;

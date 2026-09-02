@@ -114,3 +114,8 @@ client/public/__manus__/version.json
 .project-config.json
 
 .vercel
+
+# Tauri desktop shell
+/src-tauri/target
+/dist-tauri
+/src-tauri/gen/schemas

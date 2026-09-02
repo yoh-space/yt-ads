@@ -37,7 +37,7 @@ import { MaterialRequestModal, type NewMaterialRequestInput } from "./modals/mat
 import { ExceptionStockModal } from "./modals/exception-stock-modal";
 import { OrderCreateModal, type NewOrderInput } from "./modals/order-create-modal";
 import { useSafeMutation } from "./pending-store";
-import { canAccessView, defaultViewForRole, navItems, type Modal, type View } from "./nav-config";
+import { canAccessView, defaultViewForRole, navItems, ROLE_WORKSPACE, type Modal, type View } from "./nav-config";
 import { hasPermission } from "@/lib/permissions";
 
 type WithId<T extends { _id: string }> = Omit<T, "_id"> & { id: T["_id"] };
@@ -101,6 +101,7 @@ export function OperationsDashboard() {
   const reviewReconciliation = useMutation(api.reconciliation.review);
 
   const [activeView, setActiveView] = useState<View>("overview");
+  const [workspaceApplied, setWorkspaceApplied] = useState(false);
   const [modal, setModal] = useState<Modal>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -115,6 +116,13 @@ export function OperationsDashboard() {
       void ensureProfile().catch(() => {});
     }
   }, [profile, ensureProfile]);
+
+  useEffect(() => {
+    if (!workspaceApplied && profile?.role) {
+      setActiveView(ROLE_WORKSPACE[profile.role].view);
+      setWorkspaceApplied(true);
+    }
+  }, [workspaceApplied, profile?.role]);
 
   useEffect(() => {
     if (canManageOrders && ordersQuery) void notifyOverdue({}).catch(() => {});
