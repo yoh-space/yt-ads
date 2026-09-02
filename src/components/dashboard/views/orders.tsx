@@ -1,13 +1,48 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowUpRight, Clock3, Plus, Printer, Search, Wrench, X } from "lucide-react";
+import { ArrowUpRight, CalendarDays, Clock3, Plus, Printer, Search, Wrench, X } from "lucide-react";
 import type { CustomerOrder, Machine, Material, OrderPriority, CustomerOrderStatus } from "@/lib/operations-types";
 import { formatQuantity } from "@/lib/units";
 import { Button, Panel, PanelHeader, StatusPill } from "@/components/ui";
 import { ModalShell } from "../modals/modal-shell";
+import { OrderDetailsSheet } from "./order-details-sheet";
 import { cn } from "@/lib/utils";
 import { isDesktopShell, printNative } from "@/lib/desktop";
+
+type DateRange = "all" | "today" | "yesterday" | "thisWeek" | "thisMonth";
+
+const dateRanges: Array<{ value: DateRange; label: string }> = [
+  { value: "all", label: "All time" },
+  { value: "today", label: "Today" },
+  { value: "yesterday", label: "Yesterday" },
+  { value: "thisWeek", label: "This week" },
+  { value: "thisMonth", label: "This month" },
+];
+
+function startOfDay(date: Date) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function inRange(timestamp: number, range: DateRange): boolean {
+  if (range === "all") return true;
+  const date = new Date(timestamp);
+  const now = new Date();
+  const today = startOfDay(now);
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (range === "today") return date >= today;
+  if (range === "yesterday") return date >= yesterday && date < today;
+  if (range === "thisWeek") {
+    const start = startOfDay(now);
+    start.setDate(start.getDate() - start.getDay());
+    return date >= start;
+  }
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  return date >= start;
+}
 
 const statuses: Array<CustomerOrderStatus | "all"> = ["all", "PENDING_REVIEW", "PRICED_AND_PENDING_PAYMENT", "CONFIRMED_PAID_OR_CREDIT", "JOB_CARD_CREATED", "IN_PRODUCTION", "COMPLETED", "Expired"];
 const priorities: Array<OrderPriority | "all"> = ["all", "High", "Medium", "Low"];
@@ -41,18 +76,26 @@ export function OrdersView({
   const [status, setStatus] = useState<CustomerOrderStatus | "all">("all");
   const [priority, setPriority] = useState<OrderPriority | "all">("all");
   const [machine, setMachine] = useState("all");
+  const [dateRange, setDateRange] = useState<DateRange>("all");
   const [printOrder, setPrintOrder] = useState<CustomerOrder | null>(null);
+  const [selected, setSelected] = useState<CustomerOrder | null>(null);
 
-  const filtered = useMemo(() => orders.filter((order) => {
+  const filteredByRange = useMemo(() => orders.filter((order) => inRange(order.createdAt, dateRange)), [dateRange, orders]);
+
+  const filtered = useMemo(() => filteredByRange.filter((order) => {
     const haystack = `${order.code} ${order.clientName} ${order.phone} ${order.serviceType} ${order.dimensions}`.toLowerCase();
     return (!search || haystack.includes(search.toLowerCase()))
       && (status === "all" ? order.status !== "Expired" : order.status === status)
       && (priority === "all" || order.priority === priority)
       && (machine === "all" || order.machineId === machine);
-  }), [machine, orders, priority, search, status]);
+  }), [filteredByRange, machine, priority, search, status]);
 
-  const overdue = orders.filter((order) => order.overdue).length;
-  const pending = orders.filter((order) => order.status !== "COMPLETED").length;
+  const overdue = filteredByRange.filter((order) => order.overdue).length;
+  const pending = filteredByRange.filter((order) => order.status !== "COMPLETED").length;
+
+  const selectedMachinesLabel = selected
+    ? machines.find((m) => m.id === selected.machineId)?.name
+    : undefined;
 
   return (
     <div className="space-y-6">
@@ -125,6 +168,14 @@ export function OrdersView({
             <option value="all">All machines</option>
             {machines.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
           </select>
+          <select
+            value={dateRange}
+            onChange={(e) => setDateRange(e.target.value as DateRange)}
+            className="px-3 py-2 bg-white border border-line rounded-lg text-sm text-ink outline-none focus:border-cyan"
+            aria-label="Date range"
+          >
+            {dateRanges.map((range) => <option key={range.value} value={range.value}>{range.label}</option>)}
+          </select>
         </div>
 
         {/* Table */}
@@ -142,7 +193,23 @@ export function OrdersView({
           {filtered.length === 0 ? (
             <div className="p-8 text-center text-gray-500 text-sm">No orders match the current filters.</div>
           ) : filtered.map((order) => (
-            <div className={cn("grid grid-cols-[2fr_1.5fr_1fr_1.2fr_1fr_1.2fr] gap-4 px-4 py-3 items-center hover:bg-gray-50 transition-colors", order.overdue && "bg-coral/5")} key={order.id}>
+            <div
+              className={cn(
+                "grid grid-cols-[2fr_1.5fr_1fr_1.2fr_1fr_1.2fr] gap-4 px-4 py-3 items-center transition-colors cursor-pointer",
+                selected?.id === order.id ? "bg-cyan/5" : "hover:bg-gray-50",
+                order.overdue && "bg-coral/5"
+              )}
+              key={order.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => setSelected(order)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  setSelected(order);
+                }
+              }}
+            >
               {/* Order/Client */}
               <div className="min-w-0">
                 <b className="block text-sm font-semibold text-navy truncate">{order.code}</b>
@@ -154,7 +221,7 @@ export function OrdersView({
               <div className="min-w-0">
                 <b className="block text-sm font-semibold text-navy truncate">{order.serviceType}</b>
                 <span className="block text-xs text-gray-600 truncate">{order.dimensions} · Qty {order.quantity}</span>
-                {order.fileUrl ? <a className="text-xs text-cyan hover:text-cyan-dark underline" href={order.fileUrl} target="_blank" rel="noreferrer">Open {order.fileName ?? "artwork"}</a> : null}
+                {order.fileUrl ? <a className="text-xs text-cyan hover:text-cyan-dark underline" href={order.fileUrl} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>Open {order.fileName ?? "artwork"}</a> : null}
               </div>
               
               {/* Priority */}
@@ -187,7 +254,7 @@ export function OrdersView({
                     size="small" 
                     variant="primary" 
                     disabled={isPending(`price-${order.id}`)} 
-                    onClick={() => onConvert(order)}
+                    onClick={(event) => { event.stopPropagation(); onConvert(order); }}
                   >
                     <Wrench size={13} />
                     {isPending(`price-${order.id}`) ? "Pricing…" : "Price Order"}
@@ -198,7 +265,7 @@ export function OrdersView({
                     size="small" 
                     variant="primary" 
                     disabled={isPending(`confirm-${order.id}`)} 
-                    onClick={() => onConvert(order)}
+                    onClick={(event) => { event.stopPropagation(); onConvert(order); }}
                   >
                     <Wrench size={13} />
                     {isPending(`confirm-${order.id}`) ? "Confirming…" : "Confirm & Issue Job Card"}
@@ -209,17 +276,18 @@ export function OrdersView({
                     size="small" 
                     variant="secondary" 
                     disabled={isPending(`order-status-${order.id}`)} 
-                    onClick={() => onStatus(order.id, "COMPLETED")}
+                    onClick={(event) => { event.stopPropagation(); onStatus(order.id, "COMPLETED"); }}
                   >
                     {isPending(`order-status-${order.id}`) ? "Saving..." : "Complete"}
                   </Button>
                 ) : null}
                 {isDesktopShell() ? (
-                  <Button size="small" variant="tertiary" onClick={() => setPrintOrder(order)}>
+                  <Button size="small" variant="tertiary" onClick={(event) => { event.stopPropagation(); setPrintOrder(order); }}>
                     <Printer size={13} />
                     Receipt
                   </Button>
                 ) : null}
+                <ArrowUpRight size={14} className="text-gray-300 flex-none" aria-hidden />
               </div>
             </div>
           ))}
@@ -233,6 +301,18 @@ export function OrdersView({
           order={printOrder}
           onClose={() => setPrintOrder(null)}
           onPrint={() => printNative()}
+        />
+      ) : null}
+
+      {selected ? (
+        <OrderDetailsSheet
+          order={selected}
+          machinesLabel={selectedMachinesLabel}
+          canManage={canManage}
+          isPending={isPending}
+          onConvert={onConvert}
+          onStatus={onStatus}
+          onClose={() => setSelected(null)}
         />
       ) : null}
     </div>
