@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { ArrowUpRight, CalendarDays, Clock3, Plus, Printer, Search, Wrench, X } from "lucide-react";
 import type { CustomerOrder, Machine, Material, OrderPriority, CustomerOrderStatus } from "@/lib/operations-types";
 import { formatQuantity } from "@/lib/units";
+import { getServiceLabel } from "@/constants/services";
 import { Button, Panel, PanelHeader, StatusPill } from "@/components/ui";
 import { ModalShell } from "../modals/modal-shell";
 import { OrderDetailsSheet } from "./order-details-sheet";
@@ -83,7 +84,7 @@ export function OrdersView({
   const filteredByRange = useMemo(() => orders.filter((order) => inRange(order.createdAt, dateRange)), [dateRange, orders]);
 
   const filtered = useMemo(() => filteredByRange.filter((order) => {
-    const haystack = `${order.code} ${order.clientName} ${order.phone} ${order.serviceType} ${order.dimensions}`.toLowerCase();
+    const haystack = `${order.code} ${order.clientName} ${order.phone} ${getServiceLabel(order.serviceType) ?? order.serviceType} ${order.dimensions}`.toLowerCase();
     return (!search || haystack.includes(search.toLowerCase()))
       && (status === "all" ? order.status !== "Expired" : order.status === status)
       && (priority === "all" || order.priority === priority)
@@ -219,7 +220,7 @@ export function OrdersView({
               
               {/* Service */}
               <div className="min-w-0">
-                <b className="block text-sm font-semibold text-navy truncate">{order.serviceType}</b>
+                <b className="block text-sm font-semibold text-navy truncate">{getServiceLabel(order.serviceType) ?? order.serviceType}</b>
                 <span className="block text-xs text-gray-600 truncate">{order.dimensions} · Qty {order.quantity}</span>
                 {order.fileUrl ? <a className="text-xs text-cyan hover:text-cyan-dark underline" href={order.fileUrl} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>Open {order.fileName ?? "artwork"}</a> : null}
               </div>
@@ -351,7 +352,7 @@ export function OrderReceiptModal({ order, onClose, onPrint }: { order: Customer
           <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm print:text-xs">
             <div><dt className="text-muted-foreground text-xs">Client</dt><dd className="font-semibold text-navy">{order.clientName}</dd></div>
             <div><dt className="text-muted-foreground text-xs">Phone</dt><dd className="font-semibold text-navy">{order.phone}</dd></div>
-            <div><dt className="text-muted-foreground text-xs">Service</dt><dd className="font-semibold text-navy">{order.serviceType}</dd></div>
+            <div><dt className="text-muted-foreground text-xs">Service</dt><dd className="font-semibold text-navy">{getServiceLabel(order.serviceType) ?? order.serviceType}</dd></div>
             <div><dt className="text-muted-foreground text-xs">Dimensions</dt><dd className="font-semibold text-navy">{order.dimensions}</dd></div>
             <div><dt className="text-muted-foreground text-xs">Quantity</dt><dd className="font-semibold text-navy">{order.quantity}</dd></div>
             <div><dt className="text-muted-foreground text-xs">Due</dt><dd className="font-semibold text-navy">{formatDue(order.preferredDueDate)}</dd></div>
@@ -408,7 +409,7 @@ export function OrderPriceModal({ order, onClose, onSave }: { order: CustomerOrd
 
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div><small className="text-muted-foreground">Client</small><br /><strong className="text-navy">{order.clientName}</strong></div>
-          <div><small className="text-muted-foreground">Service</small><br /><strong className="text-navy">{order.serviceType}</strong></div>
+        <div><small className="text-muted-foreground">Service</small><br /><strong className="text-navy">{getServiceLabel(order.serviceType) ?? order.serviceType}</strong></div>
           <div><small className="text-muted-foreground">Dimensions</small><br /><strong className="text-navy">{order.dimensions}</strong></div>
           <div><small className="text-muted-foreground">Quantity</small><br /><strong className="text-navy">{order.quantity}</strong></div>
         </div>
@@ -484,7 +485,7 @@ export function OrderConfirmModal({ order, machines, materials, onClose, onSave 
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div><small className="text-muted-foreground">Client</small><br /><strong className="text-navy">{order.clientName}</strong></div>
           <div><small className="text-muted-foreground">Phone</small><br /><strong className="text-navy">{order.phone}</strong></div>
-          <div><small className="text-muted-foreground">Service</small><br /><strong className="text-navy">{order.serviceType}</strong></div>
+          <div><small className="text-muted-foreground">Service</small><br /><strong className="text-navy">{getServiceLabel(order.serviceType) ?? order.serviceType}</strong></div>
           <div><small className="text-muted-foreground">Total Price</small><br /><strong className="text-navy">{order.amount ? `${order.amount.toFixed(2)} ETB` : "—"}</strong></div>
           <div><small className="text-muted-foreground">Dimensions</small><br /><strong className="text-navy">{order.dimensions}</strong></div>
           <div><small className="text-muted-foreground">Quantity</small><br /><strong className="text-navy">{order.quantity}</strong></div>

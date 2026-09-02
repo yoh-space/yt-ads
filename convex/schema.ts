@@ -86,6 +86,34 @@ export const orderSource = v.union(
   v.literal("walk_in"),
 );
 
+// Canonical service type identifiers used across the app. Keep in sync with
+// src/constants/services.ts
+export const serviceType = v.union(
+  v.literal("banner_print"),
+  v.literal("sticker_white"),
+  v.literal("sticker_transparent"),
+  v.literal("sticker_reflective"),
+  v.literal("sticker_mesh"),
+  v.literal("sticker_frosted"),
+  v.literal("hq_print_and_cut"),
+  v.literal("light_box_a1"),
+  v.literal("light_box_a2"),
+  v.literal("neon_light"),
+  v.literal("roll_up_standard"),
+  v.literal("roll_up_deluxe"),
+  v.literal("uv_print_mica"),
+  v.literal("uv_print_foam"),
+  v.literal("uv_print_cladding"),
+  v.literal("uv_print_canvas"),
+  v.literal("foam_cutout"),
+  v.literal("foam_engrave"),
+  v.literal("mica_cutout"),
+  v.literal("mica_engrave"),
+  v.literal("dtf"),
+  v.literal("sublimation"),
+);
+
+
 export const exceptionReason = v.union(
   v.literal("Sample Print"),
   v.literal("Minor Repair"),
@@ -319,7 +347,7 @@ export default defineSchema({
     code: v.string(),
     clientName: v.string(),
     phone: v.string(),
-    serviceType: v.string(),
+    serviceType: serviceType,
     dimensions: v.string(),
     quantity: v.string(),
     /** Final total price confirmed by reception during checkout. */

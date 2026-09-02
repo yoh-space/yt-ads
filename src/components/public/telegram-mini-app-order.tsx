@@ -23,15 +23,9 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { cn } from "@/lib/utils";
 import { bootstrapTelegramWebApp, sendTelegramOrderResult } from "@/lib/telegram-webapp";
 
-const serviceCategories = [
-  { id: "Large Format", label: "Large Format", desc: "Flex Banner, Sticker" },
-  { id: "UV Flatbed", label: "UV Flatbed", desc: "Rigid boards, Acrylic" },
-  { id: "CNC Router", label: "CNC Router", desc: "3D Letters, Panels" },
-  { id: "Laser Cutter", label: "Laser Cutter", desc: "Acrylic & Foam cut" },
-  { id: "DTF Printing", label: "DTF Print", desc: "T-Shirts & Apparel" },
-  { id: "Signage / Branding", label: "Signage", desc: "Lightboxes, Boards" },
-];
+import { SERVICE_CATEGORIES, getServiceLabel } from "@/constants/services";
 
+const serviceCategories = SERVICE_CATEGORIES;
 export function TelegramMiniAppOrder() {
   const info = useQuery(api.orders.publicInfo);
   const generateUploadUrl = useMutation(api.orders.generateUploadUrl);
@@ -57,7 +51,7 @@ export function TelegramMiniAppOrder() {
 
   const [form, setForm] = useState({
     clientName: "",
-    serviceType: serviceCategories[0].id,
+    serviceType: serviceCategories[0]?.items[0]?.id ?? "",
     dimensions: "",
     quantity: "1",
     notes: "",
@@ -206,26 +200,33 @@ export function TelegramMiniAppOrder() {
           <label className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
             <Printer size={14} className="text-cyan-600" /> 1. የህትመት አይነት መረጣ
           </label>
-          <div className="grid grid-cols-2 gap-2">
-            {serviceCategories.map((srv) => {
-              const active = form.serviceType === srv.id;
-              return (
-                <button
-                  type="button"
-                  key={srv.id}
-                  onClick={() => setForm({ ...form, serviceType: srv.id })}
-                  className={cn(
-                    "p-3 rounded-xl border text-left transition-all active:scale-95 flex flex-col justify-between",
-                    active
-                      ? "border-cyan-600 bg-cyan-50/60 ring-2 ring-cyan-500/20 text-cyan-950 font-semibold"
-                      : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
-                  )}
-                >
-                  <span className="text-xs font-bold block">{srv.label}</span>
-                  <span className="text-[10px] text-slate-400 block mt-0.5">{srv.desc}</span>
-                </button>
-              );
-            })}
+          <div className="space-y-3">
+            {serviceCategories.map((cat) => (
+              <div key={cat.categoryId}>
+                <div className="text-xs font-semibold text-slate-600 mb-2">{cat.categoryName.en}</div>
+                <div className="grid grid-cols-2 gap-2 mb-2">
+                  {cat.items.map((it) => {
+                    const active = form.serviceType === it.id;
+                    return (
+                      <button
+                        type="button"
+                        key={it.id}
+                        onClick={() => setForm({ ...form, serviceType: it.id })}
+                        className={cn(
+                          "p-3 rounded-xl border text-left transition-all active:scale-95 flex flex-col justify-between",
+                          active
+                            ? "border-cyan-600 bg-cyan-50/60 ring-2 ring-cyan-500/20 text-cyan-950 font-semibold"
+                            : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                        )}
+                      >
+                        <span className="text-xs font-bold block">{it.label.en}</span>
+                        <span className="text-[10px] text-slate-400 block mt-0.5">{cat.categoryName.en}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         </section>
 

@@ -2,7 +2,7 @@ import { internalMutation, internalAction, mutation, query, action } from "./_ge
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { authComponent } from "./auth";
-import { exceptionReason, orderPriority, orderStatus, paymentStatus, unit } from "./schema";
+import { exceptionReason, orderPriority, orderStatus, paymentStatus, unit, serviceType } from "./schema";
 import { requireAnyPermission, requirePermission } from "./users";
 import { canViewFinancial } from "./authorization";
 import { notifyRoles } from "./notificationHelpers";
@@ -111,7 +111,7 @@ export const submit = mutation({
     clientName: v.string(),
     phone: v.optional(v.string()),
     telegramId: v.optional(v.string()),
-    serviceType: v.string(),
+    serviceType: serviceType,
     dimensions: v.string(),
     quantity: v.string(),
     preferredDueDate: v.number(),
@@ -122,7 +122,8 @@ export const submit = mutation({
   },
   handler: async (ctx, args) => {
     const clientName = args.clientName.trim();
-    const serviceType = args.serviceType.trim();
+    const serviceTypeRaw = (args.serviceType as string).trim();
+    const serviceType = serviceTypeRaw as typeof args.serviceType;
     const dimensions = args.dimensions.trim();
     const quantity = args.quantity.trim();
     if (!clientName || !serviceType || !dimensions || !quantity) {
@@ -198,7 +199,7 @@ export const createWalkIn = mutation({
   args: {
     clientName: v.string(),
     phone: v.string(),
-    serviceType: v.string(),
+    serviceType: serviceType,
     dimensions: v.string(),
     quantity: v.string(),
     amount: v.optional(v.number()),
@@ -212,7 +213,8 @@ export const createWalkIn = mutation({
     const { identity } = await requirePermission(ctx, "order.create");
     const clientName = args.clientName.trim();
     const phone = normalizePhone(args.phone);
-    const serviceType = args.serviceType.trim();
+    const serviceTypeRaw = (args.serviceType as string).trim();
+    const serviceType = serviceTypeRaw as typeof args.serviceType;
     const dimensions = args.dimensions.trim();
     const quantity = args.quantity.trim();
     if (!clientName || !phone || !serviceType || !dimensions || !quantity) {
@@ -627,7 +629,7 @@ export const createTelegramOrder = mutation({
   args: {
     telegramChatId: v.string(),
     customerName: v.string(),
-    serviceType: v.string(),
+    serviceType: serviceType,
     dimensions: v.optional(v.string()),
     quantity: v.optional(v.string()),
     phone: v.optional(v.string()),
@@ -637,7 +639,8 @@ export const createTelegramOrder = mutation({
   },
   handler: async (ctx, args) => {
     const customerName = args.customerName.trim();
-    const serviceType = args.serviceType.trim();
+    const serviceTypeRaw = (args.serviceType as string).trim();
+    const serviceType = serviceTypeRaw as typeof args.serviceType;
     if (!customerName || !serviceType) {
       throw new Error("Customer name and service type are required.");
     }

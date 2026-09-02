@@ -2,24 +2,12 @@
 
 export function InventoryLoader() {
   return (
-    <div className="inventory-loader" role="status" aria-live="polite" aria-label="Loading inventory management system">
-      <div className="inventory-loader-glow" />
-      <video
-        className="inventory-loader-video"
-        src="/inventory-loader.mp4"
-        autoPlay
-        loop
-        muted
-        playsInline
-        preload="auto"
-        aria-hidden="true"
-      />
-      <div className="inventory-loader-fallback" aria-hidden="true">
-        <span className="inventory-loader-mark">Y</span>
-        <span className="inventory-loader-spinner" />
+    <div className="flex items-center justify-center p-8 min-h-[200px]" role="status" aria-live="polite" aria-label="Loading inventory management system">
+      <div className="relative w-28 h-28 flex items-center justify-center">
+        <div className="absolute inset-0 rounded-full border-4 border-navy/20 border-t-navy animate-spin" aria-hidden="true" />
+        <img src="/logo.webp" alt="YT Advertisement logo" className="w-14 h-14 object-contain" />
       </div>
-      <p className="inventory-loader-label">የምርት እና ክምችት ማዕከል እየተጫነ ነው…</p>
-      <span className="sr-only">Loading YT Advertisement inventory management system</span>
+      <p className="sr-only text-primary text-xl">Loading inventory management system</p>
     </div>
   );
 }

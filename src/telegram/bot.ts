@@ -528,18 +528,14 @@ export function createBot(token: string): Bot<MyContext> {
 
     if (data.startsWith("srv:")) {
       ctx.session.draft = {};
-      const canned = data.replace("srv:", "") as "banner" | "sticker" | "acrylic" | "other";
-      if (canned === "other") {
-        ctx.session.step = "other_spec";
-        await ctx.reply(t(lang, "serviceSpecPrompt"));
-      } else {
-        const draft = ctx.session.draft ?? {};
-        draft.serviceType = serviceTypeFor(canned);
-        draft.serviceLabel = serviceLabel(lang, canned);
-        ctx.session.draft = draft;
-        ctx.session.step = "dimensions";
-        await ctx.reply(t(lang, "dimensionsPrompt"));
-      }
+      const serviceId = data.replace("srv:", "");
+      const draft = ctx.session.draft ?? {};
+      // If the user picked a specific service id, store it and advance to dimensions
+      draft.serviceType = serviceId;
+      draft.serviceLabel = serviceLabel(lang, serviceId);
+      ctx.session.draft = draft;
+      ctx.session.step = "dimensions";
+      await ctx.reply(t(lang, "dimensionsPrompt"));
       return;
     }
 

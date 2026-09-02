@@ -96,20 +96,17 @@ export function statusLabel(lang: Language, status: string): string {
   return table[status as OrderStatus] ?? status;
 }
 
-export function serviceLabel(lang: Language, canned: "banner" | "sticker" | "acrylic"): string {
-  if (lang === "am") {
-    return canned === "banner"
-      ? "የባነር ህትመት (Flex)"
-      : canned === "sticker"
-        ? "ስቲከር (Sticker)"
-        : "አክሪሊክ (Acrylic)";
-  }
-  return canned === "banner" ? "Banner (Flex)" : canned === "sticker" ? "Sticker" : "Acrylic";
+import { getServiceLabel } from "@/constants/services";
+
+export function serviceLabel(lang: Language, serviceId: string): string {
+  const label = getServiceLabel(serviceId, lang === "am" ? "am" : "en");
+  return label ?? serviceId;
 }
 
-/** Canonical service type stored on the order for a canned selection. */
-export function serviceTypeFor(canned: "banner" | "sticker" | "acrylic"): string {
-  return canned === "banner" ? "Banner (Flex)" : canned === "sticker" ? "Sticker" : "Acrylic";
+/** Canonical service type stored on the order for a selected service id. */
+export function serviceTypeFor(serviceId: string): string {
+  // For backwards compatibility return the id if label not found
+  return getServiceLabel(serviceId, "en") ?? serviceId;
 }
 
 export function formatOrderSummary(lang: Language, draft: OrderDraft, code: string): string {

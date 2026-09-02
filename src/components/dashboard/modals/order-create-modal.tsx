@@ -7,6 +7,7 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { OrderPriority } from "@/lib/operations-types";
 import { ModalShell } from "./modal-shell";
+import { SERVICE_CATEGORIES } from "@/constants/services";
 
 export type NewOrderInput = {
   clientName: string;
@@ -22,18 +23,6 @@ export type NewOrderInput = {
   fileName?: string;
 };
 
-const SERVICES = [
-  "Banner",
-  "Sign board",
-  "Vinyl wrap",
-  "Acrylic sign",
-  "Sticker set",
-  "Foam board",
-  "LED sign",
-  "Print & cut",
-  "Fleet branding",
-  "Other",
-];
 
 function daysFromNow(days: number) {
   const d = new Date();
@@ -211,8 +200,12 @@ export function OrderCreateModal({
                 className="mt-1 block w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan/60"
               >
                 <option value="">Select service…</option>
-                {SERVICES.map((s) => (
-                  <option key={s} value={s}>{s}</option>
+                {SERVICE_CATEGORIES.map((cat) => (
+                  <optgroup key={cat.categoryId} label={cat.categoryName.en}>
+                    {cat.items.map((it) => (
+                      <option key={it.id} value={it.id}>{it.label.en}</option>
+                    ))}
+                  </optgroup>
                 ))}
               </select>
             </label>

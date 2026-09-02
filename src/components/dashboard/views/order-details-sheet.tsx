@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import type { CustomerOrder, CustomerOrderStatus } from "@/lib/operations-types";
 import { Button, StatusPill } from "@/components/ui";
+import { getServiceLabel } from "@/constants/services";
 import { cn } from "@/lib/utils";
 import { isDesktopShell, printNative } from "@/lib/desktop";
 
@@ -162,7 +163,7 @@ export function OrderDetailsSheet({
           <section className="space-y-3">
             <SectionHeading icon={<ImageIcon size={15} />} title="Service & Specifications" />
             <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-              <Detail term="Service" value={order.serviceType} />
+              <Detail term="Service" value={getServiceLabel(order.serviceType) ?? order.serviceType} />
               <Detail term="Dimensions" value={order.dimensions} />
               <Detail term="Quantity" value={order.quantity} />
               <Detail term="Source" value={order.source === "walk_in" ? "Walk-in" : "Online / Telegram"} />

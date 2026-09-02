@@ -70,26 +70,23 @@ export function shareContactKeyboard(): Keyboard {
   return new Keyboard().requestContact(SHARE_CONTACT_LABEL).resized();
 }
 
-const serviceLabels: Record<Language, Array<[string, string]>> = {
-  am: [
-    ["srv:banner", "🖼️ ባነር (Flex)"],
-    ["srv:sticker", "🏷️ ስቲከር (Sticker)"],
-    ["srv:acrylic", "🪧 አክሪሊክ (Acrylic)"],
-    ["srv:other", "📄 ሌላ"],
-  ],
-  en: [
-    ["srv:banner", "🖼️ Banner (Flex)"],
-    ["srv:sticker", "🏷️ Sticker"],
-    ["srv:acrylic", "🪧 Acrylic"],
-    ["srv:other", "📄 Other"],
-  ],
-};
+import { SERVICE_CATEGORIES } from "@/constants/services";
 
 export function servicePicker(lang: Language): InlineKeyboard {
   const keyboard = new InlineKeyboard();
-  for (const [data, label] of serviceLabels[lang]) {
-    keyboard.text(label, data);
-    if (data === "srv:sticker") keyboard.row();
+  // For each category, emit a header (as plain text button with no callback)
+  for (const cat of SERVICE_CATEGORIES) {
+    // Add sub-service buttons in rows of up to 2
+    let rowCount = 0;
+    for (const svc of cat.items) {
+      const label = lang === "am" ? svc.label.am : svc.label.en;
+      // callback data: srv:<id>
+      keyboard.text(label, `srv:${svc.id}`);
+      rowCount += 1;
+      if (rowCount % 2 === 0) keyboard.row();
+    }
+    // Ensure a row break between categories
+    keyboard.row();
   }
   return keyboard.text("❌ " + (lang === "am" ? "ሰርዝ" : "Cancel"), "flow:cancel");
 }
