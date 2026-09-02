@@ -74,7 +74,8 @@ export function OperationsDashboard() {
   const canReviewReconciliation = Boolean(profile && hasPermission(role, "reconciliation.review"));
   const materialRequests = useQuery(api.materialRequests.list, profile?.active ? {} : "skip");
   const ordersQuery = useQuery(api.orders.list, canViewOrders && profile?.active ? {} : "skip");
-  const exceptionsQuery = useQuery(api.orders.listExceptions, canViewOrders && profile?.active ? {} : "skip");
+  const canViewExceptions = Boolean(profile && hasPermission(role, "audit.view"));
+  const exceptionsQuery = useQuery(api.orders.listExceptions, canViewExceptions && profile?.active ? {} : "skip");
   const reconciliationSummary = useQuery(api.reconciliation.summary, profile?.active ? {} : "skip");
 
   const ensureProfile = useMutation(api.users.ensureProfile);
@@ -131,7 +132,7 @@ export function OperationsDashboard() {
 
   if (profile === undefined || companySettings === undefined) return <InventoryLoader />;
   if (profile === null || !profile.active) return <DashboardAccessDenied />;
-  if (state === undefined || kpis === undefined || materialRequests === undefined || reconciliationSummary === undefined || (isOwner && financialMetrics === undefined) || (canViewOrders && (ordersQuery === undefined || exceptionsQuery === undefined))) {
+  if (state === undefined || kpis === undefined || materialRequests === undefined || reconciliationSummary === undefined || (isOwner && financialMetrics === undefined) || (canViewOrders && ordersQuery === undefined) || (canViewExceptions && exceptionsQuery === undefined)) {
     return <InventoryLoader />;
   }
 

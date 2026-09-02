@@ -690,6 +690,7 @@ export const seedSingleRoleAccount = mutation({
       manager: { role: "manager", name: "Yordanos", email: "ytadvert+manager@gmail.com", password: "password123", staffName: "ዮርዳኖስ" },
       admin: { role: "admin", name: "Admin User", email: "ytadvert+admin@gmail.com", password: "password123" },
       storekeeper: { role: "storekeeper", name: "Zewuditu", email: "ytadvert+storekeeper@gmail.com", password: "password123", staffName: "Zewuditu" },
+      receptionist: { role: "receptionist", name: "Selamawit", email: "ytadvert+receptionist@gmail.com", password: "password123", staffName: "Selamawit" },
       laser_operator: { role: "laser_operator", name: "Addisu", email: "ytadvert+laser@gmail.com", password: "password123", staffName: "Addisu" },
       cnc_operator: { role: "cnc_operator", name: "Addisu", email: "ytadvert+cnc@gmail.com", password: "password123", staffName: "Addisu" },
       plotter_operator: { role: "plotter_operator", name: "Debas Melaku", email: "ytadvert+plotter@gmail.com", password: "password123", staffName: "Debas melaku" },

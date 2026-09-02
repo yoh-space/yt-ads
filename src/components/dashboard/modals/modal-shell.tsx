@@ -57,10 +57,18 @@ export function ModalShell({
         </div>
 
         {step ? (
-          <div className="flex-shrink-0 flex items-center justify-center gap-2 py-3 px-6 border-b border-gray-100">
-            <span className={`w-2 h-2 rounded-full ${step >= 1 ? "bg-cyan" : "bg-gray-300"}`} />
-            <span className={`w-2 h-2 rounded-full ${step >= 2 ? "bg-cyan" : "bg-gray-300"}`} />
-            <span className={`w-2 h-2 rounded-full ${step >= 3 ? "bg-cyan" : "bg-gray-300"}`} />
+          <div className="flex-shrink-0 flex flex-col gap-3 py-3 px-6 border-b border-gray-100">
+            <div className="flex items-center justify-center gap-2">
+              <span className={`w-2 h-2 rounded-full ${step >= 1 ? "bg-cyan" : "bg-gray-300"}`} />
+              <span className={`w-2 h-2 rounded-full ${step >= 2 ? "bg-cyan" : "bg-gray-300"}`} />
+              <span className={`w-2 h-2 rounded-full ${step >= 3 ? "bg-cyan" : "bg-gray-300"}`} />
+            </div>
+            <div className="w-full h-1 bg-gray-200 rounded-full overflow-hidden" aria-hidden>
+              <div
+                className="h-1 bg-cyan transition-all"
+                style={{ width: `${Math.min(100, Math.max(0, ((step || 0) / 3) * 100))}%` }}
+              />
+            </div>
           </div>
         ) : null}
 
@@ -71,8 +79,9 @@ export function ModalShell({
 
         {/* Sticky footer */}
         {footer ? (
-          <div className="flex-shrink-0 flex justify-end gap-3 p-6 border-t border-gray-100 bg-muted/30">
-            {footer}
+          <div className="flex-shrink-0 flex items-center justify-between gap-3 p-4 border-t border-gray-100 bg-white">
+            <div className="text-xs text-gray-500">Esc to close · Click backdrop to cancel</div>
+            <div className="flex items-center gap-3">{footer}</div>
           </div>
         ) : null}
       </div>

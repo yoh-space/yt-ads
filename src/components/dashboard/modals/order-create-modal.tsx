@@ -86,10 +86,30 @@ export function OrderCreateModal({
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (submitting) return;
-    if (step < 3) {
-      setStep(step + 1);
+
+    // Client-side step validation
+    if (step === 1) {
+      if (!clientName.trim() || !phone.trim()) {
+        setNotice("Please enter client name and phone number.");
+        return;
+      }
+      setNotice("");
+      setStep(2);
       return;
     }
+
+    if (step === 2) {
+      if (!serviceType || !dimensions.trim() || !quantity.trim()) {
+        setNotice("Please complete service, dimensions, and quantity.");
+        return;
+      }
+      setNotice("");
+      setStep(3);
+      return;
+    }
+
+    // Final submission from step 3
+    setNotice("");
     setSubmitting(true);
     try {
       const fileStorageId = await uploadFile();
@@ -119,54 +139,117 @@ export function OrderCreateModal({
       onClose={onClose}
       footer={
         <div className="flex items-center justify-between w-full">
-          <button type="button" className="button tertiary" onClick={() => (step === 1 ? onClose() : setStep(step - 1))}>{step === 1 ? "Cancel" : "Back"}</button>
-          <button className="button primary" type="submit" form="new-order-form" disabled={submitting}>
-            {step === 3 ? (submitting ? "Creating…" : "Create order") : "Continue"} <ArrowUpRight size={16} />
-          </button>
+          <div className="flex items-center gap-3">
+            <div className="text-xs text-gray-500">Step {step} of 3</div>
+            <div className="hidden sm:flex items-center gap-2">
+              <span className={`w-2 h-2 rounded-full ${step >= 1 ? "bg-cyan" : "bg-gray-300"}`} />
+              <span className={`w-2 h-2 rounded-full ${step >= 2 ? "bg-cyan" : "bg-gray-300"}`} />
+              <span className={`w-2 h-2 rounded-full ${step >= 3 ? "bg-cyan" : "bg-gray-300"}`} />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => (step === 1 ? onClose() : setStep(step - 1))}
+              className="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+            >
+              {step === 1 ? "Cancel" : "Back"}
+            </button>
+
+            <button
+              className={`inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium shadow transition ${submitting ? "opacity-70 cursor-wait" : "hover:bg-cyan-600"} ${step === 3 ? "bg-green-600 text-white" : "bg-cyan text-white"}`}
+              type="submit"
+              form="new-order-form"
+              disabled={submitting}
+            >
+              {step === 3 ? (submitting ? "Creating…" : "Create order") : "Continue"}
+              <ArrowUpRight size={16} />
+            </button>
+          </div>
         </div>
       }
     >
-      <form id="new-order-form" className="modal-form" onSubmit={handleSubmit}>
+      <form id="new-order-form" className="space-y-4" onSubmit={handleSubmit}>
         {notice ? (
           <div className="rounded-lg border border-line bg-coral/5 px-3 py-2 text-xs text-coral">{notice}</div>
         ) : null}
         {step === 1 ? (
           <>
-            <label>
-              Client name
-              <input autoFocus placeholder="e.g. Addis Breweries" value={clientName} onChange={(e) => setClientName(e.target.value)} required />
+            <label className="block">
+              <span className="text-sm font-medium text-gray-700">Client name</span>
+              <input
+                autoFocus
+                placeholder="e.g. Addis Breweries"
+                value={clientName}
+                onChange={(e) => setClientName(e.target.value)}
+                required
+                className="mt-1 block w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan/60"
+              />
             </label>
-            <label>
-              Phone number
-              <input type="tel" placeholder="+251 91 123 4567" value={phone} onChange={(e) => setPhone(e.target.value)} required />
+            <label className="block">
+              <span className="text-sm font-medium text-gray-700">Phone number</span>
+              <input
+                type="tel"
+                placeholder="+251 91 123 4567"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                required
+                className="mt-1 block w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan/60"
+              />
             </label>
           </>
         ) : null}
         {step === 2 ? (
           <>
-            <label>
-              Service type
-              <select value={serviceType} onChange={(e) => setServiceType(e.target.value)} required>
+            <label className="block">
+              <span className="text-sm font-medium text-gray-700">Service type</span>
+              <select
+                value={serviceType}
+                onChange={(e) => setServiceType(e.target.value)}
+                required
+                className="mt-1 block w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan/60"
+              >
                 <option value="">Select service…</option>
                 {SERVICES.map((s) => (
                   <option key={s} value={s}>{s}</option>
                 ))}
               </select>
             </label>
-            <label>
-              Dimensions / specs
-              <input placeholder="e.g. 3m × 1.2m double-sided" value={dimensions} onChange={(e) => setDimensions(e.target.value)} required />
+            <label className="block">
+              <span className="text-sm font-medium text-gray-700">Dimensions / specs</span>
+              <input
+                placeholder="e.g. 3m × 1.2m double-sided"
+                value={dimensions}
+                onChange={(e) => setDimensions(e.target.value)}
+                required
+                className="mt-1 block w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan/60"
+              />
             </label>
-            <label>
-              Quantity description
-              <input placeholder='e.g. 12 pcs, 86.4 m²' value={quantity} onChange={(e) => setQuantity(e.target.value)} required />
+            <label className="block">
+              <span className="text-sm font-medium text-gray-700">Quantity description</span>
+              <input
+                placeholder='e.g. 12 pcs, 86.4 m²'
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+                required
+                className="mt-1 block w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan/60"
+              />
             </label>
-            <label>
-              Order value (ETB)
-              <input type="number" min="0" step="50" placeholder="e.g. 4500" value={amount || ""} onChange={(e) => setAmount(Number(e.target.value))} />
+            <label className="block">
+              <span className="text-sm font-medium text-gray-700">Order value (ETB)</span>
+              <input
+                type="number"
+                min="0"
+                step="50"
+                placeholder="e.g. 4500"
+                value={amount || ""}
+                onChange={(e) => setAmount(Number(e.target.value))}
+                className="mt-1 block w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan/60"
+              />
             </label>
             <div>
-              <span className="block mb-1">Design file (optional)</span>
+              <span className="block mb-1 text-sm font-medium text-gray-700">Design file (optional)</span>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -196,26 +279,42 @@ export function OrderCreateModal({
         ) : null}
         {step === 3 ? (
           <>
-            <label>
-              Preferred due date
-              <input type="date" value={new Date(dueDate).toISOString().slice(0, 10)} onChange={(e) => { const v = new Date(e.target.value); v.setHours(17, 0, 0, 0); setDueDate(v.getTime()); }} required />
+            <label className="block">
+              <span className="text-sm font-medium text-gray-700">Preferred due date</span>
+              <input
+                type="date"
+                value={new Date(dueDate).toISOString().slice(0, 10)}
+                onChange={(e) => { const v = new Date(e.target.value); v.setHours(17, 0, 0, 0); setDueDate(v.getTime()); }}
+                required
+                className="mt-1 block w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan/60"
+              />
             </label>
-            <label>
-              Priority
-              <select value={priority} onChange={(e) => setPriority(e.target.value as OrderPriority)}>
+            <label className="block">
+              <span className="text-sm font-medium text-gray-700">Priority</span>
+              <select
+                value={priority}
+                onChange={(e) => setPriority(e.target.value as OrderPriority)}
+                className="mt-1 block w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan/60"
+              >
                 <option value="High">High</option>
                 <option value="Medium">Medium</option>
                 <option value="Low">Low</option>
               </select>
             </label>
-            <label>
-              Notes
-              <textarea placeholder="Special instructions (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
+            <label className="block">
+              <span className="text-sm font-medium text-gray-700">Notes</span>
+              <textarea
+                placeholder="Special instructions (optional)"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={3}
+                className="mt-1 block w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan/60"
+              />
             </label>
-            <div className="conversion-box">
-              <Calendar size={17} />
-              <span>Due</span>
-              <strong>{new Date(dueDate).toLocaleString("en-ET", { dateStyle: "medium" })}</strong>
+            <div className="mt-3 flex items-center gap-3 rounded-md border border-gray-100 bg-gray-50 px-3 py-2 text-sm">
+              <Calendar size={17} className="text-gray-600" />
+              <span className="text-sm text-gray-600">Due</span>
+              <strong className="text-sm font-semibold text-navy">{new Date(dueDate).toLocaleString("en-ET", { dateStyle: "medium" })}</strong>
             </div>
           </>
         ) : null}
