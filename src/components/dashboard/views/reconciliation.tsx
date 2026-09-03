@@ -212,7 +212,7 @@ export function ReconciliationView({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center p-20 bg-[#0B111E] rounded-2xl border border-[#1A253D] text-[#22D3EE] font-mono text-xs">
+      <div className="flex items-center justify-center p-20 bg-[#0B111E] rounded-sm border border-[#1A253D] text-[#22D3EE] font-mono text-xs">
         <span className="w-4 h-4 border-2 border-[#22D3EE] border-t-transparent rounded-full animate-spin mr-2.5" />
         የክምችት እና የክሊራንስ መረጃ በማዘጋጀት ላይ... (LOADING RECONCILIATION RADAR)
       </div>
@@ -220,7 +220,7 @@ export function ReconciliationView({
   }
 
   return (
-    <div className="bg-[#0B111E] text-slate-100 p-5 rounded-2xl border border-[#1A253D] shadow-[0_12px_45px_rgba(0,0,0,0.6)] font-sans space-y-6">
+    <div className="bg-[#0B111E] text-slate-100 p-5 rounded-sm border border-[#1A253D] shadow-[0_12px_45px_rgba(0,0,0,0.6)] font-sans space-y-6">
       {/* ── Top Header Banner ─────────────────────────────────────── */}
       <header className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-[#1A253D]">
         <div>
@@ -258,7 +258,7 @@ export function ReconciliationView({
       {/* ── Top 4 KPI Cards Grid ──────────────────────────────────── */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {/* KPI 1: Shortage Loss */}
-        <div className="bg-[#0F182B] border border-[#1C2A47] rounded-xl p-4 flex flex-col justify-between min-h-[108px]">
+        <div className="bg-[#0F182B] border border-[#1C2A47] rounded-sm p-4 flex flex-col justify-between min-h-[108px]">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">
               የእቃ ጉድለት ኪሳራ (SHORTAGE LOSS)
@@ -279,7 +279,7 @@ export function ReconciliationView({
         </div>
 
         {/* KPI 2: Floor Hold */}
-        <div className="bg-[#0F182B] border border-[#1C2A47] rounded-xl p-4 flex flex-col justify-between min-h-[108px]">
+        <div className="bg-[#0F182B] border border-[#1C2A47] rounded-sm p-4 flex flex-col justify-between min-h-[108px]">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">
               ማረጋገጫ የሚጠብቁ (FLOOR HOLD)
@@ -297,7 +297,7 @@ export function ReconciliationView({
         </div>
 
         {/* KPI 3: Stock Assets */}
-        <div className="bg-[#0F182B] border border-[#1C2A47] rounded-xl p-4 flex flex-col justify-between min-h-[108px]">
+        <div className="bg-[#0F182B] border border-[#1C2A47] rounded-sm p-4 flex flex-col justify-between min-h-[108px]">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">
               የዋና ስቶር ክምችት (STOCK ASSETS)
@@ -315,7 +315,7 @@ export function ReconciliationView({
         </div>
 
         {/* KPI 4: Material Yield */}
-        <div className="bg-[#0F182B] border border-[#1C2A47] rounded-xl p-4 flex flex-col justify-between min-h-[108px]">
+        <div className="bg-[#0F182B] border border-[#1C2A47] rounded-sm p-4 flex flex-col justify-between min-h-[108px]">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">
               የጥሬ ዕቃ ምርታማነት (MATERIAL YIELD)
@@ -340,7 +340,7 @@ export function ReconciliationView({
         {/* ═══════════════════════════════════════════════════════════ */}
         {/* LEFT COLUMN: Machine Operator Floor Stock & Clearance       */}
         {/* ═══════════════════════════════════════════════════════════ */}
-        <div className="bg-[#0E1729] border border-[#1C2A47] rounded-xl p-4 space-y-4">
+        <div className="bg-[#0E1729] border border-[#1C2A47] rounded-sm p-4 space-y-4">
           {/* Column Header & Filter Tabs */}
           <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[#1C2A47]">
             <div className="flex items-center gap-2.5">
@@ -399,7 +399,7 @@ export function ReconciliationView({
           {/* Operator Cards List */}
           <div className="space-y-3">
             {filteredRows.length === 0 ? (
-              <div className="p-8 text-center text-xs font-mono text-slate-400 bg-[#0B1222] rounded-xl border border-[#1C2A47]">
+              <div className="p-8 text-center text-xs font-mono text-slate-400 bg-[#0B1222] rounded-sm border border-[#1C2A47]">
                 <CheckCircle2 size={20} className="mx-auto text-emerald-400 mb-2" />
                 ምንም ማረጋገጫ የሚጠብቅ ባች የለም (No operator floor batches in this state)
               </div>
@@ -423,7 +423,7 @@ export function ReconciliationView({
                   <article
                     key={batch.id}
                     className={cn(
-                      "bg-[#131E35] border rounded-xl p-4 space-y-3 transition-colors",
+                      "bg-[#131E35] border rounded-sm p-4 space-y-3 transition-colors",
                       isPending ? "border-[#283C66]" : "border-[#1A2946]"
                     )}
                   >
@@ -605,7 +605,7 @@ export function ReconciliationView({
         {/* ═══════════════════════════════════════════════════════════ */}
         {/* RIGHT COLUMN: Storekeeper Shrinkage & Leakage Audit         */}
         {/* ═══════════════════════════════════════════════════════════ */}
-        <div className="bg-[#0E1729] border border-[#1C2A47] rounded-xl p-4 space-y-4 flex flex-col justify-between">
+        <div className="bg-[#0E1729] border border-[#1C2A47] rounded-sm p-4 space-y-4 flex flex-col justify-between">
           <div className="space-y-4">
             {/* Column Header */}
             <div className="flex items-center justify-between pb-3 border-b border-[#1C2A47]">
@@ -635,7 +635,7 @@ export function ReconciliationView({
             {/* Discrepancies Table / Items */}
             <div className="space-y-2.5">
               {leakageAlerts.length === 0 ? (
-                <div className="p-6 text-center text-xs font-mono text-slate-400 bg-[#0B1222] rounded-xl border border-[#1C2A47]">
+                <div className="p-6 text-center text-xs font-mono text-slate-400 bg-[#0B1222] rounded-sm border border-[#1C2A47]">
                   <CheckCircle2 size={18} className="mx-auto text-emerald-400 mb-1.5" />
                   No open stock shrinkage alerts in store ledger.
                 </div>
@@ -645,7 +645,7 @@ export function ReconciliationView({
                   return (
                     <div
                       key={item.id}
-                      className="bg-[#131E35] border border-[#1F3054] rounded-xl p-3 space-y-2 font-mono text-xs"
+                      className="bg-[#131E35] border border-[#1F3054] rounded-sm p-3 space-y-2 font-mono text-xs"
                     >
                       <div className="flex items-center justify-between">
                         <strong className="text-white text-xs truncate max-w-[180px]">
