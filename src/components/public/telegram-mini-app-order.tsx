@@ -148,7 +148,7 @@ export function TelegramMiniAppOrder() {
 
       setMessage({
         tone: "success",
-        text: `ትዕዛዝዎ በተሳካ ሁኔታ ተልኳል! የመከታተያ ኮድዎ፡ ${result.code}`,
+        text: `📌 ትዕዛዝዎ ተቀብሎ በመጠባበቅ ላይ ነው (Pending).\n\nየትዕዛዝ መለያ፡ ${result.code}\n\nትዕዛዝዎ በትክክል ተቀብለናል! ነገር ግን ክፍያዎ እስኪረጋገጥ ድረስ በ Pending ላይ ይገኛል። የክፍያ ማረጋገጫዎን ይላኩ።`,
       });
 
       // Return the finished order to the Telegram chat when run as a Mini App.

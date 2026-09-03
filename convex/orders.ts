@@ -111,6 +111,81 @@ async function notifyOrderRoles(ctx: any, input: Parameters<typeof notifyRoles>[
   await notifyRoles(ctx, ["owner", "manager", "admin"], input);
 }
 
+/**
+ * Pushes a customer-facing status update over Telegram. STRICT GATE: this
+ * helper fires ONLY when the receptionist (or scheduled system) drives the
+ * order past PENDING_REVIEW — it never runs from the public/Mini App create
+ * path. Centralising it here keeps the success/failure messaging consistent
+ * regardless of which mutation performs the transition (priceOrder, confirm,
+ * setStatus, scheduled expirations, etc.).
+ */
+const CUSTOMER_PUSH_STATUSES = new Set([
+  "PRICED_AND_PENDING_PAYMENT",
+  "JOB_CARD_CREATED",
+  "IN_PRODUCTION",
+  "COMPLETED",
+]);
+
+async function pushCustomerOrderStatus(
+  ctx: { scheduler: { runAfter: (delay: number, fn: any, args: any) => Promise<unknown> } },
+  order: {
+    code: string;
+    status: string;
+    amount?: number;
+    telegramChatId?: string;
+    paymentStatus?: string;
+  },
+  previousStatus: string,
+) {
+  if (!order.telegramChatId) return;
+  if (!CUSTOMER_PUSH_STATUSES.has(order.status)) return;
+  if (previousStatus === order.status) return;
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
+  const tracking = appUrl ? `\n\n📍 የትዕዛዝ ክትትል፦ ${appUrl}/track` : "";
+
+  let message = "";
+  if (order.status === "PRICED_AND_PENDING_PAYMENT") {
+    message =
+      `💰 <b>የትዕዛዝ ዋጋ ተቀምጧል</b>\n\n` +
+      `• የትዕዛዝ መለያ: <code>${order.code}</code>\n` +
+      (order.amount !== undefined
+        ? `• ጠቅላላ ዋጋ: <b>${order.amount.toFixed(2)} ብር</b>\n`
+        : "") +
+      `እባክዎ ክፍያዎን ያረጋግጡ ወይም ወደ ሪሴፕሽን ይላኩ።${tracking}`;
+  } else if (order.status === "JOB_CARD_CREATED") {
+    const paymentLine =
+      order.paymentStatus === "APPROVED_CREDIT" || order.paymentStatus === "APPROVED"
+        ? "ብዕር ደንበኛ ተገድዷል 📒 (APPROVED_CREDIT)"
+        : "ተከፍሏል ✅ (PAID)";
+    const code = order.code;
+    message =
+      `✅ <b>የእርስዎ ትዕዛዝ ተረጋግጧል!</b>\n\n` +
+      `• የትዕዛዝ መለያ: <code>${code}</code>\n` +
+      (order.amount !== undefined
+        ? `• ጠቅላላ ዋጋ: <b>${order.amount.toFixed(2)} ብር</b>\n`
+        : "") +
+      `• ክፍያ: ${paymentLine}\n` +
+      `ስራው አሁን ወደ ምርት ሂደት ገብቷል።${tracking}`;
+  } else if (order.status === "IN_PRODUCTION") {
+    message =
+      `🖨️ <b>ህትመት ተጀምሯል</b>\n\n` +
+      `• የትዕዛዝ መለያ: <code>${order.code}</code>\n` +
+      `ስራው የማተራተር/የህትመት ሂደት ላይ ይገኛል።${tracking}`;
+  } else if (order.status === "COMPLETED") {
+    message =
+      `🎉 <b>ስራው ተጠናቋል!</b>\n\n` +
+      `• የትዕዛዝ መለያ: <code>${order.code}</code>\n` +
+      `መጥተው መረከብ ወይም በነጣቂ ማስወሰድ ይችላሉ። እናመሰግናለን!${tracking}`;
+  }
+
+  if (!message) return;
+  await ctx.scheduler.runAfter(0, internal.orders.sendTelegramNotificationInternal, {
+    chatId: order.telegramChatId,
+    message,
+  });
+}
+
 export const publicInfo = query({
   args: {},
   handler: async (ctx) => {
@@ -484,24 +559,22 @@ export const setStatus = mutation({
       relatedTable: "customerOrders",
       relatedId: args.orderId,
     });
-    
-    if (order.telegramChatId && previousStatus !== args.status) {
-      const systemConfig = await ensureSystemConfig(ctx, identity._id);
-      let message = "";
-      
-      if (args.status === "IN_PRODUCTION") {
-        message = `ማሳወቂያ 🖨️\n\nየትዕዛዝ ቁጥር #${order.code} ህትመት/ማዘጋጀት ስራ ላይ ይገኛል (In Production)።`;
-      } else if (args.status === "COMPLETED") {
-        message = `መልካም ዜና! 🎉\n\nየትዕዛዝ ቁጥር #${order.code} ስራ ሙሉ በሙሉ ተጠናቋል። መጥተው መረከብ ወይም በነጣቂ ማስወሰድ ይችላሉ። የደረሰኝ ቁጥር: #${order.code}። እናመሰግናለን!`;
-      }
-      
-      if (message) {
-        await ctx.scheduler.runAfter(0, internal.orders.sendTelegramNotificationInternal, {
-          chatId: order.telegramChatId,
-          message,
-        });
-      }
-    }
+
+    // Customer notification is gated to the same set of statuses the centralised
+    // helper covers (PRICED, JOB_CARD_CREATED, IN_PRODUCTION, COMPLETED). It
+    // never runs from the public create path, only when reception (or a
+    // scheduled job) drives the order forward.
+    await pushCustomerOrderStatus(
+      ctx,
+      {
+        code: order.code,
+        status: args.status,
+        amount: order.amount,
+        telegramChatId: order.telegramChatId,
+        paymentStatus: order.paymentStatus,
+      },
+      previousStatus,
+    );
   },
 });
 
@@ -530,6 +603,17 @@ export const priceOrder = mutation({
       status: "PRICED_AND_PENDING_PAYMENT",
       updatedAt: Date.now(),
     });
+    await pushCustomerOrderStatus(
+      ctx,
+      {
+        code: order.code,
+        status: "PRICED_AND_PENDING_PAYMENT",
+        amount: Number(args.amount.toFixed(2)),
+        telegramChatId: order.telegramChatId,
+        paymentStatus: order.paymentStatus,
+      },
+      order.status,
+    );
     return { code: order.code, amount: Number(args.amount.toFixed(2)) };
   },
 });
@@ -625,28 +709,65 @@ export const confirmOrderAndIssueJobCard = mutation({
       relatedId: args.orderId,
     });
 
-    // Receipt to the Telegram customer: order id, receipt details, tracking link.
-    if (order.telegramChatId) {
-      const paymentLine = args.paymentDecision === "PAID" ? "ተከፍሏል ✅ (PAID)" : "ብዕር ደንበኛ ተገድዷል 📒 (APPROVED_CREDIT)";
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
-      const tracking = appUrl ? `\n\n📍 የትዕዛዝ ክትትል፦ ${appUrl}/track` : "";
-      const message = [
-        "✅ <b>ክፍያዎ ተረጋግጧል!</b>",
-        "",
-        `• የትዕዛዝ መለያ: <code>${order.code}</code>`,
-        `• ጠቅላላ ዋጋ: <b>${roundedAmount.toFixed(2)} ብር</b>`,
-        `• ክፍያ: ${paymentLine}`,
-        `• የደረሰኝ ቁጥር: <code>${order.code}-${now}</code>`,
-        `• ስራው በ${machine.name} ወደ ቅዝቃዜ ወረፋ ገብቷል።`,
-        tracking,
-      ].join("\n");
-      await ctx.scheduler.runAfter(0, internal.orders.sendTelegramNotificationInternal, {
-        chatId: order.telegramChatId,
-        message,
-      });
-    }
+    // Receipt to the Telegram customer: the customer push is centralised in
+    // `pushCustomerOrderStatus` and fires only when reception explicitly
+    // transitions the order past PENDING_REVIEW. It never runs from the
+    // public/Mini App create path.
+    await pushCustomerOrderStatus(
+      ctx,
+      {
+        code: order.code,
+        status: "JOB_CARD_CREATED",
+        amount: roundedAmount,
+        telegramChatId: order.telegramChatId,
+        paymentStatus: args.paymentDecision,
+      },
+      order.status,
+    );
 
     return { success: true as const, jobId, code, paymentStatus: args.paymentDecision };
+  },
+});
+
+/**
+ * Receptionist-initiated rejection triggered from the inline Telegram action
+ * keyboard ("Reject" button on the new-order alert). Transitions the order to
+ * `Expired` and pushes a polite customer-facing notification so the customer
+ * immediately knows their order was declined.
+ */
+export const rejectFromReception = mutation({
+  args: { orderId: v.id("customerOrders"), note: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const { identity } = await requirePermission(ctx, "order.manage");
+    const order = await ctx.db.get(args.orderId);
+    if (!order) throw new Error("Order not found.");
+    if (["COMPLETED", "READY_FOR_PICKUP", "Expired", "EXPIRED_JUNK"].includes(order.status)) {
+      throw new Error(`Cannot reject an order already in status ${order.status}.`);
+    }
+    await ctx.db.patch(args.orderId, {
+      status: "Expired",
+      updatedAt: Date.now(),
+    });
+    await notifyOrderRoles(ctx, {
+      title: "Order rejected by reception",
+      message: `${order.code} · ${order.clientName} was rejected from the receptionist console.`,
+      type: "order_status",
+      actorAuthUserId: identity._id,
+      relatedTable: "customerOrders",
+      relatedId: args.orderId,
+    });
+    if (order.telegramChatId) {
+      const trimmed = args.note?.trim();
+      const tail = trimmed ? `\n\n📝 ${trimmed}` : "";
+      await ctx.scheduler.runAfter(0, internal.orders.sendTelegramNotificationInternal, {
+        chatId: order.telegramChatId,
+        message:
+          `❌ <b>ትዕዛዝዎ ተከለከለ</b>\n\n` +
+          `• የትዕዛዝ መለያ: <code>${order.code}</code>\n` +
+          `ለበለጠ መረጃ እባክዎ ከሪሴፕሽን ጋር ይገናኙ።${tail}`,
+      });
+    }
+    return { success: true as const };
   },
 });
 

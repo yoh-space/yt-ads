@@ -55,7 +55,15 @@ function appUrl(): string {
 }
 
 function ownerChatId(): string | undefined {
-  return process.env.TELEGRAM_OWNER_CHAT_ID;
+  return (
+    process.env.TELEGRAM_RECEPTION_CHAT_ID ??
+    process.env.TELEGRAM_OWNER_CHAT_ID ??
+    process.env.TELEGRAM_OWNER_NOTIFICATIONS_CHAT_ID
+  );
+}
+
+function receptionistLabel(language: "am" | "en"): string {
+  return language === "am" ? "የሪሴፕሽን ቡድን" : "Reception team";
 }
 
 /* ─────────────────────────── session ─────────────────────────── */
@@ -139,19 +147,27 @@ async function createOrder(ctx: MyContext, draft: OrderDraft): Promise<string> {
   return result.code;
 }
 
-async function notifyOwner(input: {
+/**
+ * Send the "new order received" alert to the receptionist Telegram group/chat.
+ * The alert carries an inline action keyboard so the receptionist can Accept,
+ * Reject, or Verify Payment straight from the chat without opening the
+ * dashboard. Triggered the moment the customer submits an order.
+ */
+async function notifyReceptionist(input: {
   code: string;
   customer: string;
   service: string;
   dimensions: string;
   phone: string;
   source: string;
+  language?: "am" | "en";
 }) {
   const chatId = ownerChatId();
   if (!chatId) return;
   try {
+    const lang = input.language ?? "am";
     const bot = getTelegramBot();
-    const text = t("am", "ownerOrderNotification", {
+    const text = t(lang, "ownerOrderNotification", {
       code: input.code,
       customer: input.customer,
       service: input.service,
@@ -159,9 +175,65 @@ async function notifyOwner(input: {
       phone: input.phone,
       source: input.source,
     });
-    await bot.api.sendMessage(chatId, text);
+    const reply_markup = {
+      inline_keyboard: [
+        [
+          { text: t(lang, "receptionActionAccept"), callback_data: `act:accept:${input.code}` },
+          { text: t(lang, "receptionActionReject"), callback_data: `act:reject:${input.code}` },
+        ],
+        [{ text: t(lang, "receptionActionVerify"), callback_data: `act:verify:${input.code}` }],
+        [{ text: t(lang, "receptionActionHint"), url: `${appUrl()}/dashboard` }],
+      ],
+    };
+    await bot.api.sendMessage(chatId, text, { reply_markup });
   } catch (error) {
-    console.error("Owner order notification failed:", error);
+    console.error("Reception order notification failed:", error);
+  }
+}
+
+/**
+ * Handle inline-keyboard callbacks from the receptionist alert. Performs the
+ * only action that can complete from chat alone (`reject`); Accept/Verify
+ * simply acknowledge and direct the receptionist into the dashboard so pricing
+ * and machine/material selection can happen with the right context.
+ */
+async function handleReceptionCallback(ctx: MyContext, data: string) {
+  const lang = ctx.session.language ?? "am";
+  const [verb, ...rest] = data.split(":");
+  if (verb !== "act") return;
+  const action = rest[0];
+  const code = rest.slice(1).join(":");
+  if (!action || !code) return;
+
+  await ctx.answerCallbackQuery({ text: "⏳…" }).catch(() => {});
+
+  try {
+    if (action === "reject") {
+      const matches = (await fetchQuery(api.orders.track, { lookup: code.toUpperCase() })) as Array<{ id: string }>;
+      const orderId = matches[0]?.id;
+      if (!orderId) {
+        await ctx.reply(t(lang, "callbackAlreadyHandled"));
+        return;
+      }
+      await fetchMutation(api.orders.rejectFromReception, { orderId: orderId as Id<"customerOrders"> });
+      await ctx.reply(t(lang, "callbackReceivedReject", { code }), { reply_markup: { remove_keyboard: true } });
+      return;
+    }
+    if (action === "accept" || action === "verify") {
+      const reply = action === "accept"
+        ? t(lang, "callbackReceivedAccept", { code })
+        : t(lang, "callbackReceivedVerify", { code });
+      await ctx.reply(reply, {
+        reply_markup: {
+          inline_keyboard: [[{ text: t(lang, "receptionActionHint"), url: `${appUrl()}/dashboard` }]],
+        },
+      });
+      return;
+    }
+    await ctx.reply(t(lang, "callbackAlreadyHandled"));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unable to handle this action.";
+    await ctx.reply(`⚠️ ${message}`);
   }
 }
 
@@ -302,13 +374,14 @@ async function finalizeOrder(ctx: MyContext, phone: string) {
   ctx.session.step = undefined;
   ctx.session.draft = undefined;
   await ctx.reply(summary, { reply_markup: mainMenuKeyboard(ctx.session.language) });
-  void notifyOwner({
+  void notifyReceptionist({
     code,
     customer: customerDisplayName(ctx),
     service: draft.serviceLabel ?? draft.serviceType ?? "—",
     dimensions: draft.dimensions ?? "—",
     phone: phone || "—",
     source: "Telegram (በፅሁፍ / text)",
+    language: ctx.session.language,
   });
 }
 
@@ -410,13 +483,14 @@ async function handleWebAppResult(ctx: MyContext, rawData: string) {
   await ctx.reply(t(ctx.session.language, "miniAppConfirmed", { code }), {
     reply_markup: mainMenuKeyboard(ctx.session.language),
   });
-  void notifyOwner({
+  void notifyReceptionist({
     code,
     customer: payload.clientName ?? customerDisplayName(ctx),
     service: payload.serviceType ?? "—",
     dimensions: payload.dimensions ?? "—",
     phone: "—",
     source: "Telegram Mini App",
+    language: ctx.session.language,
   });
 }
 
@@ -598,6 +672,11 @@ export function createBot(token: string): Bot<MyContext> {
       ctx.session.language = data === "lang:en" ? "en" : "am";
       await ctx.reply(t(ctx.session.language, "languageChanged"));
       await goHome(ctx);
+    }
+
+    if (data.startsWith("act:")) {
+      await handleReceptionCallback(ctx, data);
+      return;
     }
   });
 
