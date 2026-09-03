@@ -14,6 +14,7 @@ import { AlertTriangle, ArrowUpRight, ArrowDown, ArrowUp, Box, ChevronsUpDown, M
 import type { Material, MaterialRequest, Role, StockException } from "@/lib/operations-types";
 import { formatQuantity } from "@/lib/units";
 import { MaterialRequestsPanel } from "../material-requests-panel";
+import { StockoutAlertWidget } from "./stockout-alert-widget";
 import { Panel, PanelHeader } from "../../ui/panel";
 import { StatusPill } from "../../ui/status-pill";
 import { cn } from "@/lib/utils";
@@ -194,6 +195,14 @@ export function InventoryView({
           isPending={isPending}
         />
       ) : null}
+
+      {/* Real-time Stockout Forecast & Depletion Radar */}
+      <div className="mb-6">
+        <StockoutAlertWidget
+          canViewFinancial={role === "owner"}
+          onNavigateToInventory={undefined}
+        />
+      </div>
 
       <Panel>
         <PanelHeader

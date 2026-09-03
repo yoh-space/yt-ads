@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { ConvexClientProvider } from "@/components/convex-client-provider";
 import { AutoUpdater } from "@/components/auto-updater";
+import { DesktopConnectionBanner } from "@/components/dashboard/desktop-connection-banner";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -13,6 +14,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="am">
       <body>
         <AutoUpdater />
+        <DesktopConnectionBanner />
         <ConvexClientProvider>{children}</ConvexClientProvider>
       </body>
     </html>

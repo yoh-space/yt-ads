@@ -119,3 +119,6 @@ client/public/__manus__/version.json
 /src-tauri/target
 /dist-tauri
 /src-tauri/gen/schemas
+
+# Design guidance and local plugins
+/impeccable
