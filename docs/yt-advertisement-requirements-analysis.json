@@ -146,7 +146,7 @@
     {"name": "abriham", "businessRole": "Relief staff", "handlesMaterial": true},
     {"name": "haymanot", "businessRole": "Relief staff", "handlesMaterial": true},
     {"name": "Yohannes", "businessRole": "Relief Staff", "handlesMaterial": true},
-    {"name": "Emebet", "businessRole": "Direct sales / customer services", "responsibility": "main position customer services", "handlesMaterial": false}
+    {"name": "Emebet", "businessRole": "Receptionist /Direct sales / customer services", "responsibility": "main position customer services", "handlesMaterial": false}
   ],
   "roleAndAccessRequirements": {
     "roles": [
