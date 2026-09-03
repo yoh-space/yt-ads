@@ -1,5 +1,6 @@
 import { InlineKeyboard, Keyboard } from "grammy";
 import type { Language } from "./types";
+import { getServiceLabel, SERVICE_CATEGORIES } from "@/constants/services";
 
 export const REPLY_MAIN_MENU = "main.menu";
 export const REPLY_NEW_ORDER = "main.order";
@@ -70,16 +71,16 @@ export function shareContactKeyboard(): Keyboard {
   return new Keyboard().requestContact(SHARE_CONTACT_LABEL).resized();
 }
 
-import { SERVICE_CATEGORIES } from "@/constants/services";
-
 export function servicePicker(lang: Language): InlineKeyboard {
   const keyboard = new InlineKeyboard();
-  // For each category, emit a header (as plain text button with no callback)
   for (const cat of SERVICE_CATEGORIES) {
+    // Telegram inline keyboards have no disabled label element, so headers use
+    // a harmless callback that the bot acknowledges without changing the flow.
+    keyboard.text(`▰ ${cat.categoryName}`, `category:${cat.categoryId}`).row();
     // Add sub-service buttons in rows of up to 2
     let rowCount = 0;
     for (const svc of cat.items) {
-      const label = lang === "am" ? svc.label.am : svc.label.en;
+      const label = getServiceLabel(svc.id, lang === "am" ? "am" : "en") ?? svc.label;
       // callback data: srv:<id>
       keyboard.text(label, `srv:${svc.id}`);
       rowCount += 1;

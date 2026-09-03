@@ -23,7 +23,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { cn } from "@/lib/utils";
 import { bootstrapTelegramWebApp, sendTelegramOrderResult } from "@/lib/telegram-webapp";
 
-import { SERVICE_CATEGORIES, getServiceLabel } from "@/constants/services";
+import { SERVICE_CATEGORIES, getServiceLabel, type ServiceId } from "@/constants/services";
 
 const serviceCategories = SERVICE_CATEGORIES;
 export function TelegramMiniAppOrder() {
@@ -49,7 +49,7 @@ export function TelegramMiniAppOrder() {
   const verifiedPhone = userProfile?.phone ?? null;
   const phoneReady = verifiedPhone !== null;
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<{ clientName: string; serviceType: ServiceId; dimensions: string; quantity: string; notes: string }>({
     clientName: "",
     serviceType: serviceCategories[0]?.items[0]?.id ?? "",
     dimensions: "",
@@ -154,7 +154,7 @@ export function TelegramMiniAppOrder() {
       // Reset Form State
       setForm({
         clientName: "",
-        serviceType: serviceCategories[0].id,
+         serviceType: serviceCategories[0]?.items[0]?.id ?? "banner_print",
         dimensions: "",
         quantity: "1",
         notes: "",
@@ -203,7 +203,7 @@ export function TelegramMiniAppOrder() {
           <div className="space-y-3">
             {serviceCategories.map((cat) => (
               <div key={cat.categoryId}>
-                <div className="text-xs font-semibold text-slate-600 mb-2">{cat.categoryName.en}</div>
+                 <div className="text-xs font-semibold text-slate-600 mb-2">{cat.categoryName}</div>
                 <div className="grid grid-cols-2 gap-2 mb-2">
                   {cat.items.map((it) => {
                     const active = form.serviceType === it.id;
@@ -211,7 +211,7 @@ export function TelegramMiniAppOrder() {
                       <button
                         type="button"
                         key={it.id}
-                        onClick={() => setForm({ ...form, serviceType: it.id })}
+                         onClick={() => setForm({ ...form, serviceType: it.id })}
                         className={cn(
                           "p-3 rounded-xl border text-left transition-all active:scale-95 flex flex-col justify-between",
                           active
@@ -219,8 +219,8 @@ export function TelegramMiniAppOrder() {
                             : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
                         )}
                       >
-                        <span className="text-xs font-bold block">{it.label.en}</span>
-                        <span className="text-[10px] text-slate-400 block mt-0.5">{cat.categoryName.en}</span>
+                         <span className="text-xs font-bold block">{it.label}</span>
+                         <span className="text-[10px] text-slate-400 block mt-0.5">{cat.categoryName}</span>
                       </button>
                     );
                   })}

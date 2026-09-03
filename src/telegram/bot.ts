@@ -32,6 +32,7 @@ import {
   serviceTypeFor,
   t,
 } from "./i18n";
+import type { ServiceId } from "@/constants/services";
 import {
   isOrderCode,
   looksLikePhone,
@@ -127,7 +128,7 @@ async function createOrder(ctx: MyContext, draft: OrderDraft): Promise<string> {
   const result = await fetchMutation(api.orders.createTelegramOrder, {
     telegramChatId: String(ctx.chat!.id),
     customerName: customerDisplayName(ctx).slice(0, 200),
-    serviceType: draft.serviceType ?? "Other",
+    serviceType: (draft.serviceType ?? "banner_print") as ServiceId,
     dimensions: draft.dimensions,
     quantity: draft.area !== undefined ? String(draft.area) : undefined,
     phone: draft.phone,
@@ -536,6 +537,10 @@ export function createBot(token: string): Bot<MyContext> {
       ctx.session.draft = draft;
       ctx.session.step = "dimensions";
       await ctx.reply(t(lang, "dimensionsPrompt"));
+      return;
+    }
+
+    if (data.startsWith("category:")) {
       return;
     }
 

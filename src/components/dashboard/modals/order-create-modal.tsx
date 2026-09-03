@@ -7,12 +7,12 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { OrderPriority } from "@/lib/operations-types";
 import { ModalShell } from "./modal-shell";
-import { SERVICE_CATEGORIES } from "@/constants/services";
+import { SERVICE_CATEGORIES, type ServiceId } from "@/constants/services";
 
 export type NewOrderInput = {
   clientName: string;
   phone: string;
-  serviceType: string;
+  serviceType: ServiceId;
   dimensions: string;
   quantity: string;
   amount?: number;
@@ -43,7 +43,7 @@ export function OrderCreateModal({
   const [step, setStep] = useState(1);
   const [clientName, setClientName] = useState("");
   const [phone, setPhone] = useState("");
-  const [serviceType, setServiceType] = useState("");
+  const [serviceType, setServiceType] = useState<ServiceId | "">("");
   const [dimensions, setDimensions] = useState("");
   const [quantity, setQuantity] = useState("");
   const [amount, setAmount] = useState(0);
@@ -105,7 +105,7 @@ export function OrderCreateModal({
       onSave({
         clientName,
         phone,
-        serviceType,
+        serviceType: serviceType as ServiceId,
         dimensions,
         quantity,
         amount: amount > 0 ? amount : undefined,
@@ -195,15 +195,15 @@ export function OrderCreateModal({
               <span className="text-sm font-medium text-gray-700">Service type</span>
               <select
                 value={serviceType}
-                onChange={(e) => setServiceType(e.target.value)}
+                 onChange={(e) => setServiceType(e.target.value as ServiceId)}
                 required
                 className="mt-1 block w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan/60"
               >
                 <option value="">Select service…</option>
                 {SERVICE_CATEGORIES.map((cat) => (
-                  <optgroup key={cat.categoryId} label={cat.categoryName.en}>
+                  <optgroup key={cat.categoryId} label={cat.categoryName}>
                     {cat.items.map((it) => (
-                      <option key={it.id} value={it.id}>{it.label.en}</option>
+                      <option key={it.id} value={it.id}>{it.label}</option>
                     ))}
                   </optgroup>
                 ))}
