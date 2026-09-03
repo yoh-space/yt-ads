@@ -287,13 +287,22 @@ export function TelegramMiniAppOrder() {
             </div>
           </div>
 
-          <Link
-            href="/track"
-            className="font-mono text-[11px] text-neutral-400 hover:text-neutral-200 border border-white/[0.1] hover:border-white/[0.2] bg-[#17181D] px-2.5 py-1 rounded-sm transition-colors flex items-center gap-1.5"
-          >
-            <Clock size={11} className="text-[#E5C07B]" />
-            <span>መከታተያ</span>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/track"
+              className="font-mono text-[11px] text-neutral-400 hover:text-neutral-200 border border-white/[0.1] hover:border-white/[0.2] bg-[#17181D] px-2.5 py-1 rounded-sm transition-colors flex items-center gap-1.5"
+            >
+              <Clock size={11} className="text-[#E5C07B]" />
+              <span>መከታተያ</span>
+            </Link>
+            <Link
+              href="/dashboard"
+              className="font-mono text-[11px] text-[#0C0D10] bg-[#E5C07B] hover:bg-[#d8b067] px-2.5 py-1 rounded-sm transition-colors font-semibold flex items-center gap-1"
+            >
+              <span>መግቢያ</span>
+              <ArrowUpRight size={11} />
+            </Link>
+          </div>
         </div>
       </header>
 
