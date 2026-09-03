@@ -24,6 +24,7 @@ import { ReportsView } from "./views/reports";
 import { ReconciliationView } from "./views/reconciliation";
 import { AuditLogView } from "./views/audit-log";
 import { SettingsView } from "./views/settings";
+import { FinancialOperationsView } from "./views/financial-operations";
 import { OrdersView, OrderPriceModal, OrderConfirmModal } from "./views/orders";
 import { StockModal } from "./modals/stock-modal";
 import { OffcutModal, type NewOffcutInput } from "./modals/offcut-modal";
@@ -125,6 +126,19 @@ export function OperationsDashboard() {
       setWorkspaceApplied(true);
     }
   }, [workspaceApplied, profile?.role]);
+
+  useEffect(() => {
+    const stored = window.localStorage.getItem("dashboard-sidebar-collapsed");
+    if (stored !== null) setSidebarCollapsed(stored === "true");
+  }, []);
+
+  function toggleSidebar() {
+    setSidebarCollapsed((value) => {
+      const next = !value;
+      window.localStorage.setItem("dashboard-sidebar-collapsed", String(next));
+      return next;
+    });
+  }
 
   useEffect(() => {
     if (canManageOrders && ordersQuery) void notifyOverdue({}).catch(() => {});
@@ -278,8 +292,11 @@ export function OperationsDashboard() {
         onNavigate={openView}
         mobileOpen={mobileNavOpen}
         onClose={() => setMobileNavOpen(false)}
+        onToggleSidebar={toggleSidebar}
         collapsed={sidebarCollapsed}
         runningJobsCount={runningJobs.length}
+        ordersCount={orders.length}
+        activeMachinesCount={machines.filter((machine) => machine.status === "Running").length}
         companyName={companySettings?.companyName}
         logoUrl={companySettings?.logoUrl}
         role={resolvedRole}
@@ -295,16 +312,16 @@ export function OperationsDashboard() {
 
       <main className={cn(
         "min-h-screen transition-all duration-300",
-        "ml-[280px]",
+         "ml-[260px]",
         {
-          "ml-[74px]": sidebarCollapsed,
+          "ml-[64px]": sidebarCollapsed,
           "ml-0 max-md:ml-0": mobileNavOpen,
         }
       )}>
         <Topbar
           activeView={visibleView}
           onMenu={() => setMobileNavOpen(true)}
-          onToggleSidebar={() => setSidebarCollapsed((value) => !value)}
+           onToggleSidebar={toggleSidebar}
           sidebarCollapsed={sidebarCollapsed}
           profile={resolvedProfile}
           companyName={companySettings?.companyName}
@@ -450,6 +467,7 @@ export function OperationsDashboard() {
           {visibleView === "reports" ? <ReportsView canSeeFinancial={isOwner} /> : null}
           {visibleView === "reconciliation" ? <ReconciliationView materials={materials} canRecord={canRecordReconciliation} canReview={canReviewReconciliation} canSeeFinancial={isOwner} onCount={() => openModal("reconciliation", "reconciliation.record")} onReview={(id, status) => finishMutation(`review-recon-${id}`, reviewReconciliation({ reconciliationId: id as Id<"reconciliations">, status }), "Reconciliation record reviewed")} /> : null}
           {visibleView === "audit" ? <AuditLogView /> : null}
+          {visibleView === "financial" && isOwner ? <FinancialOperationsView /> : null}
           {visibleView === "settings" && resolvedProfile ? <SettingsView profile={resolvedProfile} /> : null}
         </div>
       </main>

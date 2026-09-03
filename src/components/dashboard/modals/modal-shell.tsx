@@ -37,18 +37,18 @@ export function ModalShell({
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <div className="flex w-full max-w-lg max-h-[85vh] flex-col overflow-hidden rounded-xl bg-white shadow-2xl border border-gray-100">
+      <div className="flex w-full max-w-lg max-h-[85vh] flex-col overflow-hidden rounded-xl bg-card text-card-foreground shadow-custom border border-border">
         {/* Sticky header */}
         <div className="flex-shrink-0 flex items-start justify-between p-6 border-b border-gray-100">
           <div className="flex-1">
             <span className="block text-[10px] font-bold tracking-wider text-cyan-dark mb-1">
               {kicker ? kicker : step ? `STEP ${step} OF 3` : "OPERATIONS ENTRY"}
             </span>
-            <h2 className="text-lg font-bold text-navy mb-1">{title}</h2>
+            <h2 className="text-lg font-bold text-foreground mb-1">{title}</h2>
             <p className="text-sm text-gray-600">{subtitle}</p>
           </div>
           <button
-            className="flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-navy transition-colors"
+            className="flex items-center justify-center w-8 h-8 rounded-lg bg-secondary text-muted-foreground hover:bg-border hover:text-foreground transition-colors"
             onClick={onClose}
             aria-label="Close modal"
           >
@@ -79,7 +79,7 @@ export function ModalShell({
 
         {/* Sticky footer */}
         {footer ? (
-          <div className="flex-shrink-0 flex items-center justify-between gap-3 p-4 border-t border-gray-100 bg-white">
+          <div className="flex-shrink-0 flex items-center justify-between gap-3 p-4 border-t border-border bg-card">
             <div className="text-xs text-gray-500">Esc to close · Click backdrop to cancel</div>
             <div className="flex items-center gap-3">{footer}</div>
           </div>

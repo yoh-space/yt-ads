@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { Bell, Menu, PanelLeftClose, PanelLeftOpen, Search } from "lucide-react";
 import { api } from "@/convex/_generated/api";
@@ -8,8 +8,20 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { navItems, type View } from "./nav-config";
 import { UserMenu } from "./user-menu";
 import { NotificationModal } from "./notification-modal";
+import { TelemetryBar } from "@/components/ui/telemetry-bar";
 import type { Profile } from "@/lib/operations-types";
 import { cn } from "@/lib/utils";
+
+function useClock(): string {
+  const [now, setNow] = useState<Date | null>(null);
+  useEffect(() => {
+    setNow(new Date());
+    const timer = setInterval(() => setNow(new Date()), 30_000);
+    return () => clearInterval(timer);
+  }, []);
+  if (!now) return "--:-- --";
+  return now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+}
 
 export function Topbar({
   activeView,
@@ -30,6 +42,7 @@ export function Topbar({
 }) {
   const current = navItems.find((item) => item.id === activeView);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const clock = useClock();
   const notifications = useQuery(api.notifications.list, profile ? {} : "skip");
   const unreadCount = useQuery(api.notifications.unreadCount, profile ? {} : "skip");
   const markRead = useMutation(api.notifications.markRead);
@@ -91,7 +104,17 @@ export function Topbar({
           <UserMenu profile={profile} onOpenSettings={onOpenSettings} />
         </div>
       </header>
-      
+
+      <TelemetryBar
+        items={[
+          { label: "Bed Vac", value: "-48.2 kPa", tone: "green" },
+          { label: "Ambient", value: "71.4°F / 44% RH", tone: "cyan" },
+          { label: "Node", value: "#3-EST", tone: "green" },
+          { label: "Station", value: "#4", tone: "cyan" },
+          { label: "Local", value: clock, tone: "amber" },
+        ]}
+      />
+
       {notificationsOpen && notifications ? (
         <NotificationModal
           notifications={notifications}

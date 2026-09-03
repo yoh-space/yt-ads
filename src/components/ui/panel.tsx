@@ -18,7 +18,7 @@ export function Panel({ className, children, ...props }: PanelProps) {
   return (
     <article
       className={cn(
-        "bg-white border border-[#e4edf1] rounded-[9px] shadow-[0_6px_17px_rgba(23,57,72,0.03)]",
+        "bg-card text-card-foreground border border-border/60 rounded-xl shadow-custom",
         className
       )}
       {...props}
@@ -41,7 +41,7 @@ export function PanelHeader({
   return (
     <div
       className={cn(
-        "flex justify-between items-start gap-[15px] px-[17px] pt-4 pb-[13px] border-b border-[#edf2f4]",
+        "flex justify-between items-start gap-[15px] px-[17px] pt-4 pb-[13px] border-b border-border/60",
         className
       )}
       {...props}
@@ -51,26 +51,26 @@ export function PanelHeader({
           <span
             className={cn(
               "block mb-[5px] font-mono text-[9px] font-medium tracking-[1px] uppercase",
-              "text-[#3d8396]",
+              "text-cyan",
               {
-                "text-[#c86256]": kickerVariant === "coral",
+                "text-coral": kickerVariant === "coral",
               }
             )}
           >
             {kicker}
           </span>
         )}
-        <h2 className="m-0 text-[#173c53] font-sans text-[15px] leading-[1.25]">
+        <h2 className="m-0 text-foreground font-sans text-[15px] leading-[1.25]">
           {title}
         </h2>
         {subtitle && (
-          <p className="mt-[3px] mb-0 text-[#8598a4] text-[10px]">
+          <p className="mt-[3px] mb-0 text-muted-foreground text-[10px]">
             {subtitle}
           </p>
         )}
       </div>
       {action && <div className="flex-none">{action}</div>}
-      {icon && <div className="flex-none text-[#2b8a9c]">{icon}</div>}
+      {icon && <div className="flex-none text-cyan">{icon}</div>}
     </div>
   );
 }

@@ -20,23 +20,23 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           // Variant styles
           {
             // Primary
-            "bg-navy text-white shadow-[0_4px_10px_rgba(0,46,75,0.14)] hover:bg-navy-2":
+            "bg-primary text-primary-foreground shadow-[0_0_18px_rgba(14,165,233,0.18)] hover:bg-cyan-dark":
               variant === "primary",
             
             // Secondary
-            "bg-white text-[#16445f] border-[#cbdde5] hover:border-[#83bdcd] hover:bg-[#f4fbfc]":
+            "bg-card text-foreground border-border hover:border-cyan hover:bg-secondary":
               variant === "secondary",
             
             // Tertiary
-            "bg-[#eff5f7] text-[#52707f] hover:bg-[#e4f1f4]":
+            "bg-secondary text-muted-foreground hover:bg-border":
               variant === "tertiary",
             
             // Ghost
-            "bg-transparent text-navy border-[#cadbe2] hover:bg-[#eef6f8]":
+            "bg-transparent text-foreground border-border hover:bg-secondary":
               variant === "ghost",
             
             // Text
-            "bg-transparent text-[#28788e] hover:text-navy border-0 font-bold":
+            "bg-transparent text-cyan-dark hover:text-foreground border-0 font-bold":
               variant === "text",
           },
           

@@ -2,12 +2,28 @@
 
 export function InventoryLoader() {
   return (
-    <div className="flex items-center justify-center p-8 min-h-[200px]" role="status" aria-live="polite" aria-label="Loading inventory management system">
-      <div className="relative w-28 h-28 flex items-center justify-center">
-        <div className="absolute inset-0 rounded-full border-4 border-navy/20 border-t-navy animate-spin" aria-hidden="true" />
-        <img src="/logo.webp" alt="YT Advertisement logo" className="w-14 h-14 object-contain" />
+    <div
+      className="flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[#0F172A] px-6 text-slate-50"
+      role="status"
+      aria-live="polite"
+      aria-label="Loading YT Advertisement printing workspace"
+    >
+      <div className="stitch-loader" aria-hidden="true">
+        <div className="stitch-loader__orbit stitch-loader__orbit--outer" />
+        <div className="stitch-loader__orbit stitch-loader__orbit--middle" />
+        <div className="stitch-loader__orbit stitch-loader__orbit--inner" />
+        <div className="stitch-loader__core">
+          <span />
+        </div>
       </div>
-      <p className="sr-only text-primary text-xl">Loading inventory management system</p>
+
+      <div className="mt-4 w-full max-w-sm overflow-hidden border-y border-cyan-400/20 py-2">
+        <div className="stitch-loader__marquee whitespace-nowrap font-mono text-[10px] uppercase tracking-[0.35em] text-cyan-300">
+          <span>YT Advertisement · Printing · YT Advertisement · Printing ·&nbsp;</span>
+          <span aria-hidden="true">YT Advertisement · Printing · YT Advertisement · Printing ·&nbsp;</span>
+        </div>
+      </div>
+      <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.25em] text-slate-500">Initializing workspace</p>
     </div>
   );
 }

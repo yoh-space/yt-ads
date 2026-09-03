@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Ethiopic:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Ethiopic:wght@400;500;600;700&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -6,145 +6,127 @@
 
 @layer base {
   :root {
-    /* ─────────────────────────────────────────────────────────
-       BASE CANVAS & BACKGROUND COLORS
-       ───────────────────────────────────────────────────────── */
-    --canvas: 200 33% 96%;          /* #f3f6f8 */
-    --background: 0 0% 100%;        /* #fff */
-    --foreground: 204 73% 10%;      /* #071b2c (ink) */
-
-    /* ─────────────────────────────────────────────────────────
-       BRAND COLORS
-       ───────────────────────────────────────────────────────── */
-    --navy: 199 100% 15%;           /* #002e4b */
-    --navy-2: 199 100% 19%;         /* #003b61 */
-    --ink: 204 73% 10%;             /* #071b2c */
-    --cyan: 184 82% 45%;            /* #19c4d2 */
-    --cyan-dark: 186 100% 36%;      /* #00a4b6 */
-    --gold: 42 67% 56%;             /* #e2ad3c */
-    --violet: 253 56% 66%;          /* #8874dc */
-    --blue: 217 71% 62%;            /* #558ce4 */
-    --green: 163 39% 48%;           /* #48ad8a */
-    --coral: 6 78% 66%;             /* #e87566 */
-    --muted: 206 18% 50%;           /* #6e8191 */
-
-    /* ─────────────────────────────────────────────────────────
-       UI COMPONENT TOKENS
-       ───────────────────────────────────────────────────────── */
-    --card: 0 0% 100%;              /* #fff */
-    --card-foreground: 204 73% 10%; /* #071b2c */
-    --popover: 0 0% 100%;
-    --popover-foreground: 204 73% 10%;
-    --primary: 199 100% 15%;        /* navy */
-    --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 100%;
-    --secondary-foreground: 199 65% 23%;
-    --muted-foreground: 206 18% 50%;
-    --accent: 184 82% 45%;          /* cyan */
-    --accent-foreground: 0 0% 100%;
-    --destructive: 6 55% 49%;       /* #b84440 */
-    --destructive-foreground: 0 0% 100%;
-
-    /* ─────────────────────────────────────────────────────────
-       STATUS & ALERT TOKENS
-       ───────────────────────────────────────────────────────── */
-    --shortage: 0 84% 60%;          /* #e87566 area - for theft/loss/shortage */
-    --shortage-foreground: 0 0% 98%;
-    --surplus: 163 39% 48%;         /* #48ad8a - for inventory surplus */
-    --surplus-foreground: 163 100% 97%;
-    --success: 163 55% 42%;         /* #2e8b68 */
-    --success-foreground: 0 0% 100%;
-    --warning: 42 82% 37%;          /* #a86e11 */
-    --warning-foreground: 0 0% 100%;
-    --danger: 4 47% 49%;            /* #b84440 */
-    --danger-foreground: 0 0% 100%;
-    --info: 211 60% 45%;            /* #2f6fb3 */
-    --info-foreground: 0 0% 100%;
-
-    /* ─────────────────────────────────────────────────────────
-       BORDERS, INPUTS & EFFECTS
-       ───────────────────────────────────────────────────────── */
-    --border: 200 28% 93%;          /* #dfe8ed (line) */
-    --input: 200 28% 93%;
-    --ring: 184 82% 45%;            /* cyan */
-    --line: 200 28% 93%;            /* #dfe8ed */
-    --radius: 0.5rem;               /* 8px */
-    --shadow: 0 20px 55px rgba(5, 34, 54, 0.12);
-  }
-
-  .dark {
-    --background: 204 73% 10%;
-    --foreground: 0 0% 98%;
-    --card: 199 100% 15%;
-    --card-foreground: 0 0% 98%;
-    --popover: 199 100% 15%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 184 82% 45%;
-    --primary-foreground: 204 73% 10%;
-    --secondary: 199 100% 19%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 199 100% 19%;
-    --muted-foreground: 200 18% 70%;
-    --accent: 184 82% 45%;
-    --accent-foreground: 204 73% 10%;
-    --destructive: 6 78% 66%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 199 100% 19%;
-    --input: 199 100% 19%;
-    --ring: 184 82% 45%;
+    --canvas: 222 47% 11%;
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+    --navy: 222 47% 11%;
+    --navy-2: 215 28% 17%;
+    --ink: 210 40% 98%;
+    --cyan: 199 89% 48%;
+    --cyan-dark: 198 93% 60%;
+    --gold: 38 92% 50%;
+    --violet: 253 83% 67%;
+    --blue: 217 91% 60%;
+    --green: 160 84% 39%;
+    --coral: 0 84% 60%;
+    --muted: 215 20% 65%;
+    --card: 215 28% 17%;
+    --card-foreground: 210 40% 98%;
+    --popover: 215 28% 17%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 199 89% 48%;
+    --primary-foreground: 222 47% 11%;
+    --secondary: 215 28% 17%;
+    --secondary-foreground: 210 40% 98%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 198 93% 60%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+    --shortage: 0 84% 60%;
+    --shortage-foreground: 210 40% 98%;
+    --surplus: 160 84% 39%;
+    --surplus-foreground: 210 40% 98%;
+    --success: 160 84% 39%;
+    --success-foreground: 210 40% 98%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 222 47% 11%;
+    --danger: 0 84% 60%;
+    --danger-foreground: 210 40% 98%;
+    --info: 199 89% 48%;
+    --info-foreground: 210 40% 98%;
+    --border: 215 25% 27%;
+    --input: 215 25% 27%;
+    --ring: 199 89% 48%;
+    --line: 215 25% 27%;
+    --radius: 0.75rem;
+    --shadow: 0 18px 45px rgba(2, 6, 23, 0.34);
   }
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
-  
-  body {
-    @apply bg-canvas text-foreground font-sans text-base;
-    margin: 0;
-  }
-
-  button,
-  input,
-  select {
-    font: inherit;
-  }
-
-  button {
-    cursor: pointer;
-  }
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground font-sans text-base; margin: 0; }
+  button, input, select, textarea { font: inherit; }
+  button { cursor: pointer; }
 }
 
 @layer utilities {
-  .text-balance {
-    text-wrap: balance;
+  /* Compatibility aliases for legacy view classes during the theme migration. */
+  .bg-white { background-color: hsl(var(--card)) !important; }
+  .bg-gray-50, .bg-slate-50 { background-color: hsl(var(--background)) !important; }
+  .bg-gray-100, .bg-slate-100 { background-color: hsl(var(--secondary)) !important; }
+  .text-navy, .text-ink, .text-gray-700, .text-gray-600, .text-gray-500 { color: hsl(var(--foreground)) !important; }
+  .text-gray-400, .text-gray-300, .text-muted { color: hsl(var(--muted-foreground)) !important; }
+  .border-gray-100, .border-gray-200, .border-slate-100, .border-slate-200 { border-color: hsl(var(--border)) !important; }
+  .hover\:bg-gray-50:hover, .hover\:bg-slate-50:hover { background-color: hsl(var(--secondary)) !important; }
+  .text-balance { text-wrap: balance; }
+  .field-error { display: block; margin-top: 0.35rem; font-size: 0.75rem; font-weight: 500; color: hsl(var(--danger)); }
+  .audit-pagination { display: flex; align-items: center; justify-content: flex-end; gap: 0.75rem; padding: 1rem; border-top: 1px solid hsl(var(--border)); }
+  .button.small { padding: 0.35rem 0.65rem; font-size: 0.75rem; }
+  .audit-page-indicator { font-size: 0.75rem; color: hsl(var(--muted-foreground)); }
+
+  .stitch-loader {
+    position: relative;
+    width: 190px;
+    height: 190px;
+    display: grid;
+    place-items: center;
+    filter: drop-shadow(0 0 16px rgba(14, 165, 233, 0.18));
   }
 
-  .field-error {
-    display: block;
-    margin-top: 0.35rem;
-    font-size: 0.75rem;
-    font-weight: 500;
-    color: #b84440;
+  .stitch-loader__orbit {
+    position: absolute;
+    inset: 12px;
+    border: 1px solid rgba(34, 211, 238, 0.8);
+    border-radius: 50%;
+    box-shadow: 0 0 12px rgba(34, 211, 238, 0.35), inset 0 0 12px rgba(34, 211, 238, 0.15);
+    animation: stitch-orbit 7s ease-in-out infinite alternate;
   }
 
-  .audit-pagination {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 0.75rem;
-    padding: 1rem;
-    border-top: 1px solid #dfe8ed;
+  .stitch-loader__orbit::before,
+  .stitch-loader__orbit::after {
+    content: "";
+    position: absolute;
+    border-radius: 50%;
+    background: #22d3ee;
+    box-shadow: 0 0 9px #22d3ee;
   }
 
-  .button.small {
-    padding: 0.35rem 0.65rem;
-    font-size: 0.75rem;
+  .stitch-loader__orbit::before { width: 5px; height: 5px; left: 17%; top: 13%; }
+  .stitch-loader__orbit::after { width: 4px; height: 4px; right: 11%; bottom: 21%; }
+  .stitch-loader__orbit--outer { inset: 5px; border-width: 2px; animation-duration: 7s; }
+  .stitch-loader__orbit--middle { inset: 31px; animation-duration: 4s; animation-direction: alternate-reverse; border-color: rgba(250, 204, 21, 0.85); box-shadow: 0 0 12px rgba(250, 204, 21, 0.3); }
+  .stitch-loader__orbit--middle::before, .stitch-loader__orbit--middle::after { background: #facc15; box-shadow: 0 0 9px #facc15; }
+  .stitch-loader__orbit--inner { inset: 56px; border-color: rgba(34, 211, 238, 0.65); animation-duration: 2.5s; }
+
+  .stitch-loader__core {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    display: grid;
+    place-items: center;
+    border: 1px solid #22d3ee;
+    border-radius: 50%;
+    box-shadow: 0 0 14px rgba(34, 211, 238, 0.8), inset 0 0 10px rgba(34, 211, 238, 0.3);
+    animation: stitch-core 2s ease-in-out infinite alternate;
   }
 
-  .audit-page-indicator {
-    font-size: 0.75rem;
-    color: #6e8191;
-  }
+  .stitch-loader__core span { width: 11px; height: 11px; border-radius: 50%; background: #facc15; box-shadow: 0 0 14px #facc15; }
+
+  .stitch-loader__marquee { display: inline-flex; min-width: max-content; animation: stitch-marquee 14s linear infinite; }
+
+  @keyframes stitch-orbit { to { transform: rotate(360deg); } }
+  @keyframes stitch-core { to { transform: scale(1.12); } }
+  @keyframes stitch-marquee { to { transform: translateX(-50%); } }
 }

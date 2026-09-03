@@ -34,11 +34,10 @@ export function StatCard({
       <button
         className={cn(
           "relative flex flex-col gap-2 p-[18px] pb-4 rounded-xl",
-          "bg-gradient-to-br from-white to-[#f5fbfc] border border-[#dfecef]",
-          "shadow-[0_6px_17px_rgba(23,57,72,0.05)] overflow-hidden",
+           "bg-card border border-border/60 shadow-custom overflow-hidden",
           
           // Interactive styles
-          "cursor-pointer transition-all duration-300 hover:shadow-[0_10px_26px_rgba(23,57,72,0.08)] hover:border-[#b8d8e2] hover:z-10",
+           "cursor-pointer transition-all duration-300 hover:shadow-[0_0_24px_rgba(14,165,233,0.16)] hover:border-cyan/60 hover:z-10",
           "focus-visible:outline-2 focus-visible:outline-cyan focus-visible:outline-offset-2",
 
           // Variant-specific border bottom accents
@@ -54,7 +53,7 @@ export function StatCard({
 
           // Alert state styling
           {
-            "border-[#f4c4be] bg-gradient-to-br from-[#fff1ed] to-[#fff7f5] shadow-[0_10px_26px_rgba(232,117,102,0.18)]":
+           "border-danger/60 bg-danger/10 shadow-[0_0_24px_rgba(239,68,68,0.16)]":
               isAlert,
           },
 
@@ -80,8 +79,7 @@ export function StatCard({
     <div
       className={cn(
         "relative flex flex-col gap-2 p-[18px] pb-4 rounded-xl",
-        "bg-gradient-to-br from-white to-[#f5fbfc] border border-[#dfecef]",
-        "shadow-[0_6px_17px_rgba(23,57,72,0.05)] overflow-hidden",
+        "bg-card border border-border/60 shadow-custom overflow-hidden",
 
         // Variant-specific border bottom accents
         "after:absolute after:inset-x-0 after:bottom-0 after:h-1 after:opacity-85",
@@ -96,7 +94,7 @@ export function StatCard({
 
         // Alert state styling
         {
-          "border-[#f4c4be] bg-gradient-to-br from-[#fff1ed] to-[#fff7f5] shadow-[0_10px_26px_rgba(232,117,102,0.18)]":
+          "border-danger/60 bg-danger/10 shadow-[0_0_24px_rgba(239,68,68,0.16)]":
             isAlert,
         },
 
@@ -151,10 +149,10 @@ function StatCardContent({
         <span
           className={cn(
             "flex-none w-8 h-8 rounded-lg grid place-items-center",
-            "bg-cyan/12 text-cyan-dark",
+            "bg-cyan/15 text-cyan-dark",
             {
-              "bg-gold/18 text-[#b77e15]": variant === "cost",
-              "bg-green/18 text-[#2f7d61]": variant === "profit" && !isNegative,
+              "bg-gold/18 text-gold": variant === "cost",
+              "bg-green/18 text-green": variant === "profit" && !isNegative,
               "bg-coral/18 text-danger": variant === "profit" && isNegative,
               "bg-coral/22 text-danger": variant === "alert" || isAlert,
             }
@@ -167,8 +165,8 @@ function StatCardContent({
             "font-mono text-[10px] font-semibold tracking-[0.6px] uppercase",
             "text-cyan-dark",
             {
-              "text-[#b77e15]": variant === "cost",
-              "text-[#2f7d61]": variant === "profit" && !isNegative,
+              "text-gold": variant === "cost",
+              "text-green": variant === "profit" && !isNegative,
               "text-red": variant === "profit" && isNegative,
               "text-danger": variant === "alert" || isAlert,
             }
@@ -181,7 +179,7 @@ function StatCardContent({
       {/* Value */}
       <strong
         className={cn(
-          "font-mono text-[26px] font-extrabold leading-none tracking-[-0.5px] text-[#10364d]",
+          "font-mono text-[26px] font-extrabold leading-none tracking-[-0.5px] text-foreground",
           {
             "text-danger": isNegative,
           }
@@ -192,7 +190,7 @@ function StatCardContent({
 
       {/* Description */}
       {description && (
-        <p className="font-sans text-[11px] text-[#34566a] leading-[1.45] m-0">
+          <p className="font-sans text-[11px] text-muted-foreground leading-[1.45] m-0">
           {description}
         </p>
       )}

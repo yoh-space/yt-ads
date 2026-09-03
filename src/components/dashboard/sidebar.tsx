@@ -1,6 +1,6 @@
 "use client";
 
-import { Sparkles, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Sparkles, X } from "lucide-react";
 import { canAccessView, navItems, type View } from "./nav-config";
 import type { Role } from "@/lib/operations-types";
 import { cn } from "@/lib/utils";
@@ -10,8 +10,11 @@ export function Sidebar({
   onNavigate,
   mobileOpen,
   onClose,
+  onToggleSidebar,
   collapsed,
   runningJobsCount,
+  ordersCount,
+  activeMachinesCount,
   companyName,
   role,
 }: {
@@ -19,8 +22,11 @@ export function Sidebar({
   onNavigate: (view: View) => void;
   mobileOpen: boolean;
   onClose: () => void;
+  onToggleSidebar: () => void;
   collapsed: boolean;
   runningJobsCount: number;
+  ordersCount: number;
+  activeMachinesCount: number;
   companyName?: string;
   logoUrl?: string;
   role: Role;
@@ -30,45 +36,26 @@ export function Sidebar({
   return (
     <aside className={cn(
       // Base sidebar shell
-      "fixed z-20 top-0 left-0 h-full w-[284px] flex flex-col scrollbar-none",
-      "bg-[radial-gradient(1100px_380px_at_-15%_-12%,rgba(25,196,210,0.16),transparent_62%),radial-gradient(900px_480px_at_118%_115%,rgba(136,116,220,0.14),transparent_55%)] bg-navy",
-      "border-r border-white/10 shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_20px_55px_rgba(5,34,54,0.35)]",
-      "transition-all duration-300 ease-out",
+      "fixed z-20 top-0 left-0 h-full w-64 flex flex-col overflow-visible bg-[#0B132B]",
+      "border-r border-slate-800/80 shadow-[0_20px_55px_rgba(2,6,23,0.35)]",
+      "transition-all duration-300 ease-in-out",
       "max-md:-translate-x-full max-md:transition-transform",
       {
         "max-md:translate-x-0": mobileOpen,
-        "w-[78px]": collapsed,
+        "w-16": collapsed,
       }
     )}>
-      {/* ── Brand ─────────────────────────────────────────────── */}
-      <div className={cn(
-        "flex items-center gap-3.5 px-5 pt-5 pb-6",
-        { "justify-center px-0": collapsed }
-      )}>
-        <div className={cn(
-          "relative w-[46px] h-[46px] flex-none rounded-xl overflow-hidden",
-          "ring-2 ring-cyan/30 shadow-[0_8px_22px_rgba(25,196,210,0.28)]",
-          { "w-[42px] h-[42px] rounded-full ring-cyan/25": collapsed }
-        )}>
-          <img
-            src="/logo.webp"
-            alt="Company logo"
-            className="w-full h-full object-cover"
-            draggable={false}
-          />
-          <span className="absolute inset-0 rounded-xl ring-1 ring-inset ring-white/10" />
-        </div>
-
-        {!collapsed ? (
-          <div className="min-w-0 flex-1">
-            <strong className="block truncate text-[15px] font-bold leading-snug tracking-[-0.3px] text-white">
-              {companyName ?? "YT Advertising"}
-            </strong>
-            <span className="mt-1 block truncate text-[9px] font-mono uppercase tracking-[0.18em] text-cyan/70">
-              Operations Control
-            </span>
-          </div>
-        ) : null}
+      {/* ── Console header ─────────────────────────────────────── */}
+      <div className={cn("relative flex items-center px-4 pt-4 pb-5", { "justify-center px-0": collapsed })}>
+        {!collapsed ? <span className="font-mono text-[10px] uppercase tracking-widest text-slate-500">CONSOLE NODE v4.2</span> : null}
+        <button
+          type="button"
+          className={cn("hidden md:grid place-items-center h-7 w-7 rounded-md text-slate-400 hover:bg-slate-800/70 hover:text-white", collapsed ? "absolute -right-3 top-5 bg-[#1E293B] border border-slate-700" : "ml-auto")}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          onClick={onToggleSidebar}
+        >
+          {collapsed ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
+        </button>
 
         <button
           className={cn(
@@ -84,34 +71,35 @@ export function Sidebar({
 
       {/* ── Live workspace chip ───────────────────────────────── */}
       <div className={cn(
-        "mx-4 mb-5 flex items-center gap-2.5 rounded-full border border-green/25 bg-green/10 px-3.5 py-2",
-        { "mx-[14px] justify-center px-0": collapsed }
+        "mx-4 mb-4 flex items-center gap-1.5 rounded-full border border-emerald-800/60 bg-emerald-950/60 px-2 py-1",
+        { "mx-[18px] justify-center px-0": collapsed }
       )}>
-        <span className="relative flex h-2 w-2">
+        <span className="relative flex h-1.5 w-1.5">
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green opacity-60" />
-          <span className="relative inline-flex h-2 w-2 rounded-full bg-green" />
+          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-green" />
         </span>
         {!collapsed ? (
-          <span className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-green">
-            Live workspace
+          <span className="truncate text-[8px] font-semibold uppercase tracking-[0.12em] text-emerald-400">
+            LIVE WORKSPACE
           </span>
         ) : null}
       </div>
 
       {/* ── Primary navigation ────────────────────────────────── */}
-      <p className={cn(
-        "mx-5 mb-2.5 text-[9px] font-mono tracking-[0.2em] uppercase text-gray-500",
-        { "hidden": collapsed }
-      )}>
-        Workspace <span className="float-right text-[8px] text-gray-600">MAIN MENU</span>
-      </p>
-
       <nav className={cn(
         "flex-1 overflow-y-auto overscroll-contain px-3 pb-3",
-        "[&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-track]:bg-transparent",
-        "[scrollbar-width:thin]"
+        "[&::-webkit-scrollbar]:w-0.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-700/80 [&::-webkit-scrollbar-thumb]:hover:bg-cyan/70 [&::-webkit-scrollbar-track]:bg-transparent",
+        "[scrollbar-width:thin] [scrollbar-color:rgba(51,65,85,0.8)_transparent]"
       )}>
-        {visibleNavItems.map((item) => {
+        {(["OPERATIONS CORE", "SYSTEM GOVERNANCE"] as const).map((section) => {
+          const sectionItems = visibleNavItems.filter((item) => section === "OPERATIONS CORE"
+            ? ["overview", "orders", "jobs", "machines", "inventory"].includes(item.id)
+            : ["offcuts", "reports", "reconciliation", "audit", "settings"].includes(item.id));
+          if (sectionItems.length === 0) return null;
+          return (
+            <div key={section}>
+              {!collapsed ? <p className="mx-2 mb-2 mt-2 font-mono text-[10px] uppercase tracking-widest text-slate-500">{section}</p> : null}
+              {sectionItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeView === item.id;
 
@@ -119,12 +107,13 @@ export function Sidebar({
             <button
               key={item.id}
               title={collapsed ? item.english : undefined}
+              aria-label={item.english}
               aria-current={isActive ? "page" : undefined}
               className={cn(
                 "group relative flex w-full items-center gap-3 rounded-[10px] px-2.5 py-2 text-left transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan/50",
                 isActive
-                  ? "bg-gradient-to-r from-cyan/25 via-cyan/10 to-transparent text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
-                  : "text-gray-400 hover:bg-white/5 hover:text-white",
+                  ? "border-l-2 border-[#00B4D8] bg-[#1E293B] text-white shadow-[0_0_18px_rgba(0,180,216,0.12)]"
+                  : "border-l-2 border-transparent text-slate-400 hover:bg-slate-800/50 hover:text-slate-100",
                 { "justify-center px-0 py-2.5": collapsed }
               )}
               onClick={() => onNavigate(item.id)}
@@ -136,8 +125,8 @@ export function Sidebar({
               <span className={cn(
                 "flex-none grid place-items-center w-[32px] h-[32px] rounded-lg transition-colors duration-200",
                 isActive
-                  ? "bg-cyan/20 text-cyan"
-                  : "bg-white/5 text-gray-400 group-hover:bg-white/10 group-hover:text-cyan-100"
+                  ? "bg-cyan/15 text-cyan-dark"
+                  : "bg-slate-800/40 text-slate-400 group-hover:bg-slate-700/60 group-hover:text-cyan-dark"
               )}>
                 <Icon size={17} />
               </span>
@@ -154,6 +143,12 @@ export function Sidebar({
                 </span>
               ) : null}
 
+              {!collapsed && item.id === "orders" ? (
+                <b className="ml-auto rounded-full bg-slate-700 px-2 py-0.5 font-mono text-xs text-slate-200">{ordersCount}</b>
+              ) : null}
+              {!collapsed && item.id === "machines" ? (
+                <b className="ml-auto rounded-full bg-cyan/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-cyan-dark">{activeMachinesCount} Active</b>
+              ) : null}
               {item.id === "jobs" && runningJobsCount > 0 ? (
                 <b className={cn(
                   "grid place-items-center w-5 h-5 flex-none rounded-full bg-coral text-white text-[10px] font-bold font-mono",
@@ -162,7 +157,11 @@ export function Sidebar({
                   {runningJobsCount}
                 </b>
               ) : null}
+              {collapsed ? <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 whitespace-nowrap rounded-md border border-slate-700 bg-[#1E293B] px-2.5 py-1.5 font-mono text-xs text-slate-200 opacity-0 shadow-xl transition-opacity group-hover:opacity-100">{item.english}</span> : null}
             </button>
+          );
+              })}
+            </div>
           );
         })}
       </nav>

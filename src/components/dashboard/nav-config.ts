@@ -9,12 +9,13 @@ import {
   Scissors,
   FileBarChart,
   History,
+  CircleDollarSign,
   Settings,
   Scale,
   type LucideIcon,
 } from "lucide-react";
 
-export type View = "overview" | "orders" | "inventory" | "jobs" | "machines" | "offcuts" | "reports" | "reconciliation" | "audit" | "settings";
+export type View = "overview" | "orders" | "inventory" | "jobs" | "machines" | "offcuts" | "reports" | "reconciliation" | "audit" | "financial" | "settings";
 export type Modal =
   | "stock"
   | "job"
@@ -28,10 +29,10 @@ export type Modal =
   | "reconciliation"
   | null;
 
-export type SettingsCategory = "profile" | "security" | "team" | "company" | "operations";
+export type SettingsCategory = "profile" | "security" | "team" | "company";
 
 export const roleVisibleViews: Record<Role, View[]> = {
-  owner: ["overview", "orders", "inventory", "jobs", "reports", "reconciliation", "audit", "settings"],
+  owner: ["overview", "orders", "inventory", "jobs", "reports", "reconciliation", "audit", "financial", "settings"],
   manager: ["overview", "orders", "inventory", "jobs", "machines", "offcuts", "reports", "reconciliation", "audit", "settings"],
   admin: ["overview", "orders", "inventory", "jobs", "machines", "offcuts", "reports", "reconciliation", "audit", "settings"],
   storekeeper: ["overview", "orders", "inventory", "jobs", "machines", "offcuts", "reconciliation", "audit", "settings"],
@@ -82,6 +83,7 @@ export const navItems: Array<{
   { id: "reports", label: "ሪፖርቶች", english: "Reports", icon: FileBarChart },
   { id: "reconciliation", label: "ክምችት ማረጋገጫ", english: "Reconciliation", icon: Scale },
   { id: "audit", label: "የእንቅስቃሴ መዝገብ", english: "Audit Log", icon: History },
+  { id: "financial", label: "የፋይናንስ አሠራር", english: "Financial Operations", icon: CircleDollarSign },
   { id: "settings", label: "ማስተካከያ", english: "Settings", icon: Settings },
 ];
 

@@ -60,6 +60,9 @@ const config: Config = {
         },
 
         // Status & Alert Tokens
+        glow: "#00B4D8",
+        active: "#38B000",
+        pulse: "#FFB703",
         shortage: {
           DEFAULT: "hsl(var(--shortage))",
           foreground: "hsl(var(--shortage-foreground))",
@@ -101,7 +104,7 @@ const config: Config = {
       },
       fontFamily: {
         sans: ["Inter", '"Noto Sans Ethiopic"', "sans-serif"],
-        mono: ['"DM Mono"', "monospace"],
+        mono: ['"JetBrains Mono"', '"Fira Code"', "monospace"],
       },
       fontSize: {
         xs: ["9px", { lineHeight: "1.3" }],
@@ -118,6 +121,8 @@ const config: Config = {
       animation: {
         "mc-slide-in": "mcSlideIn 0.15s ease-out",
         "inventory-loader-spin": "inventory-loader-spin 1.1s linear infinite",
+        "pulse-dot": "pulseDot 1.6s ease-in-out infinite",
+        "telemetry-scroll": "telemetryScroll 38s linear infinite",
       },
       keyframes: {
         mcSlideIn: {
@@ -126,6 +131,14 @@ const config: Config = {
         },
         "inventory-loader-spin": {
           "100%": { transform: "rotate(360deg)" },
+        },
+        pulseDot: {
+          "0%, 100%": { opacity: "1", boxShadow: "0 0 0 0 rgba(255, 183, 3, 0.55)" },
+          "50%": { opacity: "0.65", boxShadow: "0 0 0 4px rgba(255, 183, 3, 0)" },
+        },
+        telemetryScroll: {
+          "0%": { transform: "translateX(0)" },
+          "100%": { transform: "translateX(-50%)" },
         },
       },
     },

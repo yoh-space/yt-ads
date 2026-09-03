@@ -10,8 +10,8 @@ export function initials(name: string) {
 }
 
 export function statusTone(status: string) {
-  if (status === "Running" || status === "In production" || status === "Completed") return "success";
-  if (status === "Maintenance" || status === "Paused") return "warning";
+  if (status === "Running" || status === "Available" || status === "Completed" || status === "READY_FOR_PICKUP") return "success";
+  if (status === "In production" || status === "IN_PRODUCTION" || status === "Maintenance" || status === "Paused") return "warning";
   if (status === "Unavailable") return "danger";
   return "neutral";
 }

@@ -197,8 +197,11 @@ export function OrdersView({
             <div
               className={cn(
                 "grid grid-cols-[2fr_1.5fr_1fr_1.2fr_1fr_1.2fr] gap-4 px-4 py-3 items-center transition-colors cursor-pointer",
-                selected?.id === order.id ? "bg-cyan/5" : "hover:bg-gray-50",
-                order.overdue && "bg-coral/5"
+                "border-l-4 border-l-transparent",
+                selected?.id === order.id
+                  ? "bg-[#1E293B] border-l-[#00B4D8]"
+                  : "hover:bg-[#16202f]",
+                order.overdue && "bg-rose-950/20"
               )}
               key={order.id}
               role="button"
@@ -226,9 +229,10 @@ export function OrdersView({
               </div>
               
               {/* Priority */}
-              <div className="flex items-center gap-2">
-                <span className={cn("w-2 h-2 rounded-full", order.priority === "High" ? "bg-coral" : order.priority === "Medium" ? "bg-gold" : "bg-green")} />
-                <span className="text-sm text-gray-700">{order.priority}</span>
+              <div className="flex items-center">
+                <StatusPill variant={order.priority === "High" ? "danger" : order.priority === "Medium" ? "warning" : "success"}>
+                  {order.priority}
+                </StatusPill>
               </div>
               
               {/* Due */}

@@ -51,7 +51,6 @@ export function SettingsView({ profile }: { profile: Profile }) {
     { id: "security", icon: <ShieldCheck size={20} />, title: "Security", description: "Change your password and manage sign-in methods." },
     ...(canManageTeam ? [{ id: "team" as const, icon: <Shield size={20} />, title: "Team Access", description: "Manage team roles and workspace permissions.", badge: isOwner ? "Owner" : "Manager" }] : []),
     ...(canUpdateCompany ? [{ id: "company" as const, icon: <Building2 size={20} />, title: "Company Profile", description: "Manage workspace branding and company settings." }] : []),
-    ...(isOwner ? [{ id: "operations" as const, icon: <Settings2 size={20} />, title: "Operational & Financial Rules", description: "Configure ETB valuation, production rules, and risk controls.", badge: "Owner" }] : []),
   ];
 
   const selected = categories.find((c) => c.id === activeCategory) ?? categories[0];
@@ -170,7 +169,6 @@ export function SettingsView({ profile }: { profile: Profile }) {
             {activeCategory === "security" && <SecurityPanel isOwner={isOwner} />}
             {activeCategory === "team" && <TeamPanel profile={profile} />}
             {activeCategory === "company" && <CompanyPanel />}
-            {activeCategory === "operations" && isOwner && <OperationalPanel />}
           </div>
         </div>
       </div>
@@ -717,7 +715,7 @@ function NumericField({ label, value, onChange, suffix, min, max, step, hint }: 
   );
 }
 
-function OperationalPanel() {
+export function OperationalPanel() {
   const config = useQuery(api.systemConfigs.getSystemConfig);
   const state = useQuery(api.dashboard.getState, {});
   const updateSystemConfig = useMutation(api.systemConfigs.updateSystemConfig);
