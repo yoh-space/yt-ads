@@ -35,6 +35,7 @@ export type Permission =
   | "reconciliation.record"
   | "reconciliation.review"
   | "reconciliation.operator"
+  | "reconciliation.clearance"
   | "invoice.view"
   | "invoice.create";
 
@@ -72,6 +73,7 @@ const ALL: Permission[] = [
   "reconciliation.record",
   "reconciliation.review",
   "reconciliation.operator",
+  "reconciliation.clearance",
   "invoice.view",
   "invoice.create",
 ];
@@ -94,12 +96,20 @@ const OPERATIONS: Permission[] = [
 const EXCLUDED_FROM_MANAGER: Set<Permission> = new Set([
   "company_settings.update",
   "reconciliation.review",
+  "reconciliation.clearance",
+]);
+
+/** Owners do not request or issue materials — the store handles handover. */
+const EXCLUDED_FROM_OWNER: Set<Permission> = new Set([
+  "request.create",
+  "request.issue",
+  "request.acknowledge",
 ]);
 
 const MANAGEMENT_ROLES: Role[] = ["owner", "manager", "admin", "storekeeper"];
 
 export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
-  owner: [...ALL],
+  owner: ALL.filter((permission) => !EXCLUDED_FROM_OWNER.has(permission)),
   manager: ALL.filter((permission) => !EXCLUDED_FROM_MANAGER.has(permission)),
   admin: [
     "dashboard.view",
@@ -135,6 +145,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "reconciliation.record",
     "reconciliation.review", // Added for administrative review
     "reconciliation.operator",
+    "reconciliation.clearance",
     "invoice.view",
     "invoice.create",
   ],

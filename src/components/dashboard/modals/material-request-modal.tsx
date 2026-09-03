@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ClipboardPlus } from "lucide-react";
+import { AlertTriangle, ClipboardPlus } from "lucide-react";
 import type { JobCard, Material, Unit } from "@/lib/operations-types";
 import { formatQuantity } from "@/lib/units";
 import { ModalShell } from "./modal-shell";
@@ -15,18 +15,30 @@ export type NewMaterialRequestInput = {
   note?: string;
 };
 
+export type UnclearedFloorStock = {
+  id: string;
+  status: "ACTIVE" | "PENDING_CLEARANCE";
+  materialName: string;
+  machineName: string;
+  currentRemaining: number;
+  baseUnit: string;
+};
+
 export function MaterialRequestModal({
   jobs,
   materials,
+  unclearedStock = [],
   onClose,
   onSave,
 }: {
   jobs: JobCard[];
   materials: Material[];
+  unclearedStock?: UnclearedFloorStock[];
   onClose: () => void;
   onSave: (input: NewMaterialRequestInput) => void;
 }) {
   const activeJobs = jobs.filter((job) => job.status !== "Completed");
+  const blocked = unclearedStock.length > 0;
   const [jobCardId, setJobCardId] = useState(activeJobs[0]?.id ?? "");
   const selectedJob = activeJobs.find((job) => job.id === jobCardId) ?? activeJobs[0];
   const [materialId, setMaterialId] = useState(selectedJob?.materialId ?? materials[0]?.id ?? "");
@@ -42,7 +54,9 @@ export function MaterialRequestModal({
         activeJobs.length === 0 ? undefined : (
           <div className="flex items-center justify-end gap-3 w-full">
             <Button variant="tertiary" type="button" onClick={onClose}>Cancel</Button>
-            <Button type="submit" form="material-request-form">Request material <ClipboardPlus size={16} /></Button>
+            <Button type="submit" form="material-request-form" disabled={blocked}>
+              {blocked ? "Clearance required" : "Request material"} <ClipboardPlus size={16} />
+            </Button>
           </div>
         )
       }
@@ -55,7 +69,7 @@ export function MaterialRequestModal({
           className="modal-form"
           onSubmit={(event) => {
             event.preventDefault();
-            if (!selectedJob || !selectedMaterial) return;
+            if (!selectedJob || !selectedMaterial || blocked) return;
             onSave({
               jobCardId: selectedJob.id,
               materialId: selectedMaterial.id,
@@ -65,6 +79,32 @@ export function MaterialRequestModal({
             });
           }}
         >
+          {blocked ? (
+            <div
+              role="alert"
+              className="mb-4 rounded-lg border border-rose-800/60 bg-rose-950/40 p-4 text-sm text-rose-300"
+            >
+              <p className="flex items-center gap-2 m-0 font-semibold">
+                <AlertTriangle size={16} className="flex-none text-rose-400" />
+                Request blocked — Owner Clearance required
+              </p>
+              <p className="mt-2 mb-2 text-xs text-rose-300/90">
+                You still hold active or un-cleared floor material. Reconcile your remaining stock, then wait for the
+                Owner to approve your clearance before requesting new stock.
+              </p>
+              <ul className="m-0 list-none grid gap-1.5 p-0">
+                {unclearedStock.map((item) => (
+                  <li key={item.id} className="flex items-center justify-between gap-2 rounded-md border border-rose-800/40 bg-rose-950/30 px-3 py-1.5 font-mono text-[11px]">
+                    <span>{item.materialName} · {item.machineName}</span>
+                    <span className="font-semibold">
+                      {formatQuantity(item.currentRemaining, item.baseUnit as Unit)} {item.baseUnit} ·{" "}
+                      {item.status === "ACTIVE" ? "in use" : "awaiting clearance"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           <label>
             Job card
             <select value={jobCardId} onChange={(event) => {

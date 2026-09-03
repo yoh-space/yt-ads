@@ -13,7 +13,8 @@ type NotificationType =
   | "order_received"
   | "order_status"
   | "overdue_order"
-  | "exception_stock_out";
+  | "exception_stock_out"
+  | "clearance_granted";
 
 export async function notifyUser(
   ctx: MutationCtx,

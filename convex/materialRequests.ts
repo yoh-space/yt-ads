@@ -56,9 +56,23 @@ export const create = mutation({
     note: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const { identity } = await requirePermission(ctx, "request.create");
+    const { identity, profile } = await requirePermission(ctx, "request.create");
+    const OPERATOR_ROLES: string[] = ["laser_operator", "cnc_operator", "plotter_operator", "printer_operator"];
+    if (!OPERATOR_ROLES.includes(profile.role)) {
+      throw new Error("Only machine operators can request materials for active production tasks.");
+    }
     if (!Number.isFinite(args.requestedQuantity) || args.requestedQuantity <= 0) {
       throw new Error("Requested quantity must be greater than zero.");
+    }
+    const unclearedBatches = await ctx.db
+      .query("operatorSubStock")
+      .withIndex("by_operator", (q) => q.eq("operatorId", identity._id))
+      .filter((q) => q.or(q.eq(q.field("status"), "ACTIVE"), q.eq(q.field("status"), "PENDING_CLEARANCE")))
+      .collect();
+    if (unclearedBatches.length > 0) {
+      throw new Error(
+        "Request Blocked: Owner clearance is required for your previously issued materials before submitting a new request.",
+      );
     }
     const [job, material] = await Promise.all([
       ctx.db.get(args.jobCardId),

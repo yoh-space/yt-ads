@@ -17,6 +17,7 @@ import { DashboardAccessDenied } from "./access-denied";
 import { Topbar } from "./topbar";
 import { Overview, type FinancialMetrics } from "./views/overview";
 import { InventoryView } from "./views/inventory";
+import { OwnerInventoryOversight } from "./views/owner-inventory-oversight";
 import { JobsView } from "./views/jobs";
 import { MachinesView } from "./views/machines";
 import { OffcutsView } from "./views/offcuts";
@@ -76,9 +77,14 @@ export function OperationsDashboard() {
   const canManageConfig = Boolean(profile && hasPermission(role, "company_settings.update"));
   const canRecordReconciliation = Boolean(profile && hasPermission(role, "reconciliation.record"));
   const canReviewReconciliation = Boolean(profile && hasPermission(role, "reconciliation.review"));
+  const canManageClearance = Boolean(profile && hasPermission(role, "reconciliation.clearance"));
   const materialRequests = useQuery(api.materialRequests.list, profile?.active ? {} : "skip");
   const floorStockQuery = useQuery(
     api.inventory.listOperatorMachineStock,
+    profile?.active && ["laser_operator", "cnc_operator", "plotter_operator", "printer_operator"].includes(profile.role) ? {} : "skip",
+  );
+  const unclearedStockQuery = useQuery(
+    api.inventory.myUnclearedStock,
     profile?.active && ["laser_operator", "cnc_operator", "plotter_operator", "printer_operator"].includes(profile.role) ? {} : "skip",
   );
   const ordersQuery = useQuery(api.orders.list, canViewOrders && profile?.active ? {} : "skip");
@@ -121,7 +127,7 @@ export function OperationsDashboard() {
   const [machineSettingsTarget, setMachineSettingsTarget] = useState<Machine | null>(null);
   const [floorMachineId, setFloorMachineId] = useState<string | undefined>();
   const [jobFilter, setJobFilter] = useState<JobCard["status"] | "open" | null>(null);
-  const [notice, setNotice] = useState("የዛሬ ሥራ በቅጽበት እየተመዘገበ ነው");
+  const [notice, setNotice] = useState("");
 
   useEffect(() => {
     if (profile === null) {
@@ -351,7 +357,6 @@ export function OperationsDashboard() {
                     : navItems.find((item) => item.id === visibleView)?.english}
                 </span>
               </h1>
-              <p className="text-sm text-ink">{notice}</p>
             </div>
             
             <div className="flex items-center gap-3">
@@ -444,26 +449,35 @@ export function OperationsDashboard() {
             });
           }} isPending={isPending} /> : null}
           {visibleView === "inventory" ? (
-            <InventoryView
-              materials={materials}
-              lowStock={lowStock}
-              requests={requests}
-              role={resolvedRole}
-              onStock={() => openModal("stock", "stock.record")}
-              onException={() => openModal("exception", "stock.exception")}
-              exceptions={exceptions}
-              canRecordStock={canRecordStock}
-              canRecordException={canRecordException}
-              canCreateMaterial={canCreateMaterial}
-              canCreateRequest={canCreateRequest}
-              canIssueRequest={canIssueRequest}
-              canAcknowledgeRequest={canAcknowledgeRequest}
-              onAdd={() => openModal("material", "material.create")}
-              onRequest={() => openModal("request", "request.create")}
-              onIssue={issueMaterial}
-              onAcknowledge={acknowledgeMaterial}
-              isPending={isPending}
-            />
+            <>
+              {canManageClearance ? (
+                <OwnerInventoryOversight canReview={isOwner && canReviewReconciliation} showFinancial={isOwner} />
+              ) : null}
+              {resolvedRole !== "owner" ? (
+                <div className={canManageClearance ? "mt-8" : undefined}>
+                  <InventoryView
+                    materials={materials}
+                    lowStock={lowStock}
+                    requests={requests}
+                    role={resolvedRole}
+                    onStock={() => openModal("stock", "stock.record")}
+                    onException={() => openModal("exception", "stock.exception")}
+                    exceptions={exceptions}
+                    canRecordStock={canRecordStock}
+                    canRecordException={canRecordException}
+                    canCreateMaterial={canCreateMaterial}
+                    canCreateRequest={canCreateRequest}
+                    canIssueRequest={canIssueRequest}
+                    canAcknowledgeRequest={canAcknowledgeRequest}
+                    onAdd={() => openModal("material", "material.create")}
+                    onRequest={() => openModal("request", "request.create")}
+                    onIssue={issueMaterial}
+                    onAcknowledge={acknowledgeMaterial}
+                    isPending={isPending}
+                  />
+                </div>
+              ) : null}
+            </>
           ) : null}
           {visibleView === "jobs" ? (
             <JobsView jobs={jobs} machines={machines} materials={materials} canCreate={false} canComplete={Boolean(profile && hasPermission(role, "job.complete"))} onCreate={() => {}} onComplete={completeJob} filterStatus={jobFilter} onClearFilter={() => setJobFilter(null)} />
@@ -625,6 +639,7 @@ export function OperationsDashboard() {
         <MaterialRequestModal
           jobs={jobs}
           materials={materials}
+          unclearedStock={unclearedStockQuery ?? []}
           onClose={() => setModal(null)}
           onSave={requestMaterial}
         />

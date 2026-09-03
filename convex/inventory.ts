@@ -1,9 +1,9 @@
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { v } from "convex/values";
-import { requireAnyPermission, requirePermission } from "./users";
+import { requireActiveProfile, requireAnyPermission, requirePermission } from "./users";
 import { canAccessMachine } from "./authorization";
-import { notifyRoles } from "./notificationHelpers";
+import { notifyRoles, notifyUser } from "./notificationHelpers";
 import { ensureSystemConfig } from "./systemConfigs";
 import { resolveConversionRatio } from "./materialUsage";
 import { recordInventoryEvent } from "./inventoryLedger";
@@ -377,6 +377,13 @@ export const performWeeklyReconciliation = mutation({
       });
     }
 
+    if (batch.status === "ACTIVE") {
+      await ctx.db.patch(batch._id, {
+        status: "PENDING_CLEARANCE",
+        updatedAt: now,
+      });
+    }
+
     await notifyRoles(ctx, ["owner", "manager", "admin"], {
       title: discrepancy === 0 ? "Weekly floor reconciliation recorded" : "Floor stock discrepancy found",
       message: `${material.name} on ${machine?.name ?? "machine"}: physical ${args.physicalActualRemaining} vs system ${systemCalculatedRemaining} ${baseUnit} (${discrepancy > 0 ? "+" : ""}${discrepancy}).`,
@@ -448,7 +455,176 @@ export const exhaustOperatorStock = mutation({
         });
       }
     }
-    
+
+    await ctx.db.patch(batch._id, {
+      status: "PENDING_CLEARANCE",
+      updatedAt: Date.now(),
+    });
+    await notifyRoles(ctx, ["owner", "admin"], {
+      title: "Floor stock awaiting owner clearance",
+      message: `${machine.name}: an operator exhausted a floor batch. New requests are blocked until clearance is approved.`,
+      type: "discrepancy",
+      actorAuthUserId: identity._id,
+      relatedTable: "operatorSubStock",
+      relatedId: batch._id,
+    });
+
     return { exhausted: true, remaining };
+  },
+});
+
+/**
+ * Reconcile-to-request lifecycle: an operator may not request new stock while
+ * any of their floor batches is still ACTIVE or awaiting owner clearance.
+ */
+export const myUnclearedStock = query({
+  args: {},
+  handler: async (ctx) => {
+    const { identity } = await requireActiveProfile(ctx);
+    const [batches, materials, machines] = await Promise.all([
+      ctx.db.query("operatorSubStock").withIndex("by_operator", (q) => q.eq("operatorId", identity._id)).collect(),
+      ctx.db.query("materials").collect(),
+      ctx.db.query("machines").collect(),
+    ]);
+    const materialById = new Map(materials.map((material) => [material._id, material]));
+    const machineById = new Map(machines.map((machine) => [machine._id, machine]));
+    return batches
+      .filter((batch): batch is typeof batch & { status: "ACTIVE" | "PENDING_CLEARANCE" } =>
+        batch.status === "ACTIVE" || batch.status === "PENDING_CLEARANCE")
+      .sort((left, right) => right.issuedAt - left.issuedAt)
+      .map((batch) => {
+        const material = materialById.get(batch.materialId);
+        const machine = machineById.get(batch.machineId);
+        const baseUnit = material?.baseUnit ?? material?.unit ?? "m²";
+        return {
+          id: batch._id,
+          status: batch.status,
+          materialName: material?.name ?? "Unknown material",
+          machineName: machine?.name ?? "Unknown machine",
+          issuedQuantity: batch.issuedQuantity,
+          currentRemaining: batch.currentRemaining,
+          baseUnit,
+          issuedAt: batch.issuedAt,
+        };
+      });
+  },
+});
+
+/**
+ * Owner/admin floor audit: every live (ACTIVE or PENDING_CLEARANCE) floor
+ * batch with real-time usage metrics — allocated vs reported production
+ * output vs scrap — grouped client-side by operator and machine.
+ */
+export const operatorClearanceAudit = query({
+  args: {},
+  handler: async (ctx) => {
+    await requirePermission(ctx, "reconciliation.clearance");
+    const [activeBatches, pendingBatches, clearedBatches, materials, machines, users, movements, reconciliations] = await Promise.all([
+      ctx.db.query("operatorSubStock").withIndex("by_status", (q) => q.eq("status", "ACTIVE")).collect(),
+      ctx.db.query("operatorSubStock").withIndex("by_status", (q) => q.eq("status", "PENDING_CLEARANCE")).collect(),
+      ctx.db.query("operatorSubStock").withIndex("by_status", (q) => q.eq("status", "CLEARED")).collect(),
+      ctx.db.query("materials").collect(),
+      ctx.db.query("machines").collect(),
+      ctx.db.query("users").collect(),
+      ctx.db.query("stock_movements").collect(),
+      ctx.db.query("weeklyReconciliations").withIndex("by_reconciled_at").order("desc").collect(),
+    ]);
+    const materialById = new Map(materials.map((material) => [material._id, material]));
+    const machineById = new Map(machines.map((machine) => [machine._id, machine]));
+    const userNames = new Map(users.map((user) => [user.authUserId, user.name]));
+    const latestReconByBatch = new Map<string, (typeof reconciliations)[number]>();
+    for (const record of reconciliations) {
+      if (record.operatorSubStockId && !latestReconByBatch.has(record.operatorSubStockId)) {
+        latestReconByBatch.set(record.operatorSubStockId, record);
+      }
+    }
+    const producedByBatch = new Map<string, number>();
+    const scrapByBatch = new Map<string, number>();
+    for (const movement of movements) {
+      if (!movement.operatorSubStockId) continue;
+      const key = movement.operatorSubStockId as string;
+      const amount = movement.baseQuantity ?? movement.quantity;
+      if (movement.eventType === "PRODUCTION_CONSUMPTION") {
+        producedByBatch.set(key, (producedByBatch.get(key) ?? 0) + amount);
+      }
+      if (movement.eventType === "OFFCUT_RETURN") {
+        producedByBatch.set(key, (producedByBatch.get(key) ?? 0) - amount);
+      }
+      if (movement.eventType === "SCRAP_LOG") {
+        scrapByBatch.set(key, (scrapByBatch.get(key) ?? 0) + amount);
+      }
+    }
+    const statusRank: Record<string, number> = { PENDING_CLEARANCE: 0, ACTIVE: 1, CLEARED: 2 };
+    return [...activeBatches, ...pendingBatches, ...clearedBatches]
+      .sort((left, right) =>
+        (statusRank[left.status] ?? 3) - (statusRank[right.status] ?? 3) || right.issuedAt - left.issuedAt,
+      )
+      .map((batch) => {
+        const material = materialById.get(batch.materialId);
+        const machine = machineById.get(batch.machineId);
+        const baseUnit = material?.baseUnit ?? material?.unit ?? "m²";
+        const reconciliation = latestReconByBatch.get(batch._id);
+        const produced = Number((producedByBatch.get(batch._id as string) ?? 0).toFixed(3));
+        const scrap = Number((scrapByBatch.get(batch._id as string) ?? 0).toFixed(3));
+        return {
+          id: batch._id,
+          status: batch.status,
+          machineCode: machine?.code ?? "—",
+          materialName: material?.name ?? "Unknown material",
+          machineId: batch.machineId,
+          machineName: machine?.name ?? "Unknown machine",
+          machineType: machine?.type ?? "Machine",
+          operatorName: userNames.get(batch.operatorId) ?? batch.operatorId,
+          operatorId: batch.operatorId,
+          issuedUnits: batch.issuedUnits,
+          issuedQuantity: batch.issuedQuantity,
+          currentRemaining: batch.currentRemaining,
+          producedOutput: Math.max(0, produced),
+          scrapQuantity: scrap,
+          wastePercent: batch.issuedQuantity > 0 ? Math.round((scrap / batch.issuedQuantity) * 100) : 0,
+          usagePercent: batch.issuedQuantity > 0
+            ? Math.round(((batch.issuedQuantity - batch.currentRemaining) / batch.issuedQuantity) * 100)
+            : 0,
+          baseUnit,
+          issuedAt: batch.issuedAt,
+          lastPhysicalCount: reconciliation?.physicalActualRemaining,
+          lastDiscrepancy: reconciliation?.discrepancy,
+          reconciledAt: reconciliation?.reconciledAt,
+        };
+      });
+  },
+});
+
+/** Owner/admin grants clearance: unlocks the operator's request flow again. */
+export const approveOperatorClearance = mutation({
+  args: {
+    subStockId: v.id("operatorSubStock"),
+    note: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { identity } = await requirePermission(ctx, "reconciliation.clearance");
+    const batch = await ctx.db.get(args.subStockId);
+    if (!batch) throw new Error("Floor stock batch not found.");
+    if (batch.status !== "PENDING_CLEARANCE") {
+      throw new Error("Only a reconciled batch awaiting clearance can be approved.");
+    }
+    const now = Date.now();
+    await ctx.db.patch(batch._id, {
+      status: "CLEARED",
+      clearedBy: identity._id,
+      clearedAt: now,
+      clearanceNote: args.note?.trim() || undefined,
+      updatedAt: now,
+    });
+    const material = await ctx.db.get(batch.materialId);
+    await notifyUser(ctx, batch.operatorId, {
+      title: "Owner clearance granted — you can request new stock",
+      message: `Your reconciled ${material?.name ?? "floor stock"} batch was cleared. New material requests are unlocked.`,
+      type: "clearance_granted",
+      actorAuthUserId: identity._id,
+      relatedTable: "operatorSubStock",
+      relatedId: batch._id,
+    });
+    return (await ctx.db.get(batch._id))!;
   },
 });

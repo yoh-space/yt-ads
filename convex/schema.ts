@@ -73,6 +73,8 @@ export const inventoryUnitType = v.union(
 /** Lifecycle of a stock batch issued to the production floor. */
 export const operatorStockStatus = v.union(
   v.literal("ACTIVE"),
+  v.literal("PENDING_CLEARANCE"),
+  v.literal("CLEARED"),
   v.literal("EXHAUSTED"),
 );
 
@@ -252,6 +254,7 @@ export const notificationType = v.union(
   v.literal("order_status"),
   v.literal("overdue_order"),
   v.literal("exception_stock_out"),
+  v.literal("clearance_granted"),
 );
 
 export default defineSchema({
@@ -726,6 +729,10 @@ export default defineSchema({
     issuedBy: v.optional(v.string()),
     issuedAt: v.number(),
     updatedAt: v.number(),
+    /** Owner/admin clearance trail recorded once the batch is fully reconciled. */
+    clearedBy: v.optional(v.string()),
+    clearedAt: v.optional(v.number()),
+    clearanceNote: v.optional(v.string()),
   })
     .index("by_parent_inventory", ["parentInventoryId"])
     .index("by_machine", ["machineId"])

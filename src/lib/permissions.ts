@@ -35,6 +35,7 @@ export type Permission =
   | "reconciliation.record"
   | "reconciliation.review"
   | "reconciliation.operator"
+  | "reconciliation.clearance"
   | "invoice.view"
   | "invoice.create";
 
@@ -73,6 +74,7 @@ const ALL: Permission[] = [
   "reconciliation.record",
   "reconciliation.review",
   "reconciliation.operator",
+  "reconciliation.clearance",
   "invoice.view",
   "invoice.create",
 ];
@@ -98,8 +100,8 @@ const MANAGEMENT_ROLES: Role[] = ["owner", "manager", "admin", "storekeeper"];
 
 /** Frontend mirror of the backend RBAC map (keep in sync with convex/authorization.ts). */
 export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
-  owner: [...ALL],
-  manager: ALL.filter((permission) => permission !== "company_settings.update" && permission !== "reconciliation.review"),
+  owner: ALL.filter((permission) => permission !== "request.create" && permission !== "request.issue" && permission !== "request.acknowledge"),
+  manager: ALL.filter((permission) => permission !== "company_settings.update" && permission !== "reconciliation.review" && permission !== "reconciliation.clearance"),
   admin: [
     "dashboard.view",
     "material.view",
@@ -133,6 +135,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "stock.exception",
     "reconciliation.record",
     "reconciliation.operator",
+    "reconciliation.clearance",
     "invoice.view",
     "invoice.create",
   ],
