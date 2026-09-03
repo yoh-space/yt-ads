@@ -6,7 +6,9 @@ import { requirePermission, requireActiveProfile } from "./users";
 import { canViewFinancial } from "./authorization";
 import { notifyRoles } from "./notificationHelpers";
 import { findMaterialSpecification } from "../src/shared/material-specifications";
-import { classifyMaterialProductionType, resolveEtbValue, effectiveConsumptionRate, isRollMaterial, isSheetMaterial } from "./materialUsage";
+import { classifyMaterialProductionType, resolveEtbValue, effectiveConsumptionRate, isRollMaterial, isSheetMaterial, resolveConversionRatio } from "./materialUsage";
+import { ensureSystemConfig } from "./systemConfigs";
+import { recordInventoryEvent } from "./inventoryLedger";
 
 export const list = query({
   args: {},
@@ -130,11 +132,13 @@ export const recordStockMovement = mutation({
     const material = await ctx.db.get(args.materialId);
     if (!material || !material.active) throw new Error("Active material not found.");
 
+    const config = await ensureSystemConfig(ctx, identity._id);
+    const governedRatio = resolveConversionRatio(material, config, args.inputUnit);
     const converted = convertToBase(
       args.quantity,
       args.inputUnit as InputUnit,
       material.baseUnit ?? material.unit,
-      material.conversionRatio,
+      governedRatio,
       material.rollEquivalent,
       material.sheetEquivalent,
     );
@@ -145,23 +149,47 @@ export const recordStockMovement = mutation({
       throw new Error(`Insufficient ${material.name} stock for this movement.`);
     }
 
-    const delta = args.direction === "in" ? converted : -converted;
-    await ctx.db.patch(args.materialId, {
-      quantity: Number((material.quantity + delta).toFixed(2)),
-    });
-    await ctx.db.insert("stockMovements", {
+    const packageDetails = args.inputUnit === "roll"
+      ? { packageUnit: "ROLL" as const, unitType: "ROLL" as const }
+      : args.inputUnit === "sheet"
+        ? { packageUnit: "SHEET" as const, unitType: "SHEET" as const }
+        : args.inputUnit === "liter"
+          ? { packageUnit: "LITER" as const, unitType: "LITER" as const }
+          : null;
+    let parentInventoryId = undefined;
+    if (packageDetails) {
+      const existing = await ctx.db
+        .query("parentInventory")
+        .withIndex("by_material", (q) => q.eq("materialId", args.materialId))
+        .unique();
+      parentInventoryId = existing?._id ?? await ctx.db.insert("parentInventory", {
+        materialId: args.materialId,
+        unitType: packageDetails.unitType,
+        totalStockQuantity: 0,
+        lengthPerRoll: packageDetails.unitType === "ROLL" ? governedRatio : undefined,
+        areaPerSheet: packageDetails.unitType === "SHEET" ? governedRatio : undefined,
+        volumePerContainer: packageDetails.unitType === "LITER" ? governedRatio ?? 1 : undefined,
+        updatedAt: Date.now(),
+      });
+    }
+    await recordInventoryEvent(ctx, {
       materialId: args.materialId,
-      direction: args.direction,
+      eventType: args.direction === "in" ? "STOCK_IN" : "RECONCILIATION_ADJUSTMENT",
+      custody: "parent",
+      balanceEffect: args.direction === "in" ? "in" : "out",
       quantity: args.quantity,
       unit: args.inputUnit,
       baseUnit: material.baseUnit ?? material.unit,
       baseQuantity: converted,
-      movementType: "STANDARD",
+      packageQuantity: packageDetails ? args.quantity : undefined,
+      packageUnit: packageDetails?.packageUnit,
+      conversionRatio: governedRatio,
+      parentInventoryId,
       note: args.note.trim() || "Manual stock movement",
       createdBy: identity._id,
-      createdAt: Date.now(),
     });
-    const nextQuantity = Number((material.quantity + delta).toFixed(2));
+    const updatedMaterial = await ctx.db.get(args.materialId);
+    const nextQuantity = updatedMaterial?.quantity ?? material.quantity;
     if (args.direction === "out" && nextQuantity <= material.reorderAt) {
       await notifyRoles(ctx, ["owner", "manager", "admin", "storekeeper"], {
         title: "Low stock alert",

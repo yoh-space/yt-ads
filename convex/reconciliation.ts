@@ -4,6 +4,7 @@ import { requireActiveProfile, requirePermission, requireRoles } from "./users";
 import { canViewFinancial } from "./authorization";
 import { resolveEtbValueFromConfig } from "./materialUsage";
 import { ensureSystemConfig } from "./systemConfigs";
+import { recordInventoryEvent } from "./inventoryLedger";
 
 /**
  * Physical Stock Reconciliation engine.
@@ -46,6 +47,21 @@ export const countMaterial = mutation({
       note: args.note?.trim() || undefined,
       createdAt: Date.now(),
     });
+    if (variance !== 0) {
+      await recordInventoryEvent(ctx, {
+        materialId: material._id,
+        eventType: "RECONCILIATION_ADJUSTMENT",
+        custody: "parent",
+        balanceEffect: variance > 0 ? "in" : "out",
+        quantity: Math.abs(variance),
+        unit: material.baseUnit ?? material.unit,
+        baseUnit: material.baseUnit ?? material.unit,
+        baseQuantity: Math.abs(variance),
+        materialReconciliationId: id,
+        note: `Central stock reconciliation · ${material.name}`,
+        createdBy: identity._id,
+      });
+    }
     return (await ctx.db.get(id))!;
   },
 });

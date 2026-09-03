@@ -32,7 +32,7 @@ export type Priority = "High" | "Medium" | "Normal";
 
 export type Accent = "cyan" | "gold" | "violet" | "blue" | "green";
 
-export type ProductionType = "area" | "ink" | "unit";
+export type ProductionType = "area" | "linear" | "ink" | "unit";
 
 export type ReconciliationStatus = "Open" | "Reviewed" | "Resolved";
 

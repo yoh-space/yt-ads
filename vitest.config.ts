@@ -3,9 +3,10 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   resolve: {
-    alias: {
-      "@": fileURLToPath(new URL("./", import.meta.url)),
-    },
+    alias: [
+      { find: "@", replacement: fileURLToPath(new URL("./src/", import.meta.url)) },
+      { find: "@", replacement: fileURLToPath(new URL("./", import.meta.url)) },
+    ],
   },
   test: {
     include: ["**/*.test.ts", "**/*.test.tsx"],

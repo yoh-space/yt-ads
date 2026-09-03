@@ -2,6 +2,8 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { calculateOffcutArea } from "./units";
 import { requirePermission } from "./users";
+import { canAccessMachine } from "./authorization";
+import { recordInventoryEvent } from "./inventoryLedger";
 
 export const list = query({
   args: {},
@@ -20,9 +22,11 @@ export const create = mutation({
     width: v.number(),
     length: v.number(),
     location: v.string(),
+    operatorSubStockId: v.optional(v.id("operatorSubStock")),
+    machineId: v.optional(v.id("machines")),
   },
   handler: async (ctx, args) => {
-    const { identity } = await requirePermission(ctx, "offcut.create");
+    const { identity, profile } = await requirePermission(ctx, "offcut.create");
     if (!Number.isFinite(args.width) || !Number.isFinite(args.length) || args.width <= 0 || args.length <= 0) {
       throw new Error("Offcut dimensions must be greater than zero.");
     }
@@ -30,6 +34,16 @@ export const create = mutation({
     const material = await ctx.db.get(args.materialId);
     if (!material || !material.active) throw new Error("Active material not found.");
     if (material.unit !== "m²") throw new Error("Only square-meter materials can create sheet offcuts.");
+    const isManagement = ["owner", "manager", "admin", "storekeeper"].includes(profile.role);
+    let operatorSubStockId = args.operatorSubStockId;
+    if (!isManagement) {
+      if (!args.machineId || !args.operatorSubStockId) throw new Error("Operators must select their assigned floor stock when returning an offcut.");
+      const machine = await ctx.db.get(args.machineId);
+      const subStock = await ctx.db.get(args.operatorSubStockId);
+      if (!machine || !subStock || !canAccessMachine(profile.role, machine) || subStock.operatorId !== identity._id || subStock.machineId !== machine._id || subStock.materialId !== material._id) {
+        throw new Error("You can only return offcuts from your assigned floor stock.");
+      }
+    }
 
     const area = calculateOffcutArea(args.width, args.length);
     const label = material.name;
@@ -44,21 +58,26 @@ export const create = mutation({
       status: "available",
       createdBy: identity._id,
       createdAt: new Date().toISOString(),
+      operatorSubStockId,
+      operatorId: operatorSubStockId ? identity._id : undefined,
+      machineId: args.machineId,
     });
 
-    await ctx.db.patch(args.materialId, {
-      quantity: Number((material.quantity + area).toFixed(2)),
-    });
-    await ctx.db.insert("stockMovements", {
+    await recordInventoryEvent(ctx, {
       materialId: args.materialId,
-      direction: "offcut_return",
+      eventType: "OFFCUT_RETURN",
+      custody: "parent",
+      balanceEffect: "in",
       quantity: area,
       unit: "m²",
       baseUnit: "m²",
       baseQuantity: area,
+      operatorSubStockId,
+      operatorId: operatorSubStockId ? identity._id : undefined,
+      machineId: args.machineId,
+      offcutId: id,
       note: `Usable offcut returned at ${args.location.trim()}`,
       createdBy: identity._id,
-      createdAt: Date.now(),
     });
     return (await ctx.db.get(id))!;
   },
@@ -77,16 +96,28 @@ export const logScrap = mutation({
     materialId: v.id("materials"),
     quantity: v.number(),
     reason: v.string(),
+    operatorSubStockId: v.optional(v.id("operatorSubStock")),
+    machineId: v.optional(v.id("machines")),
   },
   handler: async (ctx, args) => {
-    const { identity } = await requirePermission(ctx, "scrap.create");
+    const { identity, profile } = await requirePermission(ctx, "scrap.create");
     if (!Number.isFinite(args.quantity) || args.quantity <= 0) {
       throw new Error("Scrap quantity must be greater than zero.");
     }
     if (!args.reason.trim()) throw new Error("A scrap reason is required.");
     const material = await ctx.db.get(args.materialId);
     if (!material || !material.active) throw new Error("Active material not found.");
-    if (args.quantity > material.quantity) {
+    const isManagement = ["owner", "manager", "admin", "storekeeper"].includes(profile.role);
+    let operatorSubStockId = args.operatorSubStockId;
+    if (!isManagement) {
+      if (!args.machineId || !args.operatorSubStockId) throw new Error("Operators must select their assigned floor stock when logging scrap.");
+      const machine = await ctx.db.get(args.machineId);
+      const subStock = await ctx.db.get(args.operatorSubStockId);
+      if (!machine || !subStock || !canAccessMachine(profile.role, machine) || subStock.operatorId !== identity._id || subStock.machineId !== machine._id || subStock.materialId !== material._id) {
+        throw new Error("You can only log scrap against your assigned floor stock.");
+      }
+    }
+    if (!operatorSubStockId && args.quantity > material.quantity) {
       throw new Error(`Insufficient ${material.name} stock for this scrap record.`);
     }
 
@@ -98,20 +129,24 @@ export const logScrap = mutation({
       reason: args.reason.trim(),
       createdBy: identity._id,
       createdAt: new Date().toISOString(),
+      operatorSubStockId,
+      operatorId: operatorSubStockId ? identity._id : undefined,
+      machineId: args.machineId,
     });
-    await ctx.db.patch(args.materialId, {
-      quantity: Number((material.quantity - args.quantity).toFixed(2)),
-    });
-    await ctx.db.insert("stockMovements", {
+    await recordInventoryEvent(ctx, {
       materialId: args.materialId,
-      direction: "out",
+      eventType: "SCRAP_LOG",
+      custody: operatorSubStockId ? "operator" : "parent",
+      balanceEffect: operatorSubStockId ? "none" : "out",
       quantity: args.quantity,
       unit: material.unit,
       baseUnit: material.baseUnit ?? material.unit,
       baseQuantity: args.quantity,
+      operatorSubStockId,
+      operatorId: operatorSubStockId ? identity._id : undefined,
+      machineId: args.machineId,
       note: `Scrap: ${args.reason.trim()}`,
       createdBy: identity._id,
-      createdAt: Date.now(),
     });
     return (await ctx.db.get(id))!;
   },

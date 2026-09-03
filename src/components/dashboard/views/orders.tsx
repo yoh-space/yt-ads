@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowUpRight, CalendarDays, Clock3, Plus, Printer, Search, Wrench, X } from "lucide-react";
+import { ArrowUpRight, CalendarDays, Clock3, Plus, Printer, Search, Wrench, X, FileText } from "lucide-react";
 import type { CustomerOrder, Machine, Material, OrderPriority, CustomerOrderStatus } from "@/lib/operations-types";
 import { formatQuantity } from "@/lib/units";
 import { getServiceLabel } from "@/constants/services";
@@ -45,7 +45,7 @@ function inRange(timestamp: number, range: DateRange): boolean {
   return date >= start;
 }
 
-const statuses: Array<CustomerOrderStatus | "all"> = ["all", "PENDING_REVIEW", "PRICED_AND_PENDING_PAYMENT", "CONFIRMED_PAID_OR_CREDIT", "JOB_CARD_CREATED", "IN_PRODUCTION", "COMPLETED", "READY_FOR_PICKUP", "Expired"];
+const statuses: Array<CustomerOrderStatus | "all"> = ["all", "PENDING_REVIEW", "PRICED_AND_PENDING_PAYMENT", "CONFIRMED_PAID_OR_CREDIT", "JOB_CARD_CREATED", "IN_PRODUCTION", "COMPLETED", "READY_FOR_PICKUP", "Expired", "EXPIRED_JUNK"];
 const priorities: Array<OrderPriority | "all"> = ["all", "High", "Medium", "Low"];
 
 function formatDue(timestamp: number) {
@@ -58,9 +58,11 @@ export function OrdersView({
   materials,
   canManage,
   canCreateOrder,
+  canInvoice,
   onConvert,
   onStatus,
   onCreateOrder,
+  onInvoice,
   isPending,
 }: {
   orders: CustomerOrder[];
@@ -71,6 +73,8 @@ export function OrdersView({
   onConvert: (order: CustomerOrder) => void;
   onStatus: (orderId: string, status: CustomerOrderStatus) => void;
   onCreateOrder: () => void;
+  onInvoice: (order: CustomerOrder, input?: InvoiceInput) => void;
+  canInvoice: boolean;
   isPending: (key: string) => boolean;
 }) {
   const [search, setSearch] = useState("");
@@ -79,6 +83,7 @@ export function OrdersView({
   const [machine, setMachine] = useState("all");
   const [dateRange, setDateRange] = useState<DateRange>("all");
   const [printOrder, setPrintOrder] = useState<CustomerOrder | null>(null);
+  const [invoiceOrder, setInvoiceOrder] = useState<CustomerOrder | null>(null);
   const [selected, setSelected] = useState<CustomerOrder | null>(null);
 
   const filteredByRange = useMemo(() => orders.filter((order) => inRange(order.createdAt, dateRange)), [dateRange, orders]);
@@ -86,7 +91,7 @@ export function OrdersView({
   const filtered = useMemo(() => filteredByRange.filter((order) => {
     const haystack = `${order.code} ${order.clientName} ${order.phone} ${getServiceLabel(order.serviceType) ?? order.serviceType} ${order.dimensions}`.toLowerCase();
     return (!search || haystack.includes(search.toLowerCase()))
-      && (status === "all" ? order.status !== "Expired" : order.status === status)
+       && (status === "all" ? order.status !== "Expired" && order.status !== "EXPIRED_JUNK" : order.status === status)
       && (priority === "all" || order.priority === priority)
       && (machine === "all" || order.machineId === machine);
   }), [filteredByRange, machine, priority, search, status]);
@@ -292,6 +297,7 @@ export function OrdersView({
                     Receipt
                   </Button>
                 ) : null}
+                {canInvoice ? <Button size="small" variant="secondary" onClick={(event) => { event.stopPropagation(); setInvoiceOrder(order); }}><FileText size={13} />Invoice</Button> : null}
                 <ArrowUpRight size={14} className="text-gray-300 flex-none" aria-hidden />
               </div>
             </div>
@@ -309,6 +315,15 @@ export function OrdersView({
         />
       ) : null}
 
+      {invoiceOrder ? (
+        <OrderInvoiceModal
+          order={invoiceOrder}
+          onClose={() => setInvoiceOrder(null)}
+          onPrint={() => window.print()}
+          onSave={onInvoice}
+        />
+      ) : null}
+
       {selected ? (
         <OrderDetailsSheet
           order={selected}
@@ -318,6 +333,8 @@ export function OrdersView({
           onConvert={onConvert}
           onStatus={onStatus}
           onClose={() => setSelected(null)}
+          canInvoice={canInvoice}
+          onInvoice={(order) => setInvoiceOrder(order)}
         />
       ) : null}
     </div>
@@ -371,6 +388,48 @@ export function OrderReceiptModal({ order, onClose, onPrint }: { order: Customer
           </dl>
         </div>
         <p className="text-[10px] text-gray-400">Handled by YT Advertising reception · {new Date().toLocaleString("en-ET")}</p>
+      </div>
+    </ModalShell>
+  );
+}
+
+export type InvoiceInput = {
+  type: "PROFORMA" | "TAX_INVOICE";
+  companyLegalName?: string;
+  tinNumber?: string;
+  taxRate: number;
+  lineItems: Array<{ description: string; quantity: number; unit: string; unitPrice: number; lineTotal: number }>;
+};
+
+export function OrderInvoiceModal({ order, onClose, onPrint, onSave }: { order: CustomerOrder; onClose: () => void; onPrint: () => void; onSave: (order: CustomerOrder, input: InvoiceInput) => void | Promise<void> }) {
+  const [type, setType] = useState<InvoiceInput["type"]>(order.invoiceType ?? "PROFORMA");
+  const [companyLegalName, setCompanyLegalName] = useState(order.companyLegalName ?? order.clientName);
+  const [tinNumber, setTinNumber] = useState(order.tinNumber ?? "");
+  const [taxRate, setTaxRate] = useState(order.taxRate ?? 0);
+  const [unitPrice, setUnitPrice] = useState(order.amount ?? 0);
+  const subtotal = Number(unitPrice.toFixed(2));
+  const taxAmount = Number((subtotal * taxRate / 100).toFixed(2));
+  const total = Number((subtotal + taxAmount).toFixed(2));
+  async function issueInvoice() {
+    await onSave(order, { type, companyLegalName: companyLegalName.trim() || undefined, tinNumber: tinNumber.trim() || undefined, taxRate, lineItems: [{ description: `${getServiceLabel(order.serviceType) ?? order.serviceType} · ${order.dimensions}`, quantity: 1, unit: order.quantity, unitPrice, lineTotal: subtotal }] });
+    onClose();
+  }
+
+  return (
+    <ModalShell
+      title={`${order.code} · Formal Invoice`}
+      subtitle="Issue a proforma or tax invoice. Billing visibility does not grant owner profitability access."
+      kicker="INVOICE DRAWER"
+      onClose={onClose}
+      footer={<div className="flex gap-3 justify-end"><Button type="button" variant="tertiary" onClick={onClose}>Cancel</Button><Button type="button" variant="secondary" onClick={onPrint}><Printer size={14} />Print preview</Button><Button type="button" variant="primary" onClick={() => void issueInvoice()}>Issue invoice <ArrowUpRight size={15} /></Button></div>}
+    >
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-4 text-sm"><div><small className="text-muted-foreground">Client</small><br /><strong>{order.clientName}</strong></div><div><small className="text-muted-foreground">Order</small><br /><strong>{order.code}</strong></div></div>
+        <div className="grid grid-cols-2 gap-3"><label className="block"><span className="block text-xs font-semibold mb-1">Document type</span><select value={type} onChange={(event) => setType(event.target.value as InvoiceInput["type"])} className="w-full px-3 py-2 border border-line rounded-lg bg-white"><option value="PROFORMA">Proforma</option><option value="TAX_INVOICE">Tax Invoice</option></select></label><label className="block"><span className="block text-xs font-semibold mb-1">TIN number</span><input value={tinNumber} onChange={(event) => setTinNumber(event.target.value)} className="w-full px-3 py-2 border border-line rounded-lg bg-white" /></label></div>
+        <label className="block"><span className="block text-xs font-semibold mb-1">Legal company name</span><input value={companyLegalName} onChange={(event) => setCompanyLegalName(event.target.value)} className="w-full px-3 py-2 border border-line rounded-lg bg-white" /></label>
+        <div className="rounded-lg border border-line overflow-hidden"><div className="grid grid-cols-[2fr_1fr_1fr] gap-3 bg-gray-50 px-4 py-3 text-xs font-semibold"><span>Line item</span><span>Unit price</span><span>Total</span></div><div className="grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-3 text-sm items-center"><span>{getServiceLabel(order.serviceType) ?? order.serviceType} · {order.dimensions}<small className="block text-xs text-muted-foreground">Qty {order.quantity}</small></span><input type="number" min="0" step="0.01" value={unitPrice} onChange={(event) => setUnitPrice(Math.max(0, Number(event.target.value)))} className="w-full px-2 py-1 border border-line rounded" /><strong>ETB {subtotal.toFixed(2)}</strong></div></div>
+        <label className="block max-w-[180px]"><span className="block text-xs font-semibold mb-1">Tax rate (%)</span><input type="number" min="0" max="100" step="0.01" value={taxRate} onChange={(event) => setTaxRate(Math.max(0, Math.min(100, Number(event.target.value))))} className="w-full px-3 py-2 border border-line rounded-lg bg-white" /></label>
+        <div className="ml-auto max-w-xs space-y-2 border-t border-line pt-3 text-sm"><div className="flex justify-between"><span>Subtotal</span><strong>ETB {subtotal.toFixed(2)}</strong></div><div className="flex justify-between"><span>Tax ({taxRate}%)</span><strong>ETB {taxAmount.toFixed(2)}</strong></div><div className="flex justify-between text-base"><span>Total</span><strong>ETB {total.toFixed(2)}</strong></div></div>
       </div>
     </ModalShell>
   );

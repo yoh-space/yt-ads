@@ -49,7 +49,7 @@ export const getState = query({
         .collect(),
       ctx.db.query("scraps").collect(),
       ctx.db.query("customerOrders").collect(),
-      ctx.db.query("stockMovements").collect(),
+      ctx.db.query("stock_movements").collect(),
     ]);
     const machines = allMachines.filter((machine) => canSeeAllMachines || machine.operatorRole === profile.role);
     const allowedMachineIds = new Set(machines.map((machine) => machine._id));
@@ -64,7 +64,7 @@ export const getState = query({
       return {
         ...job,
         orderStatus: order?.status,
-        orderOverdue: Boolean(order && order.status !== "COMPLETED" && order.preferredDueDate < Date.now()),
+        orderOverdue: Boolean(order && !["COMPLETED", "READY_FOR_PICKUP", "Expired", "EXPIRED_JUNK"].includes(order.status) && order.preferredDueDate < Date.now()),
       };
     });
     const now = new Date();
@@ -78,8 +78,8 @@ export const getState = query({
     const consumedByMaterial = new Map<string, number>();
     for (const movement of movements) {
       if (movement.createdAt < pulseCutoff) continue;
-      if (movement.direction !== "out" && movement.movementType !== "EXCEPTION_STOCK_OUT") continue;
-      const amount = movement.baseQuantity ?? movement.quantity;
+       if (movement.eventType === "STOCK_IN" || movement.eventType === "OFFCUT_RETURN") continue;
+       const amount = movement.baseQuantity;
       if (!Number.isFinite(amount) || amount <= 0) continue;
       consumedByMaterial.set(
         movement.materialId,
@@ -134,7 +134,7 @@ export const getKpis = query({
     const [orders, materials, operatorStock] = await Promise.all([
       ctx.db.query("customerOrders").collect(),
       ctx.db.query("materials").collect(),
-      ctx.db.query("operatorMachineStock").collect(),
+      ctx.db.query("operatorSubStock").collect(),
     ]);
 
     const ordersToday = orders.filter((order) => order.createdAt >= startOfToday);
@@ -183,7 +183,8 @@ export const getKpis = query({
         order.expiresAt <= now + EXPIRING_WINDOW_MS &&
         order.status !== "COMPLETED" &&
         order.status !== "Expired" &&
-        order.paymentStatus !== "PAID",
+        order.paymentStatus !== "PAID" &&
+        order.status !== "EXPIRED_JUNK",
     ).length;
 
     const canSeeFinancial = canViewFinancial(profile.role);
@@ -235,7 +236,7 @@ export const financialMetrics = query({
     const [orders, jobs, movements, materials, reconciliations] = await Promise.all([
       ctx.db.query("customerOrders").collect(),
       ctx.db.query("jobCards").collect(),
-      ctx.db.query("stockMovements").collect(),
+      ctx.db.query("stock_movements").collect(),
       ctx.db.query("materials").collect(),
       ctx.db.query("reconciliations").withIndex("by_created").collect(),
     ]);
@@ -251,13 +252,12 @@ export const financialMetrics = query({
     let todaysMaterialCost = 0;
     for (const movement of movements) {
       if (movement.createdAt < startOfDay) continue;
-      if (movement.direction !== "out") continue;
-      if (movement.movementType && movement.movementType !== "STANDARD") continue;
+      if (movement.eventType !== "PRODUCTION_CONSUMPTION") continue;
       const note = movement.note ?? "";
-      if (!note.startsWith("Production issue") && !note.startsWith("Automatic job completion deduction")) continue;
+      if (!note.toLowerCase().includes("production")) continue;
       const material = materialMap.get(movement.materialId);
       if (!material) continue;
-      const baseQuantity = movement.baseQuantity ?? movement.quantity;
+      const baseQuantity = movement.baseQuantity;
       if (!Number.isFinite(baseQuantity) || baseQuantity <= 0) continue;
       const unitCost = resolveEtbValue(material);
       todaysMaterialCost += baseQuantity * unitCost;

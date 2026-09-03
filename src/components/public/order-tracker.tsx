@@ -21,6 +21,7 @@ const STATUS_STEP: Record<string, number> = {
   COMPLETED: 3,
   READY_FOR_PICKUP: 2,
   Expired: 0,
+  EXPIRED_JUNK: 0,
 };
 
 function statusStep(status: CustomerOrderStatus): number {

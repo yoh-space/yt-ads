@@ -11,6 +11,8 @@ import { SERVICE_CATEGORIES, type ServiceId } from "@/constants/services";
 
 export type NewOrderInput = {
   clientName: string;
+  companyLegalName: string;
+  tinNumber: string;
   phone: string;
   serviceType: ServiceId;
   dimensions: string;
@@ -42,6 +44,8 @@ export function OrderCreateModal({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [step, setStep] = useState(1);
   const [clientName, setClientName] = useState("");
+  const [companyLegalName, setCompanyLegalName] = useState("");
+  const [tinNumber, setTinNumber] = useState("");
   const [phone, setPhone] = useState("");
   const [serviceType, setServiceType] = useState<ServiceId | "">("");
   const [dimensions, setDimensions] = useState("");
@@ -104,6 +108,8 @@ export function OrderCreateModal({
       const fileStorageId = await uploadFile();
       onSave({
         clientName,
+        companyLegalName,
+        tinNumber,
         phone,
         serviceType: serviceType as ServiceId,
         dimensions,
@@ -186,6 +192,14 @@ export function OrderCreateModal({
                 required
                 className="mt-1 block w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan/60"
               />
+            </label>
+            <label className="block">
+              <span className="text-sm font-medium text-gray-700">Legal company name (optional)</span>
+              <input value={companyLegalName} onChange={(e) => setCompanyLegalName(e.target.value)} className="mt-1 block w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan/60" />
+            </label>
+            <label className="block">
+              <span className="text-sm font-medium text-gray-700">TIN number (optional)</span>
+              <input value={tinNumber} onChange={(e) => setTinNumber(e.target.value)} className="mt-1 block w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan/60" />
             </label>
           </>
         ) : null}

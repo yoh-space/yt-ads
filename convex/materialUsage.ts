@@ -1,6 +1,7 @@
 import { calculateOffcutArea } from "./units";
+import type { PurchaseUnit, Unit } from "./types";
 
-export type ProductionType = "area" | "ink" | "unit";
+export type ProductionType = "area" | "linear" | "ink" | "unit";
 
 type MaterialLike = {
   name: string;
@@ -27,6 +28,7 @@ export type SystemConfig = {
   etbPerPiece: number;
   etbPerMetre: number;
   etbPerSheet: number;
+  unitConversionDefaults: UnitConversionRule[];
   materialOverrides: Array<{ materialName: string; etbValue: number }>;
   inkMlPerSquareMetre: number;
   maxAllowedWastePercent: number;
@@ -36,6 +38,14 @@ export type SystemConfig = {
   orderExpirationHours: number;
   updatedAt: number;
   updatedBy?: string;
+};
+
+export type UnitConversionRule = {
+  materialName: string;
+  purchaseUnit: PurchaseUnit;
+  baseUnit: Unit;
+  inputDimension?: number;
+  conversionRatio: number;
 };
 
 /** Category names that map to sheet/roll materials depleted by printed/cut area (m²). */
@@ -80,14 +90,56 @@ export const DEFAULT_SYSTEM_CONFIG: Omit<SystemConfig, "updatedAt" | "updatedBy"
   etbPerPiece: 120,
   etbPerMetre: 150,
   etbPerSheet: 400,
+  unitConversionDefaults: [
+    { materialName: "Banner", purchaseUnit: "roll", baseUnit: "m²", conversionRatio: 160 },
+    { materialName: "DTF Film", purchaseUnit: "roll", baseUnit: "m", conversionRatio: 100 },
+    { materialName: "Acrylic", purchaseUnit: "sheet", baseUnit: "m²", conversionRatio: 2.977 },
+    { materialName: "Foam", purchaseUnit: "sheet", baseUnit: "m²", conversionRatio: 2.977 },
+    { materialName: "Normal Sticker", purchaseUnit: "roll", baseUnit: "m²", conversionRatio: 63.5 },
+    { materialName: "Frosted Sticker", purchaseUnit: "roll", baseUnit: "m²", conversionRatio: 63.5 },
+    { materialName: "Transparent Sticker", purchaseUnit: "roll", baseUnit: "m²", conversionRatio: 63.5 },
+    { materialName: "Reflective Sticker", purchaseUnit: "roll", baseUnit: "m²", conversionRatio: 63.5 },
+    { materialName: "Mush Sticker", purchaseUnit: "roll", baseUnit: "m²", conversionRatio: 63.5 },
+    { materialName: "Canvas (Canva)", purchaseUnit: "roll", baseUnit: "m²", conversionRatio: 45.6 },
+    { materialName: "Neon Light", purchaseUnit: "roll", baseUnit: "m", conversionRatio: 5 },
+    { materialName: "LED Module / Strip", purchaseUnit: "pack", baseUnit: "pcs", conversionRatio: 20 },
+    { materialName: "Mica Sheet", purchaseUnit: "piece", baseUnit: "pcs", conversionRatio: 1 },
+    { materialName: "Power Supply", purchaseUnit: "piece", baseUnit: "pcs", conversionRatio: 1 },
+  ],
   materialOverrides: [],
   inkMlPerSquareMetre: 12,
   maxAllowedWastePercent: 5,
   minOffcutAreaSquareMetre: 0.05,
   requireAdminPinForExceptions: true,
   maxDirectStockOutEtb: 2000,
-  orderExpirationHours: 12,
+  orderExpirationHours: 24,
 };
+
+/** Resolves the currently governed purchase-to-base conversion for a material. */
+export function resolveConversionRatio(
+  material: Pick<MaterialLike, "name" | "baseUnit" | "unit" | "rollWidth"> & { purchaseUnit?: string; conversionRatio?: number },
+  config?: Pick<SystemConfig, "unitConversionDefaults">,
+  purchaseUnit?: string,
+  inputDimension?: number,
+): number | undefined {
+  const input = purchaseUnit ?? material.purchaseUnit;
+  const baseUnit = material.baseUnit ?? material.unit;
+  const rules = config?.unitConversionDefaults ?? [];
+  const materialName = material.name.trim().toLowerCase();
+  const matches = rules.filter((rule) =>
+    rule.materialName.trim().toLowerCase() === materialName &&
+    rule.purchaseUnit === input &&
+    rule.baseUnit === baseUnit &&
+    (inputDimension === undefined || rule.inputDimension === undefined || rule.inputDimension === inputDimension),
+  );
+  if (matches.length > 0) {
+    const dimensioned = inputDimension === undefined
+      ? matches.find((rule) => rule.inputDimension === undefined)
+      : matches.find((rule) => rule.inputDimension !== undefined);
+    return (dimensioned ?? matches[0]).conversionRatio;
+  }
+  return material.conversionRatio;
+}
 
 /**
  * Synchronous fallback map for unit-rate lookups. Kept so any code path that
@@ -124,11 +176,11 @@ export function classifyMaterialProductionType(material: MaterialLike): Producti
   if (material.productionType) return material.productionType;
   const name = material.name?.toLowerCase() ?? "";
   if (INK_NAMES.has(name) || material.category === INK_CATEGORY) return "ink";
+  if (material.baseUnit === "m") return "linear";
   if (material.category && AREA_CATEGORIES.has(material.category)) return "area";
   if (material.category && UNIT_CATEGORIES.has(material.category)) return "unit";
   if (material.baseUnit === "m²") return "area";
   if (material.baseUnit === "L") return "ink";
-  if (material.baseUnit === "m") return "area";
   return "unit";
 }
 
@@ -271,6 +323,14 @@ export function computeJobConsumption(material: MaterialLike, input: {
 
   if (productionType === "area") {
     return { productionType, baseQuantity: Number(area.toFixed(3)), unit: "m²", areaM2: Number(area.toFixed(3)), inkMl: 0 };
+  }
+
+  if (productionType === "linear") {
+    const linearQuantity = Number(input.quantity.toFixed(3));
+    const areaM2 = typeof input.width === "number" && input.width > 0 && typeof input.length === "number" && input.length > 0
+      ? Number((input.length * input.width * input.quantity).toFixed(3))
+      : 0;
+    return { productionType, baseQuantity: linearQuantity, unit: baseUnit, areaM2, inkMl: 0 };
   }
 
   return { productionType, baseQuantity: Number(input.quantity.toFixed(3)), unit: baseUnit, areaM2: Number(area.toFixed(3)), inkMl: 0 };

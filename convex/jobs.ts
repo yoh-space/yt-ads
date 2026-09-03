@@ -8,6 +8,8 @@ import { assertProductionQuantities } from "./validation";
 import { classifyMaterialProductionType, computeJobConsumption, resolveEtbValue } from "./materialUsage";
 import { calculateOffcutArea } from "./units";
 import { deductOperatorStock } from "./inventory";
+import { recordInventoryEvent } from "./inventoryLedger";
+import type { Unit } from "./types";
 
 async function notifyOrderCompletion(ctx: any, orderId: any, actorAuthUserId: string) {
   const order = await ctx.db.get(orderId);
@@ -57,25 +59,24 @@ async function recordProductionInternal(ctx: any, args: ProductionInput, operato
   if (previousInput + args.inputQuantity > job.quantity) {
     throw new Error("Production input exceeds the planned job quantity.");
   }
-  if (args.inputQuantity > material.quantity) {
-    throw new Error(`Insufficient ${material.name} stock for this production run.`);
+  const floorDeducted = await deductOperatorStock(ctx, job.machineId, job.materialId, args.inputQuantity, operatorId, job._id);
+  const centralRemainder = Number((args.inputQuantity - floorDeducted).toFixed(3));
+  if (centralRemainder > 0) {
+    await recordInventoryEvent(ctx, {
+      materialId: job.materialId,
+      eventType: "PRODUCTION_CONSUMPTION",
+      custody: "parent",
+      balanceEffect: "out",
+      quantity: centralRemainder,
+      unit: material.baseUnit ?? material.unit,
+      baseUnit: material.baseUnit ?? material.unit,
+      baseQuantity: centralRemainder,
+      machineId: job.machineId,
+      jobCardId: job._id,
+      note: `Production consumption ${job.code}`,
+      createdBy: operatorId,
+    });
   }
-
-  await ctx.db.patch(job.materialId, {
-    quantity: Number((material.quantity - args.inputQuantity).toFixed(2)),
-  });
-  await ctx.db.insert("stockMovements", {
-    materialId: job.materialId,
-    direction: "out",
-    quantity: args.inputQuantity,
-    unit: job.unit,
-    baseUnit: job.unit,
-    baseQuantity: args.inputQuantity,
-    movementType: "STANDARD",
-    note: `Production issue ${job.code}`,
-    createdBy: operatorId,
-    createdAt: Date.now(),
-  });
   await ctx.db.insert("productionLogs", {
     jobCardId: job._id,
     machineId: job.machineId,
@@ -229,6 +230,20 @@ async function consumeFromOffcuts(ctx: any, jobId: any, materialId: any, baseQua
     } else {
       await ctx.db.patch(offcut._id, { area: remainingArea, width: Math.max(0.01, Number((offcut.width * (remainingArea / offcut.area)).toFixed(3))), status: "available" });
     }
+    await recordInventoryEvent(ctx, {
+      materialId,
+      eventType: "PRODUCTION_CONSUMPTION",
+      custody: "parent",
+      balanceEffect: "out",
+      quantity: usedFromOffcut,
+      unit: "m²",
+      baseUnit: "m²",
+      baseQuantity: usedFromOffcut,
+      jobCardId: jobId,
+      offcutId: offcut._id,
+      note: `Offcut consumption for ${jobId}`,
+      createdBy: actorId,
+    });
   }
   return covered;
 }
@@ -243,41 +258,57 @@ async function recordAutomaticDeduction(ctx: any, job: any, material: any, actor
     fallbackArea: job.quantity,
   });
 
-  let rawToDeduct = bom.baseQuantity;
+  const previousInput = await getProductionTotals(ctx, job._id);
+  const rawToDeduct = Number((Math.max(0, bom.baseQuantity - previousInput)).toFixed(3));
+  if (rawToDeduct <= 0) {
+    return {
+      deducted: false,
+      reason: "The planned material quantity has already been consumed.",
+      productionType: bom.productionType,
+      baseQuantity: bom.baseQuantity,
+      rawToDeduct: 0,
+      areaM2: bom.areaM2,
+      inkMl: bom.inkMl,
+      unit: bom.unit,
+      etbValue: resolveEtbValue(material),
+      floorDeducted: 0,
+    };
+  }
+
+  let materialToDeduct = rawToDeduct;
   if (bom.productionType === "area") {
-    const covered = await consumeFromOffcuts(ctx, job._id, job.materialId, bom.baseQuantity, actorId);
-    rawToDeduct = Number((Math.max(0, bom.baseQuantity - covered)).toFixed(3));
+    const covered = await consumeFromOffcuts(ctx, job._id, job.materialId, rawToDeduct, actorId);
+    const coveredForRemaining = Math.min(covered, rawToDeduct);
+    materialToDeduct = Number((Math.max(0, rawToDeduct - coveredForRemaining)).toFixed(3));
   }
 
-  let leftover = 0;
-  if (bom.productionType === "area" && rawToDeduct > 0 && material.quantity !== undefined) {
-    leftover = Number((material.quantity - rawToDeduct).toFixed(3));
-    if (leftover < 0) leftover = 0;
+  const floorDeducted = materialToDeduct > 0
+    ? await deductOperatorStock(ctx, job.machineId, job.materialId, materialToDeduct, actorId, job._id)
+    : 0;
+  const centralRemainder = Number((materialToDeduct - floorDeducted).toFixed(3));
+  if (centralRemainder > 0) {
+    await recordInventoryEvent(ctx, {
+      materialId: job.materialId,
+      eventType: "PRODUCTION_CONSUMPTION",
+      custody: "parent",
+      balanceEffect: "out",
+      quantity: centralRemainder,
+      unit: bom.unit as Unit,
+      baseUnit: bom.unit as Unit,
+      baseQuantity: centralRemainder,
+      machineId: job.machineId,
+      jobCardId: job._id,
+      note: `Automatic job completion consumption ${job.code} (${bom.productionType}, ${bom.areaM2} m² printed${bom.productionType === "ink" ? ` · ${bom.inkMl} mL ink` : ""})`,
+      createdBy: actorId,
+    });
   }
-
-  const newQuantity = Number((material.quantity - rawToDeduct).toFixed(3));
-  if (newQuantity < 0) throw new Error(`Insufficient ${material.name} stock to complete this job (needed ${rawToDeduct} ${bom.unit}).`);
-  await ctx.db.patch(job.materialId, { quantity: newQuantity });
-
-  await ctx.db.insert("stockMovements", {
-    materialId: job.materialId,
-    direction: "out",
-    quantity: rawToDeduct,
-    unit: bom.unit,
-    baseUnit: bom.unit,
-    baseQuantity: rawToDeduct,
-    movementType: "STANDARD",
-    note: `Automatic job completion deduction ${job.code} (${bom.productionType}, ${bom.areaM2} m² printed${bom.productionType === "ink" ? ` · ${bom.inkMl} mL ink` : ""})`,
-    createdBy: actorId,
-    createdAt: Date.now(),
-  });
 
   if (bom.productionType === "area") {
     await ctx.db.insert("productionLogs", {
       jobCardId: job._id,
       machineId: job.machineId,
-      inputQuantity: bom.baseQuantity,
-      outputQuantity: bom.baseQuantity,
+      inputQuantity: rawToDeduct,
+      outputQuantity: rawToDeduct,
       wasteQuantity: 0,
       unit: job.unit,
       operatorId: actorId,
@@ -287,14 +318,11 @@ async function recordAutomaticDeduction(ctx: any, job: any, material: any, actor
 
   const etb = resolveEtbValue(material);
   
-  // Deduct from operator machine stock (tier 2)
-  const floorDeducted = await deductOperatorStock(ctx, job.machineId, job.materialId, rawToDeduct);
-
   return {
     deducted: true,
     productionType: bom.productionType,
     baseQuantity: bom.baseQuantity,
-    rawToDeduct,
+    rawToDeduct: materialToDeduct,
     areaM2: bom.areaM2,
     inkMl: bom.inkMl,
     unit: bom.unit,

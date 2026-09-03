@@ -12,6 +12,7 @@ import { CncOperatorWorkspace } from "../operator/cnc";
 import { PlotterOperatorWorkspace } from "../operator/plotter";
 import { PrinterOperatorWorkspace } from "../operator/printer";
 import { cn } from "@/lib/utils";
+import { OperatorStockWidget } from "./operator-stock";
 
 const operatorViews: Partial<Record<Role, ComponentType<any>>> = {
   laser_operator: LaserOperatorWorkspace,
@@ -50,8 +51,8 @@ export function MachinesView({
   canUpdateMachine: boolean;
   canDeleteMachine: boolean;
   onCreate: () => void;
-  onOffcut: () => void;
-  onScrap: () => void;
+  onOffcut: (machineId?: string) => void;
+  onScrap: (machineId?: string) => void;
   onComplete: (id: string) => void;
   onRecordProduction: (id: string, inputQuantity: number, outputQuantity: number, wasteQuantity: number) => void;
   onAssignNextJob: (machineId: string) => void;
@@ -87,14 +88,17 @@ export function MachinesView({
 
   if (OperatorWorkspace && primaryMachine) {
     return (
-      <OperatorWorkspace
-        machine={primaryMachine}
-        job={primaryJob}
-        onComplete={onComplete}
-        onRecordProduction={onRecordProduction}
-        onOffcut={onOffcut}
-        onScrap={onScrap}
-      />
+      <div className="space-y-6">
+        <OperatorWorkspace
+          machine={primaryMachine}
+          job={primaryJob}
+          onComplete={onComplete}
+          onRecordProduction={onRecordProduction}
+          onOffcut={() => onOffcut(primaryMachine.id)}
+          onScrap={() => onScrap(primaryMachine.id)}
+        />
+        <OperatorStockWidget machineId={primaryMachine.id} />
+      </div>
     );
   }
 
@@ -116,7 +120,7 @@ export function MachinesView({
             {canCreateScrap && (
               <button 
                 className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg border border-line bg-white text-navy transition-colors hover:border-cyan hover:bg-cyan/5 focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2"
-                onClick={onScrap}
+                onClick={() => onScrap()}
               >
                 <Trash2 size={16} />
                 Log scrap
@@ -125,7 +129,7 @@ export function MachinesView({
             {canCreateOffcut && (
               <button 
                 className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-navy text-white shadow-sm transition-colors hover:bg-navy-2 focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2"
-                onClick={onOffcut}
+                onClick={() => onOffcut()}
               >
                 <Scissors size={16} />
                 Log offcut
@@ -177,7 +181,7 @@ export function MachinesView({
             {canCreateOffcut && (
               <button 
                 className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-md border border-line bg-white text-navy transition-colors hover:border-cyan hover:bg-cyan/5"
-                onClick={onOffcut}
+                onClick={() => onOffcut(primaryMachine.id)}
               >
                 {role === "plotter_operator" ? "Log vinyl remainder" : "Log usable offcut"}
               </button>
@@ -347,7 +351,7 @@ export function MachinesView({
                 {canCreateOffcut && (
                   <button 
                     className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-lg border border-line bg-white text-gray-600 transition-colors hover:border-gray-300 hover:bg-gray-50"
-                    onClick={onOffcut}
+                     onClick={() => onOffcut(machine.id)}
                   >
                     Log offcut
                   </button>

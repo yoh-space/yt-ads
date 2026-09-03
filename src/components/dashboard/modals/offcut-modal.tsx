@@ -12,16 +12,22 @@ export type NewOffcutInput = {
   width: number;
   length: number;
   location: string;
+  operatorSubStockId?: string;
+  machineId?: string;
 };
 
 export function OffcutModal({
   materials,
   onClose,
   onSave,
+  operatorSubStockId,
+  machineId,
 }: {
   materials: Material[];
   onClose: () => void;
   onSave: (input: NewOffcutInput) => void;
+  operatorSubStockId?: string;
+  machineId?: string;
 }) {
   const sheetMaterials = materials.filter((material) => material.unit === "m²");
   const [materialId, setMaterialId] = useState(sheetMaterials[0]?.id ?? "");
@@ -47,7 +53,7 @@ export function OffcutModal({
         className="space-y-6"
         onSubmit={(event) => {
           event.preventDefault();
-          onSave({ materialId, width, length, location });
+           onSave({ materialId, width, length, location, operatorSubStockId, machineId });
         }}
       >
         <div>

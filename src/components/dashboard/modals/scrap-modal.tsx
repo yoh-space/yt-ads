@@ -13,6 +13,8 @@ export type NewScrapInput = {
   materialId: string;
   quantity: number;
   reason: string;
+  operatorSubStockId?: string;
+  machineId?: string;
 };
 
 const scrapSchema = z.object({
@@ -27,10 +29,14 @@ export function ScrapModal({
   materials,
   onClose,
   onSave,
+  operatorSubStockId,
+  machineId,
 }: {
   materials: Material[];
   onClose: () => void;
   onSave: (input: NewScrapInput) => void;
+  operatorSubStockId?: string;
+  machineId?: string;
 }) {
   const {
     register,
@@ -53,7 +59,7 @@ export function ScrapModal({
 
   const onSubmit = (data: ScrapForm) => {
     if (!material) return;
-    onSave({ materialId: data.materialId, quantity: data.quantity, reason: data.reason });
+     onSave({ materialId: data.materialId, quantity: data.quantity, reason: data.reason, operatorSubStockId, machineId });
   };
 
   return (

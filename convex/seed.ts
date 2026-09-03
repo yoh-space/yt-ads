@@ -7,6 +7,7 @@ import { requireAdmin } from "./users";
 import { convertToBase, type InputUnit } from "./units";
 import { api } from "./_generated/api";
 import { MATERIAL_SPECIFICATIONS, type MaterialSpecificationDefinition } from "../src/shared/material-specifications";
+import { recordInventoryEvent } from "./inventoryLedger";
 
 /**
  * Populates the demo operations dataset (materials, machines, job cards,
@@ -23,8 +24,8 @@ export async function seedDemoData(ctx: MutationCtx, createdById: string) {
     if (!material) throw new Error(`Missing demo material definition: ${name}`);
     return material;
   };
-  const createDemoMaterial = (material: MaterialSpecificationDefinition, quantity: number, reorderAt: number, accent: "cyan" | "gold" | "violet" | "blue" | "green", specificationValue?: string) =>
-    ctx.db.insert("materials", {
+  const createDemoMaterial = async (material: MaterialSpecificationDefinition, quantity: number, reorderAt: number, accent: "cyan" | "gold" | "violet" | "blue" | "green", specificationValue?: string) => {
+    const id = await ctx.db.insert("materials", {
       name: material.name,
       category: material.category,
       unit: material.baseUnit,
@@ -37,13 +38,28 @@ export async function seedDemoData(ctx: MutationCtx, createdById: string) {
       specification: material.specification,
       specificationValue,
       specificationOptions: material.specificationOptions ? [...material.specificationOptions] : undefined,
-      quantity,
+      quantity: 0,
       reorderAt,
       storageLocation: material.storageLocation,
       averageUse: material.averageUse,
       accent,
       active: true,
     });
+    await recordInventoryEvent(ctx, {
+      materialId: id,
+      eventType: "STOCK_IN",
+      custody: "parent",
+      balanceEffect: "in",
+      quantity,
+      unit: material.baseUnit,
+      baseUnit: material.baseUnit,
+      baseQuantity: quantity,
+      note: "Demo opening stock",
+      createdBy: createdById,
+    });
+    await ctx.db.patch(id, { reorderAt });
+    return id;
+  };
 
   const matBanner = await createDemoMaterial(definition("Banner"), 286, 160, "cyan", "3 Meter Roll Weight");
   const matAcrylic = await createDemoMaterial(definition("Acrylic"), 54.8, 65, "violet", "3mm");
@@ -176,12 +192,20 @@ export async function clearWorkspaceData(ctx: MutationCtx) {
   for (const record of scraps) await ctx.db.delete(record._id);
   const stockExceptions = await ctx.db.query("stockExceptions").collect();
   for (const record of stockExceptions) await ctx.db.delete(record._id);
+  const invoices = await ctx.db.query("invoices").collect();
+  for (const record of invoices) await ctx.db.delete(record._id);
   const customerOrders = await ctx.db.query("customerOrders").collect();
   for (const record of customerOrders) await ctx.db.delete(record._id);
   const jobCards = await ctx.db.query("jobCards").collect();
   for (const record of jobCards) await ctx.db.delete(record._id);
   const stockMovements = await ctx.db.query("stockMovements").collect();
   for (const record of stockMovements) await ctx.db.delete(record._id);
+  const ledgerMovements = await ctx.db.query("stock_movements").collect();
+  for (const record of ledgerMovements) await ctx.db.delete(record._id);
+  const operatorSubStock = await ctx.db.query("operatorSubStock").collect();
+  for (const record of operatorSubStock) await ctx.db.delete(record._id);
+  const legacyOperatorStock = await ctx.db.query("operatorMachineStock").collect();
+  for (const record of legacyOperatorStock) await ctx.db.delete(record._id);
   const materials = await ctx.db.query("materials").collect();
   for (const record of materials) await ctx.db.delete(record._id);
   const machines = await ctx.db.query("machines").collect();
@@ -281,16 +305,17 @@ export const seedYtAdvertisementWorkspace = mutation({
       return { seeded: false, reason: "YT Advertisement workspace is already seeded." };
     }
 
-    const [materials, machines, jobs, productionLogs, stockMovements, offcuts, scraps] = await Promise.all([
+    const [materials, machines, jobs, productionLogs, stockMovements, ledgerMovements, offcuts, scraps] = await Promise.all([
       ctx.db.query("materials").collect(),
       ctx.db.query("machines").collect(),
       ctx.db.query("jobCards").collect(),
       ctx.db.query("productionLogs").collect(),
       ctx.db.query("stockMovements").collect(),
+      ctx.db.query("stock_movements").collect(),
       ctx.db.query("offcuts").collect(),
       ctx.db.query("scraps").collect(),
     ]);
-    if ((materials.length || machines.length || jobs.length || productionLogs.length || stockMovements.length || offcuts.length || scraps.length) && !args.force) {
+    if ((materials.length || machines.length || jobs.length || productionLogs.length || stockMovements.length || ledgerMovements.length || offcuts.length || scraps.length) && !args.force) {
       return {
         seeded: false,
         reason: "Existing operational data detected. Back up and review a migration before replacing it.",
@@ -587,7 +612,7 @@ export const seedSampleStock = mutation({
     const materials = await ctx.db.query("materials").collect();
     const activeMaterials = materials.filter((material) => material.active);
 
-    const movements = await ctx.db.query("stockMovements").collect();
+    const movements = await ctx.db.query("stock_movements").collect();
     const alreadySeeded = movements.some((movement) => movement.note.startsWith("Sample opening stock"));
     if (alreadySeeded && !args.force) {
       return { seeded: false, reason: "Sample stock already issued. Pass force to re-issue." };
@@ -607,22 +632,35 @@ export const seedSampleStock = mutation({
       );
       if (!Number.isFinite(converted) || converted <= 0) continue;
       const current = material.quantity ?? 0;
-      const nextQuantity = args.force ? target : Number((current + converted).toFixed(2));
-      await ctx.db.patch(material._id, {
-        quantity: nextQuantity,
-        reorderAt: Number((target * 0.3).toFixed(2)),
-      });
-      await ctx.db.insert("stockMovements", {
-        materialId: material._id,
-        direction: "in",
-        quantity: target,
-        unit: material.unit,
-        baseUnit,
-        baseQuantity: converted,
-        note: "Sample opening stock (seed)",
-        createdBy,
-        createdAt: Date.now(),
-      });
+      if (args.force && current > 0) {
+        await recordInventoryEvent(ctx, {
+          materialId: material._id,
+          eventType: "RECONCILIATION_ADJUSTMENT",
+          custody: "parent",
+          balanceEffect: "out",
+          quantity: current,
+          unit: baseUnit,
+          baseUnit,
+          baseQuantity: current,
+          note: "Reset sample opening projection",
+          createdBy,
+        });
+      }
+      if (!args.force || current !== target) {
+        await recordInventoryEvent(ctx, {
+          materialId: material._id,
+          eventType: "STOCK_IN",
+          custody: "parent",
+          balanceEffect: "in",
+          quantity: converted,
+          unit: material.unit,
+          baseUnit,
+          baseQuantity: converted,
+          note: "Sample opening stock (seed)",
+          createdBy,
+        });
+      }
+      await ctx.db.patch(material._id, { reorderAt: Number((target * 0.3).toFixed(2)) });
       issued += 1;
     }
 
@@ -660,19 +698,17 @@ export const seedSampleConsumption = mutation({
         material.sheetEquivalent,
       );
       if (!Number.isFinite(baseQuantity) || baseQuantity <= 0) continue;
-      await ctx.db.insert("stockMovements", {
+      await recordInventoryEvent(ctx, {
         materialId: material._id,
-        direction: "out",
+        eventType: "PRODUCTION_CONSUMPTION",
+        custody: "parent",
+        balanceEffect: "out",
         quantity: amount,
         unit: material.unit,
         baseUnit,
         baseQuantity,
         note: "Sample consumption (seed)",
         createdBy,
-        createdAt: Date.now(),
-      });
-      await ctx.db.patch(material._id, {
-        quantity: Math.max(0, Number((material.quantity - baseQuantity).toFixed(2))),
       });
       issued += 1;
     }

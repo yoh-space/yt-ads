@@ -40,17 +40,23 @@ export function TelegramMiniAppOrder() {
   // The logged-in Telegram customer; the phone number is read from their
   // profile (captured by the bot's share-contact flow), never typed here.
   const [telegramId, setTelegramId] = useState<string | null>(null);
+  const [telegramInitData, setTelegramInitData] = useState<string | null>(null);
   useEffect(() => {
-    const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+    const webApp = window.Telegram?.WebApp;
+    const tgUser = webApp?.initDataUnsafe?.user;
     if (tgUser?.id) setTelegramId(String(tgUser.id));
+    if (webApp?.initData) setTelegramInitData(webApp.initData);
   }, []);
 
-  const userProfile = useQuery(api.users.getByTelegramId, telegramId ? { telegramId } : "skip");
+  const userProfile = useQuery(api.users.getByTelegramId, telegramId && telegramInitData ? { telegramId, initData: telegramInitData } : "skip");
+  const customerOrders = useQuery(api.orders.listForTelegramUser, telegramId && telegramInitData ? { telegramId, initData: telegramInitData } : "skip");
   const verifiedPhone = userProfile?.phone ?? null;
   const phoneReady = verifiedPhone !== null;
 
-  const [form, setForm] = useState<{ clientName: string; serviceType: ServiceId; dimensions: string; quantity: string; notes: string }>({
+  const [form, setForm] = useState<{ clientName: string; companyLegalName: string; tinNumber: string; serviceType: ServiceId; dimensions: string; quantity: string; notes: string }>({
     clientName: "",
+    companyLegalName: "",
+    tinNumber: "",
     serviceType: serviceCategories[0]?.items[0]?.id ?? "",
     dimensions: "",
     quantity: "1",
@@ -75,10 +81,10 @@ export function TelegramMiniAppOrder() {
 
   // Handle file change with size check (e.g., max 50MB)
   const handleFileChange = (selectedFile: File | null) => {
-    if (selectedFile && selectedFile.size > 50 * 1024 * 1024) {
+    if (selectedFile && selectedFile.size > 20 * 1024 * 1024) {
       setMessage({
         tone: "error",
-        text: "የፋይሉ መጠን ከ 50MB ማነስ አለበት።",
+        text: "የፋይሉ መጠን ከ 20MB ማነስ አለበት።",
       });
       return;
     }
@@ -105,7 +111,7 @@ export function TelegramMiniAppOrder() {
 
     // The phone number comes from the customer's Telegram profile — it cannot
     // be submitted until they shared their contact with the bot via /start.
-    if (!telegramId || !phoneReady) {
+    if (!telegramId || !telegramInitData || !phoneReady) {
       setMessage({
         tone: "error",
         text: "ስልክ ቁጥርዎ አልተገኘም። እባክዎ በመጀመሪያ ለቦቱ «/start» ይላኩና ቁጥርዎን ያጋሩ።",
@@ -128,11 +134,14 @@ export function TelegramMiniAppOrder() {
         clientName: form.clientName.trim(),
         phone: verifiedPhone,
         telegramId,
+        telegramInitData,
         serviceType: form.serviceType,
         dimensions: form.dimensions.trim(),
         quantity: form.quantity,
         preferredDueDate: Date.now() + 7 * 24 * 60 * 60 * 1000,
         notes: form.notes ? form.notes.trim() : undefined,
+        companyLegalName: form.companyLegalName ? form.companyLegalName.trim() : undefined,
+        tinNumber: form.tinNumber ? form.tinNumber.trim() : undefined,
         fileStorageId,
         fileName: file?.name,
       });
@@ -154,6 +163,8 @@ export function TelegramMiniAppOrder() {
       // Reset Form State
       setForm({
         clientName: "",
+        companyLegalName: "",
+        tinNumber: "",
          serviceType: serviceCategories[0]?.items[0]?.id ?? "banner_print",
         dimensions: "",
         quantity: "1",
@@ -318,8 +329,8 @@ export function TelegramMiniAppOrder() {
           </label>
 
           <div className="space-y-2.5">
-            <div>
-              <span className="text-[11px] text-slate-500 font-medium block mb-1">ስም / ድርጅት</span>
+             <div>
+               <span className="text-[11px] text-slate-500 font-medium block mb-1">ስም / ድርጅት</span>
               <input
                 required
                 value={form.clientName}
@@ -327,7 +338,18 @@ export function TelegramMiniAppOrder() {
                 placeholder="ስም ያስገቡ"
                 className="w-full h-11 px-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:bg-white transition-all"
               />
-            </div>
+             </div>
+
+             <div className="grid grid-cols-2 gap-2">
+               <label>
+                 <span className="text-[11px] text-slate-500 font-medium block mb-1">Legal company name (optional)</span>
+                 <input value={form.companyLegalName} onChange={(e) => setForm({ ...form, companyLegalName: e.target.value })} className="w-full h-11 px-3 text-xs bg-slate-50 border border-slate-200 rounded-xl" />
+               </label>
+               <label>
+                 <span className="text-[11px] text-slate-500 font-medium block mb-1">TIN (optional)</span>
+                 <input value={form.tinNumber} onChange={(e) => setForm({ ...form, tinNumber: e.target.value })} className="w-full h-11 px-3 text-xs bg-slate-50 border border-slate-200 rounded-xl" />
+               </label>
+             </div>
 
             <div>
               <span className="text-[11px] text-slate-500 font-medium block mb-1">ስልክ ቁጥር (ከቦት በራስ-ሰር የተቀላቀለ)</span>
@@ -367,6 +389,15 @@ export function TelegramMiniAppOrder() {
             </div>
           </div>
         </section>
+
+        {customerOrders && customerOrders.length > 0 ? (
+          <section className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-sm">
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-500">My recent orders</label>
+            <div className="mt-2 space-y-2">
+              {customerOrders.slice(0, 5).map((order) => <div key={order.code} className="flex items-center justify-between text-xs"><span className="font-mono">{order.code}</span><span>{order.status}</span></div>)}
+            </div>
+          </section>
+        ) : null}
 
         {/* Feedback Message */}
         {message && (

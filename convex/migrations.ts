@@ -14,6 +14,7 @@ const CANONICAL_ORDER_STATUSES: ReadonlySet<string> = new Set([
   "IN_PRODUCTION",
   "COMPLETED",
   "Expired",
+  "EXPIRED_JUNK",
 ]);
 
 /** Map of legacy order-status values (casing or pre-lifecycle states) to their canonical value. */

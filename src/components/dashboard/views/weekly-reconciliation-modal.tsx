@@ -28,7 +28,7 @@ export function WeeklyReconciliationModal({ onClose }: { onClose: () => void }) 
     setSubmittingId(stockId);
     try {
       await reconcile({
-        operatorStockId: stockId as any,
+        operatorSubStockId: stockId as any,
         physicalActualRemaining: physical,
         notes: notes[stockId],
       });

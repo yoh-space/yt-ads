@@ -24,7 +24,7 @@ export type MaterialSpecification =
 export type JobStatus = "Queued" | "In production" | "Completed" | "Paused";
 export type MachineStatus = "Running" | "Available" | "Maintenance" | "Unavailable";
 export type Priority = "High" | "Medium" | "Normal";
-export type CustomerOrderStatus = "PENDING_REVIEW" | "PRICED_AND_PENDING_PAYMENT" | "CONFIRMED_PAID_OR_CREDIT" | "JOB_CARD_CREATED" | "IN_PRODUCTION" | "COMPLETED" | "READY_FOR_PICKUP" | "Expired";
+export type CustomerOrderStatus = "PENDING_REVIEW" | "PRICED_AND_PENDING_PAYMENT" | "CONFIRMED_PAID_OR_CREDIT" | "JOB_CARD_CREATED" | "IN_PRODUCTION" | "COMPLETED" | "READY_FOR_PICKUP" | "Expired" | "EXPIRED_JUNK";
 export type OrderPriority = "High" | "Medium" | "Low";
 export type OrderSource = "public_portal" | "walk_in";
 export type ExceptionReason = "Sample Print" | "Minor Repair" | "Test Cut" | "Internal Maintenance";
@@ -49,6 +49,16 @@ export type CustomerOrder = {
   priority: OrderPriority;
   source: OrderSource;
   notes?: string;
+  tinNumber?: string;
+  companyLegalName?: string;
+  invoiceType?: "PROFORMA" | "TAX_INVOICE";
+  invoiceNumber?: string;
+  invoiceId?: string;
+  subtotal?: number;
+  taxRate?: number;
+  taxAmount?: number;
+  paymentReceiptStorageId?: string;
+  paymentReceiptFileName?: string;
   machineId?: string;
   machineName?: string;
   jobCardId?: string;
@@ -74,7 +84,7 @@ export type StockException = {
   createdAt: number;
 };
 export type Accent = "cyan" | "gold" | "violet" | "blue" | "green";
-export type ProductionType = "area" | "ink" | "unit";
+export type ProductionType = "area" | "linear" | "ink" | "unit";
 export type ReconciliationStatus = "Open" | "Reviewed" | "Resolved";
 
 export type Material = {

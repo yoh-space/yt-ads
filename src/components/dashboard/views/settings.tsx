@@ -5,7 +5,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { authClient } from "@/lib/auth-client";
-import { roleLabels, type Profile, type Role } from "@/lib/operations-types";
+import { roleLabels, type Profile, type Role, type PurchaseUnit, type Unit } from "@/lib/operations-types";
 import { can } from "@/lib/permissions";
 import {
   Building2,
@@ -21,6 +21,7 @@ import {
   ShieldCheck,
   Trash2,
   UserRound,
+  Scale,
   Users,
   Clock3,
 } from "lucide-react";
@@ -677,6 +678,14 @@ interface OverrideRow {
   etbValue: number;
 }
 
+interface ConversionRuleRow {
+  materialName: string;
+  purchaseUnit: PurchaseUnit;
+  baseUnit: Unit;
+  inputDimension?: number;
+  conversionRatio: number;
+}
+
 interface NumericFieldProps {
   label: string;
   value: number;
@@ -725,6 +734,7 @@ export function OperationalPanel() {
   const [etbPerPiece, setEtbPerPiece] = useState(0);
   const [etbPerMetre, setEtbPerMetre] = useState(0);
   const [etbPerSheet, setEtbPerSheet] = useState(0);
+  const [unitConversionDefaults, setUnitConversionDefaults] = useState<ConversionRuleRow[]>([]);
   const [inkMlPerSquareMetre, setInkMlPerSquareMetre] = useState(0);
   const [maxAllowedWastePercent, setMaxAllowedWastePercent] = useState(0);
   const [minOffcutAreaSquareMetre, setMinOffcutAreaSquareMetre] = useState(0);
@@ -747,6 +757,7 @@ export function OperationalPanel() {
     setEtbPerPiece(config.etbPerPiece);
     setEtbPerMetre(config.etbPerMetre);
     setEtbPerSheet(config.etbPerSheet);
+    setUnitConversionDefaults((config.unitConversionDefaults ?? []) as ConversionRuleRow[]);
     setInkMlPerSquareMetre(config.inkMlPerSquareMetre);
     setMaxAllowedWastePercent(config.maxAllowedWastePercent);
     setMinOffcutAreaSquareMetre(config.minOffcutAreaSquareMetre);
@@ -795,6 +806,10 @@ export function OperationalPanel() {
     setOverrides(overrides.filter((row) => row.materialName !== materialName));
   }
 
+  function updateConversionRule(index: number, patch: Partial<ConversionRuleRow>) {
+    setUnitConversionDefaults((current) => current.map((rule, ruleIndex) => ruleIndex === index ? { ...rule, ...patch } : rule));
+  }
+
   async function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
@@ -806,6 +821,7 @@ export function OperationalPanel() {
         etbPerPiece,
         etbPerMetre,
         etbPerSheet,
+        unitConversionDefaults,
         materialOverrides: overrides,
         inkMlPerSquareMetre,
         maxAllowedWastePercent,
@@ -839,6 +855,28 @@ export function OperationalPanel() {
           <NumericField label="Price per piece" value={etbPerPiece} onChange={setEtbPerPiece} suffix="ETB" min={0} step="0.01" hint="Unit hardware (LEDs, electrical parts)" />
           <NumericField label="Price per metre" value={etbPerMetre} onChange={setEtbPerMetre} suffix="ETB" min={0} step="0.01" hint="Linear roll materials" />
           <NumericField label="Price per sheet" value={etbPerSheet} onChange={setEtbPerSheet} suffix="ETB" min={0} step="0.01" hint="Rigid sheet materials" />
+        </div>
+      </FormSection>
+
+      <FormSection icon={<Scale size={17} />} tone="cyan" title="Unit Conversion Defaults" note="Owner-governed rates apply to new stock handovers; historical ledger events keep their original rate.">
+        <div className="space-y-3">
+          {unitConversionDefaults.map((rule, index) => (
+            <div key={`${rule.materialName}-${index}`} className="grid gap-3 rounded-lg border border-line bg-gray-50/60 p-3 sm:grid-cols-[1.5fr_1fr_1fr_1fr_auto]">
+              <Input value={rule.materialName} onChange={(event) => updateConversionRule(index, { materialName: event.target.value })} placeholder="Material name" />
+              <Select value={rule.purchaseUnit} onChange={(event) => updateConversionRule(index, { purchaseUnit: event.target.value as PurchaseUnit })}>
+                {(["roll", "sheet", "pack", "liter", "piece"] as PurchaseUnit[]).map((unit) => <option key={unit} value={unit}>{unit}</option>)}
+              </Select>
+              <Select value={rule.baseUnit} onChange={(event) => updateConversionRule(index, { baseUnit: event.target.value as Unit })}>
+                {(["m²", "m", "pcs", "L"] as Unit[]).map((unit) => <option key={unit} value={unit}>{unit}</option>)}
+              </Select>
+              <Input type="number" min={0} step="0.001" value={rule.conversionRatio} onChange={(event) => updateConversionRule(index, { conversionRatio: Number(event.target.value) })} placeholder="Base units" />
+              <Button type="button" variant="tertiary" onClick={() => setUnitConversionDefaults((current) => current.filter((_, ruleIndex) => ruleIndex !== index))}>Remove</Button>
+            </div>
+          ))}
+          <Button type="button" variant="secondary" onClick={() => setUnitConversionDefaults((current) => [...current, { materialName: "", purchaseUnit: "roll", baseUnit: "m²", conversionRatio: 1 }])}>
+            <Plus size={15} />Add conversion rate
+          </Button>
+          <p className="text-[11px] text-gray-500">For example, configure 1.0 m Roll to 53.3 m² or 1.5 m Roll to 75.0 m². Existing ledger events retain their original conversion snapshot.</p>
         </div>
       </FormSection>
 

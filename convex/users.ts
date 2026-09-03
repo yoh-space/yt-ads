@@ -5,6 +5,7 @@ import { role } from "./schema";
 import type { Role } from "./types";
 import { hasPermission, hasAnyPermission, type Permission } from "./authorization";
 import { notifyUser } from "./notificationHelpers";
+import { verifyTelegramInitData } from "./telegramAuth";
 
 const MANAGEMENT_ROLES: Role[] = ["owner", "manager", "admin"];
 
@@ -89,6 +90,7 @@ export const upsertUser = mutation({
       await ctx.db.patch(existing._id, {
         phone,
         name: name ?? existing.name,
+        verifiedAt: now,
         updatedAt: now,
       });
       return (await ctx.db.get(existing._id))!;
@@ -97,6 +99,7 @@ export const upsertUser = mutation({
       telegramId,
       phone,
       name,
+      verifiedAt: now,
       createdAt: now,
       updatedAt: now,
     });
@@ -110,9 +113,11 @@ export const upsertUser = mutation({
  * customers, not signed-in staff) can read their own phone for order submission.
  */
 export const getByTelegramId = query({
-  args: { telegramId: v.string() },
+  args: { telegramId: v.string(), initData: v.string() },
   handler: async (ctx, args) => {
+    const verified = await verifyTelegramInitData(args.initData);
     const telegramId = args.telegramId.trim();
+    if (verified.telegramId !== telegramId) throw new Error("Telegram identity mismatch.");
     if (!telegramId) return null;
     return ctx.db
       .query("telegramUsers")

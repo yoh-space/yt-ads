@@ -6,6 +6,7 @@ export const REPLY_MAIN_MENU = "main.menu";
 export const REPLY_NEW_ORDER = "main.order";
 export const REPLY_MINI_APP = "main.miniapp";
 export const REPLY_ORDER_STATUS = "main.status";
+export const REPLY_MY_ORDERS = "main.my-orders";
 export const REPLY_CONTACT = "main.contact";
 export const REPLY_LANGUAGE = "main.language";
 export const REPLY_PHONE = "contact.share";
@@ -18,6 +19,7 @@ const mainMenuLabels: Record<Language, Record<string, string>> = {
     [REPLY_NEW_ORDER]: "✍️ አዲስ ትዕዛዝ",
     [REPLY_MINI_APP]: "🛍️ በ Mini App አዝዝ",
     [REPLY_ORDER_STATUS]: "📦 የትዕዛዝ ሁኔታ",
+    [REPLY_MY_ORDERS]: "🧾 የእኔ ትዕዛዞች",
     [REPLY_CONTACT]: "📞 አድራሻ እና ስልክ",
     [REPLY_LANGUAGE]: "🌐 ቋንቋ / Language",
     [REPLY_PHONE]: "📱 ስልክ ቁጥር አጋራ",
@@ -26,6 +28,7 @@ const mainMenuLabels: Record<Language, Record<string, string>> = {
     [REPLY_NEW_ORDER]: "✍️ Place New Order (by text)",
     [REPLY_MINI_APP]: "🛍️ Order in Mini App (visual)",
     [REPLY_ORDER_STATUS]: "📦 Order Status",
+    [REPLY_MY_ORDERS]: "🧾 My Orders",
     [REPLY_CONTACT]: "📞 Address & Phone",
     [REPLY_LANGUAGE]: "🌐 Language / ቋንቋ",
     [REPLY_PHONE]: "📱 Send my phone number",
@@ -49,6 +52,7 @@ export function mainMenuKeyboard(lang: Language): Keyboard {
     .text(labelFor(lang, REPLY_MINI_APP))
     .row()
     .text(labelFor(lang, REPLY_ORDER_STATUS))
+    .text(labelFor(lang, REPLY_MY_ORDERS))
     .text(labelFor(lang, REPLY_LANGUAGE))
     .row()
     .text(labelFor(lang, REPLY_CONTACT))

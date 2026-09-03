@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import type { MutationCtx } from "./_generated/server";
 import { requireOwner } from "./users";
 import { DEFAULT_SYSTEM_CONFIG, type SystemConfig } from "./materialUsage";
+import { unitConversionRule } from "./schema";
 
 /**
  * Single-row key for the workspace's central configuration. Mirrors the
@@ -52,6 +53,7 @@ export const updateSystemConfig = mutation({
     etbPerPiece: v.number(),
     etbPerMetre: v.number(),
     etbPerSheet: v.number(),
+    unitConversionDefaults: v.array(unitConversionRule),
     materialOverrides: v.array(v.object({
       materialName: v.string(),
       etbValue: v.number(),
@@ -75,6 +77,21 @@ export const updateSystemConfig = mutation({
     validateNumber(args.minOffcutAreaSquareMetre, "Minimum offcut registration size", { min: 0 });
     validateNumber(args.maxDirectStockOutEtb, "Maximum ETB for direct stock-outs", { min: 0 });
     validateNumber(args.orderExpirationHours, "Order expiration hours", { min: 1, max: 168 });
+
+    const conversionRules = args.unitConversionDefaults.map((rule) => ({
+      materialName: rule.materialName.trim(),
+      purchaseUnit: rule.purchaseUnit,
+      baseUnit: rule.baseUnit,
+      inputDimension: rule.inputDimension,
+      conversionRatio: Number(rule.conversionRatio),
+    }));
+    for (const rule of conversionRules) {
+      if (!rule.materialName) throw new Error("Conversion rule material name is required.");
+      validateNumber(rule.conversionRatio, `Conversion ratio for ${rule.materialName}`, { min: 0.000001 });
+      if (rule.inputDimension !== undefined) {
+        validateNumber(rule.inputDimension, `Input dimension for ${rule.materialName}`, { min: 0.000001 });
+      }
+    }
 
     const seen = new Set<string>();
     const overrides = args.materialOverrides
@@ -103,6 +120,7 @@ export const updateSystemConfig = mutation({
       etbPerPiece: args.etbPerPiece,
       etbPerMetre: args.etbPerMetre,
       etbPerSheet: args.etbPerSheet,
+      unitConversionDefaults: conversionRules,
       materialOverrides: overrides,
       inkMlPerSquareMetre: args.inkMlPerSquareMetre,
       maxAllowedWastePercent: args.maxAllowedWastePercent,
@@ -138,6 +156,7 @@ export async function ensureSystemConfig(ctx: MutationCtx, actorAuthUserId?: str
     // the full typed config without null guards.
     const patch = {} as Record<string, unknown>;
     if (existing.orderExpirationHours === undefined) patch.orderExpirationHours = DEFAULT_SYSTEM_CONFIG.orderExpirationHours;
+    if (existing.unitConversionDefaults === undefined) patch.unitConversionDefaults = DEFAULT_SYSTEM_CONFIG.unitConversionDefaults;
     if (Object.keys(patch).length > 0) {
       await ctx.db.patch(existing._id, { ...patch, updatedAt: Date.now() });
       existing = (await ctx.db.get(existing._id))!;

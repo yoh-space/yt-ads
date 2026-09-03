@@ -26,6 +26,7 @@ const statusTone = {
   "COMPLETED": "success",
   "READY_FOR_PICKUP": "info",
   "Expired": "danger",
+  "EXPIRED_JUNK": "danger",
 } as const;
 
 const priorityTone = {
@@ -58,6 +59,8 @@ export function OrderDetailsSheet({
   onConvert,
   onStatus,
   onClose,
+  canInvoice,
+  onInvoice,
 }: {
   order: CustomerOrder;
   machinesLabel?: string;
@@ -66,6 +69,8 @@ export function OrderDetailsSheet({
   onConvert: (order: CustomerOrder) => void;
   onStatus: (orderId: string, status: CustomerOrderStatus) => void;
   onClose: () => void;
+  canInvoice: boolean;
+  onInvoice: (order: CustomerOrder) => void;
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -278,7 +283,7 @@ export function OrderDetailsSheet({
         </div>
 
         {/* Sticky Footer (only when there are actionable workflow steps) */}
-        {canPrice || canConfirm || canComplete || hasArtwork || (isDesktopShell() && canManage) ? (
+         {canPrice || canConfirm || canComplete || hasArtwork || canInvoice || (isDesktopShell() && canManage) ? (
           <footer className="flex-shrink-0 flex items-center justify-end gap-3 p-6 border-t border-line bg-muted/30">
             {canPrice ? (
               <Button
@@ -312,6 +317,7 @@ export function OrderDetailsSheet({
                 {isPending(`order-status-${order.id}`) ? "Saving…" : "Complete"}
               </Button>
             ) : null}
+            {canInvoice ? <Button type="button" variant="secondary" onClick={() => onInvoice(order)}><Printer size={14} />Invoice</Button> : null}
             {hasArtwork ? (
               <Button type="button" variant="secondary" onClick={downloadAsset}>
                 <Download size={14} />Download Asset

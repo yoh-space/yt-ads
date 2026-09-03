@@ -110,7 +110,7 @@ export const getSummary = query({
       ctx.db.query("machines").collect(),
       ctx.db.query("jobCards").collect(),
       ctx.db.query("productionLogs").collect(),
-      ctx.db.query("stockMovements").collect(),
+      ctx.db.query("stock_movements").collect(),
       ctx.db.query("offcuts").collect(),
       ctx.db.query("scraps").collect(),
       ctx.db.query("customerOrders").collect(),
@@ -153,10 +153,10 @@ export const getSummary = query({
 
     const consumptionByMaterial = new Map<string, { totalConsumed: number; unit: string; movementCount: number }>();
     for (const movement of periodStockMovements) {
-      if (movement.direction !== "out" && movement.movementType !== "EXCEPTION_STOCK_OUT") continue;
+       if (movement.eventType === "STOCK_IN" || movement.eventType === "OFFCUT_RETURN") continue;
       const matId = movement.materialId;
       const existing = consumptionByMaterial.get(matId) ?? { totalConsumed: 0, unit: movement.baseUnit ?? movement.unit, movementCount: 0 };
-      existing.totalConsumed += movement.baseQuantity ?? movement.quantity;
+       existing.totalConsumed += movement.baseQuantity;
       existing.movementCount += 1;
       consumptionByMaterial.set(matId, existing);
     }
@@ -169,9 +169,9 @@ export const getSummary = query({
       .filter((m) => m.active && m.quantity <= m.reorderAt)
       .map((m) => {
         const outMovements = periodStockMovements.filter(
-          (mov) => mov.materialId === m._id && (mov.direction === "out" || mov.movementType === "EXCEPTION_STOCK_OUT"),
+          (mov) => mov.materialId === m._id && mov.eventType !== "STOCK_IN" && mov.eventType !== "OFFCUT_RETURN",
         );
-        const totalOut = outMovements.reduce((sum, mov) => sum + (mov.baseQuantity ?? mov.quantity), 0);
+         const totalOut = outMovements.reduce((sum, mov) => sum + mov.baseQuantity, 0);
         const dailyRate = days > 0 ? totalOut / days : 0;
         const estimatedDaysLeft = dailyRate > 0 ? Math.round(m.quantity / dailyRate) : null;
         return {
@@ -298,8 +298,8 @@ export const getSummary = query({
         lowStockMaterials: materials.filter((material) => material.active && material.quantity <= material.reorderAt).length,
         totalBaseQuantity: Number(materials.filter((material) => material.active).reduce((total, material) => total + material.quantity, 0).toFixed(2)),
         movementCount: periodStockMovements.length,
-        stockInByUnit: sumByUnit(periodStockMovements.filter((movement) => movement.direction === "in")),
-        stockOutByUnit: sumByUnit(periodStockMovements.filter((movement) => movement.direction === "out")),
+      stockInByUnit: sumByUnit(periodStockMovements.filter((movement) => movement.eventType === "STOCK_IN" || movement.eventType === "OFFCUT_RETURN")),
+      stockOutByUnit: sumByUnit(periodStockMovements.filter((movement) => movement.eventType !== "STOCK_IN" && movement.eventType !== "OFFCUT_RETURN")),
       },
       production: {
         machineCount: machines.filter((machine) => machine.active).length,

@@ -33,7 +33,10 @@ export type Permission =
   | "order.manage"
   | "stock.exception"
   | "reconciliation.record"
-  | "reconciliation.review";
+  | "reconciliation.review"
+  | "reconciliation.operator"
+  | "invoice.view"
+  | "invoice.create";
 
 const ALL: Permission[] = [
   "dashboard.view",
@@ -69,6 +72,9 @@ const ALL: Permission[] = [
   "stock.exception",
   "reconciliation.record",
   "reconciliation.review",
+  "reconciliation.operator",
+  "invoice.view",
+  "invoice.create",
 ];
 
 const OPERATIONS: Permission[] = [
@@ -85,6 +91,7 @@ const OPERATIONS: Permission[] = [
   "request.view",
   "request.create",
   "request.acknowledge",
+  "reconciliation.operator",
 ];
 
 const MANAGEMENT_ROLES: Role[] = ["owner", "manager", "admin", "storekeeper"];
@@ -124,6 +131,9 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "order.manage",
     "stock.exception",
     "reconciliation.record",
+    "reconciliation.operator",
+    "invoice.view",
+    "invoice.create",
   ],
   storekeeper: [
     "dashboard.view",
@@ -151,6 +161,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "order.manage",
     "stock.exception",
     "reconciliation.record",
+    "reconciliation.operator",
   ],
   laser_operator: [...OPERATIONS],
   cnc_operator: [...OPERATIONS],
@@ -161,6 +172,8 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "order.view",
     "order.create",
     "order.manage",
+    "invoice.view",
+    "invoice.create",
   ],
 };
 

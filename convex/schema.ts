@@ -44,6 +44,7 @@ export const orderStatus = v.union(
   v.literal("COMPLETED"),
   v.literal("READY_FOR_PICKUP"),
   v.literal("Expired"),
+  v.literal("EXPIRED_JUNK"),
   // Legacy aliases from earlier write paths. These were written to the table
   // before the validator was tightened to the canonical values above. They are
   // kept only as a bridge so the backfill in `convex/migrations.ts` can read and
@@ -126,6 +127,22 @@ export const stockMovementType = v.union(
   v.literal("EXCEPTION_STOCK_OUT"),
 );
 
+/** Authoritative event types for the event-sourced inventory ledger. */
+export const stockEventType = v.union(
+  v.literal("STOCK_IN"),
+  v.literal("STORE_TO_OPERATOR_TRANSFER"),
+  v.literal("PRODUCTION_CONSUMPTION"),
+  v.literal("OFFCUT_RETURN"),
+  v.literal("SCRAP_LOG"),
+  v.literal("RECONCILIATION_ADJUSTMENT"),
+  v.literal("EXCEPTION_STOCK_OUT"),
+);
+
+export const inventoryCustody = v.union(
+  v.literal("parent"),
+  v.literal("operator"),
+);
+
 export const machineStatus = v.union(
   v.literal("Running"),
   v.literal("Available"),
@@ -174,6 +191,7 @@ export const offcutStatus = v.union(
 /** How a material is depleted for automatic job-card deduction. */
 export const productionType = v.union(
   v.literal("area"),
+  v.literal("linear"),
   v.literal("ink"),
   v.literal("unit"),
 );
@@ -192,6 +210,34 @@ export const materialRequestStatus = v.union(
   v.literal("Short Stock"),
   v.literal("Discrepancy"),
 );
+
+export const invoiceType = v.union(
+  v.literal("PROFORMA"),
+  v.literal("TAX_INVOICE"),
+);
+
+export const invoiceStatus = v.union(
+  v.literal("DRAFT"),
+  v.literal("ISSUED"),
+  v.literal("VOID"),
+);
+
+/** Owner-managed conversion rule used when a material has no local override. */
+export const unitConversionRule = v.object({
+  materialName: v.string(),
+  purchaseUnit,
+  baseUnit: unit,
+  inputDimension: v.optional(v.number()),
+  conversionRatio: v.number(),
+});
+
+export const invoiceLineItem = v.object({
+  description: v.string(),
+  quantity: v.number(),
+  unit: v.string(),
+  unitPrice: v.number(),
+  lineTotal: v.number(),
+});
 
 export const notificationType = v.union(
   v.literal("material_request"),
@@ -272,6 +318,7 @@ export default defineSchema({
     specification: v.optional(v.string()),
     specificationValue: v.optional(v.string()),
     specificationOptions: v.optional(v.array(v.string())),
+    /** Deprecated materialized base balance; ledger events are authoritative. */
     quantity: v.number(),
     reorderAt: v.number(),
     rollEquivalent: v.optional(v.number()),
@@ -364,18 +411,34 @@ export default defineSchema({
     priority: orderPriority,
     source: orderSource,
     notes: v.optional(v.string()),
+    tinNumber: v.optional(v.string()),
+    companyLegalName: v.optional(v.string()),
+    invoiceType: v.optional(invoiceType),
+    invoiceNumber: v.optional(v.string()),
+    invoiceId: v.optional(v.id("invoices")),
+    subtotal: v.optional(v.number()),
+    taxRate: v.optional(v.number()),
+    taxAmount: v.optional(v.number()),
+    paymentReceiptStorageId: v.optional(v.id("_storage")),
+    paymentReceiptFileName: v.optional(v.string()),
+    paymentReceiptUploadedAt: v.optional(v.number()),
+    paymentReceiptVerifiedAt: v.optional(v.number()),
+    paymentReceiptVerifiedBy: v.optional(v.string()),
     machineId: v.optional(v.id("machines")),
     jobCardId: v.optional(v.id("jobCards")),
     createdBy: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
     expiresAt: v.optional(v.number()),
+    archivedAt: v.optional(v.number()),
+    archiveReason: v.optional(v.string()),
     telegramChatId: v.optional(v.string()),
     overdueInquiryAt: v.optional(v.number()),
     lastOverdueNotifiedAt: v.optional(v.number()),
   })
     .index("by_code", ["code"])
     .index("by_phone", ["phone"])
+    .index("by_telegram_chat_id", ["telegramChatId"])
     .index("by_status", ["status"])
     .index("by_due_date", ["preferredDueDate"])
     .index("by_expires_at", ["expiresAt"]),
@@ -390,6 +453,68 @@ export default defineSchema({
     createdBy: v.string(),
     createdAt: v.number(),
   }).index("by_created", ["createdAt"]),
+
+  /** Immutable commercial document generated from an order. */
+  invoices: defineTable({
+    orderId: v.id("customerOrders"),
+    invoiceNumber: v.string(),
+    type: invoiceType,
+    status: invoiceStatus,
+    clientName: v.string(),
+    companyLegalName: v.optional(v.string()),
+    tinNumber: v.optional(v.string()),
+    lineItems: v.array(invoiceLineItem),
+    subtotal: v.number(),
+    taxRate: v.number(),
+    taxAmount: v.number(),
+    total: v.number(),
+    currency: v.string(),
+    issuedBy: v.string(),
+    issuedAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_order", ["orderId"])
+    .index("by_number", ["invoiceNumber"])
+    .index("by_issued_at", ["issuedAt"]),
+
+  /**
+   * Authoritative inventory event stream. Balances on materials, parentInventory,
+   * and operatorSubStock are projections maintained transactionally from these
+   * events and are never the source of accounting truth.
+   */
+  stock_movements: defineTable({
+    materialId: v.id("materials"),
+    eventType: stockEventType,
+    custody: inventoryCustody,
+    balanceEffect: v.union(v.literal("in"), v.literal("out"), v.literal("transfer"), v.literal("none")),
+    quantity: v.number(),
+    unit: stockInputUnit,
+    baseUnit: unit,
+    baseQuantity: v.number(),
+    /** Whole packaging units involved in a parent-store transfer or receipt. */
+    packageQuantity: v.optional(v.number()),
+    packageUnit: v.optional(inventoryUnitType),
+    /** Snapshot of the rate used; later owner changes do not rewrite history. */
+    conversionRatio: v.optional(v.number()),
+    parentInventoryId: v.optional(v.id("parentInventory")),
+    operatorSubStockId: v.optional(v.id("operatorSubStock")),
+    operatorId: v.optional(v.string()),
+    machineId: v.optional(v.id("machines")),
+    jobCardId: v.optional(v.id("jobCards")),
+    materialRequestId: v.optional(v.id("materialRequests")),
+    offcutId: v.optional(v.id("offcuts")),
+    reconciliationId: v.optional(v.id("weeklyReconciliations")),
+    materialReconciliationId: v.optional(v.id("reconciliations")),
+    note: v.string(),
+    createdBy: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_material_created", ["materialId", "createdAt"])
+    .index("by_event_type", ["eventType"])
+    .index("by_parent_inventory", ["parentInventoryId"])
+    .index("by_operator_sub_stock", ["operatorSubStockId"])
+    .index("by_machine_created", ["machineId", "createdAt"])
+    .index("by_job_card", ["jobCardId"]),
 
   jobCards: defineTable({
     code: v.string(),
@@ -438,6 +563,9 @@ export default defineSchema({
     createdBy: v.string(),
     createdAt: v.string(),
     jobCardId: v.optional(v.id("jobCards")),
+    operatorSubStockId: v.optional(v.id("operatorSubStock")),
+    operatorId: v.optional(v.string()),
+    machineId: v.optional(v.id("machines")),
     source: v.optional(v.union(v.literal("manual"), v.literal("job_auto"))),
   })
     .index("by_material", ["materialId"])
@@ -464,6 +592,9 @@ export default defineSchema({
     reason: v.string(),
     createdBy: v.string(),
     createdAt: v.string(),
+    operatorSubStockId: v.optional(v.id("operatorSubStock")),
+    operatorId: v.optional(v.string()),
+    machineId: v.optional(v.id("machines")),
   }).index("by_material", ["materialId"]),
 
   reconciliations: defineTable({
@@ -503,6 +634,8 @@ export default defineSchema({
     etbPerMetre: v.number(),
     /** ETB valuation rate per sheet (rigid boards). */
     etbPerSheet: v.number(),
+    /** Owner-managed purchase-unit conversion defaults, versioned by events. */
+    unitConversionDefaults: v.optional(v.array(unitConversionRule)),
     /**
      * Per-material custom ETB price overrides, keyed by canonical material
      * name. Applied ahead of the unit default rates during valuation.
@@ -578,6 +711,29 @@ export default defineSchema({
     .index("by_status", ["status"]),
 
   /**
+   * Current operator custody projection. Each row represents a packaging-unit
+   * handover converted to the machine's production unit.
+   */
+  operatorSubStock: defineTable({
+    parentInventoryId: v.optional(v.id("parentInventory")),
+    materialId: v.id("materials"),
+    operatorId: v.string(),
+    machineId: v.id("machines"),
+    issuedUnits: v.number(),
+    issuedQuantity: v.number(),
+    currentRemaining: v.number(),
+    status: operatorStockStatus,
+    issuedBy: v.optional(v.string()),
+    issuedAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_parent_inventory", ["parentInventoryId"])
+    .index("by_machine", ["machineId"])
+    .index("by_operator", ["operatorId"])
+    .index("by_material_machine", ["materialId", "machineId"])
+    .index("by_status", ["status"]),
+
+  /**
    * Weekly audit log comparing the system-calculated floor balance against a
    * physical count. A non-zero discrepancy is written off to both inventory
    * tiers and stays auditable through `stockMovements`.
@@ -585,7 +741,9 @@ export default defineSchema({
   weeklyReconciliations: defineTable({
     machineId: v.id("machines"),
     operatorId: v.string(),
-    operatorStockId: v.id("operatorMachineStock"),
+    /** Legacy floor-stock reference retained while old rows are migrated. */
+    operatorStockId: v.optional(v.id("operatorMachineStock")),
+    operatorSubStockId: v.optional(v.id("operatorSubStock")),
     systemCalculatedRemaining: v.number(),
     physicalActualRemaining: v.number(),
     /** physical − system (negative = wastage/loss). */
@@ -622,6 +780,7 @@ export default defineSchema({
     telegramId: v.string(),
     phone: v.string(),
     name: v.optional(v.string()),
+    verifiedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

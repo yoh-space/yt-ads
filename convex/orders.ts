@@ -2,11 +2,13 @@ import { internalMutation, internalAction, mutation, query, action } from "./_ge
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { authComponent } from "./auth";
-import { exceptionReason, orderPriority, orderStatus, paymentStatus, unit, serviceType } from "./schema";
+import { exceptionReason, invoiceLineItem, invoiceType, orderPriority, orderStatus, paymentStatus, unit, serviceType } from "./schema";
 import { requireAnyPermission, requirePermission } from "./users";
-import { canViewFinancial } from "./authorization";
+import { hasPermission } from "./authorization";
 import { notifyRoles } from "./notificationHelpers";
 import { ensureSystemConfig } from "./systemConfigs";
+import { recordInventoryEvent } from "./inventoryLedger";
+import { verifyTelegramInitData } from "./telegramAuth";
 
 /** Statuses a customer may see through public tracking (Expired stays internal). */
 const PUBLIC_TRACKING_STATUSES = new Set(["PENDING_REVIEW", "PRICED_AND_PENDING_PAYMENT", "CONFIRMED_PAID_OR_CREDIT", "JOB_CARD_CREATED", "IN_PRODUCTION", "COMPLETED", "READY_FOR_PICKUP"]);
@@ -25,6 +27,7 @@ const ALLOWED_STATUS_TRANSITIONS: Record<string, string[]> = {
   COMPLETED: ["READY_FOR_PICKUP"],
   READY_FOR_PICKUP: [],
   Expired: [],
+  EXPIRED_JUNK: [],
 };
 // convex/orders.ts
 
@@ -70,6 +73,16 @@ type OrderDoc = {
   telegramChatId?: string;
   overdueInquiryAt?: number;
   lastOverdueNotifiedAt?: number;
+  tinNumber?: string;
+  companyLegalName?: string;
+  invoiceType?: "PROFORMA" | "TAX_INVOICE";
+  invoiceNumber?: string;
+  subtotal?: number;
+  taxRate?: number;
+  taxAmount?: number;
+  paymentReceiptStorageId?: string;
+  paymentReceiptFileName?: string;
+  invoiceId?: string;
 };
 
 function normalizePhone(phone: string) {
@@ -77,7 +90,7 @@ function normalizePhone(phone: string) {
 }
 
 function publicOrder(order: OrderDoc) {
-  return {
+     return {
     id: order._id,
     code: order.code,
     clientName: order.clientName,
@@ -90,7 +103,7 @@ function publicOrder(order: OrderDoc) {
     priority: order.priority,
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
-    overdue: order.status !== "COMPLETED" && order.preferredDueDate < Date.now(),
+     overdue: !["COMPLETED", "READY_FOR_PICKUP", "Expired", "EXPIRED_JUNK"].includes(order.status) && order.preferredDueDate < Date.now(),
   };
 }
 
@@ -111,12 +124,15 @@ export const submit = mutation({
     clientName: v.string(),
     phone: v.optional(v.string()),
     telegramId: v.optional(v.string()),
+    telegramInitData: v.optional(v.string()),
     serviceType: serviceType,
     dimensions: v.string(),
     quantity: v.string(),
     preferredDueDate: v.number(),
     priority: v.optional(orderPriority),
     notes: v.optional(v.string()),
+    tinNumber: v.optional(v.string()),
+    companyLegalName: v.optional(v.string()),
     fileStorageId: v.optional(v.id("_storage")),
     fileName: v.optional(v.string()),
   },
@@ -133,15 +149,21 @@ export const submit = mutation({
     // The verified phone lives on the customer's Telegram profile; the manual
     // `phone` field only supports submissions from outside the Mini App.
     let phone: string;
+    let verifiedTelegramId: string | undefined;
     if (args.telegramId !== undefined && args.telegramId.trim() !== "") {
+      if (!args.telegramInitData) throw new Error("A verified Telegram session is required.");
+      const verified = await verifyTelegramInitData(args.telegramInitData);
+      verifiedTelegramId = verified.telegramId;
+      if (verifiedTelegramId !== args.telegramId.trim()) throw new Error("Telegram identity mismatch.");
       const profile = await ctx.db
         .query("telegramUsers")
-        .withIndex("by_telegram_id", (q) => q.eq("telegramId", args.telegramId!.trim()))
+        .withIndex("by_telegram_id", (q) => q.eq("telegramId", verifiedTelegramId!))
         .unique();
       if (!profile?.phone) {
         throw new Error("No phone number on file for this Telegram user. Send /start to the bot and share your contact first.");
       }
       phone = profile.phone;
+      await ctx.db.patch(profile._id, { verifiedAt: Date.now(), updatedAt: Date.now() });
     } else if (args.phone !== undefined && args.phone.trim() !== "") {
       phone = normalizePhone(args.phone);
     } else {
@@ -169,13 +191,15 @@ export const submit = mutation({
       priority: args.priority ?? "Medium",
       source: "public_portal",
       notes: args.notes?.trim() || undefined,
+      tinNumber: args.tinNumber?.trim() || undefined,
+      companyLegalName: args.companyLegalName?.trim() || undefined,
       fileStorageId: args.fileStorageId,
       fileName: args.fileName?.trim() || undefined,
       createdBy: identity?._id,
       createdAt: now,
       updatedAt: now,
       expiresAt,
-      telegramChatId: args.telegramId,
+      telegramChatId: verifiedTelegramId,
     });
     await notifyOrderRoles(ctx, {
       title: "New customer order received",
@@ -208,6 +232,8 @@ export const createWalkIn = mutation({
     notes: v.optional(v.string()),
     fileStorageId: v.optional(v.id("_storage")),
     fileName: v.optional(v.string()),
+    tinNumber: v.optional(v.string()),
+    companyLegalName: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const { identity } = await requirePermission(ctx, "order.create");
@@ -245,6 +271,8 @@ export const createWalkIn = mutation({
       priority: args.priority ?? "Medium",
       source: "walk_in",
       notes: args.notes?.trim() || undefined,
+      tinNumber: args.tinNumber?.trim() || undefined,
+      companyLegalName: args.companyLegalName?.trim() || undefined,
       fileStorageId: args.fileStorageId,
       fileName: args.fileName?.trim() || undefined,
       createdBy: identity._id,
@@ -283,6 +311,118 @@ export const track = query({
   },
 });
 
+/** Session-scoped customer order list for the verified Telegram Mini App. */
+export const listForTelegramUser = query({
+  args: { telegramId: v.string(), initData: v.string() },
+  handler: async (ctx, args) => {
+    const verified = await verifyTelegramInitData(args.initData);
+    const telegramId = args.telegramId.trim();
+    if (!telegramId || verified.telegramId !== telegramId) throw new Error("Telegram identity mismatch.");
+    const orders = await ctx.db
+      .query("customerOrders")
+      .withIndex("by_telegram_chat_id", (q) => q.eq("telegramChatId", telegramId))
+      .collect();
+    return orders
+      .filter((order) => PUBLIC_TRACKING_STATUSES.has(order.status))
+      .sort((left, right) => right.updatedAt - left.updatedAt)
+      .slice(0, 20)
+      .map(publicOrder);
+  },
+});
+
+export const createInvoice = mutation({
+  args: {
+    orderId: v.id("customerOrders"),
+    type: invoiceType,
+    companyLegalName: v.optional(v.string()),
+    tinNumber: v.optional(v.string()),
+    lineItems: v.array(invoiceLineItem),
+    taxRate: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const { identity } = await requirePermission(ctx, "invoice.create");
+    const order = await ctx.db.get(args.orderId);
+    if (!order) throw new Error("Order not found.");
+    if (!Number.isFinite(args.taxRate) || args.taxRate < 0 || args.taxRate > 100) throw new Error("Tax rate must be between 0 and 100.");
+    if (args.lineItems.length === 0) throw new Error("At least one invoice line item is required.");
+
+    const lineItems = args.lineItems.map((line) => {
+      if (!line.description.trim() || !Number.isFinite(line.quantity) || line.quantity <= 0 || !Number.isFinite(line.unitPrice) || line.unitPrice < 0) {
+        throw new Error("Invoice line items must have a description, positive quantity, and non-negative unit price.");
+      }
+      const lineTotal = Number((line.quantity * line.unitPrice).toFixed(2));
+      if (Math.abs(line.lineTotal - lineTotal) > 0.01) throw new Error("Invoice line total does not match quantity and unit price.");
+      return { ...line, description: line.description.trim(), unit: line.unit.trim(), lineTotal };
+    });
+    const subtotal = Number(lineItems.reduce((sum, line) => sum + line.lineTotal, 0).toFixed(2));
+    const taxAmount = Number((subtotal * args.taxRate / 100).toFixed(2));
+    const total = Number((subtotal + taxAmount).toFixed(2));
+    const invoiceNumber = `INV-${new Date().getFullYear()}-${String(Date.now()).slice(-8)}`;
+    const now = Date.now();
+    const invoiceId = await ctx.db.insert("invoices", {
+      orderId: order._id,
+      invoiceNumber,
+      type: args.type,
+      status: "ISSUED",
+      clientName: order.clientName,
+      companyLegalName: args.companyLegalName?.trim() || order.companyLegalName,
+      tinNumber: args.tinNumber?.trim() || order.tinNumber,
+      lineItems,
+      subtotal,
+      taxRate: args.taxRate,
+      taxAmount,
+      total,
+      currency: "ETB",
+      issuedBy: identity._id,
+      issuedAt: now,
+      updatedAt: now,
+    });
+    await ctx.db.patch(order._id, {
+      amount: total,
+      companyLegalName: args.companyLegalName?.trim() || order.companyLegalName,
+      tinNumber: args.tinNumber?.trim() || order.tinNumber,
+      invoiceType: args.type,
+      invoiceNumber,
+      invoiceId,
+      subtotal,
+      taxRate: args.taxRate,
+      taxAmount,
+      updatedAt: now,
+    });
+    return (await ctx.db.get(invoiceId))!;
+  },
+});
+
+export const getInvoice = query({
+  args: { orderId: v.id("customerOrders") },
+  handler: async (ctx, args) => {
+    await requirePermission(ctx, "invoice.view");
+    const invoices = await ctx.db
+      .query("invoices")
+      .withIndex("by_order", (q) => q.eq("orderId", args.orderId))
+      .collect();
+    return invoices.sort((left, right) => right.issuedAt - left.issuedAt)[0] ?? null;
+  },
+});
+
+/** Bot-only lookup used by the trusted webhook for the `/my-orders` command. */
+export const listByTelegramChat = query({
+  args: { telegramChatId: v.string() },
+  handler: async (ctx, args) => {
+    const telegramChatId = args.telegramChatId.trim();
+    if (!telegramChatId) return [];
+    const orders = await ctx.db
+      .query("customerOrders")
+      .withIndex("by_telegram_chat_id", (q) => q.eq("telegramChatId", telegramChatId))
+      .collect();
+    return orders
+      .filter((order) => PUBLIC_TRACKING_STATUSES.has(order.status))
+      .sort((left, right) => right.updatedAt - left.updatedAt)
+      .slice(0, 20)
+      .map(publicOrder);
+  },
+});
+
 export const list = query({
   args: {},
   handler: async (ctx) => {
@@ -294,12 +434,22 @@ export const list = query({
       const rank = { High: 0, Medium: 1, Low: 2 } as const;
       return rank[left.priority] - rank[right.priority] || left.preferredDueDate - right.preferredDueDate;
     });
-    const canSeeFinancial = canViewFinancial(profile.role);
+    const canSeeBilling = hasPermission(profile.role, "invoice.view");
     return Promise.all(ordered.map(async (order) => ({
       ...order,
-      amount: canSeeFinancial ? order.amount : undefined,
+      amount: canSeeBilling ? order.amount : undefined,
+      tinNumber: canSeeBilling ? order.tinNumber : undefined,
+      companyLegalName: canSeeBilling ? order.companyLegalName : undefined,
+      invoiceType: canSeeBilling ? order.invoiceType : undefined,
+      invoiceNumber: canSeeBilling ? order.invoiceNumber : undefined,
+      invoiceId: canSeeBilling ? order.invoiceId : undefined,
+      subtotal: canSeeBilling ? order.subtotal : undefined,
+      taxRate: canSeeBilling ? order.taxRate : undefined,
+      taxAmount: canSeeBilling ? order.taxAmount : undefined,
+      paymentReceiptStorageId: canSeeBilling ? order.paymentReceiptStorageId : undefined,
+      paymentReceiptFileName: canSeeBilling ? order.paymentReceiptFileName : undefined,
       machineName: order.machineId ? machineNames.get(order.machineId) : undefined,
-      overdue: order.status !== "COMPLETED" && order.preferredDueDate < Date.now(),
+      overdue: !["COMPLETED", "READY_FOR_PICKUP", "Expired", "EXPIRED_JUNK"].includes(order.status) && order.preferredDueDate < Date.now(),
       fileUrl: order.fileStorageId ? await ctx.storage.getUrl(order.fileStorageId) : undefined,
     })));
   },
@@ -527,7 +677,7 @@ export const notifyOverdue = mutation({
     const { identity } = await requirePermission(ctx, "order.manage");
     const now = Date.now();
     const overdue = (await ctx.db.query("customerOrders").withIndex("by_due_date").collect()).filter(
-      (order) => order.status !== "COMPLETED" && order.preferredDueDate < now,
+      (order) => !["COMPLETED", "READY_FOR_PICKUP", "Expired", "EXPIRED_JUNK"].includes(order.status) && order.preferredDueDate < now,
     );
     let notified = 0;
     for (const order of overdue) {
@@ -552,7 +702,7 @@ export const notifyOverdueInternal = internalMutation({
   handler: async (ctx) => {
     const now = Date.now();
     const overdue = (await ctx.db.query("customerOrders").withIndex("by_due_date").collect()).filter(
-      (order) => order.status !== "COMPLETED" && order.preferredDueDate < now,
+      (order) => !["COMPLETED", "READY_FOR_PICKUP", "Expired", "EXPIRED_JUNK"].includes(order.status) && order.preferredDueDate < now,
     );
     let notified = 0;
     for (const order of overdue) {
@@ -588,7 +738,6 @@ export const recordExceptionStockOut = mutation({
     if (!Number.isFinite(args.quantity) || args.quantity <= 0) throw new Error("Exception quantity must be greater than zero.");
     if (args.quantity > material.quantity) throw new Error(`Insufficient ${material.name} stock for this exception.`);
     const now = Date.now();
-    const nextQuantity = Number((material.quantity - args.quantity).toFixed(2));
     const exceptionId = await ctx.db.insert("stockExceptions", {
       materialId: args.materialId,
       quantity: args.quantity,
@@ -599,20 +748,20 @@ export const recordExceptionStockOut = mutation({
       createdBy: identity._id,
       createdAt: now,
     });
-    await ctx.db.patch(args.materialId, { quantity: nextQuantity });
-    await ctx.db.insert("stockMovements", {
+    await recordInventoryEvent(ctx, {
       materialId: args.materialId,
-      direction: "out",
+      eventType: "EXCEPTION_STOCK_OUT",
+      custody: "parent",
+      balanceEffect: "out",
       quantity: args.quantity,
       unit: args.unit,
       baseUnit,
       baseQuantity: args.quantity,
-      movementType: "EXCEPTION_STOCK_OUT",
-      exceptionReason: args.reason,
       note: `Direct exception stock-out · ${args.reason}${args.authorizationNote ? ` · ${args.authorizationNote.trim()}` : ""}`,
       createdBy: identity._id,
-      createdAt: now,
     });
+    const updatedMaterial = await ctx.db.get(args.materialId);
+    const nextQuantity = updatedMaterial?.quantity ?? 0;
     await notifyRoles(ctx, ["owner", "manager"], {
       title: "Direct exception stock-out recorded",
       message: `${material.name} · ${args.quantity} ${baseUnit} · ${args.reason}.`,
@@ -719,13 +868,19 @@ export const expireOrdersInternal = internalMutation({
     let expiredCount = 0;
     
     for (const order of expiredOrders) {
-      if (order.status === "Expired" || !order.expiresAt || order.expiresAt >= now) {
+      const canExpire = order.status === "PENDING_REVIEW" || order.status === "PRICED_AND_PENDING_PAYMENT";
+      if (!canExpire || order.paymentStatus === "PAID" || order.paymentStatus === "APPROVED_CREDIT" || !order.expiresAt || order.expiresAt >= now) {
         continue;
       }
-      
-      await ctx.db.patch(order._id, { 
-        status: "Expired", 
-        updatedAt: now 
+
+      if (order.fileStorageId) await ctx.storage.delete(order.fileStorageId);
+      await ctx.db.patch(order._id, {
+        status: "EXPIRED_JUNK",
+        archivedAt: now,
+        archiveReason: "Unpaid order expired",
+        fileStorageId: undefined,
+        fileName: undefined,
+        updatedAt: now,
       });
       
       if (order.telegramChatId) {

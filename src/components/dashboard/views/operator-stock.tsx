@@ -1,12 +1,13 @@
 "use client";
 
-import { AlertTriangle, Package, RefreshCw, Trash2, ArrowLeftRight } from "lucide-react";
+import { AlertTriangle, RefreshCw, Trash2, Scale } from "lucide-react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { cn } from "@/lib/utils";
 import { Button, Panel, PanelHeader, StatusPill } from "@/components/ui";
 import { ModalShell } from "../modals/modal-shell";
 import { useState } from "react";
+import { WeeklyReconciliationModal } from "./weekly-reconciliation-modal";
 
 function formatQuantity(n: number, unit: string) {
   return `${n.toFixed(2)} ${unit}`;
@@ -19,6 +20,7 @@ function formatPercentage(value: number) {
 export function OperatorStockWidget({ machineId }: { machineId: string }) {
   const stock = useQuery(api.inventory.listOperatorMachineStock);
   const [exhaustingId, setExhaustingId] = useState<string | null>(null);
+  const [reconciling, setReconciling] = useState(false);
   const exhaustStock = useMutation(api.inventory.exhaustOperatorStock);
 
   const machineStock = stock?.filter((s) => s.machineId === machineId && s.status === "ACTIVE") || [];
@@ -39,6 +41,7 @@ export function OperatorStockWidget({ machineId }: { machineId: string }) {
         title="Active Floor Stock"
         subtitle="Materials issued to this machine"
         kicker="FLOOR STOCK"
+        action={<Button size="small" variant="tertiary" onClick={() => setReconciling(true)}><Scale size={13} />Reconcile</Button>}
       />
       <div className="p-4 space-y-3">
         {machineStock.length === 0 ? (
@@ -104,6 +107,7 @@ export function OperatorStockWidget({ machineId }: { machineId: string }) {
           })
         )}
       </div>
+      {reconciling ? <WeeklyReconciliationModal onClose={() => setReconciling(false)} /> : null}
     </Panel>
   );
 }

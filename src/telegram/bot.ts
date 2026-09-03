@@ -13,6 +13,7 @@ import {
   REPLY_CONTACT,
   REPLY_LANGUAGE,
   REPLY_MINI_APP,
+  REPLY_MY_ORDERS,
   REPLY_NEW_ORDER,
   REPLY_ORDER_STATUS,
   backToMenuKeyboard,
@@ -184,6 +185,26 @@ async function showOrderStatusPrompt(ctx: MyContext) {
   });
 }
 
+async function showMyOrders(ctx: MyContext) {
+  const orders = await fetchQuery(api.orders.listByTelegramChat, { telegramChatId: String(ctx.chat!.id) });
+  if (orders.length === 0) {
+    await ctx.reply(ctx.session.language === "am" ? "እስካሁን በዚህ ቴሌግራም የተመዘገበ ትዕዛዝ የለም።" : "No orders are linked to this Telegram account yet.", { reply_markup: backToMenuKeyboard(ctx.session.language) });
+    return;
+  }
+  for (const order of orders.slice(0, 10)) {
+    await ctx.reply(
+      formatStatusLine(ctx.session.language, {
+        code: order.code,
+        serviceType: serviceLabel(ctx.session.language, order.serviceType),
+        dimensions: order.dimensions,
+        status: order.status,
+        createdAt: order.createdAt,
+      }),
+      { reply_markup: backToMenuKeyboard(ctx.session.language) },
+    );
+  }
+}
+
 async function showAddress(ctx: MyContext) {
   const info = await fetchQuery(api.orders.publicInfo, {});
   await ctx.reply(
@@ -221,6 +242,9 @@ async function handleMenuAction(ctx: MyContext, action: string) {
       break;
     case REPLY_ORDER_STATUS:
       await showOrderStatusPrompt(ctx);
+      break;
+    case REPLY_MY_ORDERS:
+      await showMyOrders(ctx);
       break;
     case REPLY_CONTACT:
       await showAddress(ctx);
@@ -502,6 +526,10 @@ export function createBot(token: string): Bot<MyContext> {
 
   bot.command(["menu", "home"], async (ctx) => {
     await goHome(ctx);
+  });
+
+  bot.command("my-orders", async (ctx) => {
+    await showMyOrders(ctx);
   });
 
   bot.command("cancel", async (ctx) => {

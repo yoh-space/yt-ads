@@ -4,6 +4,7 @@ import { unit } from "./schema";
 import { requireActiveProfile, requirePermission } from "./users";
 import { canAccessMaterialRequest } from "./authorization";
 import { notifyRoles, notifyUser } from "./notificationHelpers";
+import { recordInventoryEvent } from "./inventoryLedger";
 
 export const list = query({
   args: {},
@@ -96,6 +97,7 @@ export const issue = mutation({
   args: {
     requestId: v.id("materialRequests"),
     issuedQuantity: v.number(),
+    operatorId: v.optional(v.string()),
     note: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -113,23 +115,38 @@ export const issue = mutation({
 
     const material = await ctx.db.get(request.materialId);
     if (!material || !material.active) throw new Error("Active material not found.");
-    if (args.issuedQuantity > material.quantity) {
-      throw new Error(`Insufficient ${material.name} stock for this request.`);
-    }
-
-    await ctx.db.patch(request.materialId, {
-      quantity: Number((material.quantity - args.issuedQuantity).toFixed(2)),
-    });
-    await ctx.db.insert("stockMovements", {
+    const job = await ctx.db.get(request.jobCardId);
+    const machine = job ? await ctx.db.get(job.machineId) : undefined;
+    if (!job || !machine) throw new Error("The request's job machine is unavailable.");
+    const operatorId = args.operatorId?.trim() || request.requestedBy;
+    const subStockId = await ctx.db.insert("operatorSubStock", {
       materialId: request.materialId,
-      direction: "out",
+      operatorId,
+      machineId: job.machineId,
+      issuedUnits: 0,
+      issuedQuantity: 0,
+      currentRemaining: 0,
+      status: "ACTIVE",
+      issuedBy: identity._id,
+      issuedAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+    await recordInventoryEvent(ctx, {
+      materialId: request.materialId,
+      eventType: "STORE_TO_OPERATOR_TRANSFER",
+      custody: "operator",
+      balanceEffect: "transfer",
       quantity: args.issuedQuantity,
       unit: request.unit,
       baseUnit: request.unit,
       baseQuantity: args.issuedQuantity,
+      operatorSubStockId: subStockId,
+      operatorId,
+      machineId: machine._id,
+      jobCardId: request.jobCardId,
+      materialRequestId: request._id,
       note: args.note?.trim() || `Material request issue for ${request.jobCardId}`,
       createdBy: identity._id,
-      createdAt: Date.now(),
     });
     const totalIssued = Number((request.issuedQuantity + args.issuedQuantity).toFixed(2));
     const nextStatus = totalIssued < request.requestedQuantity ? "Partially Issued" : "Issued";

@@ -25,7 +25,7 @@ import { ReconciliationView } from "./views/reconciliation";
 import { AuditLogView } from "./views/audit-log";
 import { SettingsView } from "./views/settings";
 import { FinancialOperationsView } from "./views/financial-operations";
-import { OrdersView, OrderPriceModal, OrderConfirmModal } from "./views/orders";
+import { OrdersView, OrderPriceModal, OrderConfirmModal, type InvoiceInput } from "./views/orders";
 import { StockModal } from "./modals/stock-modal";
 import { OffcutModal, type NewOffcutInput } from "./modals/offcut-modal";
 import { ReconciliationModal, type NewReconciliationInput } from "./modals/reconciliation-modal";
@@ -71,9 +71,14 @@ export function OperationsDashboard() {
   const canIssueRequest = Boolean(profile && hasPermission(role, "request.issue"));
   const canRecordException = Boolean(profile && hasPermission(role, "stock.exception"));
   const canCreateOrder = Boolean(profile && hasPermission(role, "order.create"));
+  const canCreateInvoice = Boolean(profile && hasPermission(role, "invoice.create"));
   const canRecordReconciliation = Boolean(profile && hasPermission(role, "reconciliation.record"));
   const canReviewReconciliation = Boolean(profile && hasPermission(role, "reconciliation.review"));
   const materialRequests = useQuery(api.materialRequests.list, profile?.active ? {} : "skip");
+  const floorStockQuery = useQuery(
+    api.inventory.listOperatorMachineStock,
+    profile?.active && ["laser_operator", "cnc_operator", "plotter_operator", "printer_operator"].includes(profile.role) ? {} : "skip",
+  );
   const ordersQuery = useQuery(api.orders.list, canViewOrders && profile?.active ? {} : "skip");
   const canViewExceptions = Boolean(profile && hasPermission(role, "audit.view"));
   const exceptionsQuery = useQuery(api.orders.listExceptions, canViewExceptions && profile?.active ? {} : "skip");
@@ -100,6 +105,7 @@ export function OperationsDashboard() {
   const recordExceptionStockOut = useMutation(api.orders.recordExceptionStockOut);
   const notifyOverdue = useMutation(api.orders.notifyOverdue);
   const createWalkIn = useMutation(api.orders.createWalkIn);
+  const createInvoice = useMutation(api.orders.createInvoice);
   const countMaterial = useMutation(api.reconciliation.countMaterial);
   const reviewReconciliation = useMutation(api.reconciliation.review);
 
@@ -111,6 +117,7 @@ export function OperationsDashboard() {
   const [convertOrderTarget, setConvertOrderTarget] = useState<CustomerOrder | null>(null);
   const [editMachineTarget, setEditMachineTarget] = useState<Machine | null>(null);
   const [machineSettingsTarget, setMachineSettingsTarget] = useState<Machine | null>(null);
+  const [floorMachineId, setFloorMachineId] = useState<string | undefined>();
   const [jobFilter, setJobFilter] = useState<JobCard["status"] | "open" | null>(null);
   const [notice, setNotice] = useState("የዛሬ ሥራ በቅጽበት እየተመዘገበ ነው");
 
@@ -161,6 +168,7 @@ export function OperationsDashboard() {
   const exceptions = canViewOrders ? (withIds(exceptionsQuery ?? []) as StockException[]) : [];
   const resolvedProfile: Profile | null = profile ? { ...profile, id: profile._id } : null;
   const visibleView = canAccessView(resolvedRole, activeView) ? activeView : defaultViewForRole(resolvedRole);
+  const floorStockTarget = floorStockQuery?.find((entry) => entry.machineId === floorMachineId && entry.status === "ACTIVE" && entry.operatorId === profile.authUserId);
 
   const filteredMachines = role === "owner" || role === "manager" || role === "admin" || role === "storekeeper"
     ? machines
@@ -413,7 +421,26 @@ export function OperationsDashboard() {
               onComplete={completeJob}
             />
           ) : null}
-          {visibleView === "orders" ? <OrdersView orders={orders} machines={machines} materials={materials} canManage={canManageOrders} canCreateOrder={canCreateOrder} onConvert={setConvertOrderTarget} onStatus={(orderId, status) => finishMutation(`order-status-${orderId}`, updateOrderStatus({ orderId: orderId as Id<"customerOrders">, status }), `Order status updated to ${status}`)} onCreateOrder={() => openModal("order", "order.create")} isPending={isPending} /> : null}
+          {visibleView === "orders" ? <OrdersView orders={orders} machines={machines} materials={materials} canManage={canManageOrders} canCreateOrder={canCreateOrder} canInvoice={canCreateInvoice} onConvert={setConvertOrderTarget} onStatus={(orderId, status) => finishMutation(`order-status-${orderId}`, updateOrderStatus({ orderId: orderId as Id<"customerOrders">, status }), `Order status updated to ${status}`)} onCreateOrder={() => openModal("order", "order.create")} onInvoice={(order, input?: InvoiceInput) => {
+            if (!input) return;
+            return createInvoice({
+              orderId: order.id as Id<"customerOrders">,
+              type: input.type,
+              companyLegalName: input.companyLegalName,
+              tinNumber: input.tinNumber,
+              lineItems: input.lineItems,
+              taxRate: input.taxRate,
+            }).then(() => {
+              const message = `${order.code} invoice issued`;
+              setNotice(message);
+              toast.success(message);
+            }).catch((error: unknown) => {
+              const message = error instanceof Error ? error.message : "Unable to issue invoice.";
+              setNotice(message);
+              toast.error(message);
+              throw error;
+            });
+          }} isPending={isPending} /> : null}
           {visibleView === "inventory" ? (
             <InventoryView
               materials={materials}
@@ -451,8 +478,8 @@ export function OperationsDashboard() {
               canUpdateMachine={Boolean(profile && hasPermission(role, "machine.update"))}
               canDeleteMachine={Boolean(profile && hasPermission(role, "machine.delete"))}
               onCreate={() => openModal("machine", "machine.create")}
-              onOffcut={() => openModal("offcut", "offcut.create")}
-              onScrap={() => openModal("scrap", "scrap.create")}
+               onOffcut={(machineId) => { setFloorMachineId(machineId); openModal("offcut", "offcut.create"); }}
+               onScrap={(machineId) => { setFloorMachineId(machineId); openModal("scrap", "scrap.create"); }}
               onComplete={completeJob}
               onRecordProduction={recordProduction}
               onAssignNextJob={(machineId) => finishMutation(`assign-job-${machineId}`, assignNextJob({ machineId: machineId as Id<"machines"> }), "Job assigned to machine")}
@@ -495,6 +522,8 @@ export function OperationsDashboard() {
               "create-walk-in-order",
               createWalkIn({
                 clientName: input.clientName,
+                companyLegalName: input.companyLegalName || undefined,
+                tinNumber: input.tinNumber || undefined,
                 phone: input.phone,
                 serviceType: input.serviceType,
                 dimensions: input.dimensions,
@@ -514,11 +543,13 @@ export function OperationsDashboard() {
       {modal === "offcut" && canCreateOffcut ? (
         <OffcutModal
           materials={materials}
+          operatorSubStockId={floorStockTarget?._id}
+          machineId={floorStockTarget?.machineId}
           onClose={() => setModal(null)}
           onSave={(input: NewOffcutInput) => {
             finishMutation(
               "create-offcut",
-              createOffcut({ ...input, materialId: input.materialId as Id<"materials"> }),
+               createOffcut({ ...input, materialId: input.materialId as Id<"materials">, operatorSubStockId: input.operatorSubStockId as Id<"operatorSubStock"> | undefined, machineId: input.machineId as Id<"machines"> | undefined }),
               `ቅሪት ወደ ንቁ ክምችት ተመልሷል`,
             );
           }}
@@ -527,11 +558,13 @@ export function OperationsDashboard() {
       {modal === "scrap" && canCreateScrap ? (
         <ScrapModal
           materials={materials}
+          operatorSubStockId={floorStockTarget?._id}
+          machineId={floorStockTarget?.machineId}
           onClose={() => setModal(null)}
           onSave={(input: NewScrapInput) => {
             finishMutation(
               "log-scrap",
-              logScrap({ ...input, materialId: input.materialId as Id<"materials"> }),
+               logScrap({ ...input, materialId: input.materialId as Id<"materials">, operatorSubStockId: input.operatorSubStockId as Id<"operatorSubStock"> | undefined, machineId: input.machineId as Id<"machines"> | undefined }),
               `${input.reason} ለወጪ እና ቅነሳ ትንተና ተመዝግቧል`,
             );
           }}

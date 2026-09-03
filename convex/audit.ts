@@ -58,7 +58,7 @@ export const list = query({
       ctx.db.query("machines").collect(),
       ctx.db.query("jobCards").collect(),
       ctx.db.query("productionLogs").collect(),
-      ctx.db.query("stockMovements").collect(),
+      ctx.db.query("stock_movements").collect(),
       ctx.db.query("offcuts").collect(),
       ctx.db.query("scraps").collect(),
       ctx.db.query("customerOrders").collect(),
@@ -102,24 +102,28 @@ export const list = query({
 
     for (const movement of stockMovements) {
       const materialName = materialNames.get(movement.materialId) ?? "Unknown material";
-      const action = movement.movementType === "EXCEPTION_STOCK_OUT"
-        ? "Exception stock-out"
-        : movement.direction === "in"
-          ? "Stock received"
-          : movement.direction === "offcut_return"
-            ? "Offcut returned"
-            : "Stock issued";
+       const action = movement.eventType === "STOCK_IN"
+         ? "Stock received"
+         : movement.eventType === "STORE_TO_OPERATOR_TRANSFER"
+           ? "Stock transferred to operator"
+           : movement.eventType === "PRODUCTION_CONSUMPTION"
+             ? "Production consumption"
+             : movement.eventType === "OFFCUT_RETURN"
+               ? "Offcut returned"
+               : movement.eventType === "SCRAP_LOG"
+                 ? "Scrap logged"
+                 : movement.eventType === "EXCEPTION_STOCK_OUT"
+                   ? "Exception stock-out"
+                   : "Reconciliation adjustment";
       add({
         id: `movement-${movement._id}`,
-        category: movement.movementType === "EXCEPTION_STOCK_OUT" ? "inventory" : movement.direction === "offcut_return" ? "recovery" : "inventory",
+         category: movement.eventType === "OFFCUT_RETURN" || movement.eventType === "SCRAP_LOG" ? "recovery" : movement.eventType === "PRODUCTION_CONSUMPTION" ? "production" : "inventory",
         action,
         actorId: movement.createdBy,
         actorName: userNames.get(movement.createdBy) ?? movement.createdBy,
         at: movement.createdAt,
-        summary: `${materialName} · ${movement.baseQuantity ?? movement.quantity} ${movement.baseUnit ?? movement.unit}`,
-        detail: movement.baseQuantity !== undefined && movement.baseUnit && movement.unit !== movement.baseUnit
-          ? `${movement.quantity} ${movement.unit} converted to ${movement.baseQuantity} ${movement.baseUnit} · ${movement.note || "Inventory movement recorded"}`
-          : movement.note || "Inventory movement recorded",
+         summary: `${materialName} · ${movement.baseQuantity} ${movement.baseUnit}`,
+         detail: `${movement.eventType} · ${movement.note || "Inventory movement recorded"}`,
       });
     }
 

@@ -1,13 +1,17 @@
 import { mutation, query, type MutationCtx } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 import { v } from "convex/values";
 import { requireAnyPermission, requirePermission } from "./users";
 import { canAccessMachine } from "./authorization";
 import { notifyRoles } from "./notificationHelpers";
+import { ensureSystemConfig } from "./systemConfigs";
+import { resolveConversionRatio } from "./materialUsage";
+import { recordInventoryEvent } from "./inventoryLedger";
 
 /**
  * Two-tier inventory. Tier 1 (`parentInventory`) tracks whole packaging units
  * in the central store; the storekeeper issues whole units to tier 2
- * (`operatorMachineStock`), which tracks the exact base-unit balance at each
+ * (`operatorSubStock`), which tracks the exact base-unit balance at each
  * operator's machine. Production deducts from the floor tier, and the weekly
  * reconciliation audits the floor count against the system balance.
  */
@@ -65,7 +69,7 @@ export const upsertParentInventoryItem = mutation({
     volumePerContainer: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    await requirePermission(ctx, "material.edit");
+    const { identity } = await requirePermission(ctx, "material.edit");
     const material = await ctx.db.get(args.materialId);
     if (!material || !material.active) throw new Error("Active material not found.");
     if (!Number.isFinite(args.totalStockQuantity) || args.totalStockQuantity < 0) {
@@ -77,7 +81,6 @@ export const upsertParentInventoryItem = mutation({
       .unique();
     const patch = {
       unitType: args.unitType,
-      totalStockQuantity: args.totalStockQuantity,
       lengthPerRoll: args.lengthPerRoll !== undefined && args.lengthPerRoll > 0 ? args.lengthPerRoll : undefined,
       areaPerSheet: args.areaPerSheet !== undefined && args.areaPerSheet > 0 ? args.areaPerSheet : undefined,
       volumePerContainer: args.volumePerContainer !== undefined && args.volumePerContainer > 0 ? args.volumePerContainer : undefined,
@@ -85,11 +88,71 @@ export const upsertParentInventoryItem = mutation({
     };
     if (existing) {
       await ctx.db.patch(existing._id, patch);
+      const delta = Number((args.totalStockQuantity - existing.totalStockQuantity).toFixed(3));
+      if (delta !== 0) {
+        const config = await ensureSystemConfig(ctx, identity._id);
+        const purchaseUnit = args.unitType === "ROLL" ? "roll" : args.unitType === "SHEET" ? "sheet" : "liter";
+        const baseUnit = material.baseUnit ?? material.unit;
+        const ratio = conversionRatioForParent(material, patch, config, purchaseUnit);
+        if (ratio === null) throw new Error("Set a positive conversion ratio before adjusting parent stock.");
+        await recordInventoryEvent(ctx, {
+          materialId: material._id,
+          eventType: delta > 0 ? "STOCK_IN" : "RECONCILIATION_ADJUSTMENT",
+          custody: "parent",
+          balanceEffect: delta > 0 ? "in" : "out",
+          quantity: Math.abs(delta),
+          unit: purchaseUnit,
+          baseUnit,
+          baseQuantity: Math.abs(delta * ratio),
+          packageQuantity: Math.abs(delta),
+          packageUnit: args.unitType,
+          conversionRatio: ratio,
+          parentInventoryId: existing._id,
+          note: delta > 0 ? "Central packaging stock received" : "Central packaging stock reconciliation",
+          createdBy: identity._id,
+        });
+      }
       return existing._id;
     }
-    return ctx.db.insert("parentInventory", { ...patch, materialId: args.materialId });
+    const id = await ctx.db.insert("parentInventory", { ...patch, materialId: args.materialId, totalStockQuantity: 0 });
+    if (args.totalStockQuantity > 0) {
+      const config = await ensureSystemConfig(ctx, identity._id);
+      const purchaseUnit = args.unitType === "ROLL" ? "roll" : args.unitType === "SHEET" ? "sheet" : "liter";
+      const baseUnit = material.baseUnit ?? material.unit;
+      const ratio = conversionRatioForParent(material, patch, config, purchaseUnit);
+      if (ratio === null) throw new Error("Set a positive conversion ratio before adding parent stock.");
+      await recordInventoryEvent(ctx, {
+        materialId: material._id,
+        eventType: "STOCK_IN",
+        custody: "parent",
+        balanceEffect: "in",
+        quantity: args.totalStockQuantity,
+        unit: purchaseUnit,
+        baseUnit,
+        baseQuantity: Number((args.totalStockQuantity * ratio).toFixed(3)),
+        packageQuantity: args.totalStockQuantity,
+        packageUnit: args.unitType,
+        conversionRatio: ratio,
+        parentInventoryId: id,
+        note: "Central packaging stock received",
+        createdBy: identity._id,
+      });
+    }
+    return id;
   },
 });
+
+function conversionRatioForParent(
+  material: { name: string; baseUnit?: string; unit: string; purchaseUnit?: string; conversionRatio?: number; rollEquivalent?: number; sheetEquivalent?: number },
+  parent: { unitType: "ROLL" | "SHEET" | "LITER"; lengthPerRoll?: number; areaPerSheet?: number; volumePerContainer?: number },
+  config: Awaited<ReturnType<typeof ensureSystemConfig>>,
+  purchaseUnit: string,
+) {
+  const explicit = parent.unitType === "ROLL" ? parent.lengthPerRoll : parent.unitType === "SHEET" ? parent.areaPerSheet : parent.volumePerContainer;
+  return explicit && explicit > 0
+    ? explicit
+    : resolveConversionRatio(material, config, purchaseUnit) ?? (purchaseUnit === "roll" ? material.rollEquivalent : purchaseUnit === "sheet" ? material.sheetEquivalent : material.conversionRatio) ?? (purchaseUnit === "liter" ? 1 : null);
+}
 
 /**
  * Tier 1 → tier 2 transfer: the storekeeper issues whole packaging units from
@@ -100,7 +163,7 @@ export const issueStockToOperator = mutation({
   args: {
     itemId: v.id("parentInventory"),
     machineId: v.id("machines"),
-    operatorId: v.optional(v.string()),
+    operatorId: v.string(),
     units: v.number(),
   },
   handler: async (ctx, args) => {
@@ -117,58 +180,74 @@ export const issueStockToOperator = mutation({
     if (args.units > item.totalStockQuantity) {
       throw new Error(`Insufficient ${material.name} in the central store — ${item.totalStockQuantity} ${item.unitType} available.`);
     }
-    const factor = conversionFactorFor(item);
-    if (factor === null) {
+    const config = await ensureSystemConfig(ctx, identity._id);
+    const purchaseUnit = item.unitType === "ROLL" ? "roll" : item.unitType === "SHEET" ? "sheet" : "liter";
+    const factor = conversionFactorFor(item) ?? resolveConversionRatio(material, config, purchaseUnit);
+    if (factor === undefined || factor === null || factor <= 0) {
       throw new Error(`Set the ${item.unitType === "ROLL" ? "length per roll" : "area per sheet"} conversion factor before issuing stock.`);
     }
     const baseQuantity = Number((args.units * factor).toFixed(3));
     const now = Date.now();
-
-    await ctx.db.patch(item._id, {
-      totalStockQuantity: item.totalStockQuantity - args.units,
-      updatedAt: now,
-    });
-    const stockId = await ctx.db.insert("operatorMachineStock", {
-      itemId: item._id,
+    const newStockId = await ctx.db.insert("operatorSubStock", {
+      parentInventoryId: item._id,
       materialId: item.materialId,
-      operatorId: args.operatorId?.trim() || machine.operatorRole,
+      operatorId: args.operatorId.trim(),
       machineId: args.machineId,
-      issuedUnits: args.units,
-      issuedQuantity: baseQuantity,
-      currentRemaining: baseQuantity,
+      issuedUnits: 0,
+      issuedQuantity: 0,
+      currentRemaining: 0,
       status: "ACTIVE",
       issuedBy: identity._id,
       issuedAt: now,
       updatedAt: now,
+    });
+    await recordInventoryEvent(ctx, {
+      materialId: item.materialId,
+      eventType: "STORE_TO_OPERATOR_TRANSFER",
+      custody: "operator",
+      balanceEffect: "transfer",
+      quantity: args.units,
+      unit: purchaseUnit,
+      baseUnit: material.baseUnit ?? material.unit,
+      baseQuantity,
+      packageQuantity: args.units,
+      packageUnit: item.unitType,
+      conversionRatio: factor,
+      parentInventoryId: item._id,
+      operatorSubStockId: newStockId,
+      operatorId: args.operatorId.trim(),
+      machineId: args.machineId,
+      note: `Central stock issued to ${machine.name}`,
+      createdBy: identity._id,
     });
     await notifyRoles(ctx, [machine.operatorRole, "owner", "manager", "admin"], {
       title: "Stock issued to machine",
       message: `${args.units} ${item.unitType} (${baseQuantity} ${material.baseUnit ?? material.unit}) of ${material.name} issued to ${machine.name}.`,
       type: "material_issue",
       actorAuthUserId: identity._id,
-      relatedTable: "operatorMachineStock",
-      relatedId: stockId,
+      relatedTable: "operatorSubStock",
+      relatedId: newStockId,
     });
-    return { stockId, baseQuantity, unit: material.baseUnit ?? material.unit };
+    return { stockId: newStockId, baseQuantity, unit: material.baseUnit ?? material.unit };
   },
 });
 
 /**
- * Deducts consumed base units from the ACTIVE floor batches of a machine +
- * material (FIFO by issue time). Returns the quantity actually deducted, which
- * can be less than requested when the floor runs dry — the weekly
- * reconciliation surfaces that variance. Never blocks production: the catalog
- * tier keeps its own audited deduction.
+ * Deducts consumed base units from ACTIVE operator sub-stock batches in FIFO
+ * order. Every deduction is an event, so the projection is never patched by a
+ * production handler directly.
  */
 export async function deductOperatorStock(
   ctx: MutationCtx,
   machineId: string,
   materialId: string,
   baseQuantity: number,
+  actorId = "system",
+  jobCardId?: string,
 ): Promise<number> {
   if (!Number.isFinite(baseQuantity) || baseQuantity <= 0) return 0;
   const batches = (await ctx.db
-    .query("operatorMachineStock")
+    .query("operatorSubStock")
     .withIndex("by_material_machine", (q) => q.eq("materialId", materialId as never).eq("machineId", machineId as never))
     .collect())
     .filter((batch) => batch.status === "ACTIVE" && batch.currentRemaining > 0)
@@ -177,12 +256,22 @@ export async function deductOperatorStock(
   for (const batch of batches) {
     if (remainingToDeduct <= 0) break;
     const take = Math.min(batch.currentRemaining, remainingToDeduct);
-    const next = Number((batch.currentRemaining - take).toFixed(3));
     remainingToDeduct = Number((remainingToDeduct - take).toFixed(3));
-    await ctx.db.patch(batch._id, {
-      currentRemaining: next,
-      status: next <= 0.0001 ? "EXHAUSTED" : "ACTIVE",
-      updatedAt: Date.now(),
+    await recordInventoryEvent(ctx, {
+      materialId: batch.materialId,
+      eventType: "PRODUCTION_CONSUMPTION",
+      custody: "operator",
+      balanceEffect: "none",
+      quantity: take,
+      unit: (await ctx.db.get(batch.materialId))?.baseUnit ?? "m²",
+      baseUnit: (await ctx.db.get(batch.materialId))?.baseUnit ?? "m²",
+      baseQuantity: take,
+      operatorSubStockId: batch._id,
+      operatorId: batch.operatorId,
+      machineId: batch.machineId,
+      jobCardId: jobCardId as Id<"jobCards"> | undefined,
+      note: `Production consumption${jobCardId ? ` for ${jobCardId}` : ""}`,
+      createdBy: actorId,
     });
   }
   return Number((baseQuantity - remainingToDeduct).toFixed(3));
@@ -192,7 +281,7 @@ export const listOperatorMachineStock = query({
   args: {},
   handler: async (ctx) => {
     const { profile } = await requireAnyPermission(ctx, ["material.view", "machine.view", "job.view"]);
-    const batches = await ctx.db.query("operatorMachineStock").collect();
+    const batches = await ctx.db.query("operatorSubStock").collect();
     const [materials, machines] = await Promise.all([
       ctx.db.query("materials").collect(),
       ctx.db.query("machines").collect(),
@@ -203,7 +292,7 @@ export const listOperatorMachineStock = query({
     return batches
       .filter((batch) => {
         const machine = machineById.get(batch.machineId);
-        return !machine || !isFloorRole || canAccessMachine(profile.role, machine);
+        return !machine || !isFloorRole || (canAccessMachine(profile.role, machine) && (batch.operatorId === profile.authUserId || batch.operatorId === profile.role));
       })
       .sort((left, right) => right.issuedAt - left.issuedAt)
       .map((batch) => {
@@ -232,17 +321,21 @@ export const listOperatorMachineStock = query({
  */
 export const performWeeklyReconciliation = mutation({
   args: {
-    operatorStockId: v.id("operatorMachineStock"),
+    operatorSubStockId: v.id("operatorSubStock"),
     physicalActualRemaining: v.number(),
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const { identity } = await requirePermission(ctx, "reconciliation.record");
-    const batch = await ctx.db.get(args.operatorStockId);
+    const { identity, profile } = await requirePermission(ctx, "reconciliation.operator");
+    const batch = await ctx.db.get(args.operatorSubStockId);
     if (!batch) throw new Error("Issued stock batch not found.");
     const material = await ctx.db.get(batch.materialId);
     if (!material) throw new Error("Material not found.");
     const machine = await ctx.db.get(batch.machineId);
+    if (!machine || !canAccessMachine(profile.role, machine)) throw new Error("You cannot reconcile stock on this machine.");
+    if (!["owner", "manager", "admin", "storekeeper"].includes(profile.role) && batch.operatorId !== identity._id) {
+      throw new Error("Only the assigned operator can reconcile this floor stock.");
+    }
     if (!Number.isFinite(args.physicalActualRemaining) || args.physicalActualRemaining < 0) {
       throw new Error("Physical count must be zero or greater.");
     }
@@ -252,10 +345,10 @@ export const performWeeklyReconciliation = mutation({
     const discrepancy = Number((args.physicalActualRemaining - systemCalculatedRemaining).toFixed(3));
     const now = Date.now();
 
-    await ctx.db.insert("weeklyReconciliations", {
+    const reconciliationId = await ctx.db.insert("weeklyReconciliations", {
       machineId: batch.machineId,
       operatorId: batch.operatorId,
-      operatorStockId: batch._id,
+      operatorSubStockId: batch._id,
       systemCalculatedRemaining,
       physicalActualRemaining: args.physicalActualRemaining,
       discrepancy,
@@ -265,27 +358,22 @@ export const performWeeklyReconciliation = mutation({
       notes: args.notes?.trim() || undefined,
     });
 
-    await ctx.db.patch(batch._id, {
-      currentRemaining: args.physicalActualRemaining,
-      status: args.physicalActualRemaining <= 0.0001 ? "EXHAUSTED" : "ACTIVE",
-      updatedAt: now,
-    });
-
     if (discrepancy !== 0) {
-      await ctx.db.patch(material._id, {
-        quantity: Math.max(0, Number((material.quantity + discrepancy).toFixed(3))),
-      });
-      await ctx.db.insert("stockMovements", {
+      await recordInventoryEvent(ctx, {
         materialId: material._id,
-        direction: discrepancy < 0 ? "out" : "in",
+        eventType: "RECONCILIATION_ADJUSTMENT",
+        custody: "operator",
+        balanceEffect: discrepancy < 0 ? "out" : "in",
         quantity: Math.abs(discrepancy),
         unit: baseUnit,
         baseUnit,
         baseQuantity: Math.abs(discrepancy),
-        movementType: "STANDARD",
-        note: `Weekly floor reconciliation · ${machine?.name ?? batch.machineId} · physical ${args.physicalActualRemaining} vs system ${systemCalculatedRemaining} ${baseUnit}`,
+        operatorSubStockId: batch._id,
+        operatorId: batch.operatorId,
+        machineId: batch.machineId,
+        reconciliationId,
+        note: `Floor reconciliation · ${machine.name} · physical ${args.physicalActualRemaining} vs system ${systemCalculatedRemaining} ${baseUnit}`,
         createdBy: identity._id,
-        createdAt: now,
       });
     }
 
@@ -325,41 +413,40 @@ export const listWeeklyReconciliations = query({
  */
 export const exhaustOperatorStock = mutation({
   args: {
-    stockId: v.id("operatorMachineStock"),
+    stockId: v.id("operatorSubStock"),
   },
   handler: async (ctx, args) => {
-    const { identity } = await requirePermission(ctx, "stock.record");
+    const { identity, profile } = await requirePermission(ctx, "reconciliation.operator");
     const batch = await ctx.db.get(args.stockId);
     if (!batch) throw new Error("Stock batch not found.");
     if (batch.status !== "ACTIVE") throw new Error("Only active stock can be exhausted.");
-    
-    const now = Date.now();
+    const machine = await ctx.db.get(batch.machineId);
+    if (!machine || !canAccessMachine(profile.role, machine)) throw new Error("You cannot exhaust stock on this machine.");
+    if (!["owner", "manager", "admin", "storekeeper"].includes(profile.role) && batch.operatorId !== identity._id) {
+      throw new Error("Only the assigned operator can exhaust this floor stock.");
+    }
+
     const remaining = batch.currentRemaining;
-    
-    await ctx.db.patch(batch._id, {
-      status: "EXHAUSTED",
-      currentRemaining: 0,
-      updatedAt: now,
-    });
-    
-    // Write off remaining to catalog tier
-    const material = await ctx.db.get(batch.materialId);
-    if (material && remaining > 0) {
-      await ctx.db.patch(material._id, {
-        quantity: Math.max(0, Number((material.quantity - remaining).toFixed(3))),
-      });
-      await ctx.db.insert("stockMovements", {
-        materialId: material._id,
-        direction: "out",
-        quantity: remaining,
-        unit: material.baseUnit ?? material.unit,
-        baseUnit: material.baseUnit ?? material.unit,
-        baseQuantity: remaining,
-        movementType: "STANDARD",
-        note: `Manual floor exhaustion · ${batch.machineId} · ${remaining} ${material.baseUnit ?? material.unit} written off`,
-        createdBy: identity._id,
-        createdAt: now,
-      });
+
+    if (remaining > 0) {
+      const material = await ctx.db.get(batch.materialId);
+      if (material) {
+        await recordInventoryEvent(ctx, {
+          materialId: material._id,
+          eventType: "SCRAP_LOG",
+          custody: "operator",
+          balanceEffect: "none",
+          quantity: remaining,
+          unit: material.baseUnit ?? material.unit,
+          baseUnit: material.baseUnit ?? material.unit,
+          baseQuantity: remaining,
+          operatorSubStockId: batch._id,
+          operatorId: batch.operatorId,
+          machineId: batch.machineId,
+          note: `Manual floor exhaustion · ${machine.name}`,
+          createdBy: identity._id,
+        });
+      }
     }
     
     return { exhausted: true, remaining };
