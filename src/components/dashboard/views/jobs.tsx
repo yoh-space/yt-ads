@@ -92,7 +92,7 @@ export function JobsView({
               {/* Column Header */}
               <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-line">
                 <h3 className="font-semibold text-navy">{status}</h3>
-                <span className="inline-flex items-center justify-center w-6 h-6 text-xs font-bold text-gray-600 bg-gray-200 rounded-full">
+                <span className="inline-flex items-center justify-center w-6 h-6 text-xs font-bold text-gray-200 bg-gray-700 rounded-full">
                   {statusCount}
                 </span>
               </div>
