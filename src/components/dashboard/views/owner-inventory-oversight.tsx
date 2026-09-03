@@ -336,7 +336,7 @@ export function OwnerInventoryOversight({
         <Panel className="overflow-hidden">
           <PanelHeader
             kicker="PARENT INVENTORY GRID"
-            title="የዋሽጥ ክምችት ማጫን"
+            title="የ Storekeeper የክምችት አስተዳደር"
             subtitle="Whole packaging units (rolls, sheets, liters) under storekeeper custody · base-unit conversion for production"
             icon={<LayoutGrid size={17} />}
             action={<Badge variant="info">{parentList.length} items</Badge>}
@@ -396,7 +396,7 @@ export function OwnerInventoryOversight({
         <Panel className="overflow-hidden">
           <PanelHeader
             kicker="LEAKAGE & VARIANCE ALERTS"
-            title="የክምችት ማንገግያ እና ልዩነት ማስጠንቀቂያ"
+            title="የክምችት ጥፋት እና ልዩነት ማስጠንቀቂያ"
             subtitle="Ranked shortages across the latest count per material · monetary loss surfaced for the Owner"
             icon={<Receipt size={17} />}
             action={

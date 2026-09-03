@@ -255,6 +255,7 @@ export const notificationType = v.union(
   v.literal("overdue_order"),
   v.literal("exception_stock_out"),
   v.literal("clearance_granted"),
+  v.literal("clearance_rejected"),
 );
 
 export default defineSchema({

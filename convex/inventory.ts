@@ -628,3 +628,35 @@ export const approveOperatorClearance = mutation({
     return (await ctx.db.get(batch._id))!;
   },
 });
+
+/** Owner/admin rejects clearance: returns the reconciled batch to ACTIVE so the operator can re-count/reconcile before a new request is unlocked. */
+export const rejectOperatorClearance = mutation({
+  args: {
+    subStockId: v.id("operatorSubStock"),
+    note: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { identity } = await requirePermission(ctx, "reconciliation.clearance");
+    const batch = await ctx.db.get(args.subStockId);
+    if (!batch) throw new Error("Floor stock batch not found.");
+    if (batch.status !== "PENDING_CLEARANCE") {
+      throw new Error("Only a reconciled batch awaiting clearance can be rejected.");
+    }
+    const now = Date.now();
+    await ctx.db.patch(batch._id, {
+      status: "ACTIVE",
+      clearanceNote: args.note?.trim() || undefined,
+      updatedAt: now,
+    });
+    const material = await ctx.db.get(batch.materialId);
+    await notifyUser(ctx, batch.operatorId, {
+      title: "Clearance returned — please re-reconcile",
+      message: `Your reconciled ${material?.name ?? "floor stock"} batch was returned by the owner. Review the discrepancy and re-submit clearance.`,
+      type: "clearance_rejected",
+      actorAuthUserId: identity._id,
+      relatedTable: "operatorSubStock",
+      relatedId: batch._id,
+    });
+    return (await ctx.db.get(batch._id))!;
+  },
+});
