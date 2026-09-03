@@ -100,10 +100,6 @@ function ownerChatId(): string | undefined {
   );
 }
 
-function receptionistLabel(language: "am" | "en"): string {
-  return language === "am" ? "የሪሴፕሽን ቡድን" : "Reception team";
-}
-
 /* ─────────────────────────── session ─────────────────────────── */
 
 function sessionKey(ctx: Context): string {
