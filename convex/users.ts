@@ -126,6 +126,40 @@ export const getByTelegramId = query({
   },
 });
 
+/**
+ * Bot-only lookup for a customer's verified phone + display name, used so the
+ * `/start` handler can skip the share-contact prompt for known customers and
+ * the Mini App launcher can deep-link with the right phone.
+ *
+ * Authentication is a shared secret (`TELEGRAM_BOT_TOKEN`) — only callers
+ * that already hold the bot token may read a record, which prevents the deploy
+ * URL from being used to enumerate Telegram customer phone numbers. The Mini
+ * App never sees the bot token and therefore uses the regular `getByTelegramId`
+ * initData-protected query instead.
+ */
+export const getTelegramProfileForBot = query({
+  args: { telegramId: v.string(), botToken: v.string() },
+  handler: async (ctx, args) => {
+    const expected = process.env.TELEGRAM_BOT_TOKEN;
+    if (!expected || args.botToken !== expected) {
+      throw new Error("Unauthorized");
+    }
+    const telegramId = args.telegramId.trim();
+    if (!telegramId) return null;
+    const profile = await ctx.db
+      .query("telegramUsers")
+      .withIndex("by_telegram_id", (q) => q.eq("telegramId", telegramId))
+      .unique();
+    if (!profile) return null;
+    return {
+      telegramId: profile.telegramId,
+      phone: profile.phone,
+      name: profile.name,
+      verifiedAt: profile.verifiedAt,
+    };
+  },
+});
+
 /** Creates an application profile for a real Better Auth identity on first sign-in. */
 export const ensureProfile = mutation({
   args: {},

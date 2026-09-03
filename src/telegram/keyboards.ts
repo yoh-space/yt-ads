@@ -103,9 +103,9 @@ export function skipFileKeyboard(lang: Language): InlineKeyboard {
     .text("❌ " + (lang === "am" ? "ሰርዝ" : "Cancel"), "flow:cancel");
 }
 
-export function miniAppKeyboard(appUrl: string, lang: Language): InlineKeyboard {
+export function miniAppKeyboard(launchUrl: string, lang: Language): InlineKeyboard {
   return new InlineKeyboard()
-    .webApp(lang === "am" ? "🚀 Mini App ክፈት" : "🚀 Open Mini App", appUrl)
+    .webApp(lang === "am" ? "🚀 Mini App ክፈት" : "🚀 Open Mini App", launchUrl)
     .row()
     .text(lang === "am" ? "🌐 ቋንቋ ይቀይሩ" : "🌐 Change language", "open:language");
 }

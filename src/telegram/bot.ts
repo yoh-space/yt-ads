@@ -54,6 +54,44 @@ function appUrl(): string {
   return url.replace(/\/$/, "");
 }
 
+/** Build a Mini App launcher URL that pre-fills the customer's identity. */
+function miniAppLaunchUrl(ctx: MyContext): string {
+  const base = appUrl();
+  const params = new URLSearchParams();
+  if (ctx.session.telegramUserId) params.set("tgid", ctx.session.telegramUserId);
+  else if (ctx.from?.id !== undefined) params.set("tgid", String(ctx.from.id));
+  if (ctx.session.phone) params.set("phone", ctx.session.phone);
+  if (ctx.session.telegramUserName) params.set("name", ctx.session.telegramUserName);
+  else if (ctx.from?.first_name) {
+    const inferred = `${ctx.from.first_name}${ctx.from.last_name ? ` ${ctx.from.last_name}` : ""}`.trim();
+    if (inferred) params.set("name", inferred);
+  }
+  const qs = params.toString();
+  return qs ? `${base}/?${qs}` : `${base}/`;
+}
+
+/** Reads the cached telegram profile without forcing an initData round-trip. */
+async function hydrateSessionFromProfile(ctx: MyContext) {
+  if (ctx.session.phone && ctx.session.telegramUserId) return;
+  const telegramId = ctx.from?.id;
+  if (telegramId === undefined) return;
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) return;
+  try {
+    const profile = (await fetchQuery(api.users.getTelegramProfileForBot, {
+      telegramId: String(telegramId),
+      botToken: token,
+    })) as { telegramId?: string; phone?: string; name?: string } | null;
+    if (!profile?.phone) return;
+    if (!ctx.session.telegramUserId) ctx.session.telegramUserId = profile.telegramId ?? String(telegramId);
+    if (!ctx.session.phone) ctx.session.phone = profile.phone;
+    if (!ctx.session.telegramUserName && profile.name) ctx.session.telegramUserName = profile.name;
+    if (!ctx.session.phoneCapturedAt) ctx.session.phoneCapturedAt = Date.now();
+  } catch {
+    // Best-effort hydration — a failure here shouldn't block the customer.
+  }
+}
+
 function ownerChatId(): string | undefined {
   return (
     process.env.TELEGRAM_RECEPTION_CHAT_ID ??
@@ -246,7 +284,7 @@ async function startNewOrder(ctx: MyContext) {
 
 async function showMiniApp(ctx: MyContext) {
   await ctx.reply(t(ctx.session.language, "miniAppOffer"), {
-    reply_markup: miniAppKeyboard(appUrl(), ctx.session.language),
+    reply_markup: miniAppKeyboard(miniAppLaunchUrl(ctx), ctx.session.language),
   });
 }
 
@@ -360,9 +398,32 @@ async function handleFile(ctx: MyContext, file: IncomingFile) {
   draft.fileStorageId = uploaded.storageId;
   draft.fileName = uploaded.fileName;
   ctx.session.draft = draft;
+  const lang = ctx.session.language;
+  // If we already know the customer by phone (share-contact done / typed previously),
+  // skip the contact keyboard and submit the order straight away.
+  if (ctx.session.phone) {
+    draft.phone = ctx.session.phone;
+    ctx.session.draft = draft;
+    const code = await createOrder(ctx, draft);
+    const summary = formatOrderSummary(lang, draft, code);
+    ctx.session.step = undefined;
+    ctx.session.draft = undefined;
+    await ctx.reply(t(lang, "fileReceived"));
+    await ctx.reply(summary, { reply_markup: mainMenuKeyboard(lang) });
+    void notifyReceptionist({
+      code,
+      customer: customerDisplayName(ctx),
+      service: draft.serviceLabel ?? draft.serviceType ?? "—",
+      dimensions: draft.dimensions ?? "—",
+      phone: ctx.session.phone,
+      source: "Telegram (በፅሁፍ / text)",
+      language: lang,
+    });
+    return;
+  }
   ctx.session.step = "phone";
-  await ctx.reply(t(ctx.session.language, "fileReceived"));
-  await ctx.reply(t(ctx.session.language, "phonePrompt"), { reply_markup: phoneNumberKeyboard(ctx.session.language) });
+  await ctx.reply(t(lang, "fileReceived"));
+  await ctx.reply(t(lang, "phonePrompt"), { reply_markup: phoneNumberKeyboard(lang) });
 }
 
 async function finalizeOrder(ctx: MyContext, phone: string) {
@@ -424,8 +485,13 @@ async function handleContact(
     await ctx.reply(t(lang, "errorGeneric"));
     return;
   }
+  // Persist the verified contact in the session so we never re-prompt.
+  ctx.session.telegramUserId = String(telegramId);
+  ctx.session.phone = phone;
+  ctx.session.telegramUserName = name === "Telegram user" ? undefined : name;
+  ctx.session.phoneCapturedAt = Date.now();
   await ctx.reply(t(lang, "contactSaved", { phone }), {
-    reply_markup: miniAppKeyboard(appUrl(), lang),
+    reply_markup: miniAppKeyboard(miniAppLaunchUrl(ctx), lang),
   });
   await ctx.reply(t(lang, "mainIntro"), { reply_markup: mainMenuKeyboard(lang) });
 }
@@ -435,7 +501,18 @@ async function handleTypedPhone(ctx: MyContext, text: string) {
     await ctx.reply(t(ctx.session.language, "phoneInvalid"));
     return;
   }
-  await finalizeOrder(ctx, normalizePhone(text));
+  const normalized = normalizePhone(text);
+  // Persist a typed phone into the session so future flows skip the prompt.
+  ctx.session.phone = normalized;
+  ctx.session.phoneCapturedAt ??= Date.now();
+  if (!ctx.session.telegramUserId && ctx.from?.id !== undefined) {
+    ctx.session.telegramUserId = String(ctx.from.id);
+  }
+  if (!ctx.session.telegramUserName) {
+    const inferred = `${ctx.from?.first_name ?? ""}${ctx.from?.last_name ? ` ${ctx.from.last_name}` : ""}`.trim();
+    if (inferred) ctx.session.telegramUserName = inferred;
+  }
+  await finalizeOrder(ctx, normalized);
 }
 
 async function handleOrderCodeSearch(ctx: MyContext, text: string) {
@@ -593,7 +670,24 @@ export function createBot(token: string): Bot<MyContext> {
   bot.command("start", async (ctx) => {
     ctx.session.step = undefined;
     ctx.session.draft = undefined;
-    await ctx.reply(t(ctx.session.language, "start"), {
+    // Capture the Telegram user id + display name from the message context so we
+    // can deep-link the Mini App later without re-asking the customer.
+    if (ctx.from?.id !== undefined) ctx.session.telegramUserId = String(ctx.from.id);
+    if (ctx.from?.first_name) {
+      const inferred = `${ctx.from.first_name}${ctx.from.last_name ? ` ${ctx.from.last_name}` : ""}`.trim();
+      if (inferred) ctx.session.telegramUserName = inferred;
+    }
+    // Hydrate the verified phone from Convex when this is a returning customer.
+    await hydrateSessionFromProfile(ctx);
+    const lang = ctx.session.language;
+    if (ctx.session.phone) {
+      await ctx.reply(t(lang, "contactSaved", { phone: ctx.session.phone }), {
+        reply_markup: miniAppKeyboard(miniAppLaunchUrl(ctx), lang),
+      });
+      await ctx.reply(t(lang, "mainIntro"), { reply_markup: mainMenuKeyboard(lang) });
+      return;
+    }
+    await ctx.reply(t(lang, "start"), {
       reply_markup: shareContactKeyboard(),
     });
   });
@@ -651,6 +745,27 @@ export function createBot(token: string): Bot<MyContext> {
         await startNewOrder(ctx);
         break;
       case "flow:skip_file": {
+        const lang = ctx.session.language;
+        const draft = ctx.session.draft ?? {};
+        if (ctx.session.phone) {
+          draft.phone = ctx.session.phone;
+          ctx.session.draft = draft;
+          const code = await createOrder(ctx, draft);
+          const summary = formatOrderSummary(lang, draft, code);
+          ctx.session.step = undefined;
+          ctx.session.draft = undefined;
+          await ctx.reply(summary, { reply_markup: mainMenuKeyboard(lang) });
+          void notifyReceptionist({
+            code,
+            customer: customerDisplayName(ctx),
+            service: draft.serviceLabel ?? draft.serviceType ?? "—",
+            dimensions: draft.dimensions ?? "—",
+            phone: ctx.session.phone,
+            source: "Telegram (በፅሁፍ / text)",
+            language: lang,
+          });
+          return;
+        }
         ctx.session.step = "phone";
         await ctx.reply(t(lang, "phonePrompt"), { reply_markup: phoneNumberKeyboard(lang) });
         break;

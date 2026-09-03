@@ -30,6 +30,18 @@ export interface TelegramSessionData {
   language: Language;
   step?: FlowStep;
   draft?: OrderDraft;
+  /**
+   * Phone number captured via the /start share-contact flow. Persisted so
+   * future interactions (Mini App launcher, text order reuse) never re-prompt
+   * the customer for a phone they're already known by.
+   */
+  phone?: string;
+  /** Authoritative Telegram user id (so the Mini App can be deep-linked). */
+  telegramUserId?: string;
+  /** Display name captured from the Telegram account. */
+  telegramUserName?: string;
+  /** ms epoch when the phone number was first verified. */
+  phoneCapturedAt?: number;
 }
 
 export interface MiniAppOrderPayload {

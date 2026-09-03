@@ -21,7 +21,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { cn } from "@/lib/utils";
-import { bootstrapTelegramWebApp, sendTelegramOrderResult } from "@/lib/telegram-webapp";
+import { bootstrapTelegramWebApp, isTelegramMiniApp, sendTelegramOrderResult } from "@/lib/telegram-webapp";
 
 import { SERVICE_CATEGORIES, getServiceLabel, type ServiceId } from "@/constants/services";
 
@@ -33,25 +33,48 @@ export function TelegramMiniAppOrder() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Expand and mark the Mini App ready when opened inside a Telegram client.
+  // Returns the launch context — Telegram id, display name and verified phone —
+  // pulled from the bot's launcher URL first, then from window.Telegram.WebApp.
+  const [launchContext, setLaunchContext] = useState<{
+    telegramId?: string;
+    name?: string;
+    phone?: string;
+  }>({});
   useEffect(() => {
-    bootstrapTelegramWebApp();
+    const ctx = bootstrapTelegramWebApp();
+    setLaunchContext(ctx);
   }, []);
 
-  // The logged-in Telegram customer; the phone number is read from their
-  // profile (captured by the bot's share-contact flow), never typed here.
-  const [telegramId, setTelegramId] = useState<string | null>(null);
+  // The initData-protected round-trip is only needed when we don't already
+  // have a phone from the bot's launcher URL or from Telegram's WebApp user.
   const [telegramInitData, setTelegramInitData] = useState<string | null>(null);
   useEffect(() => {
     const webApp = window.Telegram?.WebApp;
-    const tgUser = webApp?.initDataUnsafe?.user;
-    if (tgUser?.id) setTelegramId(String(tgUser.id));
-    if (webApp?.initData) setTelegramInitData(webApp.initData);
+    setTelegramInitData(webApp?.initData ?? null);
   }, []);
 
-  const userProfile = useQuery(api.users.getByTelegramId, telegramId && telegramInitData ? { telegramId, initData: telegramInitData } : "skip");
-  const customerOrders = useQuery(api.orders.listForTelegramUser, telegramId && telegramInitData ? { telegramId, initData: telegramInitData } : "skip");
-  const verifiedPhone = userProfile?.phone ?? null;
+  const telegramId = launchContext.telegramId ?? null;
+  const launchPhone = launchContext.phone ?? null;
+  const launchName = launchContext.name ?? null;
+
+  const userProfile = useQuery(
+    api.users.getByTelegramId,
+    telegramId && telegramInitData && !launchPhone ? { telegramId, initData: telegramInitData } : "skip",
+  );
+  const customerOrders = useQuery(
+    api.orders.listForTelegramUser,
+    telegramId && telegramInitData ? { telegramId, initData: telegramInitData } : "skip",
+  );
+  const verifiedPhone = launchPhone ?? userProfile?.phone ?? null;
   const phoneReady = verifiedPhone !== null;
+
+  // Pre-fill the customer name once we know it.
+  useEffect(() => {
+    if (!launchName) return;
+    setForm((prev) => (prev.clientName ? prev : { ...prev, clientName: launchName }));
+  }, [launchName]);
+
+  const isInsideTelegram = isTelegramMiniApp();
 
   const [form, setForm] = useState<{ clientName: string; companyLegalName: string; tinNumber: string; serviceType: ServiceId; dimensions: string; quantity: string; notes: string }>({
     clientName: "",
@@ -353,12 +376,12 @@ export function TelegramMiniAppOrder() {
 
             <div>
               <span className="text-[11px] text-slate-500 font-medium block mb-1">ስልክ ቁጥር (ከቦት በራስ-ሰር የተቀላቀለ)</span>
-              {telegramId === null ? (
+              {!isInsideTelegram && telegramId === null ? (
                 <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold">
                   <AlertTriangle size={15} className="shrink-0 text-amber-500" />
                   ይህ ቅጽ በቴሌግራም ቦቱ ውስጥ መከፈት አለበት።
                 </div>
-              ) : userProfile === undefined ? (
+              ) : launchPhone === null && userProfile === undefined ? (
                 <div className="flex items-center gap-2 p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-500 text-xs font-semibold">
                   <Loader2 size={15} className="shrink-0 animate-spin text-slate-400" />
                   ስልክ ቁጥር በማግኘት ላይ...
