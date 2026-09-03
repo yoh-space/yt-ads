@@ -25,6 +25,7 @@ import { ReconciliationView } from "./views/reconciliation";
 import { AuditLogView } from "./views/audit-log";
 import { SettingsView } from "./views/settings";
 import { FinancialOperationsView } from "./views/financial-operations";
+import { OperationalConfigView } from "./views/operational-config";
 import { OrdersView, OrderPriceModal, OrderConfirmModal, type InvoiceInput } from "./views/orders";
 import { StockModal } from "./modals/stock-modal";
 import { OffcutModal, type NewOffcutInput } from "./modals/offcut-modal";
@@ -72,6 +73,7 @@ export function OperationsDashboard() {
   const canRecordException = Boolean(profile && hasPermission(role, "stock.exception"));
   const canCreateOrder = Boolean(profile && hasPermission(role, "order.create"));
   const canCreateInvoice = Boolean(profile && hasPermission(role, "invoice.create"));
+  const canManageConfig = Boolean(profile && hasPermission(role, "company_settings.update"));
   const canRecordReconciliation = Boolean(profile && hasPermission(role, "reconciliation.record"));
   const canReviewReconciliation = Boolean(profile && hasPermission(role, "reconciliation.review"));
   const materialRequests = useQuery(api.materialRequests.list, profile?.active ? {} : "skip");
@@ -495,6 +497,7 @@ export function OperationsDashboard() {
           {visibleView === "reconciliation" ? <ReconciliationView materials={materials} canRecord={canRecordReconciliation} canReview={canReviewReconciliation} canSeeFinancial={isOwner} onCount={() => openModal("reconciliation", "reconciliation.record")} onReview={(id, status) => finishMutation(`review-recon-${id}`, reviewReconciliation({ reconciliationId: id as Id<"reconciliations">, status }), "Reconciliation record reviewed")} /> : null}
           {visibleView === "audit" ? <AuditLogView /> : null}
           {visibleView === "financial" && isOwner ? <FinancialOperationsView /> : null}
+          {visibleView === "config" && canManageConfig ? <OperationalConfigView /> : null}
           {visibleView === "settings" && resolvedProfile ? <SettingsView profile={resolvedProfile} /> : null}
         </div>
       </main>

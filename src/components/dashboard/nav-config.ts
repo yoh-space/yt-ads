@@ -12,10 +12,11 @@ import {
   CircleDollarSign,
   Settings,
   Scale,
+  SlidersHorizontal,
   type LucideIcon,
 } from "lucide-react";
 
-export type View = "overview" | "orders" | "inventory" | "jobs" | "machines" | "offcuts" | "reports" | "reconciliation" | "audit" | "financial" | "settings";
+export type View = "overview" | "orders" | "inventory" | "jobs" | "machines" | "offcuts" | "reports" | "reconciliation" | "audit" | "financial" | "config" | "settings";
 export type Modal =
   | "stock"
   | "job"
@@ -32,9 +33,9 @@ export type Modal =
 export type SettingsCategory = "profile" | "security" | "team" | "company";
 
 export const roleVisibleViews: Record<Role, View[]> = {
-  owner: ["overview", "orders", "inventory", "jobs", "reports", "reconciliation", "audit", "financial", "settings"],
+  owner: ["overview", "orders", "inventory", "jobs", "reports", "reconciliation", "audit", "financial", "config", "settings"],
   manager: ["overview", "orders", "inventory", "jobs", "machines", "offcuts", "reports", "reconciliation", "audit", "settings"],
-  admin: ["overview", "orders", "inventory", "jobs", "machines", "offcuts", "reports", "reconciliation", "audit", "settings"],
+  admin: ["overview", "orders", "inventory", "jobs", "machines", "offcuts", "reports", "reconciliation", "audit", "config", "settings"],
   storekeeper: ["overview", "orders", "inventory", "jobs", "machines", "offcuts", "reconciliation", "audit", "settings"],
   receptionist: ["orders"],
   laser_operator: ["jobs", "machines", "offcuts", "settings"],
@@ -84,6 +85,7 @@ export const navItems: Array<{
   { id: "reconciliation", label: "ክምችት ማረጋገጫ", english: "Reconciliation", icon: Scale },
   { id: "audit", label: "የእንቅስቃሴ መዝገብ", english: "Audit Log", icon: History },
   { id: "financial", label: "የፋይናንስ አሠራር", english: "Financial Operations", icon: CircleDollarSign },
+  { id: "config", label: "የሥራ ማስተካከያ", english: "Operational Configuration", icon: SlidersHorizontal },
   { id: "settings", label: "ማስተካከያ", english: "Settings", icon: Settings },
 ];
 

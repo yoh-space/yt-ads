@@ -47,7 +47,7 @@ export function Sidebar({
     )}>
       {/* ── Console header ─────────────────────────────────────── */}
       <div className={cn("relative flex items-center px-4 pt-4 pb-5", { "justify-center px-0": collapsed })}>
-        {!collapsed ? <span className="font-mono text-[10px] uppercase tracking-widest text-slate-500">CONSOLE NODE v4.2</span> : null}
+        {!collapsed ? <span className="font-mono text-[10px] uppercase tracking-widest text-slate-500">YT Advertisement</span> : null}
         <button
           type="button"
           className={cn("hidden md:grid place-items-center h-7 w-7 rounded-md text-slate-400 hover:bg-slate-800/70 hover:text-white", collapsed ? "absolute -right-3 top-5 bg-[#1E293B] border border-slate-700" : "ml-auto")}
@@ -94,7 +94,7 @@ export function Sidebar({
         {(["OPERATIONS CORE", "SYSTEM GOVERNANCE"] as const).map((section) => {
           const sectionItems = visibleNavItems.filter((item) => section === "OPERATIONS CORE"
             ? ["overview", "orders", "jobs", "machines", "inventory"].includes(item.id)
-            : ["offcuts", "reports", "reconciliation", "audit", "settings"].includes(item.id));
+            : ["offcuts", "reports", "reconciliation", "audit", "config", "settings"].includes(item.id));
           if (sectionItems.length === 0) return null;
           return (
             <div key={section}>

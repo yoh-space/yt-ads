@@ -1,7 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import type { MutationCtx } from "./_generated/server";
-import { requireOwner } from "./users";
+import { requirePermission } from "./users";
 import { DEFAULT_SYSTEM_CONFIG, type SystemConfig } from "./materialUsage";
 import { unitConversionRule } from "./schema";
 
@@ -30,7 +30,7 @@ function validateNumber(value: number, label: string, options: { min?: number; m
 export const getSystemConfig = query({
   args: {},
   handler: async (ctx) => {
-    await requireOwner(ctx);
+    await requirePermission(ctx, "company_settings.update");
     const row = await ctx.db
       .query("systemConfigs")
       .withIndex("by_key", (q) => q.eq("key", CONFIG_KEY))
@@ -42,7 +42,7 @@ export const getSystemConfig = query({
 });
 
 /**
- * Owner-only mutation: write the operational & financial configuration. All
+ * Owner/admin-only mutation: write the operational & financial configuration. All
  * numeric inputs are validated (finite, in-range) and overrides are deduped by
  * material name (last write wins). Returns the persisted document.
  */
@@ -66,7 +66,7 @@ export const updateSystemConfig = mutation({
     orderExpirationHours: v.number(),
   },
   handler: async (ctx, args) => {
-    const { identity, profile } = await requireOwner(ctx);
+    const { identity, profile } = await requirePermission(ctx, "company_settings.update");
     validateNumber(args.etbPerSquareMetre, "Price per m²", { min: 0 });
     validateNumber(args.etbPerLitre, "Price per litre", { min: 0 });
     validateNumber(args.etbPerPiece, "Price per piece", { min: 0 });
