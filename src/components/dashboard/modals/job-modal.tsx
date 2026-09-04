@@ -264,7 +264,7 @@ export function JobModal({
               >
                 <option>High</option>
                 <option>Medium</option>
-                <option>Normal</option>
+                <option>Low</option>
               </select>
             </div>
             

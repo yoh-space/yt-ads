@@ -8,6 +8,7 @@ import { authComponent, createAuth } from "./auth";
 import { requireAdmin } from "./users";
 import { convertToBase, type InputUnit } from "./units";
 import { api } from "./_generated/api";
+import { internal } from "./_generated/api";
 import { MATERIAL_SPECIFICATIONS, type MaterialSpecificationDefinition } from "../src/shared/material-specifications";
 import { recordInventoryEvent } from "./inventoryLedger";
 import { classifyMaterialProductionType, effectiveConsumptionRate, resolveEtbValue } from "./materialUsage";
@@ -245,14 +246,10 @@ export async function clearWorkspaceData(ctx: MutationCtx) {
   for (const record of customerOrders) await ctx.db.delete(record._id);
   const jobCards = await ctx.db.query("jobCards").collect();
   for (const record of jobCards) await ctx.db.delete(record._id);
-  const stockMovements = await ctx.db.query("stockMovements").collect();
+  const stockMovements = await ctx.db.query("stock_movements").collect();
   for (const record of stockMovements) await ctx.db.delete(record._id);
-  const ledgerMovements = await ctx.db.query("stock_movements").collect();
-  for (const record of ledgerMovements) await ctx.db.delete(record._id);
   const operatorSubStock = await ctx.db.query("operatorSubStock").collect();
   for (const record of operatorSubStock) await ctx.db.delete(record._id);
-  const legacyOperatorStock = await ctx.db.query("operatorMachineStock").collect();
-  for (const record of legacyOperatorStock) await ctx.db.delete(record._id);
   const weeklyReconciliations = await ctx.db.query("weeklyReconciliations").collect();
   for (const record of weeklyReconciliations) await ctx.db.delete(record._id);
   const reconciliations = await ctx.db.query("reconciliations").collect();
@@ -397,17 +394,16 @@ export const seedYtAdvertisementWorkspace = mutation({
       return { seeded: false, reason: "YT Advertisement workspace is already seeded." };
     }
 
-    const [materials, machines, jobs, productionLogs, stockMovements, ledgerMovements, offcuts, scraps] = await Promise.all([
+    const [materials, machines, jobs, productionLogs, stockMovements, offcuts, scraps] = await Promise.all([
       ctx.db.query("materials").collect(),
       ctx.db.query("machines").collect(),
       ctx.db.query("jobCards").collect(),
       ctx.db.query("productionLogs").collect(),
-      ctx.db.query("stockMovements").collect(),
       ctx.db.query("stock_movements").collect(),
       ctx.db.query("offcuts").collect(),
       ctx.db.query("scraps").collect(),
     ]);
-    if ((materials.length || machines.length || jobs.length || productionLogs.length || stockMovements.length || ledgerMovements.length || offcuts.length || scraps.length) && !args.force) {
+    if ((materials.length || machines.length || jobs.length || productionLogs.length || stockMovements.length || offcuts.length || scraps.length) && !args.force) {
       return {
         seeded: false,
         reason: "Existing operational data detected. Back up and review a migration before replacing it.",
@@ -1027,6 +1023,8 @@ export const seedAll = mutation({
         demoAccounts.push(await ctx.runMutation(api.seed.seedSingleRoleAccount, { roleName }));
       }
     }
+
+    await ctx.runMutation(internal.migrations.normalizeOrderStatusCasing, {});
     return {
       seeded: true,
       ownerEmail: owner.email,
@@ -1059,8 +1057,8 @@ export const seedAll = mutation({
  *   9. Migration      — `migrations` row recording the seed completion
  *
  * Schema discipline:
- *   • Only `operatorSubStock` (legacy `operatorMachineStock` untouched).
- *   • Only `stock_movements`  (legacy `stockMovements`   untouched).
+ *   • Only `operatorSubStock` (authoritative floor ledger).
+ *   • Only `stock_movements`  (authoritative inventory ledger).
  *   • `systemConfigs.key = "default"`, `companySettings.key = "yt-advertisement"`.
  *
  * Run:  `npx convex run seed:seedDemoLifecycle`
@@ -1252,10 +1250,8 @@ async function clearLifecycleData(ctx: MutationCtx): Promise<void> {
     "invoices",
     "customerOrders",
     "jobCards",
-    "stockMovements",
     "stock_movements",
     "operatorSubStock",
-    "operatorMachineStock",
     "weeklyReconciliations",
     "reconciliations",
     "parentInventory",
@@ -2156,6 +2152,9 @@ export const seedDemoLifecycle = mutation({
 
     /* ---------- 9. Migration marker ---------- */
     await ctx.db.insert("migrations", { key: SEED_MIGRATION_KEY, ranAt: Date.now() });
+
+    /* Normalize any legacy order-status casing so the demo data is canonical. */
+    await ctx.runMutation(internal.migrations.normalizeOrderStatusCasing, {});
 
     return {
       seeded: true,

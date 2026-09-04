@@ -317,7 +317,7 @@ export const listOperatorMachineStock = query({
  * Weekly audit: compares a physical floor count against the system balance for
  * one issued batch, logs the result, writes the physical count back to the
  * floor tier, and writes any discrepancy off to the catalog tier through an
- * audited `stockMovements` entry.
+ * audited `stock_movements` entry.
  */
 export const performWeeklyReconciliation = mutation({
   args: {

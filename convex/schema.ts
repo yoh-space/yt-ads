@@ -115,11 +115,6 @@ export const exceptionReason = v.union(
   v.literal("Internal Maintenance"),
 );
 
-export const stockMovementType = v.union(
-  v.literal("STANDARD"),
-  v.literal("EXCEPTION_STOCK_OUT"),
-);
-
 /** Authoritative event types for the event-sourced inventory ledger. */
 export const stockEventType = v.union(
   v.literal("STOCK_IN"),
@@ -155,11 +150,6 @@ export const accent = v.union(
   v.literal("violet"),
   v.literal("blue"),
   v.literal("green"),
-);
-
-export const stockDirection = v.union(
-  v.literal("in"),
-  v.literal("out"),
 );
 
 export const purchaseUnit = v.union(
@@ -370,20 +360,6 @@ export default defineSchema({
   })
     .index("by_job_card", ["jobCardId"])
     .index("by_status", ["status"]),
-
-  stockMovements: defineTable({
-    materialId: v.id("materials"),
-    direction: v.union(stockDirection, v.literal("adjustment"), v.literal("offcut_return")),
-    quantity: v.number(),
-    unit: stockInputUnit,
-    baseUnit: v.optional(unit),
-    baseQuantity: v.optional(v.number()),
-    movementType: v.optional(stockMovementType),
-    exceptionReason: v.optional(v.string()),
-    note: v.string(),
-    createdBy: v.string(),
-    createdAt: v.number(),
-  }).index("by_material", ["materialId"]),
 
   customerOrders: defineTable({
     code: v.string(),
@@ -680,31 +656,6 @@ export default defineSchema({
     .index("by_unit_type", ["unitType"]),
 
   /**
-   * Two-tier inventory, tier 2 — stock issued to a specific operator/machine.
-   * Quantities are tracked in base units (m, m², L) so production deduction is
-   * direct: a 50 m roll is issued as 50 and completes at e.g. 32.5 remaining.
-   */
-  operatorMachineStock: defineTable({
-    itemId: v.id("parentInventory"),
-    materialId: v.id("materials"),
-    operatorId: v.string(),
-    machineId: v.id("machines"),
-    /** Whole packaging units issued (e.g. 1 roll). */
-    issuedUnits: v.number(),
-    /** Base units issued (e.g. 50 m) — equals issuedUnits × conversion factor. */
-    issuedQuantity: v.number(),
-    /** Base units still at the machine (e.g. 32.5 m). */
-    currentRemaining: v.number(),
-    status: operatorStockStatus,
-    issuedBy: v.optional(v.string()),
-    issuedAt: v.number(),
-    updatedAt: v.number(),
-  })
-    .index("by_item", ["itemId"])
-    .index("by_machine", ["machineId"])
-    .index("by_material_machine", ["materialId", "machineId"])
-    .index("by_status", ["status"]),
-
   /**
    * Current operator custody projection. Each row represents a packaging-unit
    * handover converted to the machine's production unit.
@@ -735,13 +686,12 @@ export default defineSchema({
   /**
    * Weekly audit log comparing the system-calculated floor balance against a
    * physical count. A non-zero discrepancy is written off to both inventory
-   * tiers and stays auditable through `stockMovements`.
+   * tiers and stays auditable through `stock_movements`.
    */
   weeklyReconciliations: defineTable({
     machineId: v.id("machines"),
     operatorId: v.string(),
-    /** Legacy floor-stock reference retained while old rows are migrated. */
-    operatorStockId: v.optional(v.id("operatorMachineStock")),
+    /** Floor-stock reference of the physical count. */
     operatorSubStockId: v.optional(v.id("operatorSubStock")),
     systemCalculatedRemaining: v.number(),
     physicalActualRemaining: v.number(),
@@ -753,7 +703,6 @@ export default defineSchema({
     notes: v.optional(v.string()),
   })
     .index("by_machine", ["machineId"])
-    .index("by_stock", ["operatorStockId"])
     .index("by_reconciled_at", ["reconciledAt"]),
 
   /**
