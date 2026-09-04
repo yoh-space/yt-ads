@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import { toast } from "sonner";
 import {
   Clock3,
   Copy,
   Download,
   FileImage,
+  FileText,
   ImageIcon,
   Printer,
   Wrench,
@@ -181,6 +183,74 @@ export function OrderDetailsSheet({
             ) : null}
           </section>
 
+          {/* Telegram Intake & Customer Credentials */}
+          <section className="space-y-3">
+            <SectionHeading icon={<FileText size={15} />} title="Telegram Intake Credentials" />
+            <div className="rounded-lg border border-line bg-gray-50/60 p-3.5 space-y-2.5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-gray-500 block">Order PIN</span>
+                  <strong className="font-mono text-sm text-cyan font-bold">{order.code}</strong>
+                </div>
+                <Button
+                  type="button"
+                  size="small"
+                  variant="secondary"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(order.code);
+                    toast.success(`Order PIN copied: ${order.code}`);
+                  }}
+                >
+                  <Copy size={11} /> Copy PIN
+                </Button>
+              </div>
+
+              <div className="flex items-center justify-between gap-3 border-t border-line/60 pt-2.5">
+                <div className="min-w-0">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-gray-500 block">Verified Company Name</span>
+                  <strong className="text-xs text-navy font-semibold truncate block">
+                    {order.companyLegalName || order.clientName}
+                  </strong>
+                </div>
+                <Button
+                  type="button"
+                  size="small"
+                  variant="secondary"
+                  onClick={() => {
+                    const text = order.companyLegalName || order.clientName;
+                    void navigator.clipboard.writeText(text);
+                    toast.success(`Company name copied: ${text}`);
+                  }}
+                >
+                  <Copy size={11} /> Copy Company Name
+                </Button>
+              </div>
+
+              <div className="flex items-center justify-between gap-3 border-t border-line/60 pt-2.5">
+                <div className="min-w-0">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-gray-500 block">Customer TIN</span>
+                  <strong className="font-mono text-xs text-navy font-semibold block">
+                    {order.tinNumber || "Not provided"}
+                  </strong>
+                </div>
+                <Button
+                  type="button"
+                  size="small"
+                  variant="secondary"
+                  disabled={!order.tinNumber}
+                  onClick={() => {
+                    if (order.tinNumber) {
+                      void navigator.clipboard.writeText(order.tinNumber);
+                      toast.success(`TIN copied: ${order.tinNumber}`);
+                    }
+                  }}
+                >
+                  <Copy size={11} /> Copy TIN
+                </Button>
+              </div>
+            </div>
+          </section>
+
           {/* Graphic Asset & Artwork Preview */}
           <section className="space-y-3">
             <SectionHeading icon={<FileImage size={15} />} title="Graphic Asset & Artwork" />
@@ -323,7 +393,7 @@ export function OrderDetailsSheet({
                 <Download size={14} />Download Asset
               </Button>
             ) : null}
-            {isDesktopShell() && canManage ? (
+            {isDesktopShell() && canManage && canInvoice ? (
               <Button type="button" variant="tertiary" onClick={() => printNative()}>
                 <Printer size={14} />Receipt
               </Button>

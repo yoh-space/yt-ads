@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
 import { Bell, Menu, PanelLeftClose, PanelLeftOpen, Search } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { navItems, type View } from "./nav-config";
+import { getNavItemHref, navItems, type View } from "./nav-config";
 import { UserMenu } from "./user-menu";
 import { NotificationModal } from "./notification-modal";
 import { TelemetryBar } from "@/components/ui/telemetry-bar";
@@ -32,15 +33,20 @@ export function Topbar({
   companyName,
   onOpenSettings,
 }: {
-  activeView: View;
-  onMenu: () => void;
-  onToggleSidebar: () => void;
-  sidebarCollapsed: boolean;
+  activeView?: View;
+  onMenu?: () => void;
+  onToggleSidebar?: () => void;
+  sidebarCollapsed?: boolean;
   profile: Profile | null;
   companyName?: string;
-  onOpenSettings: () => void;
+  onOpenSettings?: () => void;
 }) {
-  const current = navItems.find((item) => item.id === activeView);
+  const pathname = usePathname();
+  const current = navItems.find((item) => {
+    if (activeView) return item.id === activeView;
+    const href = getNavItemHref(item.id, profile?.role ?? "admin");
+    return pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
+  });
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const clock = useClock();
   const notifications = useQuery(api.notifications.list, profile ? {} : "skip");
@@ -101,7 +107,7 @@ export function Topbar({
             ) : null}
           </button>
           
-          <UserMenu profile={profile} onOpenSettings={onOpenSettings} />
+          <UserMenu profile={profile} onOpenSettings={onOpenSettings ?? (() => {})} />
         </div>
       </header>
 

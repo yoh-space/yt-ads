@@ -1,11 +1,14 @@
 "use client";
+
 import Image from "next/image";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   ChevronLeft,
   ChevronRight,
   X,
 } from "lucide-react";
-import { canAccessView, navItems, type View } from "./nav-config";
+import { canAccessView, getNavItemHref, navItems, type View } from "./nav-config";
 import type { Role } from "@/lib/operations-types";
 import { cn } from "@/lib/utils";
 
@@ -22,8 +25,8 @@ export function Sidebar({
   companyName,
   role,
 }: {
-  activeView: View;
-  onNavigate: (view: View) => void;
+  activeView?: View;
+  onNavigate?: (view: View) => void;
   mobileOpen: boolean;
   onClose: () => void;
   onToggleSidebar: () => void;
@@ -35,6 +38,7 @@ export function Sidebar({
   logoUrl?: string;
   role: Role;
 }) {
+  const pathname = usePathname();
   const visibleNavItems = navItems.filter(item => canAccessView(role, item.id));
 
   return (
@@ -143,11 +147,15 @@ export function Sidebar({
               ) : null}
               {sectionItems.map(item => {
                 const Icon = item.icon;
-                const isActive = activeView === item.id;
+                const href = getNavItemHref(item.id, role);
+                const isActive = activeView
+                  ? activeView === item.id
+                  : (pathname === href || (href !== "/dashboard" && pathname.startsWith(href)));
 
                 return (
-                  <button
+                  <Link
                     key={item.id}
+                    href={href}
                     title={collapsed ? item.english : undefined}
                     aria-label={item.english}
                     aria-current={isActive ? "page" : undefined}
@@ -158,7 +166,10 @@ export function Sidebar({
                         : "border-l-2 border-transparent text-slate-400 hover:bg-slate-800/50 hover:text-slate-100",
                       { "justify-center px-0 py-2.5": collapsed }
                     )}
-                    onClick={() => onNavigate(item.id)}
+                    onClick={() => {
+                      onNavigate?.(item.id);
+                      onClose?.();
+                    }}
                   >
                     {isActive ? (
                       <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-cyan shadow-[0_0_10px_rgba(25,196,210,0.8)]" />
@@ -216,7 +227,7 @@ export function Sidebar({
                         {item.english}
                       </span>
                     ) : null}
-                  </button>
+                  </Link>
                 );
               })}
             </div>

@@ -33,23 +33,68 @@ export type Modal =
 export type SettingsCategory = "profile" | "security" | "team" | "company";
 
 export const roleVisibleViews: Record<Role, View[]> = {
-  owner: ["overview", "orders", "inventory", "jobs", "reports", "reconciliation", "audit", "financial", "config", "settings"],
-  manager: ["overview", "orders", "inventory", "jobs", "machines", "offcuts", "reports", "reconciliation", "audit", "settings"],
-  admin: ["overview", "orders", "inventory", "jobs", "machines", "offcuts", "reports", "reconciliation", "audit", "config", "settings"],
-  storekeeper: ["overview", "orders", "inventory", "jobs", "machines", "offcuts", "reconciliation", "audit", "settings"],
-  receptionist: ["orders"],
-  laser_operator: ["jobs", "machines", "offcuts", "settings"],
-  cnc_operator: ["jobs", "machines", "offcuts", "settings"],
-  plotter_operator: ["jobs", "machines", "offcuts", "settings"],
-  printer_operator: ["jobs", "machines", "offcuts", "settings"],
+  owner: ["overview", "orders", "inventory", "jobs", "machines", "reports", "reconciliation", "financial", "settings"],
+  manager: ["overview", "orders", "inventory", "jobs", "machines", "reports", "reconciliation", "settings"],
+  admin: ["overview", "orders", "inventory", "jobs", "machines", "reports", "reconciliation", "financial", "settings"],
+  storekeeper: ["overview", "inventory", "reconciliation", "settings"],
+  receptionist: ["overview", "orders", "settings"],
+  laser_operator: ["overview", "inventory", "settings"],
+  cnc_operator: ["overview", "inventory", "settings"],
+  plotter_operator: ["overview", "inventory", "settings"],
+  printer_operator: ["overview", "inventory", "settings"],
 };
 
 export function canAccessView(role: Role, view: View) {
-  return roleVisibleViews[role].includes(view);
+  return roleVisibleViews[role]?.includes(view) ?? false;
 }
 
 export function defaultViewForRole(role: Role): View {
   return ROLE_WORKSPACE[role].view;
+}
+
+export function getNavItemHref(view: View, role: Role): string {
+  switch (view) {
+    case "overview":
+      if (role === "owner" || role === "admin") return "/dashboard/owner";
+      if (role === "manager") return "/dashboard/manager";
+      if (role === "storekeeper") return "/dashboard/storekeeper";
+      if (role === "receptionist") return "/dashboard/reception";
+      if (role === "laser_operator") return "/dashboard/operator/laser";
+      if (role === "cnc_operator") return "/dashboard/operator/cnc";
+      if (role === "plotter_operator") return "/dashboard/operator/plotter";
+      if (role === "printer_operator") return "/dashboard/operator/printer";
+      return "/dashboard/owner";
+    case "orders":
+      return "/orders";
+    case "inventory":
+      if (role === "storekeeper") return "/inventory/parent";
+      if (["laser_operator", "cnc_operator", "plotter_operator", "printer_operator"].includes(role)) {
+        return "/inventory/substock";
+      }
+      return "/inventory/parent";
+    case "jobs":
+      if (role === "laser_operator") return "/dashboard/operator/laser";
+      if (role === "cnc_operator") return "/dashboard/operator/cnc";
+      if (role === "plotter_operator") return "/dashboard/operator/plotter";
+      if (role === "printer_operator") return "/dashboard/operator/printer";
+      return "/dashboard/manager";
+    case "machines":
+      return "/dashboard/manager";
+    case "offcuts":
+      return "/inventory/substock";
+    case "reports":
+      return "/reports";
+    case "reconciliation":
+      return "/reconciliation";
+    case "financial":
+      return "/reports";
+    case "audit":
+    case "config":
+    case "settings":
+      return "/settings";
+    default:
+      return "/dashboard";
+  }
 }
 
 /**

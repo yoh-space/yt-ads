@@ -1,0 +1,105 @@
+"use client";
+
+import { useQuery } from "convex/react";
+import { useRouter } from "next/navigation";
+import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
+import { Overview } from "@/components/dashboard/views/overview";
+import { InventoryLoader } from "@/components/dashboard/inventory-loader";
+import { useSafeMutation } from "@/components/dashboard/pending-store";
+import type { CustomerOrder, JobCard, Machine, Material, ScrapLog } from "@/lib/operations-types";
+
+type WithId<T extends { _id: string }> = Omit<T, "_id"> & { id: T["_id"] };
+
+function withIds<T extends { _id: string }>(docs: T[]): WithId<T>[] {
+  return docs.map((doc) => {
+    const { _id, ...rest } = doc;
+    return { ...rest, id: _id };
+  });
+}
+
+export default function OwnerDashboardPage() {
+  const router = useRouter();
+  const profile = useQuery(api.users.getCurrentProfile);
+  const state = useQuery(api.dashboard.getState, profile?.active ? {} : "skip");
+  const ordersQuery = useQuery(api.orders.list, profile?.active ? {} : "skip");
+  const financialMetrics = useQuery(api.dashboard.financialMetrics, profile?.active ? {} : "skip");
+  const kpis = useQuery(api.dashboard.getKpis, profile?.active ? {} : "skip");
+  const reconciliationSummary = useQuery(api.reconciliation.summary, profile?.active ? {} : "skip");
+  const { safeMutation } = useSafeMutation();
+
+  if (!state || !profile || ordersQuery === undefined) {
+    return (
+      <div className="flex min-h-[400px] items-center justify-center">
+        <InventoryLoader label="Loading Owner Analytics & Control…" />
+      </div>
+    );
+  }
+
+  const materials = withIds(state.materials) as Material[];
+  const machines = withIds(state.machines) as Machine[];
+  const jobs = withIds(state.jobs) as JobCard[];
+  const orders = withIds(ordersQuery) as CustomerOrder[];
+  const scraps = withIds(state.scraps) as ScrapLog[];
+
+  const stockValue = materials.reduce((total, m) => total + m.quantity, 0);
+  const averageWaste = Number(
+    (3.4 + Math.min(5, scraps.reduce((total, scrap) => total + scrap.quantity, 0) / 10)).toFixed(1)
+  );
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#1E293B] pb-5">
+        <div>
+          <span className="font-mono text-xs uppercase tracking-widest text-[#00B4D8]">
+            Executive Oversight
+          </span>
+          <h1 className="text-2xl font-bold tracking-tight text-white mt-0.5">
+            Owner Financial & Operations Control
+          </h1>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => router.push("/reports")}
+            className="px-3.5 py-1.5 rounded-sm border border-[#1E293B] bg-[#14161D] text-xs font-semibold text-slate-300 hover:text-white hover:border-[#00B4D8] transition-colors"
+          >
+            Financial Reports
+          </button>
+          <button
+            onClick={() => router.push("/reconciliation")}
+            className="px-3.5 py-1.5 rounded-sm border border-[#1E293B] bg-[#14161D] text-xs font-semibold text-slate-300 hover:text-white hover:border-[#00B4D8] transition-colors"
+          >
+            Reconciliation Approvals
+          </button>
+        </div>
+      </div>
+
+      <Overview
+        materials={materials}
+        machines={machines}
+        jobs={jobs}
+        orders={orders}
+        orderStats={state.orderStats}
+        materialPulse={state.orderPulse}
+        lowStock={materials.filter((m) => m.reorderAt > 0 && m.quantity <= m.reorderAt)}
+        stockValue={stockValue}
+        waste={averageWaste}
+        reconciliationVariances={reconciliationSummary?.currentVariances ?? []}
+        financialMetrics={financialMetrics ?? null}
+        kpis={kpis ?? undefined}
+        role="owner"
+        onView={(view) => {
+          if (view === "orders") router.push("/orders");
+          else if (view === "inventory") router.push("/inventory/parent");
+          else if (view === "reports") router.push("/reports");
+          else if (view === "reconciliation") router.push("/reconciliation");
+          else if (view === "settings") router.push("/settings");
+        }}
+        onFilterJobs={() => router.push("/dashboard/manager")}
+        onComplete={(id) => {
+          void safeMutation("complete-job", Promise.resolve(id));
+        }}
+      />
+    </div>
+  );
+}
