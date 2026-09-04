@@ -45,15 +45,6 @@ export const orderStatus = v.union(
   v.literal("READY_FOR_PICKUP"),
   v.literal("Expired"),
   v.literal("EXPIRED_JUNK"),
-  // Legacy aliases from earlier write paths. These were written to the table
-  // before the validator was tightened to the canonical values above. They are
-  // kept only as a bridge so the backfill in `convex/migrations.ts` can read and
-  // normalize existing rows. REMOVE these literals after the migration has
-  // run against the deployed dataset.
-  v.literal("Received"),
-  v.literal("Completed"),
-  v.literal("In Production"),
-  v.literal("Ready for Pickup"),
 );
 
 /** Payment verification result recorded by reception during checkout. */
@@ -114,15 +105,6 @@ export const serviceType = v.union(
   v.literal("mica_engrave"),
   v.literal("dtf"),
   v.literal("sublimation"),
-  // Legacy display labels written by the pre-category Telegram bot and walk-in
-  // forms before this validator was tightened to canonical ids. They are kept
-  // only as a bridge so the backfill in `convex/migrations.ts` can read and
-  // normalize existing rows. REMOVE these literals after the migration has
-  // run against the deployed dataset.
-  v.literal("Banner (Flex)"),
-  v.literal("Banner"),
-  v.literal("Sticker"),
-  v.literal("Acrylic"),
 );
 
 

@@ -139,10 +139,12 @@ const SERVICE_TYPE_ALIASES: Record<string, string> = {
 
 /**
  * One-shot backfill that normalizes legacy `customerOrders.serviceType` display
- * labels to the canonical schema ids. The `serviceType` union is temporarily
- * widened (see `convex/schema.ts`) so this can read and rewrite rows that the
- * tightened validator previously rejected. The original label is preserved in
- * `notes` so no customer-entered detail is lost.
+ * labels (e.g. "Banner (Flex)", written by the pre-category Telegram bot and
+ * walk-in forms) to the canonical schema ids. The original label is preserved
+ * in `notes` so no customer-entered detail is lost. Only canonical values are
+ * written, so the migration stays safe under the tightened validator; it is
+ * kept as ops tooling in case legacy rows are ever reintroduced (for example
+ * by restoring an old snapshot export).
  *
  * Idempotent: rows already holding a canonical id are skipped, and a
  * `migrations` row prevents re-scanning once the dataset is clean. Values with

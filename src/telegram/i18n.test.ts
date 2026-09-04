@@ -62,9 +62,13 @@ describe("formatStatusLine", () => {
 });
 
 describe("service mapping", () => {
-  it("maps canned services to canonical and display labels", () => {
-    expect(serviceTypeFor("banner")).toBe("Banner (Flex)");
-    expect(serviceLabel("am", "sticker")).toContain("ስቲከር");
-    expect(serviceLabel("en", "acrylic")).toBe("Acrylic");
+  it("maps canonical service ids to their localized labels", () => {
+    expect(serviceTypeFor("banner_print")).toBe("Banner Print");
+    expect(serviceLabel("am", "sticker_white")).toContain("ነጭ ስቲከር");
+    expect(serviceLabel("en", "light_box_a1")).toBe("Light Box - A1");
+  });
+
+  it("returns the raw id when the service is not in the canonical catalog", () => {
+    expect(serviceTypeFor("not_a_real_service")).toBe("not_a_real_service");
   });
 });

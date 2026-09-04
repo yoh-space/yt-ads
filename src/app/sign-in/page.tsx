@@ -9,11 +9,14 @@ import { api } from "@/convex/_generated/api";
 import { KeyRound, ArrowRight, ShieldCheck } from "lucide-react";
 
 const DEMO_ACCOUNTS = [
-  { role: "Owner (ባለቤት)", email: "ytadvert+owner@gmail.com", desc: "Executive oversight, financial metrics, clearance approval" },
+  { role: "Manager (ማኔጀር)", email: "ytadvert+manager@gmail.com", desc: "Staff oversight, team coordination, cross-role visibility" },
+  { role: "Admin (ዋና አስተዳዳሪ)", email: "ytadvert+admin@gmail.com", desc: "System configuration, staff management, audit log" },
   { role: "Storekeeper (ክምችት)", email: "ytadvert+storekeeper@gmail.com", desc: "Parent inventory, roll/sheet custody, material transfers" },
   { role: "Receptionist (ተቀባይ)", email: "ytadvert+receptionist@gmail.com", desc: "Customer orders queue, payment verification, TIN/invoices" },
   { role: "Laser Operator (ኦፕሬተር)", email: "ytadvert+laser@gmail.com", desc: "Job cards, floor sub-stock, scrap and offcut tracking" },
-  { role: "Admin (ዋና አስተዳዳሪ)", email: "ytadvert+admin@gmail.com", desc: "System configuration, staff management, audit log" },
+  { role: "CNC Operator (ኦፕሬተር)", email: "ytadvert+cnc@gmail.com", desc: "CNC router job cards and floor stock" },
+  { role: "Plotter Operator (ኦፕሬተር)", email: "ytadvert+plotter@gmail.com", desc: "Print & cut job cards and floor stock" },
+  { role: "Printer Operator (ኦፕሬተር)", email: "ytadvert+printer@gmail.com", desc: "Banner / DTF / UV job cards and floor stock" },
 ];
 
 export default function SignInPage() {
@@ -43,13 +46,15 @@ export default function SignInPage() {
     setError(null);
     setLoading(true);
     try {
-      await authClient.signIn.email({ email, password });
+      const result = await authClient.signIn.email({ email, password });
+      if (result.error) {
+        throw new Error(result.error.message ?? "Invalid email or password.");
+      }
       await ensureProfile().catch(() => {});
       router.push("/dashboard");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign in failed. Check your email and password.");
-    } finally {
       setLoading(false);
     }
   }
@@ -181,6 +186,9 @@ export default function SignInPage() {
                     </div>
                   </button>
                 ))}
+                <p className="font-mono text-[10px] text-neutral-500 leading-relaxed pt-1">
+                  The owner (<span className="text-neutral-300">ytadvert@admin.org</span>) is a real account with its own password — it is not part of the demo set.
+                </p>
               </div>
             ) : null}
           </div>
