@@ -114,6 +114,15 @@ export const serviceType = v.union(
   v.literal("mica_engrave"),
   v.literal("dtf"),
   v.literal("sublimation"),
+  // Legacy display labels written by the pre-category Telegram bot and walk-in
+  // forms before this validator was tightened to canonical ids. They are kept
+  // only as a bridge so the backfill in `convex/migrations.ts` can read and
+  // normalize existing rows. REMOVE these literals after the migration has
+  // run against the deployed dataset.
+  v.literal("Banner (Flex)"),
+  v.literal("Banner"),
+  v.literal("Sticker"),
+  v.literal("Acrylic"),
 );
 
 
