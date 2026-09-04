@@ -21,6 +21,7 @@ import type { CustomerOrder, JobCard, Machine, Material, Role } from "@/lib/oper
 import { formatQuantity } from "@/lib/units";
 import { statusTone } from "../helpers";
 import type { View } from "../nav-config";
+import { StockoutAlertWidget } from "./stockout-alert-widget";
 import {
   Button,
   StatCard,
@@ -334,6 +335,14 @@ export function Overview({
             ) : null}
           </div>
         </MetricChart>
+      </section>
+
+      {/* Real-time Stockout Forecast & Depletion Radar */}
+      <section className="mb-[14px]">
+        <StockoutAlertWidget
+          canViewFinancial={role === "owner"}
+          onNavigateToInventory={() => onView("inventory")}
+        />
       </section>
 
       {/* Job Board & Material Pulse - Bottom Grid */}

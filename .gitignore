@@ -118,4 +118,8 @@ client/public/__manus__/version.json
 # Tauri desktop shell
 /src-tauri/target
 /dist-tauri
+/dist-desktop
 /src-tauri/gen/schemas
+
+# Design guidance and local plugins
+/impeccable

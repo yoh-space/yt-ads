@@ -169,7 +169,7 @@ export const getKpis = query({
     ).length;
 
     const activeMaterialsAtReorder = materials.filter(
-      (material) => material.active && material.quantity <= material.reorderAt,
+      (material) => material.active && material.reorderAt > 0 && material.quantity <= material.reorderAt,
     ).length;
     const depletedOperatorBatches = operatorStock.filter(
       (batch) => batch.status === "ACTIVE" && batch.currentRemaining <= 0,
@@ -286,6 +286,113 @@ export const financialMetrics = query({
       todaysJobCount: todayJobIds.size,
       auditedShortageCount,
       generatedAt: Date.now(),
+    };
+  },
+});
+
+/**
+ * Real-time stockout forecast engine. Computes consumption velocity, estimated
+ * runway in days, and urgency level (Critical / Warning / Healthy) per material.
+ * Restricts monetary replenishment projections to the owner via `canViewFinancial`.
+ */
+export const getStockoutForecast = query({
+  args: {},
+  handler: async (ctx) => {
+    const { profile } = await requireActiveProfile(ctx);
+    if (!["owner", "manager", "admin", "storekeeper"].includes(profile.role)) {
+      return {
+        criticalCount: 0,
+        warningCount: 0,
+        items: [],
+      };
+    }
+
+    const canSeeFinancial = canViewFinancial(profile.role);
+    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+
+    const [materials, movements] = await Promise.all([
+      ctx.db
+        .query("materials")
+        .filter((q) => q.eq(q.field("active"), true))
+        .collect(),
+      ctx.db.query("stock_movements").collect(),
+    ]);
+
+    const consumptionMap = new Map<string, number>();
+    for (const m of movements) {
+      if (m.createdAt < thirtyDaysAgo) continue;
+      if (
+        m.eventType === "PRODUCTION_CONSUMPTION" ||
+        m.eventType === "STORE_TO_OPERATOR_TRANSFER" ||
+        m.eventType === "EXCEPTION_STOCK_OUT"
+      ) {
+        const qty = m.baseQuantity;
+        if (Number.isFinite(qty) && qty > 0) {
+          consumptionMap.set(m.materialId, (consumptionMap.get(m.materialId) ?? 0) + qty);
+        }
+      }
+    }
+
+    const items = materials.map((material) => {
+      const consumed30Days = consumptionMap.get(material._id) ?? 0;
+      const dailyRate = consumed30Days / 30;
+      const currentStock = material.quantity ?? 0;
+      const reorderAt = material.reorderAt ?? 0;
+
+      let runwayDays: number;
+      if (currentStock <= 0) {
+        runwayDays = 0;
+      } else if (dailyRate > 0) {
+        runwayDays = Math.round(currentStock / dailyRate);
+      } else if (reorderAt > 0 && currentStock <= reorderAt) {
+        runwayDays = 1;
+      } else {
+        runwayDays = 999;
+      }
+
+      let urgency: "CRITICAL" | "WARNING" | "HEALTHY" = "HEALTHY";
+      if (currentStock <= 0 || runwayDays <= 2 || (reorderAt > 0 && currentStock <= reorderAt)) {
+        urgency = "CRITICAL";
+      } else if (runwayDays <= 7 || (reorderAt > 0 && currentStock <= reorderAt * 1.5)) {
+        urgency = "WARNING";
+      }
+
+      const targetStock = reorderAt > 0 ? reorderAt * 2 : 10;
+      const suggestedReorder = Math.max(0, targetStock - currentStock);
+      const unitValue = resolveEtbValue(material);
+      const estimatedCostEtb = canSeeFinancial ? Math.round(suggestedReorder * unitValue) : undefined;
+
+      return {
+        materialId: material._id,
+        materialName: material.name,
+        category: material.category,
+        baseUnit: material.baseUnit ?? material.unit ?? "pcs",
+        currentStock: Number(currentStock.toFixed(2)),
+        reorderAt,
+        dailyRate: Number(dailyRate.toFixed(2)),
+        runwayDays: runwayDays === 999 ? null : runwayDays,
+        urgency,
+        suggestedReorder: Number(suggestedReorder.toFixed(2)),
+        estimatedCostEtb,
+      };
+    });
+
+    const urgencyWeight = { CRITICAL: 0, WARNING: 1, HEALTHY: 2 };
+    items.sort((a, b) => {
+      const weightDiff = urgencyWeight[a.urgency] - urgencyWeight[b.urgency];
+      if (weightDiff !== 0) return weightDiff;
+      const aRunway = a.runwayDays ?? 9999;
+      const bRunway = b.runwayDays ?? 9999;
+      return aRunway - bRunway;
+    });
+
+    const criticalCount = items.filter((i) => i.urgency === "CRITICAL").length;
+    const warningCount = items.filter((i) => i.urgency === "WARNING").length;
+
+    return {
+      criticalCount,
+      warningCount,
+      items,
     };
   },
 });

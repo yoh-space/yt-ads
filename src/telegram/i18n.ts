@@ -122,15 +122,29 @@ export function statusLabel(lang: Language, status: string): string {
 
 import { getServiceLabel } from "@/constants/services";
 
+const LEGACY_SERVICE_LABELS: Record<string, { en: string; am: string }> = {
+  banner: { en: "Banner (Flex)", am: "ባነር (ፍሌክስ)" },
+  sticker: { en: "Sticker", am: "ስቲከር" },
+  acrylic: { en: "Acrylic", am: "አክሪሊክ" },
+};
+
 export function serviceLabel(lang: Language, serviceId: string): string {
   const label = getServiceLabel(serviceId, lang === "am" ? "am" : "en");
-  return label ?? serviceId;
+  if (label) return label;
+  if (LEGACY_SERVICE_LABELS[serviceId]) {
+    return lang === "am" ? LEGACY_SERVICE_LABELS[serviceId].am : LEGACY_SERVICE_LABELS[serviceId].en;
+  }
+  return serviceId;
 }
 
 /** Canonical service type stored on the order for a selected service id. */
 export function serviceTypeFor(serviceId: string): string {
-  // For backwards compatibility return the id if label not found
-  return getServiceLabel(serviceId, "en") ?? serviceId;
+  const label = getServiceLabel(serviceId, "en");
+  if (label) return label;
+  if (LEGACY_SERVICE_LABELS[serviceId]) {
+    return LEGACY_SERVICE_LABELS[serviceId].en;
+  }
+  return serviceId;
 }
 
 export function formatOrderSummary(lang: Language, draft: OrderDraft, code: string): string {
