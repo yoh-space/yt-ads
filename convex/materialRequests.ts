@@ -70,9 +70,7 @@ export const create = mutation({
       .filter((q) => q.or(q.eq(q.field("status"), "ACTIVE"), q.eq(q.field("status"), "PENDING_CLEARANCE")))
       .collect();
     if (unclearedBatches.length > 0) {
-      throw new Error(
-        "Request Blocked: Owner clearance is required for your previously issued materials before submitting a new request.",
-      );
+      throw new Error("Cannot request new materials until previous stock cycle clearance is approved by Owner.");
     }
     const [job, material] = await Promise.all([
       ctx.db.get(args.jobCardId),

@@ -1047,9 +1047,11 @@ export const seedAll = mutation({
  *   2. System setup   — companySettings, systemConfigs, machines, materials
  *   3. Procurement    — parentInventory rows + STOCK_IN ledger events
  *   4. Floor issuance — STORE_TO_OPERATOR_TRANSFER events seeding
- *                       operatorSubStock (one operator per machine)
+ *                       operatorSubStock (one operator per machine, plus an
+ *                       ACTIVE Banner Ink batch on the banner printer)
  *   5. Orders         — customerOrders + matching invoices
  *   6. Production     — jobCards + productionLogs + PRODUCTION_CONSUMPTION
+ *                       (both substrate and ink legs for print jobs)
  *   7. Clearance      — reconciliations + weeklyReconciliations; flips some
  *                       operator batches to PENDING_CLEARANCE / CLEARED
  *   8. Re-stocking    — materialRequests ONLY for operators whose prior
@@ -1389,6 +1391,19 @@ const DEMO_MATERIALS: readonly MaterialInsertInput[] = [
     specificationValue: "18mm",
     specificationOptions: ["18mm", "10mm", "8mm", "5mm", "3mm"],
   },
+  {
+    name: "Banner Ink",
+    category: "Ink",
+    baseUnit: "L",
+    purchaseUnit: "liter",
+    conversionRatio: 1,
+    displayUnit: "ሊትር",
+    reorderAt: 12,
+    accent: "green",
+    specification: "Ink Type & Color Config",
+    specificationValue: "Eco-Solvent (CMYK)",
+    specificationOptions: ["Eco-Solvent (CMYK)", "Solvent (CMYK)", "Dye (CMYK)"],
+  },
 ];
 
 interface SeedLog {
@@ -1525,6 +1540,7 @@ export const seedDemoLifecycle = mutation({
       { materialName: "Banner", packages: 3 },   // 3 rolls = 480 m²
       { materialName: "Acrylic", packages: 12 }, // 12 sheets = ~35.7 m²
       { materialName: "Foam", packages: 10 },    // 10 sheets = ~29.8 m²
+      { materialName: "Banner Ink", packages: 12 }, // 12 litres = 12 L
     ];
 
     const parentIds: Record<string, Id<"parentInventory">> = {};
@@ -1639,6 +1655,8 @@ export const seedDemoLifecycle = mutation({
     ];
 
     const operatorBatchIds: Record<string, Id<"operatorSubStock">> = {};
+    // Key under which the banner printer's ACTIVE ink sub-stock is tracked.
+    const INK_STOCK_KEY = "printer_operator_ink";
     const assignmentByRole = new Map<RoleKey, OperatorAssignment>(
       assignments.map((a) => [a.operatorRole, a]),
     );
@@ -1691,6 +1709,60 @@ export const seedDemoLifecycle = mutation({
       log.push({
         step: "issuance",
         detail: `${assignment.machineCode} ${assignment.operatorRole}: ${assignment.packages} ${material.purchaseUnit} = ${issuedBase} ${material.baseUnit}`,
+      });
+    }
+
+    // Ink floor issuance — the banner printer also holds an ACTIVE ink batch so
+    // the demo exhibits the ink leg of `logProductionAndDeductStock`
+    // (printedArea × systemConfigs.inkMlPerSquareMetre). Distinct `operatorRole`
+    // keys would collide, so the ink batch is tracked under its own key and kept
+    // ACTIVE (ink remains in use while the banner substrate cycle was cleared).
+    {
+      const inkMaterialName = "Banner Ink";
+      const inkMaterial = DEMO_MATERIALS.find((m) => m.name === inkMaterialName)!;
+      const inkMaterialId = materialIds[inkMaterialName];
+      const inkParentId = parentIds[inkMaterialName];
+      const inkOperatorAuthId = operatorIds.printer_operator;
+      const printerMachineId = machineIds["BAN-01"];
+      const inkLitres = 5;
+
+      const inkStockId = await ctx.db.insert("operatorSubStock", {
+        parentInventoryId: inkParentId,
+        materialId: inkMaterialId,
+        operatorId: inkOperatorAuthId,
+        machineId: printerMachineId,
+        issuedUnits: inkLitres,
+        issuedQuantity: inkLitres,
+        currentRemaining: inkLitres,
+        status: "ACTIVE",
+        issuedBy: operatorIds.storekeeper,
+        issuedAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+      operatorBatchIds[INK_STOCK_KEY] = inkStockId;
+
+      await recordInventoryEvent(ctx, {
+        materialId: inkMaterialId,
+        eventType: "STORE_TO_OPERATOR_TRANSFER",
+        custody: "parent",
+        balanceEffect: "transfer",
+        quantity: inkLitres,
+        unit: "liter",
+        baseUnit: "L",
+        baseQuantity: inkLitres,
+        packageQuantity: inkLitres,
+        packageUnit: "LITER",
+        conversionRatio: 1,
+        parentInventoryId: inkParentId,
+        operatorSubStockId: inkStockId,
+        operatorId: inkOperatorAuthId,
+        machineId: printerMachineId,
+        note: `Store-to-operator transfer (${inkMaterialName} → printer_operator)`,
+        createdBy,
+      });
+      log.push({
+        step: "issuance:ink",
+        detail: `BAN-01 printer_operator: 5 L Banner Ink issued to floor (ACTIVE)`,
       });
     }
 
@@ -1969,6 +2041,41 @@ export const seedDemoLifecycle = mutation({
         note: `Production consumption (${job.code})`,
         createdBy: operatorIds[job.operatorRole],
       });
+
+      // Ink consumption for print jobs: printedArea × systemConfigs.inkMlPerSquareMetre.
+      // The substrate above is Banner; the printer's ACTIVE ink batch is the one
+      // created under INK_STOCK_KEY and the 12 mL/m² rate mirrors the seeded
+      // `systemConfigs` so the demo matches `logProductionAndDeductStock`.
+      if (job.operatorRole === "printer_operator") {
+        const inkStockId = operatorBatchIds[INK_STOCK_KEY];
+        const inkMaterialId = materialIds["Banner Ink"];
+        const inkMlPerSquareMetre = 12;
+        const inkMl = qty(job.consumeQuantity * inkMlPerSquareMetre);
+        const inkLitre = qty(inkMl / 1000);
+        if (inkStockId && inkLitre > 0) {
+          await recordInventoryEvent(ctx, {
+            materialId: inkMaterialId,
+            eventType: "PRODUCTION_CONSUMPTION",
+            custody: "operator",
+            balanceEffect: "out",
+            quantity: inkLitre,
+            unit: "L",
+            baseUnit: "L",
+            baseQuantity: inkLitre,
+            operatorSubStockId: inkStockId,
+            operatorId: operatorIds[job.operatorRole],
+            machineId: machineIds[job.machineCode],
+            jobCardId: jobId,
+            note: `Ink consumption (${job.code})`,
+            createdBy: operatorIds[job.operatorRole],
+          });
+          log.push({
+            step: "production:ink",
+            detail: `${job.code}: -${inkLitre} L Banner Ink (${inkMl} mL @ ${inkMlPerSquareMetre} mL/m²)`,
+          });
+        }
+      }
+
       if (job.offcutQuantity > 0) {
         const offcutId = await ctx.db.insert("offcuts", {
           materialId: materialIds[job.materialName],
@@ -2168,6 +2275,7 @@ export const seedDemoLifecycle = mutation({
         machines: DEMO_MACHINES.length,
         materials: DEMO_MATERIALS.length,
         operators: assignments.length,
+        inkBatches: operatorBatchIds[INK_STOCK_KEY] ? 1 : 0,
         orders: orders.length,
         invoices: Object.keys(invoiceIds).length,
         jobs: jobs.length,
