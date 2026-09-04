@@ -28,7 +28,7 @@ const jobSchema = z.object({
   quantity: z.number({ message: "Quantity must be greater than zero" }).positive("Quantity must be greater than zero"),
   unit: z.string(),
   due: z.string().min(1, "Choose a due date"),
-  priority: z.enum(["High", "Medium", "Normal"]),
+  priority: z.enum(["High", "Medium", "Low"]),
 });
 
 type JobForm = z.infer<typeof jobSchema>;
@@ -58,7 +58,7 @@ export function JobModal({
       quantity: 1,
       unit: materials[0]?.unit ?? "m²",
       due: "Newly scheduled",
-      priority: "Normal",
+      priority: "Low",
     },
     mode: "onSubmit",
   });

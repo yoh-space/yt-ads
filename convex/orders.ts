@@ -10,7 +10,7 @@ import { ensureSystemConfig } from "./systemConfigs";
 import { recordInventoryEvent } from "./inventoryLedger";
 import { verifyTelegramInitData } from "./telegramAuth";
 
-/** Statuses a customer may see through public tracking (Expired stays internal). */
+/** Statuses a customer may see through public tracking (EXPIRED stays internal). */
 const PUBLIC_TRACKING_STATUSES = new Set(["PENDING_REVIEW", "PRICED_AND_PENDING_PAYMENT", "CONFIRMED_PAID_OR_CREDIT", "JOB_CARD_CREATED", "IN_PRODUCTION", "COMPLETED", "READY_FOR_PICKUP"]);
 
 /**
@@ -19,14 +19,14 @@ const PUBLIC_TRACKING_STATUSES = new Set(["PENDING_REVIEW", "PRICED_AND_PENDING_
  * only guards reception's manual progress actions.
  */
 const ALLOWED_STATUS_TRANSITIONS: Record<string, string[]> = {
-  PENDING_REVIEW: ["PRICED_AND_PENDING_PAYMENT", "Expired"],
-  PRICED_AND_PENDING_PAYMENT: ["CONFIRMED_PAID_OR_CREDIT", "Expired"],
+  PENDING_REVIEW: ["PRICED_AND_PENDING_PAYMENT", "EXPIRED"],
+  PRICED_AND_PENDING_PAYMENT: ["CONFIRMED_PAID_OR_CREDIT", "EXPIRED"],
   CONFIRMED_PAID_OR_CREDIT: ["JOB_CARD_CREATED"],
   JOB_CARD_CREATED: ["IN_PRODUCTION"],
   IN_PRODUCTION: ["COMPLETED"],
   COMPLETED: ["READY_FOR_PICKUP"],
   READY_FOR_PICKUP: [],
-  Expired: [],
+  EXPIRED: [],
   EXPIRED_JUNK: [],
 };
 // convex/orders.ts
@@ -103,7 +103,7 @@ function publicOrder(order: OrderDoc) {
     priority: order.priority,
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
-     overdue: !["COMPLETED", "READY_FOR_PICKUP", "Expired", "EXPIRED_JUNK"].includes(order.status) && order.preferredDueDate < Date.now(),
+      overdue: !["COMPLETED", "READY_FOR_PICKUP", "EXPIRED", "EXPIRED_JUNK"].includes(order.status) && order.preferredDueDate < Date.now(),
   };
 }
 
@@ -524,7 +524,7 @@ export const list = query({
       paymentReceiptStorageId: canSeeBilling ? order.paymentReceiptStorageId : undefined,
       paymentReceiptFileName: canSeeBilling ? order.paymentReceiptFileName : undefined,
       machineName: order.machineId ? machineNames.get(order.machineId) : undefined,
-      overdue: !["COMPLETED", "READY_FOR_PICKUP", "Expired", "EXPIRED_JUNK"].includes(order.status) && order.preferredDueDate < Date.now(),
+     overdue: !["COMPLETED", "READY_FOR_PICKUP", "EXPIRED", "EXPIRED_JUNK"].includes(order.status) && order.preferredDueDate < Date.now(),
       fileUrl: order.fileStorageId ? await ctx.storage.getUrl(order.fileStorageId) : undefined,
     })));
   },
@@ -682,7 +682,7 @@ export const confirmOrderAndIssueJobCard = mutation({
       unit: args.unit,
       status: "Queued",
       due: new Date(order.preferredDueDate).toLocaleString("en-ET", { dateStyle: "medium", timeStyle: "short" }),
-      priority: args.priority === "Low" ? "Normal" : args.priority ?? "Normal",
+      priority: args.priority ?? "Medium",
       createdBy: identity._id,
       createdAt: now,
       orderId: args.orderId,
@@ -732,7 +732,7 @@ export const confirmOrderAndIssueJobCard = mutation({
 /**
  * Receptionist-initiated rejection triggered from the inline Telegram action
  * keyboard ("Reject" button on the new-order alert). Transitions the order to
- * `Expired` and pushes a polite customer-facing notification so the customer
+ * `EXPIRED` and pushes a polite customer-facing notification so the customer
  * immediately knows their order was declined.
  */
 export const rejectFromReception = mutation({
@@ -741,11 +741,11 @@ export const rejectFromReception = mutation({
     const { identity } = await requirePermission(ctx, "order.manage");
     const order = await ctx.db.get(args.orderId);
     if (!order) throw new Error("Order not found.");
-    if (["COMPLETED", "READY_FOR_PICKUP", "Expired", "EXPIRED_JUNK"].includes(order.status)) {
+    if (["COMPLETED", "READY_FOR_PICKUP", "EXPIRED", "EXPIRED_JUNK"].includes(order.status)) {
       throw new Error(`Cannot reject an order already in status ${order.status}.`);
     }
     await ctx.db.patch(args.orderId, {
-      status: "Expired",
+      status: "EXPIRED",
       updatedAt: Date.now(),
     });
     await notifyOrderRoles(ctx, {
@@ -798,7 +798,7 @@ export const notifyOverdue = mutation({
     const { identity } = await requirePermission(ctx, "order.manage");
     const now = Date.now();
     const overdue = (await ctx.db.query("customerOrders").withIndex("by_due_date").collect()).filter(
-      (order) => !["COMPLETED", "READY_FOR_PICKUP", "Expired", "EXPIRED_JUNK"].includes(order.status) && order.preferredDueDate < now,
+      (order) => !["COMPLETED", "READY_FOR_PICKUP", "EXPIRED", "EXPIRED_JUNK"].includes(order.status) && order.preferredDueDate < now,
     );
     let notified = 0;
     for (const order of overdue) {
@@ -823,7 +823,7 @@ export const notifyOverdueInternal = internalMutation({
   handler: async (ctx) => {
     const now = Date.now();
     const overdue = (await ctx.db.query("customerOrders").withIndex("by_due_date").collect()).filter(
-      (order) => !["COMPLETED", "READY_FOR_PICKUP", "Expired", "EXPIRED_JUNK"].includes(order.status) && order.preferredDueDate < now,
+      (order) => !["COMPLETED", "READY_FOR_PICKUP", "EXPIRED", "EXPIRED_JUNK"].includes(order.status) && order.preferredDueDate < now,
     );
     let notified = 0;
     for (const order of overdue) {

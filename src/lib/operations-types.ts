@@ -23,8 +23,8 @@ export type MaterialSpecification =
   | "Roll Width / Type";
 export type JobStatus = "Queued" | "In production" | "Completed" | "Paused";
 export type MachineStatus = "Running" | "Available" | "Maintenance" | "Unavailable";
-export type Priority = "High" | "Medium" | "Normal";
-export type CustomerOrderStatus = "PENDING_REVIEW" | "PRICED_AND_PENDING_PAYMENT" | "CONFIRMED_PAID_OR_CREDIT" | "JOB_CARD_CREATED" | "IN_PRODUCTION" | "COMPLETED" | "READY_FOR_PICKUP" | "Expired" | "EXPIRED_JUNK";
+export type Priority = "High" | "Medium" | "Low";
+export type CustomerOrderStatus = "PENDING_REVIEW" | "PRICED_AND_PENDING_PAYMENT" | "CONFIRMED_PAID_OR_CREDIT" | "JOB_CARD_CREATED" | "IN_PRODUCTION" | "COMPLETED" | "READY_FOR_PICKUP" | "EXPIRED" | "EXPIRED_JUNK";
 export type OrderPriority = "High" | "Medium" | "Low";
 export type OrderSource = "public_portal" | "walk_in";
 export type ExceptionReason = "Sample Print" | "Minor Repair" | "Test Cut" | "Internal Maintenance";
@@ -142,7 +142,7 @@ export type JobCard = {
   unit: Unit;
   status: JobStatus;
   due: string;
-  priority: "High" | "Medium" | "Normal";
+  priority: Priority;
   orderId?: string;
   orderStatus?: CustomerOrderStatus;
   orderOverdue?: boolean;
@@ -275,7 +275,7 @@ export const initialMachines: Machine[] = [
 export const initialJobs: JobCard[] = [
   { id: "job-0420", code: "JC-0420", client: "Abyssinia Bank", title: "Branch fascia banners", machineId: "m-printer", materialId: "mat-banner", quantity: 86.4, unit: "m²", status: "In production", due: "Today, 16:30", priority: "High" },
   { id: "job-0421", code: "JC-0421", client: "Bole Medical", title: "Acrylic wayfinding signs", machineId: "m-laser", materialId: "mat-acrylic", quantity: 14.8, unit: "m²", status: "In production", due: "Today, 18:00", priority: "Medium" },
-  { id: "job-0424", code: "JC-0424", client: "Ethio Logistics", title: "Reception desk logo", machineId: "m-cnc", materialId: "mat-mdf", quantity: 8.2, unit: "m²", status: "In production", due: "Tomorrow, 10:00", priority: "Normal" },
+  { id: "job-0424", code: "JC-0424", client: "Ethio Logistics", title: "Reception desk logo", machineId: "m-cnc", materialId: "mat-mdf", quantity: 8.2, unit: "m²", status: "In production", due: "Tomorrow, 10:00", priority: "Low" },
   { id: "job-0426", code: "JC-0426", client: "Hibret Insurance", title: "Fleet sticker set", machineId: "m-plotter", materialId: "mat-vinyl", quantity: 96, unit: "m", status: "Queued", due: "Tomorrow, 15:00", priority: "Medium" },
 ];
 

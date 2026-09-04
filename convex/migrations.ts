@@ -13,7 +13,8 @@ const CANONICAL_ORDER_STATUSES: ReadonlySet<string> = new Set([
   "JOB_CARD_CREATED",
   "IN_PRODUCTION",
   "COMPLETED",
-  "Expired",
+  "READY_FOR_PICKUP",
+  "EXPIRED",
   "EXPIRED_JUNK",
 ]);
 
@@ -27,6 +28,9 @@ const ORDER_STATUS_ALIASES: Record<string, string> = {
   in_production: "IN_PRODUCTION",
   completed: "COMPLETED",
   "Ready for Pickup": "COMPLETED",
+  Expired: "EXPIRED",
+  expired: "EXPIRED",
+  EXPIRED: "EXPIRED",
 };
 
 /**

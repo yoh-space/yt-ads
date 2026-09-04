@@ -25,7 +25,7 @@ const statusTone = {
   "IN_PRODUCTION": "info",
   "COMPLETED": "success",
   "READY_FOR_PICKUP": "info",
-  "Expired": "danger",
+  "EXPIRED": "danger",
   "EXPIRED_JUNK": "danger",
 } as const;
 

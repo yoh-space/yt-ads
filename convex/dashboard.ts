@@ -64,7 +64,7 @@ export const getState = query({
       return {
         ...job,
         orderStatus: order?.status,
-        orderOverdue: Boolean(order && !["COMPLETED", "READY_FOR_PICKUP", "Expired", "EXPIRED_JUNK"].includes(order.status) && order.preferredDueDate < Date.now()),
+        orderOverdue: Boolean(order && !["COMPLETED", "READY_FOR_PICKUP", "EXPIRED", "EXPIRED_JUNK"].includes(order.status) && order.preferredDueDate < Date.now()),
       };
     });
     const now = new Date();
@@ -182,7 +182,7 @@ export const getKpis = query({
         order.expiresAt > now &&
         order.expiresAt <= now + EXPIRING_WINDOW_MS &&
         order.status !== "COMPLETED" &&
-        order.status !== "Expired" &&
+        order.status !== "EXPIRED" &&
         order.paymentStatus !== "PAID" &&
         order.status !== "EXPIRED_JUNK",
     ).length;

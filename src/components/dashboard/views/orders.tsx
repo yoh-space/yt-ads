@@ -45,7 +45,7 @@ function inRange(timestamp: number, range: DateRange): boolean {
   return date >= start;
 }
 
-const statuses: Array<CustomerOrderStatus | "all"> = ["all", "PENDING_REVIEW", "PRICED_AND_PENDING_PAYMENT", "CONFIRMED_PAID_OR_CREDIT", "JOB_CARD_CREATED", "IN_PRODUCTION", "COMPLETED", "READY_FOR_PICKUP", "Expired", "EXPIRED_JUNK"];
+const statuses: Array<CustomerOrderStatus | "all"> = ["all", "PENDING_REVIEW", "PRICED_AND_PENDING_PAYMENT", "CONFIRMED_PAID_OR_CREDIT", "JOB_CARD_CREATED", "IN_PRODUCTION", "COMPLETED", "READY_FOR_PICKUP", "EXPIRED", "EXPIRED_JUNK"];
 const priorities: Array<OrderPriority | "all"> = ["all", "High", "Medium", "Low"];
 
 function formatDue(timestamp: number) {
@@ -91,7 +91,7 @@ export function OrdersView({
   const filtered = useMemo(() => filteredByRange.filter((order) => {
     const haystack = `${order.code} ${order.clientName} ${order.phone} ${getServiceLabel(order.serviceType) ?? order.serviceType} ${order.dimensions}`.toLowerCase();
     return (!search || haystack.includes(search.toLowerCase()))
-       && (status === "all" ? order.status !== "Expired" && order.status !== "EXPIRED_JUNK" : order.status === status)
+       && (status === "all" ? order.status !== "EXPIRED" && order.status !== "EXPIRED_JUNK" : order.status === status)
       && (priority === "all" || order.priority === priority)
       && (machine === "all" || order.machineId === machine);
   }), [filteredByRange, machine, priority, search, status]);

@@ -26,7 +26,7 @@ export type MaterialSpecification =
 
 export type JobStatus = "Queued" | "In production" | "Completed" | "Paused";
 
-export type MachineStatus = "Running" | "Available" | "Maintenance";
+export type MachineStatus = "Running" | "Available" | "Maintenance" | "Unavailable";
 
 export type Priority = "High" | "Medium" | "Normal";
 

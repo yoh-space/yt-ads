@@ -32,7 +32,7 @@ export const jobStatus = v.union(
 /**
  * Payment-first customer order lifecycle. Orders enter as unpriced requests
  * (PENDING_REVIEW) and only reach production after reception prices the order
- * and confirms payment or credit. `Expired` is a terminal state applied to
+ * and confirms payment or credit. `EXPIRED` is a terminal state applied to
  * unconfirmed orders past their expiration window.
  */
 export const orderStatus = v.union(
@@ -43,7 +43,7 @@ export const orderStatus = v.union(
   v.literal("IN_PRODUCTION"),
   v.literal("COMPLETED"),
   v.literal("READY_FOR_PICKUP"),
-  v.literal("Expired"),
+  v.literal("EXPIRED"),
   v.literal("EXPIRED_JUNK"),
 );
 
@@ -146,7 +146,7 @@ export const machineStatus = v.union(
 export const priority = v.union(
   v.literal("High"),
   v.literal("Medium"),
-  v.literal("Normal"),
+  v.literal("Low"),
 );
 
 export const accent = v.union(

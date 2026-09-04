@@ -138,7 +138,7 @@ export async function seedDemoData(ctx: MutationCtx, createdById: string) {
   await ctx.db.insert("jobCards", {
     code: "JC-0424", client: "Ethio Logistics", title: "Reception desk logo",
     machineId: mCnc, materialId: matMdf, quantity: 8.2, unit: "m²",
-    status: "In production", due: "Tomorrow, 10:00", priority: "Normal",
+    status: "In production", due: "Tomorrow, 10:00", priority: "Low",
     createdBy: createdById, createdAt: Date.now(),
   });
   await ctx.db.insert("jobCards", {
@@ -1856,7 +1856,7 @@ export const seedDemoLifecycle = mutation({
       materialName: string;
       quantity: number;
       status: "Queued" | "In production" | "Completed" | "Paused";
-      priority: "High" | "Medium" | "Normal";
+      priority: "High" | "Medium" | "Low";
       dueOffsetHours: number;
       operatorRole: RoleKey;
       consumeQuantity: number;
@@ -1906,7 +1906,7 @@ export const seedDemoLifecycle = mutation({
         materialName: "Acrylic",
         quantity: 4.5,
         status: "In production",
-        priority: "Normal",
+        priority: "Low",
         dueOffsetHours: 50,
         operatorRole: "laser_operator",
         consumeQuantity: 4.5,
