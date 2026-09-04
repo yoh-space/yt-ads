@@ -12,7 +12,7 @@ const DEMO_ACCOUNTS = [
   { role: "Manager (ማኔጀር)", email: "ytadvert+manager@gmail.com", desc: "Staff oversight, team coordination, cross-role visibility" },
   { role: "Admin (ዋና አስተዳዳሪ)", email: "ytadvert+admin@gmail.com", desc: "System configuration, staff management, audit log" },
   { role: "Storekeeper (ክምችት)", email: "ytadvert+storekeeper@gmail.com", desc: "Parent inventory, roll/sheet custody, material transfers" },
-  { role: "Receptionist (ተቀባይ)", email: "ytadvert+receptionist@gmail.com", desc: "Customer orders queue, payment verification, TIN/invoices" },
+  { role: "Receptionist (ተቀባይ)", email: "ytadvert+reception@gmail.com", desc: "Customer orders queue, payment verification, TIN/invoices" },
   { role: "Laser Operator (ኦፕሬተር)", email: "ytadvert+laser@gmail.com", desc: "Job cards, floor sub-stock, scrap and offcut tracking" },
   { role: "CNC Operator (ኦፕሬተር)", email: "ytadvert+cnc@gmail.com", desc: "CNC router job cards and floor stock" },
   { role: "Plotter Operator (ኦፕሬተር)", email: "ytadvert+plotter@gmail.com", desc: "Print & cut job cards and floor stock" },

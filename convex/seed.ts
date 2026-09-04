@@ -533,6 +533,7 @@ export const seedYitbarekOwner = mutation({
           password: passwordHash,
         });
       }
+      await context.internalAdapter.updateUser(existingProfile.authUserId, { emailVerified: true });
 
       return { created: false, email, profileId: existingProfile._id };
     }
@@ -542,6 +543,8 @@ export const seedYitbarekOwner = mutation({
       body: { name, email, password: args.password },
     });
     const authUser = result.user;
+    const context = await auth.$context;
+    await context.internalAdapter.updateUser(authUser.id, { emailVerified: true });
     const profileId = await ctx.db.insert("users", {
       authUserId: authUser.id,
       name: authUser.name ?? name,

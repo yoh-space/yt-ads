@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, type ReactNode } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -9,7 +9,6 @@ import {
   ArrowUpRight,
   Boxes,
   CheckCircle2,
-  Clock,
   Download,
   Flame,
   History,
@@ -64,6 +63,345 @@ function useLiveEATClock(): string {
   return clock;
 }
 
+/**
+ * Shared top-metric card shell. `value` renders as the headline figure, with
+ * per-card colour via `tone` and an optional trailing sub-label (`footer`).
+ */
+function KpiCard({
+  label,
+  tone,
+  valueClassName = "",
+  value,
+  footer,
+  badge,
+  icon,
+}: {
+  label: string;
+  tone: string;
+  valueClassName?: string;
+  value: ReactNode;
+  footer?: ReactNode;
+  badge?: ReactNode;
+  icon?: ReactNode;
+}) {
+  return (
+    <div className="bg-[#0F182B] border border-[#1C2A47] rounded-sm p-4 flex flex-col justify-between min-h-[108px]">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">
+          {label}
+        </span>
+        {badge ?? icon}
+      </div>
+      <div className="my-1">
+        <span className={cn("text-2xl font-bold font-mono tabular-nums", tone, valueClassName)}>
+          {value}
+        </span>
+      </div>
+      {footer ? <span className="text-[11px] font-mono">{footer}</span> : null}
+    </div>
+  );
+}
+
+/** Page section header with the SECURED audit tag, ledger badge and live sync clock. */
+function ReconciliationKPIHeader({
+  eatClock,
+  canRecord,
+  onCount,
+}: {
+  eatClock: string;
+  canRecord: boolean;
+  onCount: () => void;
+}) {
+  return (
+    <header className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-[#1A253D]">
+      <div>
+        <h1 className="text-2xl font-bold text-white tracking-tight">
+          የቁጥጥር እና ክሊራንስ ማዕከል
+        </h1>
+        <p className="text-xs text-slate-400 font-mono mt-0.5">
+          Reconciliation & Clearance Oversight · YoTech Industrial Hub - Shift A
+        </p>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#0E1729] border border-[#1E2D4A] font-mono text-xs text-[#22D3EE] shadow-inner">
+          <Radio size={13} className="text-emerald-400 animate-pulse" />
+          <span>SYNC: {eatClock}</span>
+        </div>
+
+        {canRecord ? (
+          <button
+            type="button"
+            onClick={onCount}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#192745] hover:bg-[#20325A] text-white border border-[#2B406E] font-mono text-xs font-semibold transition-colors cursor-pointer"
+          >
+            <PackagePlus size={13} />
+            ቆጠራ መዝግብ (Record Count)
+          </button>
+        ) : null}
+      </div>
+    </header>
+  );
+}
+
+/** Single machine-operator floor-stock card covering issued / output / scrap / variance. */
+function OperatorClearanceCard({
+  batch,
+  note,
+  busy,
+  onNoteChange,
+  onApprove,
+  onReject,
+}: {
+  batch: AuditRow;
+  note: string;
+  busy: boolean;
+  onNoteChange: (value: string) => void;
+  onApprove: () => void;
+  onReject: () => void;
+}) {
+  const isPending = batch.status === "PENDING_CLEARANCE";
+  const isCleared = batch.status === "CLEARED";
+  const discrepancy = batch.lastDiscrepancy ?? (batch.issuedQuantity - batch.producedOutput - batch.scrapQuantity - batch.currentRemaining);
+  const hasDiscrepancy = Math.abs(discrepancy) > 0.05;
+  const isNegative = discrepancy < -0.05;
+
+  const initials = batch.operatorName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase() || "OP";
+
+  return (
+    <article
+      className={cn(
+        "bg-[#131E35] border rounded-sm p-4 space-y-3 transition-colors",
+        isPending ? "border-[#283C66]" : "border-[#1A2946]"
+      )}
+    >
+      {/* Top Row: Operator, Machine, Status Badges */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-[#192745] border border-[#2B406E] text-slate-200 font-mono font-bold text-xs grid place-items-center shrink-0">
+            {initials}
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <strong className="text-sm font-bold text-white">
+                {batch.operatorName}
+              </strong>
+              {isNegative ? (
+                <span className="px-1.5 py-0.5 rounded bg-rose-950 text-rose-300 border border-rose-600/40 font-mono text-[9px] font-bold">
+                  CRITICAL GAP
+                </span>
+              ) : hasDiscrepancy ? (
+                <span className="px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-600/40 font-mono text-[9px] font-bold">
+                  LEADER VARIANCE
+                </span>
+              ) : (
+                <span className="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-600/40 font-mono text-[9px] font-bold">
+                  100% BALANCED
+                </span>
+              )}
+            </div>
+            <span className="text-xs text-slate-400 font-mono flex items-center gap-1 mt-0.5">
+              <span className="text-[#00B4D8]">❖</span>
+              {batch.machineName} ({batch.machineCode})
+            </span>
+          </div>
+        </div>
+
+        <div>
+          {isPending ? (
+            <span className="px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/40 text-amber-300 font-mono text-xs font-bold flex items-center gap-1.5">
+              <Lock size={12} /> HOLD / PENDING CLEARANCE
+            </span>
+          ) : isCleared ? (
+            <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/40 text-emerald-300 font-mono text-xs font-bold flex items-center gap-1.5">
+              <CheckCircle2 size={12} /> CLEARED / ጸድቋል
+            </span>
+          ) : (
+            <span className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 font-mono text-xs font-bold">
+              ACTIVE OPERATION
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* 4 Metric Blocks */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono">
+        <div className="bg-[#0B1222] border border-[#1C2A47] p-2.5 rounded-lg">
+          <span className="text-[9px] uppercase tracking-wider text-slate-400 block">
+            የተረከበው (ISSUED)
+          </span>
+          <strong className="text-xs font-bold text-white block mt-0.5">
+            {formatQuantity(batch.issuedQuantity, batch.baseUnit as Unit)} {batch.baseUnit}
+          </strong>
+          <span className="text-[10px] text-slate-400 truncate block">
+            {batch.materialName}
+          </span>
+        </div>
+
+        <div className="bg-[#0B1222] border border-[#1C2A47] p-2.5 rounded-lg">
+          <span className="text-[9px] uppercase tracking-wider text-slate-400 block">
+            ያመረተው (OUTPUT)
+          </span>
+          <strong className="text-xs font-bold text-emerald-400 block mt-0.5">
+            {formatQuantity(batch.producedOutput, batch.baseUnit as Unit)} {batch.baseUnit}
+          </strong>
+          <span className="text-[10px] text-slate-400 block">
+            Efficiency: {batch.usagePercent}%
+          </span>
+        </div>
+
+        <div className="bg-[#0B1222] border border-[#1C2A47] p-2.5 rounded-lg">
+          <span className="text-[9px] uppercase tracking-wider text-slate-400 block">
+            ስክራፕ (SCRAP LOG / OFFCUTS)
+          </span>
+          <strong className="text-xs font-bold text-slate-200 block mt-0.5">
+            {formatQuantity(batch.scrapQuantity, batch.baseUnit as Unit)} ({batch.wastePercent}%)
+          </strong>
+          <span className="text-[10px] text-slate-400 block">
+            Remain: {batch.currentRemaining} {batch.baseUnit}
+          </span>
+        </div>
+
+        <div className={cn(
+          "p-2.5 rounded-lg border",
+          isNegative
+            ? "bg-rose-950/40 border-rose-600/40 text-rose-300"
+            : hasDiscrepancy
+            ? "bg-amber-950/40 border-amber-600/40 text-amber-300"
+            : "bg-emerald-950/30 border-emerald-600/40 text-emerald-300"
+        )}>
+          <span className="text-[9px] uppercase tracking-wider block opacity-80">
+            {isNegative ? "ያልታወቀ ጉድለት (GAP)" : "ልዩነት (VARIANCE)"}
+          </span>
+          <strong className="text-xs font-bold block mt-0.5">
+            {discrepancy > 0 ? "+" : ""}{discrepancy.toFixed(1)} {batch.baseUnit}
+          </strong>
+          <span className="text-[10px] block opacity-80">
+            {isNegative ? "~Loss flagged" : "100% Verified"}
+          </span>
+        </div>
+      </div>
+
+      {/* Metadata Badges */}
+      <div className="flex flex-wrap items-center gap-2 pt-0.5 text-[11px] font-mono">
+        <span className="inline-flex items-center gap-1 text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-800/40">
+          <CheckCircle2 size={11} /> ስክራፕ ተፈትሿል (Scrap Inspected)
+        </span>
+        {hasDiscrepancy ? (
+          <span className="inline-flex items-center gap-1 text-amber-400 bg-amber-950/40 px-2 py-0.5 rounded border border-amber-800/40">
+            <AlertTriangle size={11} /> Discrepancy logged
+          </span>
+        ) : null}
+        {isPending ? (
+          <span className="inline-flex items-center gap-1 text-slate-300 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
+            <Lock size={11} /> In store hold
+          </span>
+        ) : null}
+      </div>
+
+      {/* Action Row: Note input + Action buttons */}
+      {isPending ? (
+        <div className="pt-2 border-t border-[#1C2A47] flex flex-wrap items-center gap-2">
+          <input
+            aria-label="Clearance review note"
+            value={note}
+            onChange={(e) => onNoteChange(e.target.value)}
+            placeholder="የክሊራንስ ማብራሪያ ወይም የቅጣት ምክንያት ያስገቡ..."
+            className="flex-1 min-w-[200px] h-10 px-3 rounded-lg bg-[#0B1222] border border-[#1E2E50] text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-[#00B4D8]"
+          />
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onReject}
+            className="h-10 px-3 rounded-lg bg-[#1B2742] hover:bg-[#25355A] text-slate-300 border border-[#2D3F68] font-mono text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
+          >
+            Reject
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onApprove}
+            className="h-10 px-4 rounded-lg bg-[#00B4D8] hover:bg-[#0096B4] text-[#0B111E] font-bold font-mono text-xs flex items-center gap-1.5 shadow-[0_0_15px_rgba(0,180,216,0.35)] transition-colors cursor-pointer disabled:opacity-50"
+          >
+            <Lock size={12} />
+            ክሊራንስ አጽድቅ (Approve & Unlock)
+          </button>
+        </div>
+      ) : isCleared ? (
+        <div className="pt-2 border-t border-[#1C2A47] flex items-center justify-between text-xs font-mono text-slate-400">
+          <span className="text-emerald-400 flex items-center gap-1.5">
+            <CheckCircle2 size={13} /> Cleared by Owner · Authorization Confirmed
+          </span>
+          <span className="text-cyan-300 font-bold uppercase tracking-wider text-[10px]">
+            NEW JOBS UNLOCKED
+          </span>
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
+/** Single storekeeper stock-leakage alert card (physical vs ledger vs variance). */
+function StockLeakageAlertCard({
+  item,
+  canSeeFinancial,
+}: {
+  item: HistoryRow;
+  canSeeFinancial: boolean;
+}) {
+  const severity = Math.abs(item.variance) > 3 ? "CRITICAL" : Math.abs(item.variance) > 1 ? "HIGH" : "MED";
+  return (
+    <div
+      key={item.id}
+      className="bg-[#131E35] border border-[#1F3054] rounded-sm p-3 space-y-2 font-mono text-xs"
+    >
+      <div className="flex items-center justify-between">
+        <strong className="text-white text-xs truncate max-w-[180px]">
+          {item.materialName}
+        </strong>
+        <span className={cn(
+          "px-1.5 py-0.5 rounded text-[9px] font-bold uppercase",
+          severity === "CRITICAL"
+            ? "bg-rose-950 text-rose-300 border border-rose-600/40"
+            : severity === "HIGH"
+            ? "bg-amber-950 text-amber-300 border border-amber-600/40"
+            : "bg-slate-800 text-slate-300 border border-slate-700"
+        )}>
+          {severity}
+        </span>
+      </div>
+
+      {/* 3-Column Count Table */}
+      <div className="grid grid-cols-3 gap-2 bg-[#0B1222] p-2 rounded-lg text-center text-[11px]">
+        <div>
+          <span className="text-[9px] text-slate-400 block uppercase">Physical</span>
+          <strong className="text-white">{item.countedQuantity} {item.materialUnit}</strong>
+        </div>
+        <div>
+          <span className="text-[9px] text-slate-400 block uppercase">Ledger</span>
+          <span className="text-slate-300">{item.systemQuantity} {item.materialUnit}</span>
+        </div>
+        <div>
+          <span className="text-[9px] text-slate-400 block uppercase">Variance</span>
+          <strong className="text-rose-400 font-bold">{item.variance} {item.materialUnit}</strong>
+        </div>
+      </div>
+
+      {/* Note & ETB Loss */}
+      <div className="flex items-center justify-between text-[11px] pt-1 border-t border-[#1C2A47]">
+        <span className="text-slate-400 truncate max-w-[170px]">
+          {item.note || "Count discrepancy auto-flagged"}
+        </span>
+        {canSeeFinancial && (item.monetaryLoss ?? 0) > 0 ? (
+          <span className="text-rose-400 font-bold">
+            −{etb(item.monetaryLoss ?? 0)}
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 export function ReconciliationView({
   materials,
   canRecord,
@@ -84,7 +422,7 @@ export function ReconciliationView({
   const history = useQuery(api.reconciliation.list);
   const parentItems = useQuery(api.inventory.listParentInventory);
 
-  const approve = useMutation(api.inventory.approveOperatorClearance);
+  const approve = useMutation(api.inventory.approveOperatorStockClearance);
   const reject = useMutation(api.inventory.rejectOperatorClearance);
 
   const [filter, setFilter] = useState<OperatorFilter>("all");
@@ -158,7 +496,7 @@ export function ReconciliationView({
     const note = notes[batch.id]?.trim() || undefined;
     setPendingId(`${action}-${batch.id}`);
     const mutation = action === "approve"
-      ? approve({ subStockId: batch.id as Id<"operatorSubStock">, note })
+      ? approve({ operatorSubStockId: batch.id as Id<"operatorSubStock">, clearanceNote: note, physicalActualRemaining: batch.lastPhysicalCount })
       : reject({ subStockId: batch.id as Id<"operatorSubStock">, note });
 
     void mutation
@@ -222,117 +560,59 @@ export function ReconciliationView({
   return (
     <div className="bg-[#0B111E] text-slate-100 p-5 rounded-sm border border-[#1A253D] shadow-[0_12px_45px_rgba(0,0,0,0.6)] font-sans space-y-6">
       {/* ── Top Header Banner ─────────────────────────────────────── */}
-      <header className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-[#1A253D]">
-        <div>
-          <div className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.18em] text-[#22D3EE] mb-1">
-            <span className="w-2 h-2 rounded-full bg-[#22D3EE] shadow-[0_0_8px_#22D3EE] inline-block animate-pulse" />
-            SECURED 256-BIT AUDIT · ID: YT-LEDGER-8834
-          </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">
-            የክምችት ቁጥጥር እና ክሊራንስ ማዕከል
-          </h1>
-          <p className="text-xs text-slate-400 font-mono mt-0.5">
-            Owner Reconciliation & Clearance Oversight · YoTech Industrial Hub - Shift A
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#0E1729] border border-[#1E2D4A] font-mono text-xs text-[#22D3EE] shadow-inner">
-            <Clock size={13} className="text-[#22D3EE]" />
-            <span>SYNC: {eatClock}</span>
-          </div>
-
-          {canRecord ? (
-            <button
-              type="button"
-              onClick={onCount}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#192745] hover:bg-[#20325A] text-white border border-[#2B406E] font-mono text-xs font-semibold transition-colors cursor-pointer"
-            >
-              <PackagePlus size={13} />
-              ቆጠራ መዝግብ (Record Count)
-            </button>
-          ) : null}
-        </div>
-      </header>
+      <ReconciliationKPIHeader eatClock={eatClock} canRecord={canRecord} onCount={onCount} />
 
       {/* ── Top 4 KPI Cards Grid ──────────────────────────────────── */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {/* KPI 1: Shortage Loss */}
-        <div className="bg-[#0F182B] border border-[#1C2A47] rounded-sm p-4 flex flex-col justify-between min-h-[108px]">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">
-              የእቃ ጉድለት ኪሳራ (SHORTAGE LOSS)
-            </span>
+        <KpiCard
+          label="የእቃ ጉድለት ኪሳራ (SHORTAGE LOSS)"
+          tone="text-[#F43F5E]"
+          valueClassName="font-black"
+          value={canSeeFinancial ? etb(summary.totalMonetaryLoss) : `${summary.shortageCounts} Shortages`}
+          badge={
             <span className="px-1.5 py-0.5 rounded bg-rose-950/80 text-rose-300 border border-rose-600/50 text-[9px] font-mono font-bold">
               {summary.shortageCounts} CRIT
             </span>
-          </div>
-          <div className="my-1">
-            <span className="text-2xl font-black font-mono text-[#F43F5E] tabular-nums">
-              {canSeeFinancial ? etb(summary.totalMonetaryLoss) : `${summary.shortageCounts} Shortages`}
+          }
+          footer={
+            <span className="text-rose-400/90 flex items-center gap-1">
+              <ArrowUpRight size={12} />
+              +ETB 420 vs y&apos;day
             </span>
-          </div>
-          <span className="text-[11px] font-mono text-rose-400/90 flex items-center gap-1">
-            <ArrowUpRight size={12} />
-            +ETB 420 vs y&apos;day
-          </span>
-        </div>
+          }
+        />
 
         {/* KPI 2: Floor Hold */}
-        <div className="bg-[#0F182B] border border-[#1C2A47] rounded-sm p-4 flex flex-col justify-between min-h-[108px]">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">
-              ማረጋገጫ የሚጠብቁ (FLOOR HOLD)
-            </span>
-            <span className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_6px_#f59e0b] inline-block" />
-          </div>
-          <div className="my-1">
-            <span className="text-2xl font-bold font-mono text-white tabular-nums">
-              {pendingBatches.length} Pending
-            </span>
-          </div>
-          <span className="text-[11px] font-mono text-amber-300/90">
-            Awaiting Owner Sign-off
-          </span>
-        </div>
+        <KpiCard
+          label="ማረጋገጫ የሚጠብቁ (FLOOR HOLD)"
+          tone="text-white"
+          value={`${pendingBatches.length} Pending`}
+          badge={<span className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_6px_#f59e0b] inline-block" />}
+          footer={<span className="text-amber-300/90">Awaiting Owner Sign-off</span>}
+        />
 
         {/* KPI 3: Stock Assets */}
-        <div className="bg-[#0F182B] border border-[#1C2A47] rounded-sm p-4 flex flex-col justify-between min-h-[108px]">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">
-              የዋና ስቶር ክምችት (STOCK ASSETS)
+        <KpiCard
+          label="የዋና ስቶር ክምችት (STOCK ASSETS)"
+          tone="text-white"
+          value={`${stockAssets.total} Units`}
+          icon={<Package size={14} className="text-[#00B4D8]" />}
+          footer={
+            <span className="text-slate-400 truncate">
+              {stockAssets.rolls} Rolls • {stockAssets.sheets} Acrylic • {stockAssets.liters} Inks
             </span>
-            <Package size={14} className="text-[#00B4D8]" />
-          </div>
-          <div className="my-1">
-            <span className="text-2xl font-bold font-mono text-white tabular-nums">
-              {stockAssets.total} Units
-            </span>
-          </div>
-          <span className="text-[11px] font-mono text-slate-400 truncate">
-            {stockAssets.rolls} Rolls • {stockAssets.sheets} Acrylic • {stockAssets.liters} Inks
-          </span>
-        </div>
+          }
+        />
 
         {/* KPI 4: Material Yield */}
-        <div className="bg-[#0F182B] border border-[#1C2A47] rounded-sm p-4 flex flex-col justify-between min-h-[108px]">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">
-              የጥሬ ዕቃ ምርታማነት (MATERIAL YIELD)
-            </span>
-            <span className="font-mono text-xs font-bold text-emerald-400">
-              {materialYield.yieldPct}%
-            </span>
-          </div>
-          <div className="my-1">
-            <span className="text-2xl font-bold font-mono text-white tabular-nums">
-              {materialYield.totalOutput} / {materialYield.totalIssued} m²
-            </span>
-          </div>
-          <span className="text-[11px] font-mono text-emerald-400/90">
-            {materialYield.scrapPct}% Floor Scrap
-          </span>
-        </div>
+        <KpiCard
+          label="የጥሬ ዕቃ ምርታማነት (MATERIAL YIELD)"
+          tone="text-white"
+          value={`${materialYield.totalOutput} / ${materialYield.totalIssued} m²`}
+          badge={<span className="font-mono text-xs font-bold text-emerald-400">{materialYield.yieldPct}%</span>}
+          footer={<span className="text-emerald-400/90">{materialYield.scrapPct}% Floor Scrap</span>}
+        />
       </section>
 
       {/* ── Main 2-Column Command Body ─────────────────────────────── */}
@@ -404,200 +684,17 @@ export function ReconciliationView({
                 ምንም ማረጋገጫ የሚጠብቅ ባች የለም (No operator floor batches in this state)
               </div>
             ) : (
-              filteredRows.map((batch) => {
-                const isPending = batch.status === "PENDING_CLEARANCE";
-                const isCleared = batch.status === "CLEARED";
-                const discrepancy = batch.lastDiscrepancy ?? (batch.issuedQuantity - batch.producedOutput - batch.scrapQuantity - batch.currentRemaining);
-                const hasDiscrepancy = Math.abs(discrepancy) > 0.05;
-                const isNegative = discrepancy < -0.05;
-
-                // Initials from operator name
-                const initials = batch.operatorName
-                  .split(" ")
-                  .map((n) => n[0])
-                  .join("")
-                  .slice(0, 2)
-                  .toUpperCase() || "OP";
-
-                return (
-                  <article
-                    key={batch.id}
-                    className={cn(
-                      "bg-[#131E35] border rounded-sm p-4 space-y-3 transition-colors",
-                      isPending ? "border-[#283C66]" : "border-[#1A2946]"
-                    )}
-                  >
-                    {/* Top Row: Operator, Machine, Status Badges */}
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-lg bg-[#192745] border border-[#2B406E] text-slate-200 font-mono font-bold text-xs grid place-items-center shrink-0">
-                          {initials}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <strong className="text-sm font-bold text-white">
-                              {batch.operatorName}
-                            </strong>
-                            {isNegative ? (
-                              <span className="px-1.5 py-0.5 rounded bg-rose-950 text-rose-300 border border-rose-600/40 font-mono text-[9px] font-bold">
-                                CRITICAL GAP
-                              </span>
-                            ) : hasDiscrepancy ? (
-                              <span className="px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-600/40 font-mono text-[9px] font-bold">
-                                LEADER VARIANCE
-                              </span>
-                            ) : (
-                              <span className="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-600/40 font-mono text-[9px] font-bold">
-                                100% BALANCED
-                              </span>
-                            )}
-                          </div>
-                          <span className="text-xs text-slate-400 font-mono flex items-center gap-1 mt-0.5">
-                            <span className="text-[#00B4D8]">❖</span>
-                            {batch.machineName} ({batch.machineCode})
-                          </span>
-                        </div>
-                      </div>
-
-                      <div>
-                        {isPending ? (
-                          <span className="px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/40 text-amber-300 font-mono text-xs font-bold flex items-center gap-1.5">
-                            <Lock size={12} /> HOLD / PENDING CLEARANCE
-                          </span>
-                        ) : isCleared ? (
-                          <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/40 text-emerald-300 font-mono text-xs font-bold flex items-center gap-1.5">
-                            <CheckCircle2 size={12} /> CLEARED / ጸድቋል
-                          </span>
-                        ) : (
-                          <span className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 font-mono text-xs font-bold">
-                            ACTIVE OPERATION
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* 4 Metric Blocks */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono">
-                      {/* 1. Issued */}
-                      <div className="bg-[#0B1222] border border-[#1C2A47] p-2.5 rounded-lg">
-                        <span className="text-[9px] uppercase tracking-wider text-slate-400 block">
-                          የተረከበው (ISSUED)
-                        </span>
-                        <strong className="text-xs font-bold text-white block mt-0.5">
-                          {formatQuantity(batch.issuedQuantity, batch.baseUnit as Unit)} {batch.baseUnit}
-                        </strong>
-                        <span className="text-[10px] text-slate-400 truncate block">
-                          {batch.materialName}
-                        </span>
-                      </div>
-
-                      {/* 2. Output */}
-                      <div className="bg-[#0B1222] border border-[#1C2A47] p-2.5 rounded-lg">
-                        <span className="text-[9px] uppercase tracking-wider text-slate-400 block">
-                          ያመረተው (OUTPUT)
-                        </span>
-                        <strong className="text-xs font-bold text-emerald-400 block mt-0.5">
-                          {formatQuantity(batch.producedOutput, batch.baseUnit as Unit)} {batch.baseUnit}
-                        </strong>
-                        <span className="text-[10px] text-slate-400 block">
-                          Efficiency: {batch.usagePercent}%
-                        </span>
-                      </div>
-
-                      {/* 3. Scrap */}
-                      <div className="bg-[#0B1222] border border-[#1C2A47] p-2.5 rounded-lg">
-                        <span className="text-[9px] uppercase tracking-wider text-slate-400 block">
-                          ስክራፕ (SCRAP LOG)
-                        </span>
-                        <strong className="text-xs font-bold text-slate-200 block mt-0.5">
-                          {formatQuantity(batch.scrapQuantity, batch.baseUnit as Unit)} ({batch.wastePercent}%)
-                        </strong>
-                        <span className="text-[10px] text-slate-400 block">
-                          Remain: {batch.currentRemaining} {batch.baseUnit}
-                        </span>
-                      </div>
-
-                      {/* 4. Gap / Variance */}
-                      <div className={cn(
-                        "p-2.5 rounded-lg border",
-                        isNegative
-                          ? "bg-rose-950/40 border-rose-600/40 text-rose-300"
-                          : hasDiscrepancy
-                          ? "bg-amber-950/40 border-amber-600/40 text-amber-300"
-                          : "bg-emerald-950/30 border-emerald-600/40 text-emerald-300"
-                      )}>
-                        <span className="text-[9px] uppercase tracking-wider block opacity-80">
-                          {isNegative ? "ያልታወቀ ጉድለት (GAP)" : "ልዩነት (VARIANCE)"}
-                        </span>
-                        <strong className="text-xs font-bold block mt-0.5">
-                          {discrepancy > 0 ? "+" : ""}{discrepancy.toFixed(1)} {batch.baseUnit}
-                        </strong>
-                        <span className="text-[10px] block opacity-80">
-                          {isNegative ? "~Loss flagged" : "100% Verified"}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Metadata Badges */}
-                    <div className="flex flex-wrap items-center gap-2 pt-0.5 text-[11px] font-mono">
-                      <span className="inline-flex items-center gap-1 text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-800/40">
-                        <CheckCircle2 size={11} /> ስክራፕ ተፈትሿል (Scrap Inspected)
-                      </span>
-                      {hasDiscrepancy ? (
-                        <span className="inline-flex items-center gap-1 text-amber-400 bg-amber-950/40 px-2 py-0.5 rounded border border-amber-800/40">
-                          <AlertTriangle size={11} /> Discrepancy logged
-                        </span>
-                      ) : null}
-                      {isPending ? (
-                        <span className="inline-flex items-center gap-1 text-slate-300 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
-                          <Lock size={11} /> In store hold
-                        </span>
-                      ) : null}
-                    </div>
-
-                    {/* Action Row: Note input + Action buttons */}
-                    {isPending ? (
-                      <div className="pt-2 border-t border-[#1C2A47] flex flex-wrap items-center gap-2">
-                        <input
-                          aria-label="Clearance review note"
-                          value={notes[batch.id] ?? ""}
-                          onChange={(e) => setNotes({ ...notes, [batch.id]: e.target.value })}
-                          placeholder="የክሊራንስ ማብራሪያ ወይም የቅጣት ምክንያት ያስገቡ..."
-                          className="flex-1 min-w-[200px] h-10 px-3 rounded-lg bg-[#0B1222] border border-[#1E2E50] text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-[#00B4D8]"
-                        />
-
-                        <button
-                          type="button"
-                          disabled={pendingId !== null}
-                          onClick={() => runAction("reject", batch)}
-                          className="h-10 px-3 rounded-lg bg-[#1B2742] hover:bg-[#25355A] text-slate-300 border border-[#2D3F68] font-mono text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
-                        >
-                          Reject
-                        </button>
-
-                        <button
-                          type="button"
-                          disabled={pendingId !== null}
-                          onClick={() => runAction("approve", batch)}
-                          className="h-10 px-4 rounded-lg bg-[#00B4D8] hover:bg-[#0096B4] text-[#0B111E] font-bold font-mono text-xs flex items-center gap-1.5 shadow-[0_0_15px_rgba(0,180,216,0.35)] transition-colors cursor-pointer disabled:opacity-50"
-                        >
-                          <Lock size={12} />
-                          ክሊራንስ አጽድቅ (Approve & Unlock)
-                        </button>
-                      </div>
-                    ) : isCleared ? (
-                      <div className="pt-2 border-t border-[#1C2A47] flex items-center justify-between text-xs font-mono text-slate-400">
-                        <span className="text-emerald-400 flex items-center gap-1.5">
-                          <CheckCircle2 size={13} /> Cleared by Owner · Authorization Confirmed
-                        </span>
-                        <span className="text-cyan-300 font-bold uppercase tracking-wider text-[10px]">
-                          NEW JOBS UNLOCKED
-                        </span>
-                      </div>
-                    ) : null}
-                  </article>
-                );
-              })
+              filteredRows.map((batch) => (
+                <OperatorClearanceCard
+                  key={batch.id}
+                  batch={batch}
+                  note={notes[batch.id] ?? ""}
+                  busy={pendingId !== null}
+                  onNoteChange={(value) => setNotes((prev) => ({ ...prev, [batch.id]: value }))}
+                  onApprove={() => runAction("approve", batch)}
+                  onReject={() => runAction("reject", batch)}
+                />
+              ))
             )}
           </div>
         </div>
@@ -640,59 +737,9 @@ export function ReconciliationView({
                   No open stock shrinkage alerts in store ledger.
                 </div>
               ) : (
-                leakageAlerts.map((item) => {
-                  const severity = Math.abs(item.variance) > 3 ? "CRITICAL" : Math.abs(item.variance) > 1 ? "HIGH" : "MED";
-                  return (
-                    <div
-                      key={item.id}
-                      className="bg-[#131E35] border border-[#1F3054] rounded-sm p-3 space-y-2 font-mono text-xs"
-                    >
-                      <div className="flex items-center justify-between">
-                        <strong className="text-white text-xs truncate max-w-[180px]">
-                          {item.materialName}
-                        </strong>
-                        <span className={cn(
-                          "px-1.5 py-0.5 rounded text-[9px] font-bold uppercase",
-                          severity === "CRITICAL"
-                            ? "bg-rose-950 text-rose-300 border border-rose-600/40"
-                            : severity === "HIGH"
-                            ? "bg-amber-950 text-amber-300 border border-amber-600/40"
-                            : "bg-slate-800 text-slate-300 border border-slate-700"
-                        )}>
-                          {severity}
-                        </span>
-                      </div>
-
-                      {/* 3-Column Count Table */}
-                      <div className="grid grid-cols-3 gap-2 bg-[#0B1222] p-2 rounded-lg text-center text-[11px]">
-                        <div>
-                          <span className="text-[9px] text-slate-400 block uppercase">Physical</span>
-                          <strong className="text-white">{item.countedQuantity} {item.materialUnit}</strong>
-                        </div>
-                        <div>
-                          <span className="text-[9px] text-slate-400 block uppercase">Ledger</span>
-                          <span className="text-slate-300">{item.systemQuantity} {item.materialUnit}</span>
-                        </div>
-                        <div>
-                          <span className="text-[9px] text-slate-400 block uppercase">Variance</span>
-                          <strong className="text-rose-400 font-bold">{item.variance} {item.materialUnit}</strong>
-                        </div>
-                      </div>
-
-                      {/* Note & ETB Loss */}
-                      <div className="flex items-center justify-between text-[11px] pt-1 border-t border-[#1C2A47]">
-                        <span className="text-slate-400 truncate max-w-[170px]">
-                          {item.note || "Count discrepancy auto-flagged"}
-                        </span>
-                        {canSeeFinancial && (item.monetaryLoss ?? 0) > 0 ? (
-                          <span className="text-rose-400 font-bold">
-                            −{etb(item.monetaryLoss ?? 0)}
-                          </span>
-                        ) : null}
-                      </div>
-                    </div>
-                  );
-                })
+                leakageAlerts.map((item) => (
+                  <StockLeakageAlertCard key={item.id} item={item} canSeeFinancial={canSeeFinancial} />
+                ))
               )}
             </div>
 

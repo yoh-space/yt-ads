@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowUpRight, CalendarDays, Clock3, Plus, Printer, Search, Wrench, X, FileText } from "lucide-react";
+import { ArrowUpRight, CalendarDays, Clock3, Plus, Search, Wrench, X, Copy, Check } from "lucide-react";
 import type { CustomerOrder, Machine, Material, OrderPriority, CustomerOrderStatus } from "@/lib/operations-types";
 import { formatQuantity } from "@/lib/units";
 import { getServiceLabel } from "@/constants/services";
@@ -9,7 +9,6 @@ import { Button, Panel, PanelHeader, StatusPill } from "@/components/ui";
 import { ModalShell } from "../modals/modal-shell";
 import { OrderDetailsSheet } from "./order-details-sheet";
 import { cn } from "@/lib/utils";
-import { isDesktopShell, printNative } from "@/lib/desktop";
 
 type DateRange = "all" | "today" | "yesterday" | "thisWeek" | "thisMonth";
 
@@ -52,17 +51,23 @@ function formatDue(timestamp: number) {
   return new Date(timestamp).toLocaleString("en-ET", { dateStyle: "medium", timeStyle: "short" });
 }
 
+function copyToClipboard(value: string, key: string, setCopiedKey: (key: string | null) => void) {
+  if (!value) return;
+  void navigator.clipboard.writeText(value).then(() => {
+    setCopiedKey(key);
+    window.setTimeout(() => setCopiedKey((current) => (current === key ? null : current)), 1600);
+  });
+}
+
 export function OrdersView({
   orders,
   machines,
   materials,
   canManage,
   canCreateOrder,
-  canInvoice,
   onConvert,
   onStatus,
   onCreateOrder,
-  onInvoice,
   isPending,
 }: {
   orders: CustomerOrder[];
@@ -73,8 +78,6 @@ export function OrdersView({
   onConvert: (order: CustomerOrder) => void;
   onStatus: (orderId: string, status: CustomerOrderStatus) => void;
   onCreateOrder: () => void;
-  onInvoice: (order: CustomerOrder, input?: InvoiceInput) => void;
-  canInvoice: boolean;
   isPending: (key: string) => boolean;
 }) {
   const [search, setSearch] = useState("");
@@ -82,9 +85,8 @@ export function OrdersView({
   const [priority, setPriority] = useState<OrderPriority | "all">("all");
   const [machine, setMachine] = useState("all");
   const [dateRange, setDateRange] = useState<DateRange>("all");
-  const [printOrder, setPrintOrder] = useState<CustomerOrder | null>(null);
-  const [invoiceOrder, setInvoiceOrder] = useState<CustomerOrder | null>(null);
   const [selected, setSelected] = useState<CustomerOrder | null>(null);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   const filteredByRange = useMemo(() => orders.filter((order) => inRange(order.createdAt, dateRange)), [dateRange, orders]);
 
@@ -224,6 +226,30 @@ export function OrdersView({
                 <b className="block text-sm font-semibold text-navy truncate">{order.code}</b>
                 <span className="block text-xs text-gray-600 truncate">{order.clientName}</span>
                 <small className="text-xs text-gray-400">{order.phone}</small>
+                {order.companyLegalName || order.tinNumber ? (
+                  <span className="mt-1 flex flex-wrap items-center gap-1">
+                    {order.companyLegalName ? (
+                      <button
+                        onClick={(event) => { event.stopPropagation(); copyToClipboard(order.companyLegalName as string, `company-${order.id}`, setCopiedKey); }}
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-gray-100 text-[10px] font-medium text-gray-600 hover:bg-gray-200 hover:text-navy"
+                        title={`Verified company: ${order.companyLegalName}`}
+                      >
+                        {copiedKey === `company-${order.id}` ? <Check size={10} /> : <Copy size={10} />}
+                        {copiedKey === `company-${order.id}` ? "Copied" : "Company"}
+                      </button>
+                    ) : null}
+                    {order.tinNumber ? (
+                      <button
+                        onClick={(event) => { event.stopPropagation(); copyToClipboard(order.tinNumber as string, `tin-${order.id}`, setCopiedKey); }}
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-gray-100 text-[10px] font-medium text-gray-600 hover:bg-gray-200 hover:text-navy"
+                        title={`TIN: ${order.tinNumber}`}
+                      >
+                        {copiedKey === `tin-${order.id}` ? <Check size={10} /> : <Copy size={10} />}
+                        TIN {order.tinNumber}
+                      </button>
+                    ) : null}
+                  </span>
+                ) : null}
               </div>
               
               {/* Service */}
@@ -291,13 +317,6 @@ export function OrdersView({
                     {isPending(`order-status-${order.id}`) ? "Saving..." : "Complete"}
                   </Button>
                 ) : null}
-                {isDesktopShell() ? (
-                  <Button size="small" variant="tertiary" onClick={(event) => { event.stopPropagation(); setPrintOrder(order); }}>
-                    <Printer size={13} />
-                    Receipt
-                  </Button>
-                ) : null}
-                {canInvoice ? <Button size="small" variant="secondary" onClick={(event) => { event.stopPropagation(); setInvoiceOrder(order); }}><FileText size={13} />Invoice</Button> : null}
                 <ArrowUpRight size={14} className="text-gray-300 flex-none" aria-hidden />
               </div>
             </div>
@@ -306,23 +325,6 @@ export function OrdersView({
       </Panel>
 
       <p className="text-xs text-gray-500">Creating a job card from an order carries client details automatically. Material is deducted when production is recorded, not at creation.</p>
-
-      {printOrder ? (
-        <OrderReceiptModal
-          order={printOrder}
-          onClose={() => setPrintOrder(null)}
-          onPrint={() => printNative()}
-        />
-      ) : null}
-
-      {invoiceOrder ? (
-        <OrderInvoiceModal
-          order={invoiceOrder}
-          onClose={() => setInvoiceOrder(null)}
-          onPrint={() => window.print()}
-          onSave={onInvoice}
-        />
-      ) : null}
 
       {selected ? (
         <OrderDetailsSheet
@@ -333,105 +335,9 @@ export function OrdersView({
           onConvert={onConvert}
           onStatus={onStatus}
           onClose={() => setSelected(null)}
-          canInvoice={canInvoice}
-          onInvoice={(order) => setInvoiceOrder(order)}
         />
       ) : null}
     </div>
-  );
-}
-
-export function OrderReceiptModal({ order, onClose, onPrint }: { order: CustomerOrder; onClose: () => void; onPrint: () => void }) {
-  return (
-    <ModalShell
-      title={`${order.code} · Customer Receipt`}
-      subtitle="Native print preview for the receptionist handoff sheet."
-      kicker="PRINT RECEIPT"
-      onClose={onClose}
-      footer={
-        <div className="flex gap-3 justify-end">
-          <Button type="button" variant="tertiary" onClick={onClose}>Close</Button>
-          <Button type="button" variant="primary" onClick={onPrint}>
-            <Printer size={15} />Print Receipt
-          </Button>
-        </div>
-      }
-    >
-      <div className="space-y-4 print:block print:shadow-none print:border-0">
-        <div className="border border-line rounded-lg p-5 bg-white">
-          <div className="flex items-center justify-between border-b border-dashed border-line pb-4 mb-4">
-            <div>
-              <strong className="block text-lg font-bold text-navy">YT Advertising</strong>
-              <span className="text-xs text-gray-500">Order Receipt</span>
-            </div>
-            <div className="text-right">
-              <span className="font-mono text-xs font-semibold text-cyan">{order.code}</span>
-              <span className="block text-xs text-gray-500">{formatDue(order.createdAt)}</span>
-            </div>
-          </div>
-
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm print:text-xs">
-            <div><dt className="text-muted-foreground text-xs">Client</dt><dd className="font-semibold text-navy">{order.clientName}</dd></div>
-            <div><dt className="text-muted-foreground text-xs">Phone</dt><dd className="font-semibold text-navy">{order.phone}</dd></div>
-            <div><dt className="text-muted-foreground text-xs">Service</dt><dd className="font-semibold text-navy">{getServiceLabel(order.serviceType) ?? order.serviceType}</dd></div>
-            <div><dt className="text-muted-foreground text-xs">Dimensions</dt><dd className="font-semibold text-navy">{order.dimensions}</dd></div>
-            <div><dt className="text-muted-foreground text-xs">Quantity</dt><dd className="font-semibold text-navy">{order.quantity}</dd></div>
-            <div><dt className="text-muted-foreground text-xs">Due</dt><dd className="font-semibold text-navy">{formatDue(order.preferredDueDate)}</dd></div>
-            <div><dt className="text-muted-foreground text-xs">Priority</dt><dd className="font-semibold text-navy">{order.priority}</dd></div>
-            <div><dt className="text-muted-foreground text-xs">Status</dt><dd className="font-semibold text-navy">{order.status}</dd></div>
-            {order.amount !== undefined ? (
-              <div className="col-span-2 flex items-center justify-between border-t border-dashed border-line pt-3 mt-2">
-                <dt className="text-muted-foreground text-xs">Total</dt>
-                <dd className="font-bold text-navy">ETB {order.amount.toLocaleString()}</dd>
-              </div>
-            ) : null}
-          </dl>
-        </div>
-        <p className="text-[10px] text-gray-400">Handled by YT Advertising reception · {new Date().toLocaleString("en-ET")}</p>
-      </div>
-    </ModalShell>
-  );
-}
-
-export type InvoiceInput = {
-  type: "PROFORMA" | "TAX_INVOICE";
-  companyLegalName?: string;
-  tinNumber?: string;
-  taxRate: number;
-  lineItems: Array<{ description: string; quantity: number; unit: string; unitPrice: number; lineTotal: number }>;
-};
-
-export function OrderInvoiceModal({ order, onClose, onPrint, onSave }: { order: CustomerOrder; onClose: () => void; onPrint: () => void; onSave: (order: CustomerOrder, input: InvoiceInput) => void | Promise<void> }) {
-  const [type, setType] = useState<InvoiceInput["type"]>(order.invoiceType ?? "PROFORMA");
-  const [companyLegalName, setCompanyLegalName] = useState(order.companyLegalName ?? order.clientName);
-  const [tinNumber, setTinNumber] = useState(order.tinNumber ?? "");
-  const [taxRate, setTaxRate] = useState(order.taxRate ?? 0);
-  const [unitPrice, setUnitPrice] = useState(order.amount ?? 0);
-  const subtotal = Number(unitPrice.toFixed(2));
-  const taxAmount = Number((subtotal * taxRate / 100).toFixed(2));
-  const total = Number((subtotal + taxAmount).toFixed(2));
-  async function issueInvoice() {
-    await onSave(order, { type, companyLegalName: companyLegalName.trim() || undefined, tinNumber: tinNumber.trim() || undefined, taxRate, lineItems: [{ description: `${getServiceLabel(order.serviceType) ?? order.serviceType} · ${order.dimensions}`, quantity: 1, unit: order.quantity, unitPrice, lineTotal: subtotal }] });
-    onClose();
-  }
-
-  return (
-    <ModalShell
-      title={`${order.code} · Formal Invoice`}
-      subtitle="Issue a proforma or tax invoice. Billing visibility does not grant owner profitability access."
-      kicker="INVOICE DRAWER"
-      onClose={onClose}
-      footer={<div className="flex gap-3 justify-end"><Button type="button" variant="tertiary" onClick={onClose}>Cancel</Button><Button type="button" variant="secondary" onClick={onPrint}><Printer size={14} />Print preview</Button><Button type="button" variant="primary" onClick={() => void issueInvoice()}>Issue invoice <ArrowUpRight size={15} /></Button></div>}
-    >
-      <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-4 text-sm"><div><small className="text-muted-foreground">Client</small><br /><strong>{order.clientName}</strong></div><div><small className="text-muted-foreground">Order</small><br /><strong>{order.code}</strong></div></div>
-        <div className="grid grid-cols-2 gap-3"><label className="block"><span className="block text-xs font-semibold mb-1">Document type</span><select value={type} onChange={(event) => setType(event.target.value as InvoiceInput["type"])} className="w-full px-3 py-2 border border-line rounded-lg bg-white"><option value="PROFORMA">Proforma</option><option value="TAX_INVOICE">Tax Invoice</option></select></label><label className="block"><span className="block text-xs font-semibold mb-1">TIN number</span><input value={tinNumber} onChange={(event) => setTinNumber(event.target.value)} className="w-full px-3 py-2 border border-line rounded-lg bg-white" /></label></div>
-        <label className="block"><span className="block text-xs font-semibold mb-1">Legal company name</span><input value={companyLegalName} onChange={(event) => setCompanyLegalName(event.target.value)} className="w-full px-3 py-2 border border-line rounded-lg bg-white" /></label>
-        <div className="rounded-lg border border-line overflow-hidden"><div className="grid grid-cols-[2fr_1fr_1fr] gap-3 bg-gray-50 px-4 py-3 text-xs font-semibold"><span>Line item</span><span>Unit price</span><span>Total</span></div><div className="grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-3 text-sm items-center"><span>{getServiceLabel(order.serviceType) ?? order.serviceType} · {order.dimensions}<small className="block text-xs text-muted-foreground">Qty {order.quantity}</small></span><input type="number" min="0" step="0.01" value={unitPrice} onChange={(event) => setUnitPrice(Math.max(0, Number(event.target.value)))} className="w-full px-2 py-1 border border-line rounded" /><strong>ETB {subtotal.toFixed(2)}</strong></div></div>
-        <label className="block max-w-[180px]"><span className="block text-xs font-semibold mb-1">Tax rate (%)</span><input type="number" min="0" max="100" step="0.01" value={taxRate} onChange={(event) => setTaxRate(Math.max(0, Math.min(100, Number(event.target.value))))} className="w-full px-3 py-2 border border-line rounded-lg bg-white" /></label>
-        <div className="ml-auto max-w-xs space-y-2 border-t border-line pt-3 text-sm"><div className="flex justify-between"><span>Subtotal</span><strong>ETB {subtotal.toFixed(2)}</strong></div><div className="flex justify-between"><span>Tax ({taxRate}%)</span><strong>ETB {taxAmount.toFixed(2)}</strong></div><div className="flex justify-between text-base"><span>Total</span><strong>ETB {total.toFixed(2)}</strong></div></div>
-      </div>
-    </ModalShell>
   );
 }
 

@@ -27,7 +27,7 @@ import { AuditLogView } from "./views/audit-log";
 import { SettingsView } from "./views/settings";
 import { FinancialOperationsView } from "./views/financial-operations";
 import { OperationalConfigView } from "./views/operational-config";
-import { OrdersView, OrderPriceModal, OrderConfirmModal, type InvoiceInput } from "./views/orders";
+import { OrdersView, OrderPriceModal, OrderConfirmModal } from "./views/orders";
 import { StockModal } from "./modals/stock-modal";
 import { OffcutModal, type NewOffcutInput } from "./modals/offcut-modal";
 import { ReconciliationModal, type NewReconciliationInput } from "./modals/reconciliation-modal";
