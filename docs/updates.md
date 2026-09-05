@@ -61,16 +61,67 @@ Services such as Light Box may reference multiple raw materials. When a job is c
 - Storekeepers issue physical packages but cannot alter historical conversion snapshots.
 - Operators request, consume, and reconcile assigned materials but cannot approve their own exceptions.
 
-## Delivery phases
+## Complete delivery plan
 
-1. Schema and shared physical-package types.
-2. Conversion-aware transfer projections and allowance status calculation.
-3. Service recipes and multi-material job snapshots.
-4. Operator multi-line request interface.
-5. Storekeeper multi-line handover interface.
-6. Production monitoring, warnings, and reconciliation.
-7. Migration, audit verification, and end-to-end tests.
+### Phase 1 — Physical-package foundation
 
-## Phase 2 scope
+- Add package units and package metadata without removing legacy base-unit fields.
+- Add package-aware shared frontend/backend types and canister conversion support.
+- Preserve existing requests, jobs, stock movements, and material records during migration.
+- Verify schema compatibility, type safety, and unit conversion behavior.
 
-Phase 2 adds package-aware request and issue fields, preserves legacy requests, updates operator stock projections with package/base balances, and introduces shared allowance-status calculation. It does not yet replace the operator modal or generate service recipes automatically.
+### Phase 2 — Conversion-aware custody projections
+
+- Store requested and issued package quantities on material requests.
+- Track issued, remaining, consumed, and converted base quantities on operator sub-stock.
+- Snapshot conversion ratios on custody and production events.
+- Calculate `NORMAL`, `WATCH`, `CRITICAL`, and `EXCEEDED` allowance states.
+- Record planned usage and approved scrap allowance on production logs.
+- Keep physical packages primary in transfer workflows and converted units primary for usage/audit.
+
+### Phase 3 — Service recipes and multi-material job snapshots
+
+- Allow owner/admin users to create, update, activate, deactivate, and list service material recipes.
+- Support fixed, area-rate, linear-rate, and quantity-rate recipe requirements.
+- Validate materials, ratios, allowance percentages, and duplicate active recipe lines.
+- Extend job creation with an optional service type and dimensions.
+- Calculate each job's material requirements from the active recipe and snapshot them immutably.
+- Convert planned base quantities into suggested physical package quantities using the material ratio.
+- Keep the legacy primary `jobCards.materialId` path working for jobs without recipes.
+
+### Phase 4 — Operator multi-line request interface
+
+- Replace the single-material request modal with a multi-line physical-package builder.
+- Show package quantities as the editable primary value.
+- Show conversion equivalents as read-only planning information.
+- Validate line quantities, active jobs, clearance rules, and duplicate materials.
+- Create one grouped request with line-level records and preserve legacy compatibility.
+
+### Phase 5 — Storekeeper multi-line handover
+
+- Add a grouped requisition queue for pending operator requests.
+- Support full issue, partial issue, shortages, and line-level status.
+- Decrement parent packages transactionally and create operator custody projections.
+- Require storekeeper/manager/owner authorization and preserve immutable conversion snapshots.
+- Show package custody first, converted usage/remaining second.
+
+### Phase 6 — Production monitoring and asset protection
+
+- Deduct converted usage from the correct operator material line.
+- Surface usage and remaining balances in operator, storekeeper, manager, and owner workspaces.
+- Show proactive warnings before and after approved scrap allowances are exceeded.
+- Create auditable overuse exceptions and notify owner, admin, and manager.
+- Add reconciliation actions that never erase original ledger events.
+
+### Phase 7 — Migration, audit, and release verification
+
+- Backfill package metadata and recipe data where source data is reliable.
+- Rehearse legacy-to-package migration on a preview deployment.
+- Verify wrong-role, over-issue, duplicate-line, and overuse rejection cases.
+- Run end-to-end tests for Light Box and other multi-material services.
+- Run `pnpm check`, `pnpm test`, production build, Convex code generation, and deployment validation.
+- Deploy only after explicit production approval and confirm rollback/audit procedures.
+
+## Completed scope
+
+Phase 1 and Phase 2 are complete. They established package-aware custody, converted usage projections, allowance status calculation, and backward-compatible schema fields. Phase 3 is the current implementation scope; operator and storekeeper UI changes remain intentionally deferred to Phases 4 and 5.
