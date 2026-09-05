@@ -7,6 +7,8 @@ import { Overview } from "@/components/dashboard/views/overview";
 import { InventoryLoader } from "@/components/dashboard/inventory-loader";
 import { useSafeMutation } from "@/components/dashboard/pending-store";
 import type { CustomerOrder, JobCard, Machine, Material, ScrapLog } from "@/lib/operations-types";
+import type { AccessContext } from "@/lib/access-policy";
+import { WorkspaceModuleGate } from "@/components/dashboard/workspace-renderer";
 
 type WithId<T extends { _id: string }> = Omit<T, "_id"> & { id: T["_id"] };
 
@@ -39,6 +41,9 @@ export default function ManagerDashboardPage() {
   const jobs = withIds(state.jobs) as JobCard[];
   const orders = withIds(ordersQuery) as CustomerOrder[];
   const scraps = withIds(state.scraps) as ScrapLog[];
+  const accessContext: AccessContext = {
+    profile: { role: profile.role, active: profile.active },
+  };
 
   const stockValue = materials.reduce((total, m) => total + m.quantity, 0);
   const averageWaste = Number(
@@ -46,6 +51,7 @@ export default function ManagerDashboardPage() {
   );
 
   return (
+    <WorkspaceModuleGate context={accessContext} moduleId="dashboard.kpis">
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#1E293B] pb-5">
         <div>
@@ -106,5 +112,6 @@ export default function ManagerDashboardPage() {
         }}
       />
     </div>
+    </WorkspaceModuleGate>
   );
 }
