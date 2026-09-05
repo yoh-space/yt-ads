@@ -231,7 +231,7 @@ function OperatorClearanceCard({
             የተረከበው (ISSUED)
           </span>
           <strong className="text-xs font-bold text-white block mt-0.5">
-            {formatQuantity(batch.issuedQuantity, batch.baseUnit as Unit)} {batch.baseUnit}
+            {formatQuantity(batch.issuedQuantity, batch.baseUnit as Unit)}
           </strong>
           <span className="text-[10px] text-slate-400 truncate block">
             {batch.materialName}
@@ -243,7 +243,7 @@ function OperatorClearanceCard({
             ያመረተው (OUTPUT)
           </span>
           <strong className="text-xs font-bold text-emerald-400 block mt-0.5">
-            {formatQuantity(batch.producedOutput, batch.baseUnit as Unit)} {batch.baseUnit}
+            {formatQuantity(batch.producedOutput, batch.baseUnit as Unit)}
           </strong>
           <span className="text-[10px] text-slate-400 block">
             Efficiency: {batch.usagePercent}%

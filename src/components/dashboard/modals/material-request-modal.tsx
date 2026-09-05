@@ -131,7 +131,7 @@ export function MaterialRequestModal({
                   <li key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-rose-500/20 bg-background/30 px-3 py-2 text-xs">
                     <span className="font-medium">{item.materialName} <span className="text-rose-200/60">· {item.machineName}</span></span>
                     <span className="font-mono text-rose-100">
-                      {formatQuantity(item.currentRemaining, item.baseUnit as Unit)} {item.baseUnit} · {item.status === "ACTIVE" ? "in use" : "awaiting clearance"}
+                      {formatQuantity(item.currentRemaining, item.baseUnit as Unit)} · {item.status === "ACTIVE" ? "in use" : "awaiting clearance"}
                     </span>
                   </li>
                 ))}
@@ -164,7 +164,7 @@ export function MaterialRequestModal({
                 </select>
                 <label className="relative"><span className="sr-only">Package quantity</span><input type="number" min="1" step="1" value={line.packages} onChange={(event) => setLines((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, packages: Number(event.target.value) } : item))} className="h-10 w-full rounded-md border border-border bg-background px-2 font-mono text-sm text-foreground" /></label>
                 <button type="button" disabled={lines.length === 1} onClick={() => setLines((current) => current.filter((_, itemIndex) => itemIndex !== index))} className="rounded-md p-2 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-300 disabled:opacity-30" aria-label="Remove material"><Trash2 size={16} /></button>
-                <p className="col-span-full m-0 text-xs text-muted-foreground"><Ruler size={12} className="mr-1 inline text-cyan" /> {packageUnit} · approximately {formatQuantity(Math.max(0, line.packages * ratio), material?.baseUnit ?? material?.unit ?? "m²")} {material?.baseUnit ?? material?.unit ?? "base units"} per line</p>
+                <p className="col-span-full m-0 text-xs text-muted-foreground"><Ruler size={12} className="mr-1 inline text-cyan" /> {packageUnit} · approximately {formatQuantity(Math.max(0, line.packages * ratio), material?.baseUnit ?? material?.unit ?? "m²")} per line</p>
               </div>;
             })}
           </div>

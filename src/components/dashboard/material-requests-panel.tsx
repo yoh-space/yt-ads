@@ -138,7 +138,7 @@ export function MaterialRequestsPanel({
                 <div className="mt-3 rounded border border-border/70 bg-muted/30 px-2.5 py-2">
                   <p className="text-[9px] uppercase tracking-wider text-muted-foreground">Requested</p>
                   <p className="mt-0.5 text-xs font-semibold text-foreground">
-                    {formatQuantity(request.requestedQuantity, request.unit)} {request.unit} · {request.materialName}
+                    {formatQuantity(request.requestedQuantity, request.unit)} · {request.materialName}
                   </p>
                   <p className="mt-0.5 text-[10px] text-muted-foreground">{request.jobCode} · {request.client}</p>
                 </div>
@@ -168,7 +168,7 @@ export function MaterialRequestsPanel({
                         onClick={() => onIssue(request.id, issueQuantity)}
                       >
                         <PackageCheck size={13} />
-                        {isPending(`issue-${request.id}`) ? "Handing over..." : role === "storekeeper" ? `Approve & Hand Over ${formatQuantity(issueQuantity, request.unit)} ${request.unit}` : "Issue"}
+                        {isPending(`issue-${request.id}`) ? "Handing over..." : role === "storekeeper" ? `Approve & Hand Over ${formatQuantity(issueQuantity, request.unit)}` : "Issue"}
                       </Button>
                       {onShortStock ? <Button
                         size="small"

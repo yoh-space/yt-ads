@@ -260,16 +260,16 @@ export function OwnerInventoryOversight({
                         <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2.5 sm:grid-cols-4">
                           <Metric
                             label="Remaining"
-                            value={`${formatQuantity(batch.currentRemaining, batch.baseUnit as Unit)} ${batch.baseUnit}`}
+                            value={formatQuantity(batch.currentRemaining, batch.baseUnit as Unit)}
                             tone="text-cyan-dark"
                           />
                           <Metric
                             label="Issued"
-                            value={`${formatQuantity(batch.issuedQuantity, batch.baseUnit as Unit)} ${batch.baseUnit}`}
+                            value={formatQuantity(batch.issuedQuantity, batch.baseUnit as Unit)}
                           />
                           <Metric
                             label="Output used"
-                            value={`${formatQuantity(batch.producedOutput, batch.baseUnit as Unit)} ${batch.baseUnit}`}
+                            value={formatQuantity(batch.producedOutput, batch.baseUnit as Unit)}
                             tone="text-emerald-400"
                           />
                           <Metric
@@ -287,7 +287,7 @@ export function OwnerInventoryOversight({
                                   size={12}
                                   className={hasDiscrepancy ? "text-rose-300" : "text-muted-foreground"}
                                 />
-                                Physical {formatQuantity(batch.lastPhysicalCount, batch.baseUnit as Unit)} {batch.baseUnit}
+                                Physical {formatQuantity(batch.lastPhysicalCount, batch.baseUnit as Unit)}
                                 {batch.lastDiscrepancy !== undefined ? (
                                   <>
                                     {" "}· discrepancy {batch.lastDiscrepancy > 0 ? "+" : ""}
@@ -380,7 +380,7 @@ export function OwnerInventoryOversight({
                             Base units
                           </span>
                           <strong className="font-mono text-[13px] font-extrabold tabular-nums text-cyan-dark">
-                            ≈ {formatQuantity(item.baseUnitsInStock, item.baseUnit as Unit)} {item.baseUnit}
+                            ≈ {formatQuantity(item.baseUnitsInStock, item.baseUnit as Unit)}
                           </strong>
                         </div>
                       ) : null}
