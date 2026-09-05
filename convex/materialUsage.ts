@@ -1,7 +1,24 @@
 import { calculateOffcutArea } from "./units";
 import type { PurchaseUnit, Unit } from "./types";
+import type { Id } from "./_generated/dataModel";
 
 export type ProductionType = "area" | "linear" | "ink" | "unit";
+export type UsageAllowanceStatus = "NORMAL" | "WATCH" | "CRITICAL" | "EXCEEDED";
+
+export function getUsageAllowanceStatus(
+  actualUsage: number,
+  plannedUsage: number,
+  allowancePercent: number,
+): UsageAllowanceStatus {
+  if (!Number.isFinite(actualUsage) || !Number.isFinite(plannedUsage) || plannedUsage <= 0) return "NORMAL";
+  const allowance = Math.max(0, allowancePercent);
+  const allowed = plannedUsage * (1 + allowance / 100);
+  const ratio = actualUsage / allowed;
+  if (ratio > 1) return "EXCEEDED";
+  if (ratio > 0.95) return "CRITICAL";
+  if (ratio > 0.8) return "WATCH";
+  return "NORMAL";
+}
 
 type MaterialLike = {
   name: string;
@@ -36,6 +53,8 @@ export type SystemConfig = {
   requireAdminPinForExceptions: boolean;
   maxDirectStockOutEtb: number;
   orderExpirationHours: number;
+  defaultScrapAllowancePercent?: number;
+  materialScrapAllowances?: Array<{ materialId: Id<"materials">; allowancePercent: number }>;
   updatedAt: number;
   updatedBy?: string;
 };

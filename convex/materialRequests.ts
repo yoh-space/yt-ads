@@ -1,6 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { unit } from "./schema";
+import { packageUnit, unit } from "./schema";
 import { requireActiveProfile, requirePermission } from "./users";
 import { canAccessMaterialRequest } from "./authorization";
 import { notifyRoles, notifyUser } from "./notificationHelpers";
@@ -57,6 +57,8 @@ export const create = mutation({
     requestedQuantity: v.number(),
     unit,
     note: v.optional(v.string()),
+    packageUnit: v.optional(packageUnit),
+    requestedPackages: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const { identity, profile } = await requirePermission(ctx, "request.create");
@@ -66,6 +68,9 @@ export const create = mutation({
     }
     if (!Number.isFinite(args.requestedQuantity) || args.requestedQuantity <= 0) {
       throw new Error("Requested quantity must be greater than zero.");
+    }
+    if (args.requestedPackages !== undefined && (!Number.isFinite(args.requestedPackages) || args.requestedPackages <= 0)) {
+      throw new Error("Requested package quantity must be greater than zero.");
     }
     const unclearedBatches = await ctx.db
       .query("operatorSubStock")
@@ -95,6 +100,9 @@ export const create = mutation({
       requestedBy: identity._id,
       requestedAt: Date.now(),
       note: args.note?.trim() || undefined,
+      packageUnit: args.packageUnit,
+      requestedPackages: args.requestedPackages,
+      issuedPackages: 0,
     });
     await notifyRoles(ctx, ["owner", "manager", "admin", "storekeeper"], {
       title: "New material request",
@@ -112,6 +120,8 @@ export const issue = mutation({
   args: {
     requestId: v.id("materialRequests"),
     issuedQuantity: v.number(),
+    issuedPackages: v.optional(v.number()),
+    packageUnit: v.optional(packageUnit),
     operatorId: v.optional(v.string()),
     note: v.optional(v.string()),
   },
@@ -119,6 +129,9 @@ export const issue = mutation({
     const { identity } = await requirePermission(ctx, "request.issue");
     if (!Number.isFinite(args.issuedQuantity) || args.issuedQuantity <= 0) {
       throw new Error("Issued quantity must be greater than zero.");
+    }
+    if (args.issuedPackages !== undefined && (!Number.isFinite(args.issuedPackages) || args.issuedPackages <= 0)) {
+      throw new Error("Issued package quantity must be greater than zero.");
     }
     const request = await ctx.db.get(args.requestId);
     if (!request) throw new Error("Material request not found.");
@@ -134,6 +147,15 @@ export const issue = mutation({
     const machine = job ? await ctx.db.get(job.machineId) : undefined;
     if (!job || !machine) throw new Error("The request's job machine is unavailable.");
     const operatorId = args.operatorId?.trim() || request.requestedBy;
+    const packageQuantity = args.issuedPackages ?? 0;
+    const conversionRatio = material.conversionRatio ?? 1;
+    const ledgerPackageUnit = (args.packageUnit ?? request.packageUnit) === "ROLL"
+      ? "ROLL"
+      : (args.packageUnit ?? request.packageUnit) === "SHEET"
+        ? "SHEET"
+        : (args.packageUnit ?? request.packageUnit) === "CANISTER"
+          ? "LITER"
+          : undefined;
     const subStockId = await ctx.db.insert("operatorSubStock", {
       materialId: request.materialId,
       operatorId,
@@ -145,6 +167,14 @@ export const issue = mutation({
       issuedBy: identity._id,
       issuedAt: Date.now(),
       updatedAt: Date.now(),
+      packageUnit: args.packageUnit ?? request.packageUnit,
+      issuedPackages: packageQuantity,
+      remainingPackages: packageQuantity,
+      baseUnit: material.baseUnit ?? material.unit,
+      conversionRatioSnapshot: conversionRatio,
+      issuedBaseQuantity: args.issuedQuantity,
+      consumedBaseQuantity: 0,
+      remainingBaseQuantity: args.issuedQuantity,
     });
     await recordInventoryEvent(ctx, {
       materialId: request.materialId,
@@ -155,6 +185,9 @@ export const issue = mutation({
       unit: request.unit,
       baseUnit: request.unit,
       baseQuantity: args.issuedQuantity,
+      packageQuantity: packageQuantity || undefined,
+      packageUnit: ledgerPackageUnit,
+      conversionRatio,
       operatorSubStockId: subStockId,
       operatorId,
       machineId: machine._id,
@@ -167,6 +200,8 @@ export const issue = mutation({
     const nextStatus = totalIssued < request.requestedQuantity ? "Partially Issued" : "Issued";
     await ctx.db.patch(args.requestId, {
       issuedQuantity: totalIssued,
+      issuedPackages: Number(((request.issuedPackages ?? 0) + (args.issuedPackages ?? 0)).toFixed(3)),
+      packageUnit: args.packageUnit ?? request.packageUnit,
       status: nextStatus,
       issuedBy: identity._id,
       issuedAt: Date.now(),

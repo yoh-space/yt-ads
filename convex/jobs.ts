@@ -5,7 +5,8 @@ import { requireActiveProfile, requirePermission } from "./users";
 import { canAccessJob } from "./authorization";
 import { notifyRoles, notifyUser } from "./notificationHelpers";
 import { assertProductionQuantities } from "./validation";
-import { classifyMaterialProductionType, computeJobConsumption, resolveEtbValue } from "./materialUsage";
+import { classifyMaterialProductionType, computeJobConsumption, getUsageAllowanceStatus, resolveEtbValue } from "./materialUsage";
+import { ensureSystemConfig } from "./systemConfigs";
 import { calculateOffcutArea } from "./units";
 import { deductOperatorStock } from "./inventory";
 import { recordInventoryEvent } from "./inventoryLedger";
@@ -77,6 +78,15 @@ async function recordProductionInternal(ctx: any, args: ProductionInput, operato
       createdBy: operatorId,
     });
   }
+  const config = await ensureSystemConfig(ctx, operatorId);
+  const allowancePercent = config.materialScrapAllowances?.find((entry) => entry.materialId === job.materialId)?.allowancePercent
+    ?? config.defaultScrapAllowancePercent
+    ?? config.maxAllowedWastePercent;
+  const usageAllowanceStatus = getUsageAllowanceStatus(
+    previousInput + args.inputQuantity + args.wasteQuantity,
+    job.quantity,
+    allowancePercent,
+  );
   await ctx.db.insert("productionLogs", {
     jobCardId: job._id,
     machineId: job.machineId,
@@ -86,6 +96,9 @@ async function recordProductionInternal(ctx: any, args: ProductionInput, operato
     unit: job.unit,
     operatorId,
     createdAt: Date.now(),
+    plannedQuantity: job.quantity,
+    approvedScrapQuantity: Number((job.quantity * allowancePercent / 100).toFixed(3)),
+    usageAllowanceStatus,
   });
   await ctx.db.patch(job._id, { status: "In production" });
   if (job.orderId) {

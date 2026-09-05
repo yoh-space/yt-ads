@@ -61,6 +61,13 @@ export const inventoryUnitType = v.union(
   v.literal("LITER"),
 );
 
+export const stockMovementPackageUnit = v.union(
+  inventoryUnitType,
+  v.literal("PACKAGE"),
+  v.literal("CANISTER"),
+  v.literal("PIECE"),
+);
+
 /** Lifecycle of a stock batch issued to the production floor. */
 export const operatorStockStatus = v.union(
   v.literal("ACTIVE"),
@@ -354,6 +361,10 @@ export default defineSchema({
     note: v.optional(v.string()),
     /** Optional multi-line request header; legacy requests remain one-line compatible. */
     requestGroupId: v.optional(v.string()),
+    packageUnit: v.optional(packageUnit),
+    requestedPackages: v.optional(v.number()),
+    issuedPackages: v.optional(v.number()),
+    conversionRatioSnapshot: v.optional(v.number()),
   })
     .index("by_job_card", ["jobCardId"])
     .index("by_status", ["status"]),
@@ -427,7 +438,7 @@ export default defineSchema({
     baseQuantity: v.number(),
     /** Whole packaging units involved in a parent-store transfer or receipt. */
     packageQuantity: v.optional(v.number()),
-    packageUnit: v.optional(inventoryUnitType),
+    packageUnit: v.optional(stockMovementPackageUnit),
     /** Snapshot of the rate used; later owner changes do not rewrite history. */
     conversionRatio: v.optional(v.number()),
     parentInventoryId: v.optional(v.id("parentInventory")),

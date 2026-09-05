@@ -25,7 +25,7 @@ export type InventoryEventInput = {
   baseUnit: Unit;
   baseQuantity: number;
   packageQuantity?: number;
-  packageUnit?: "ROLL" | "SHEET" | "LITER";
+  packageUnit?: "ROLL" | "SHEET" | "LITER" | "PACKAGE" | "CANISTER" | "PIECE";
   conversionRatio?: number;
   parentInventoryId?: Id<"parentInventory">;
   operatorSubStockId?: Id<"operatorSubStock">;
@@ -110,10 +110,26 @@ export async function recordInventoryEvent(
     const nextRemaining = round(subStock.currentRemaining + remainingDelta);
     if (nextRemaining < -0.0001) throw new Error("Operator sub-stock cannot go below zero.");
     const isTransfer = input.eventType === "STORE_TO_OPERATOR_TRANSFER";
+    const packageDelta = input.conversionRatio && input.conversionRatio > 0
+      ? input.baseQuantity / input.conversionRatio
+      : 0;
+    const nextRemainingPackages = isTransfer
+      ? (subStock.remainingPackages ?? 0) + (input.packageQuantity ?? 0)
+      : input.eventType === "PRODUCTION_CONSUMPTION"
+        ? Math.max(0, (subStock.remainingPackages ?? 0) - packageDelta)
+        : subStock.remainingPackages;
     await ctx.db.patch(subStock._id, {
       issuedUnits: isTransfer ? round(subStock.issuedUnits + (input.packageQuantity ?? 0)) : subStock.issuedUnits,
       issuedQuantity: isTransfer ? round(subStock.issuedQuantity + input.baseQuantity) : subStock.issuedQuantity,
       currentRemaining: Math.max(0, nextRemaining),
+      issuedPackages: isTransfer ? round((subStock.issuedPackages ?? 0) + (input.packageQuantity ?? 0)) : subStock.issuedPackages,
+      remainingPackages: nextRemainingPackages === undefined ? undefined : round(nextRemainingPackages),
+      issuedBaseQuantity: isTransfer ? round((subStock.issuedBaseQuantity ?? 0) + input.baseQuantity) : subStock.issuedBaseQuantity,
+      remainingBaseQuantity: Math.max(0, nextRemaining),
+      conversionRatioSnapshot: subStock.conversionRatioSnapshot ?? input.conversionRatio,
+      consumedBaseQuantity: input.eventType === "PRODUCTION_CONSUMPTION"
+        ? round((subStock.consumedBaseQuantity ?? 0) + input.baseQuantity)
+        : subStock.consumedBaseQuantity,
       status: nextRemaining <= 0.0001 ? "EXHAUSTED" : "ACTIVE",
       updatedAt: Date.now(),
     });
