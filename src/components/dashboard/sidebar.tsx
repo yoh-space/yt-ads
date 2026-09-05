@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { canAccessView, getNavItemHref, navItems, type View } from "./nav-config";
 import type { Role } from "@/lib/operations-types";
+import type { WorkspaceDefinition } from "./workspace-registry";
 import { cn } from "@/lib/utils";
 
 export function Sidebar({
@@ -24,6 +25,7 @@ export function Sidebar({
   activeMachinesCount,
   companyName,
   role,
+  workspace,
 }: {
   activeView?: View;
   onNavigate?: (view: View) => void;
@@ -37,9 +39,12 @@ export function Sidebar({
   companyName?: string;
   logoUrl?: string;
   role: Role;
+  workspace?: WorkspaceDefinition;
 }) {
   const pathname = usePathname();
-  const visibleNavItems = navItems.filter(item => canAccessView(role, item.id));
+  const visibleNavItems = navItems.filter(item =>
+    workspace ? workspace.navViews.includes(item.id) : canAccessView(role, item.id),
+  );
 
   return (
     <aside

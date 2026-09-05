@@ -15,7 +15,8 @@ import { DashboardAccessDenied } from "./access-denied";
 import { useSafeMutation } from "./pending-store";
 import { hasPermission } from "@/lib/permissions";
 import { canAccess } from "@/lib/access-policy";
-import { resolveWorkspace, visibleModules } from "./workspace-registry";
+import { WorkspaceRenderer } from "./workspace-renderer";
+import { resolveWorkspace } from "./workspace-registry";
 import { DashboardModalProvider, useDashboardModal } from "./modal-context";
 import { StockModal } from "./modals/stock-modal";
 import { OffcutModal, type NewOffcutInput } from "./modals/offcut-modal";
@@ -47,7 +48,6 @@ function DashboardShellInner({ children }: { children: ReactNode }) {
   const role: Role = profile?.role ?? "admin";
   const accessContext = { profile: profile ? { role: profile.role, active: profile.active } : null };
   const workspace = resolveWorkspace(accessContext);
-  const workspaceModules = workspace ? visibleModules(workspace, accessContext) : [];
   // Storekeepers operate the physical stock workflow only; avoid mounting the
   // order query because their role intentionally has no order.view permission.
   const ordersQuery = useQuery(
@@ -165,8 +165,6 @@ function DashboardShellInner({ children }: { children: ReactNode }) {
 
   return (
     <div
-      data-workspace={workspace?.id ?? "unresolved"}
-      data-workspace-modules={workspaceModules.map((module) => module.id).join(",")}
       className="min-h-screen bg-[#0C0D10] text-[#E2E8F0]"
     >
       <Sidebar
@@ -179,6 +177,7 @@ function DashboardShellInner({ children }: { children: ReactNode }) {
         activeMachinesCount={activeMachinesCount}
         companyName={companySettings?.companyName}
         role={role}
+        workspace={workspace ?? undefined}
       />
 
       <div
@@ -197,7 +196,7 @@ function DashboardShellInner({ children }: { children: ReactNode }) {
         />
 
         <main className="flex-1 p-6 md:p-8 max-w-[1700px] w-full mx-auto animate-in fade-in duration-200">
-          {children}
+          <WorkspaceRenderer context={accessContext}>{children}</WorkspaceRenderer>
         </main>
       </div>
 
