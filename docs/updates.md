@@ -139,3 +139,16 @@ Phase 4 is complete for the operator request path:
 - Legacy single-material request callers remain supported through the same mutation.
 
 Phase 5 is next: grouped storekeeper requisitions, partial/full package handover, short-stock handling, and line-level issue status.
+
+## Phase 5 implementation update
+
+Phase 5 backend and dashboard workflow are now implemented:
+
+- Storekeepers can issue requested quantities incrementally; each issue creates an operator custody record and immutable ledger event.
+- Grouped request lines update their issued package/base quantities and line status after handover.
+- Storekeeper users can explicitly mark an open line as `Short Stock` when the physical package quantity is unavailable.
+- The requisition panel exposes issue and short-stock actions while preserving receipt acknowledgement.
+- Package metadata remains the primary handover context; converted quantities remain available for audit projections.
+- Authorization continues to use `request.issue` and `request.acknowledge`, so operators cannot approve their own handovers.
+
+Phase 6 is next: production monitoring surfaces, allowance warnings, overuse exceptions, and reconciliation controls.

@@ -51,6 +51,36 @@ export const list = query({
   },
 });
 
+export const markShortStock = mutation({
+  args: { requestId: v.id("materialRequests"), note: v.optional(v.string()) },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const { identity } = await requirePermission(ctx, "request.issue");
+    const request = await ctx.db.get(args.requestId);
+    if (!request) throw new Error("Material request not found.");
+    if (request.status !== "Requested" && request.status !== "Partially Issued") {
+      throw new Error("Only open requests can be marked short stock.");
+    }
+    await ctx.db.patch(args.requestId, {
+      status: "Short Stock",
+      issuedBy: identity._id,
+      issuedAt: Date.now(),
+      note: args.note?.trim() || request.note,
+    });
+    if (request.requestGroupId) {
+      const lines = await ctx.db.query("materialRequestLines")
+        .withIndex("by_request_group", (q) => q.eq("requestGroupId", request.requestGroupId!))
+        .collect();
+      for (const line of lines) {
+        if (line.materialId === request.materialId && line.status !== "Issued") {
+          await ctx.db.patch(line._id, { status: "Short Stock" });
+        }
+      }
+    }
+    return (await ctx.db.get(args.requestId))!;
+  },
+});
+
 export const create = mutation({
   args: {
     jobCardId: v.id("jobCards"),
@@ -254,6 +284,21 @@ export const issue = mutation({
       issuedAt: Date.now(),
       note: args.note?.trim() || request.note,
     });
+    if (request.requestGroupId) {
+      const lines = await ctx.db.query("materialRequestLines")
+        .withIndex("by_request_group", (q) => q.eq("requestGroupId", request.requestGroupId!))
+        .collect();
+      const matchingLine = lines.find((line) => line.materialId === request.materialId);
+      if (matchingLine) {
+        await ctx.db.patch(matchingLine._id, {
+          issuedPackages: (matchingLine.issuedPackages ?? 0) + (args.issuedPackages ?? 0),
+          issuedBaseQuantity: (matchingLine.issuedBaseQuantity ?? 0) + args.issuedQuantity,
+          status: totalIssued < request.requestedQuantity ? "Partially Issued" : "Issued",
+          issuedBy: identity._id,
+          issuedAt: Date.now(),
+        });
+      }
+    }
     await notifyUser(ctx, request.requestedBy, {
       title: nextStatus === "Partially Issued" ? "Short stock: request partially issued" : "Material issued",
       message: `${material.name} for ${request.jobCardId} was issued at ${totalIssued} ${request.unit}.`,

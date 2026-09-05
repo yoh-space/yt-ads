@@ -187,6 +187,10 @@ export type MaterialRequest = {
   issuedAt?: number;
   receivedAt?: number;
   note?: string;
+  requestGroupId?: string;
+  packageUnit?: PackageUnit;
+  requestedPackages?: number;
+  issuedPackages?: number;
   jobCode: string;
   client: string;
   jobTitle: string;

@@ -66,6 +66,7 @@ export default function StorekeeperDashboardPage() {
     profile: profile ? { role: profile.role, active: profile.active } : null,
   };
   const issueMaterialRequest = useMutation(api.materialRequests.issue);
+  const markShortStockRequest = useMutation(api.materialRequests.markShortStock);
   const acknowledgeMaterialRequest = useMutation(api.materialRequests.acknowledge);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState<PackagingTab>("ALL");
@@ -229,7 +230,7 @@ export default function StorekeeperDashboardPage() {
             <div><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary">FLOOR MATERIAL REQUISITIONS</p><h2 className="mt-1 text-lg font-bold text-foreground">የኦፕሬተሮች የዕቃ ጥያቄ መከታተያ</h2></div>
             <StatusPill variant="warning">PENDING</StatusPill>
           </div>
-          <MaterialRequestsPanel requests={requests} role="storekeeper" onRequest={() => {}} onIssue={(requestId, quantity) => void safeMutation(`issue-${requestId}`, issueMaterialRequest({ requestId: requestId as Id<"materialRequests">, issuedQuantity: quantity }), () => toast.success("Material handed over to operator"))} onAcknowledge={(requestId) => void safeMutation(`ack-${requestId}`, acknowledgeMaterialRequest({ requestId: requestId as Id<"materialRequests"> }), () => toast.success("Material receipt acknowledged"))} isPending={isPending} />
+          <MaterialRequestsPanel requests={requests} role="storekeeper" onRequest={() => {}} onIssue={(requestId, quantity) => void safeMutation(`issue-${requestId}`, issueMaterialRequest({ requestId: requestId as Id<"materialRequests">, issuedQuantity: quantity }), () => toast.success("Material handed over to operator"))} onShortStock={(requestId) => void safeMutation(`short-${requestId}`, markShortStockRequest({ requestId: requestId as Id<"materialRequests"> }), () => toast.success("Request marked short stock"))} onAcknowledge={(requestId) => void safeMutation(`ack-${requestId}`, acknowledgeMaterialRequest({ requestId: requestId as Id<"materialRequests"> }), () => toast.success("Material receipt acknowledged"))} isPending={isPending} />
         </section>
         </WorkspaceModuleGate>
       </div>

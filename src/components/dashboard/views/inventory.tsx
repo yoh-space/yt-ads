@@ -45,6 +45,7 @@ export function InventoryView({
   onRequest,
   onIssue,
   onAcknowledge,
+  onShortStock,
   isPending,
 }: {
   materials: Material[];
@@ -64,6 +65,7 @@ export function InventoryView({
   onRequest: () => void;
   onIssue: (requestId: string, issuedQuantity: number) => void;
   onAcknowledge: (requestId: string) => void;
+  onShortStock?: (requestId: string) => void;
   isPending: (key: string) => boolean;
 }) {
   const [sorting, setSorting] = useState<ColumnSort[]>([]);
@@ -192,6 +194,7 @@ export function InventoryView({
           onRequest={onRequest}
           onIssue={onIssue}
           onAcknowledge={onAcknowledge}
+          onShortStock={onShortStock}
           isPending={isPending}
         />
       ) : null}

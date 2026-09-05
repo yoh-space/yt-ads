@@ -105,6 +105,7 @@ export function OperationsDashboard() {
   const logScrap = useMutation(api.offcuts.logScrap);
   const createMaterialRequest = useMutation(api.materialRequests.create);
   const issueMaterialRequest = useMutation(api.materialRequests.issue);
+  const markShortStockRequest = useMutation(api.materialRequests.markShortStock);
   const acknowledgeMaterialRequest = useMutation(api.materialRequests.acknowledge);
   const priceOrder = useMutation(api.orders.priceOrder);
   const confirmOrderAndIssueJobCard = useMutation(api.orders.confirmOrderAndIssueJobCard);
@@ -250,6 +251,10 @@ export function OperationsDashboard() {
       issueMaterialRequest({ requestId: requestId as Id<"materialRequests">, issuedQuantity }),
       "እቃው ተሰጥቷል፤ ክምችቱ update ሆኗል",
     );
+  }
+
+  function markShortStock(requestId: string) {
+    finishMutation(`short-${requestId}`, markShortStockRequest({ requestId: requestId as Id<"materialRequests"> }), "Request marked short stock");
   }
 
   function acknowledgeMaterial(requestId: string) {
@@ -457,6 +462,7 @@ export function OperationsDashboard() {
                     onAdd={() => openModal("material", "material.create")}
                     onRequest={() => openModal("request", "request.create")}
                     onIssue={issueMaterial}
+                    onShortStock={markShortStock}
                     onAcknowledge={acknowledgeMaterial}
                     isPending={isPending}
                   />

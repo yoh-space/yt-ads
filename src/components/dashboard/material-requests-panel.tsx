@@ -55,6 +55,7 @@ export function MaterialRequestsPanel({
   onRequest,
   onIssue,
   onAcknowledge,
+  onShortStock,
   isPending,
 }: {
   requests: MaterialRequest[];
@@ -62,6 +63,7 @@ export function MaterialRequestsPanel({
   onRequest: () => void;
   onIssue: (requestId: string, issuedQuantity: number) => void;
   onAcknowledge: (requestId: string) => void;
+  onShortStock?: (requestId: string) => void;
   isPending: (key: string) => boolean;
 }) {
   const [issueQuantities, setIssueQuantities] = useState<Record<string, number>>({});
@@ -168,6 +170,15 @@ export function MaterialRequestsPanel({
                         <PackageCheck size={13} />
                         {isPending(`issue-${request.id}`) ? "Handing over..." : role === "storekeeper" ? `Approve & Hand Over ${formatQuantity(issueQuantity, request.unit)} ${request.unit}` : "Issue"}
                       </Button>
+                      {onShortStock ? <Button
+                        size="small"
+                        variant="tertiary"
+                        pending={isPending(`short-${request.id}`)}
+                        disabled={isPending(`short-${request.id}`)}
+                        onClick={() => onShortStock(request.id)}
+                      >
+                        Mark short stock
+                      </Button> : null}
                     </>
                   ) : null}
                   {showAck ? (
