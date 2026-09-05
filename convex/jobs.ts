@@ -1,6 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { priority, unit } from "./schema";
+import { priority, serviceType as serviceTypeValidator, unit } from "./schema";
 import { requireActiveProfile, requirePermission } from "./users";
 import { canAccessJob } from "./authorization";
 import { notifyRoles, notifyUser } from "./notificationHelpers";
@@ -135,6 +135,7 @@ export const create = mutation({
     length: v.optional(v.number()),
     width: v.optional(v.number()),
     deductOnComplete: v.optional(v.boolean()),
+    serviceType: v.optional(serviceTypeValidator),
   },
   handler: async (ctx, args) => {
     const { identity } = await requirePermission(ctx, "job.create");
@@ -171,7 +172,60 @@ export const create = mutation({
       length: args.length && Number.isFinite(args.length) && args.length > 0 ? Number(args.length.toFixed(3)) : undefined,
       width: args.width && Number.isFinite(args.width) && args.width > 0 ? Number(args.width.toFixed(3)) : undefined,
       deductOnComplete: args.deductOnComplete,
+      serviceType: args.serviceType,
     });
+    if (args.serviceType) {
+      const recipes = await ctx.db
+        .query("serviceMaterialRecipes")
+        .withIndex("by_active_service", (q) => q.eq("active", true).eq("serviceType", args.serviceType!))
+        .collect();
+      for (const recipe of recipes) {
+        const recipeMaterial = await ctx.db.get(recipe.materialId);
+        if (!recipeMaterial || !recipeMaterial.active) {
+          if (recipe.required) throw new Error("A required recipe material is no longer active.");
+          continue;
+        }
+        const driver = recipe.requirementMode === "fixed"
+          ? 1
+          : recipe.requirementMode === "area_rate"
+            ? (args.length ?? 0) * (args.width ?? 0) * args.quantity
+            : recipe.requirementMode === "linear_rate"
+              ? (args.length ?? 0) * args.quantity
+              : args.quantity;
+        if (driver <= 0) {
+          if (recipe.required) throw new Error(`Dimensions are required for ${recipe.requirementMode} recipe materials.`);
+          continue;
+        }
+        const plannedBaseQuantity = Number((recipe.quantity * driver).toFixed(3));
+        const allowancePercent = recipe.wasteAllowancePercent ?? 0;
+        const approvedScrapQuantity = Number((plannedBaseQuantity * allowancePercent / 100).toFixed(3));
+        const ratio = recipeMaterial.conversionRatio && recipeMaterial.conversionRatio > 0
+          ? recipeMaterial.conversionRatio
+          : 1;
+        const packageUnit = recipeMaterial.purchaseUnit === "sheet"
+          ? "SHEET"
+          : recipeMaterial.purchaseUnit === "roll"
+            ? "ROLL"
+            : recipeMaterial.purchaseUnit === "canister" || recipeMaterial.purchaseUnit === "liter"
+              ? "CANISTER"
+              : recipeMaterial.purchaseUnit === "piece"
+                ? "PIECE"
+                : "PACKAGE";
+        await ctx.db.insert("jobMaterialRequirements", {
+          jobCardId: id,
+          materialId: recipe.materialId,
+          packageUnit,
+          suggestedPackages: Math.ceil((plannedBaseQuantity + approvedScrapQuantity) / ratio),
+          baseUnit: recipeMaterial.baseUnit ?? recipeMaterial.unit,
+          plannedBaseQuantity,
+          approvedScrapQuantity,
+          conversionRatioSnapshot: ratio,
+          status: "PLANNED",
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        });
+      }
+    }
     if (machine.status !== "Running") {
       await ctx.db.patch(args.machineId, { status: "Running", activeJob: code });
     }

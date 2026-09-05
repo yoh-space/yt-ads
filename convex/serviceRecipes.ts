@@ -29,18 +29,30 @@ export const list = query({
   returns: v.array(recipeValidator),
   handler: async (ctx, args) => {
     await requirePermission(ctx, "material.view");
-    const rows = args.activeOnly
-      ? await ctx.db
-          .query("serviceMaterialRecipes")
-          .withIndex("by_active_service", (q) => q.eq("active", true))
-          .collect()
-      : await ctx.db
-          .query("serviceMaterialRecipes")
-          .withIndex("by_service", (q) => q.eq("serviceType", args.serviceType ?? "banner_print"))
-          .collect();
-    return rows
-      .filter((row) => args.serviceType === undefined || row.serviceType === args.serviceType)
-      .sort((left, right) => left.materialId.localeCompare(right.materialId));
+    let rows;
+    if (args.serviceType !== undefined) {
+      rows = args.activeOnly === true
+        ? await ctx.db
+            .query("serviceMaterialRecipes")
+            .withIndex("by_active_service", (q) => q.eq("active", true).eq("serviceType", args.serviceType!))
+            .collect()
+        : await ctx.db
+            .query("serviceMaterialRecipes")
+            .withIndex("by_service", (q) => q.eq("serviceType", args.serviceType!))
+            .collect();
+    } else if (args.activeOnly === false) {
+      const [active, inactive] = await Promise.all([
+        ctx.db.query("serviceMaterialRecipes").withIndex("by_active_service", (q) => q.eq("active", true)).collect(),
+        ctx.db.query("serviceMaterialRecipes").withIndex("by_active_service", (q) => q.eq("active", false)).collect(),
+      ]);
+      rows = [...active, ...inactive];
+    } else {
+      rows = await ctx.db
+        .query("serviceMaterialRecipes")
+        .withIndex("by_active_service", (q) => q.eq("active", true))
+        .collect();
+    }
+    return rows.sort((left, right) => left.materialId.localeCompare(right.materialId));
   },
 });
 

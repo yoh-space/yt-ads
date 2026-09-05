@@ -30,6 +30,7 @@ import type * as reconciliation from "../reconciliation.js";
 import type * as reports from "../reports.js";
 import type * as security from "../security.js";
 import type * as seed from "../seed.js";
+import type * as serviceRecipes from "../serviceRecipes.js";
 import type * as services from "../services.js";
 import type * as systemConfigs from "../systemConfigs.js";
 import type * as telegramAuth from "../telegramAuth.js";
@@ -68,6 +69,7 @@ declare const fullApi: ApiFromModules<{
   reports: typeof reports;
   security: typeof security;
   seed: typeof seed;
+  serviceRecipes: typeof serviceRecipes;
   services: typeof services;
   systemConfigs: typeof systemConfigs;
   telegramAuth: typeof telegramAuth;
