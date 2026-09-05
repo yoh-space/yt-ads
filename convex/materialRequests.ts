@@ -5,6 +5,7 @@ import { requireActiveProfile, requirePermission } from "./users";
 import { canAccessMaterialRequest } from "./authorization";
 import { notifyRoles, notifyUser } from "./notificationHelpers";
 import { recordInventoryEvent } from "./inventoryLedger";
+import type { Id } from "./_generated/dataModel";
 
 export const list = query({
   args: {},
@@ -59,6 +60,13 @@ export const create = mutation({
     note: v.optional(v.string()),
     packageUnit: v.optional(packageUnit),
     requestedPackages: v.optional(v.number()),
+    lines: v.optional(v.array(v.object({
+      materialId: v.id("materials"),
+      requestedQuantity: v.number(),
+      unit,
+      requestedPackages: v.number(),
+      packageUnit,
+    }))),
   },
   handler: async (ctx, args) => {
     const { identity, profile } = await requirePermission(ctx, "request.create");
@@ -86,33 +94,72 @@ export const create = mutation({
     ]);
     if (!job || job.status === "Completed") throw new Error("An active job is required for a material request.");
     if (!material || !material.active) throw new Error("Active material not found.");
-    if (job.materialId !== args.materialId || job.unit !== args.unit) {
+    const requestLines = args.lines?.length ? args.lines : [{
+      materialId: args.materialId,
+      requestedQuantity: args.requestedQuantity,
+      unit: args.unit,
+      requestedPackages: args.requestedPackages ?? 0,
+      packageUnit: args.packageUnit ?? "PACKAGE" as const,
+    }];
+    if (requestLines.some((line) => !Number.isFinite(line.requestedQuantity) || line.requestedQuantity <= 0 || !Number.isFinite(line.requestedPackages) || line.requestedPackages <= 0)) {
+      throw new Error("Each material line must contain positive package and converted quantities.");
+    }
+    const requirements = await ctx.db
+      .query("jobMaterialRequirements")
+      .withIndex("by_job_card", (q) => q.eq("jobCardId", args.jobCardId))
+      .collect();
+    const allowedMaterials = new Set([job.materialId, ...requirements.map((requirement) => requirement.materialId)]);
+    if (requestLines.some((line) => !allowedMaterials.has(line.materialId))) {
       throw new Error("The requested material and unit must match the job card.");
     }
-
-    const id = await ctx.db.insert("materialRequests", {
-      jobCardId: args.jobCardId,
-      materialId: args.materialId,
-      requestedQuantity: Number(args.requestedQuantity.toFixed(2)),
-      issuedQuantity: 0,
-      unit: args.unit,
-      status: "Requested",
-      requestedBy: identity._id,
-      requestedAt: Date.now(),
-      note: args.note?.trim() || undefined,
-      packageUnit: args.packageUnit,
-      requestedPackages: args.requestedPackages,
-      issuedPackages: 0,
-    });
+    const requestGroupId = `${identity._id}-${Date.now()}`;
+    let firstId: Id<"materialRequests"> | undefined;
+    for (const line of requestLines) {
+      const lineMaterial = line.materialId === material._id ? material : await ctx.db.get(line.materialId);
+      if (!lineMaterial || !lineMaterial.active) throw new Error("Every requested material must be active.");
+      if (line.unit !== (lineMaterial.baseUnit ?? lineMaterial.unit)) throw new Error("Requested unit must match the material base unit.");
+      const id = await ctx.db.insert("materialRequests", {
+        jobCardId: args.jobCardId,
+        materialId: line.materialId,
+        requestedQuantity: Number(line.requestedQuantity.toFixed(3)),
+        issuedQuantity: 0,
+        unit: line.unit,
+        status: "Requested",
+        requestedBy: identity._id,
+        requestedAt: Date.now(),
+        note: args.note?.trim() || undefined,
+        requestGroupId,
+        packageUnit: line.packageUnit,
+        requestedPackages: line.requestedPackages,
+        issuedPackages: 0,
+      });
+      firstId ??= id;
+      await ctx.db.insert("materialRequestLines", {
+        requestGroupId,
+        jobCardId: args.jobCardId,
+        materialId: line.materialId,
+        packageUnit: line.packageUnit,
+        requestedPackages: line.requestedPackages,
+        issuedPackages: 0,
+        baseUnit: line.unit,
+        requestedBaseQuantity: Number(line.requestedQuantity.toFixed(3)),
+        issuedBaseQuantity: 0,
+        conversionRatioSnapshot: lineMaterial.conversionRatio ?? 1,
+        status: "Requested",
+        note: args.note?.trim() || undefined,
+        requestedBy: identity._id,
+        requestedAt: Date.now(),
+      });
+    }
     await notifyRoles(ctx, ["owner", "manager", "admin", "storekeeper"], {
       title: "New material request",
-      message: `${material.name} requested for ${job.code} (${args.requestedQuantity} ${args.unit}).`,
+      message: `${requestLines.length} material line(s) requested for ${job.code}.`,
       type: "material_request",
       actorAuthUserId: identity._id,
       relatedTable: "materialRequests",
-      relatedId: id,
+      relatedId: firstId,
     });
-    return (await ctx.db.get(id))!;
+    return (await ctx.db.get(firstId!))!;
   },
 });
 

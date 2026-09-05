@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { AlertTriangle, BriefcaseBusiness, CheckCircle2, ClipboardPlus, FileText, Package, Ruler } from "lucide-react";
-import type { JobCard, Material, Unit } from "@/lib/operations-types";
+import { AlertTriangle, BriefcaseBusiness, CheckCircle2, ClipboardPlus, FileText, Package, Plus, Ruler, Trash2 } from "lucide-react";
+import type { JobCard, Material, PackageUnit, Unit } from "@/lib/operations-types";
 import { formatQuantity } from "@/lib/units";
 import { ModalShell } from "./modal-shell";
 import { Button } from "@/components/ui";
@@ -12,6 +12,15 @@ export type NewMaterialRequestInput = {
   materialId: string;
   requestedQuantity: number;
   unit: Unit;
+  requestedPackages?: number;
+  packageUnit?: PackageUnit;
+  lines?: Array<{
+    materialId: string;
+    requestedPackages: number;
+    packageUnit: PackageUnit;
+    requestedQuantity: number;
+    unit: Unit;
+  }>;
   note?: string;
 };
 
@@ -41,11 +50,13 @@ export function MaterialRequestModal({
   const blocked = unclearedStock.length > 0;
   const [jobCardId, setJobCardId] = useState(activeJobs[0]?.id ?? "");
   const selectedJob = activeJobs.find((job) => job.id === jobCardId) ?? activeJobs[0];
-  const [materialId, setMaterialId] = useState(selectedJob?.materialId ?? materials[0]?.id ?? "");
-  const selectedMaterial = materials.find((material) => material.id === materialId);
-  const [requestedQuantity, setRequestedQuantity] = useState(String(selectedJob?.quantity ?? ""));
+  const defaultMaterial = materials.find((material) => material.id === selectedJob?.materialId) ?? materials[0];
+  const packageUnitFor = (material?: Material): PackageUnit => material?.packageUnit
+    ?? (material?.purchaseUnit === "roll" ? "ROLL" : material?.purchaseUnit === "sheet" ? "SHEET" : material?.purchaseUnit === "canister" || material?.purchaseUnit === "liter" ? "CANISTER" : material?.purchaseUnit === "piece" ? "PIECE" : "PACKAGE");
+  const [lines, setLines] = useState(() => defaultMaterial ? [{ materialId: defaultMaterial.id, packages: 1 }] : []);
   const [note, setNote] = useState("");
   const materialOptions = useMemo(() => materials, [materials]);
+  const lineFor = (materialId: string) => materials.find((material) => material.id === materialId);
 
   return (
     <ModalShell
@@ -76,14 +87,29 @@ export function MaterialRequestModal({
           className="space-y-5"
           onSubmit={(event) => {
             event.preventDefault();
-            if (!selectedJob || !selectedMaterial || blocked) return;
-            const quantity = Number(requestedQuantity);
-            if (!Number.isFinite(quantity) || quantity <= 0) return;
+            if (!selectedJob || blocked || lines.length === 0) return;
+            const requestLines = lines.map((line) => {
+              const material = lineFor(line.materialId);
+              const packages = Number(line.packages);
+              const ratio = material?.conversionRatio && material.conversionRatio > 0 ? material.conversionRatio : 1;
+              return material && Number.isFinite(packages) && packages > 0 ? {
+                materialId: material.id,
+                requestedPackages: packages,
+                packageUnit: packageUnitFor(material),
+                requestedQuantity: Number((packages * ratio).toFixed(3)),
+                unit: material.baseUnit ?? material.unit,
+              } : null;
+            }).filter((line): line is NonNullable<typeof line> => line !== null);
+            if (requestLines.length !== lines.length) return;
+            const first = requestLines[0];
             onSave({
               jobCardId: selectedJob.id,
-              materialId: selectedMaterial.id,
-              requestedQuantity: quantity,
-              unit: selectedMaterial.unit,
+              materialId: first.materialId,
+              requestedQuantity: first.requestedQuantity,
+              unit: first.unit,
+              requestedPackages: first.requestedPackages,
+              packageUnit: first.packageUnit,
+              lines: requestLines,
               note: note || undefined,
             });
           }}
@@ -118,33 +144,37 @@ export function MaterialRequestModal({
             <select value={jobCardId} onChange={(event) => {
               const nextJob = activeJobs.find((job) => job.id === event.target.value);
               setJobCardId(event.target.value);
-              if (nextJob) {
-                setMaterialId(nextJob.materialId);
-                setRequestedQuantity(String(nextJob.quantity));
-              }
+              if (nextJob) setLines([{ materialId: nextJob.materialId, packages: 1 }]);
             }} className="h-11 w-full rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none transition focus:border-cyan focus:ring-2 focus:ring-cyan/20">
               {activeJobs.map((job) => <option key={job.id} value={job.id}>{job.code} · {job.client} · {job.title}</option>)}
             </select>
           </label>
-          <div className="grid gap-4 sm:grid-cols-[1.35fr_0.65fr]">
-            <label className="block">
-              <span className="mb-1.5 flex items-center gap-2 text-xs font-semibold text-foreground"><Package size={14} className="text-cyan" /> Material</span>
-              <select value={materialId} onChange={(event) => setMaterialId(event.target.value)} className="h-11 w-full rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none transition focus:border-cyan focus:ring-2 focus:ring-cyan/20">
-                {materialOptions.map((material) => <option key={material.id} value={material.id}>{material.name} · {formatQuantity(material.quantity, material.unit)} available</option>)}
-              </select>
-            </label>
-            <label className="block">
-              <span className="mb-1.5 flex items-center gap-2 text-xs font-semibold text-foreground"><Ruler size={14} className="text-cyan" /> Quantity <span className="font-normal text-muted-foreground">({selectedMaterial?.unit ?? "base unit"})</span></span>
-              <input type="number" min="0.01" step="0.01" required value={requestedQuantity} onChange={(event) => setRequestedQuantity(event.target.value)} className="h-11 w-full rounded-lg border border-border bg-secondary px-3 font-mono text-sm text-foreground outline-none transition focus:border-cyan focus:ring-2 focus:ring-cyan/20" />
-            </label>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-2 text-xs font-semibold text-foreground"><Package size={14} className="text-cyan" /> Physical packages requested</span>
+              <button type="button" onClick={() => setLines((current) => [...current, { materialId: materialOptions[0]?.id ?? "", packages: 1 }])} className="inline-flex items-center gap-1 rounded-md border border-cyan/30 px-2 py-1 text-xs font-semibold text-cyan"><Plus size={13} /> Add material</button>
+            </div>
+            {lines.map((line, index) => {
+              const material = lineFor(line.materialId);
+              const ratio = material?.conversionRatio && material.conversionRatio > 0 ? material.conversionRatio : 1;
+              const packageUnit = packageUnitFor(material);
+              return <div key={`${line.materialId}-${index}`} className="grid gap-2 rounded-lg border border-border bg-secondary/50 p-3 sm:grid-cols-[1fr_0.35fr_auto]">
+                <select value={line.materialId} onChange={(event) => setLines((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, materialId: event.target.value } : item))} className="h-10 rounded-md border border-border bg-background px-2 text-sm text-foreground">
+                  {materialOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
+                </select>
+                <label className="relative"><span className="sr-only">Package quantity</span><input type="number" min="1" step="1" value={line.packages} onChange={(event) => setLines((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, packages: Number(event.target.value) } : item))} className="h-10 w-full rounded-md border border-border bg-background px-2 font-mono text-sm text-foreground" /></label>
+                <button type="button" disabled={lines.length === 1} onClick={() => setLines((current) => current.filter((_, itemIndex) => itemIndex !== index))} className="rounded-md p-2 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-300 disabled:opacity-30" aria-label="Remove material"><Trash2 size={16} /></button>
+                <p className="col-span-full m-0 text-xs text-muted-foreground"><Ruler size={12} className="mr-1 inline text-cyan" /> {packageUnit} · approximately {formatQuantity(Math.max(0, line.packages * ratio), material?.baseUnit ?? material?.unit ?? "m²")} {material?.baseUnit ?? material?.unit ?? "base units"} per line</p>
+              </div>;
+            })}
           </div>
           </div>
-          {selectedJob && selectedMaterial ? (
+          {selectedJob && lines.length > 0 ? (
             <div className="flex items-start gap-3 rounded-xl border border-cyan/20 bg-cyan/5 p-3">
               <CheckCircle2 size={17} className="mt-0.5 flex-none text-cyan" />
               <div className="min-w-0 text-xs leading-5">
                 <p className="font-semibold text-foreground">Request summary</p>
-                <p className="truncate text-muted-foreground">{selectedJob.code} · {selectedJob.client} · {selectedMaterial.name}</p>
+                <p className="truncate text-muted-foreground">{selectedJob.code} · {selectedJob.client} · {lines.length} material line{lines.length === 1 ? "" : "s"}</p>
               </div>
             </div>
           ) : null}

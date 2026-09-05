@@ -159,6 +159,12 @@ export function DashboardActionModals({ profile }: { profile: Profile | null }) 
             requestedQuantity: input.requestedQuantity,
             unit: input.unit,
             note: input.note,
+            requestedPackages: input.requestedPackages,
+            packageUnit: input.packageUnit,
+            lines: input.lines?.map((line) => ({
+              ...line,
+              materialId: line.materialId as Id<"materials">,
+            })),
           }), "Material request submitted")}
         />
       ) : null}

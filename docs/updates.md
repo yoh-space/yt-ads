@@ -125,3 +125,17 @@ Services such as Light Box may reference multiple raw materials. When a job is c
 ## Completed scope
 
 Phase 1 and Phase 2 are complete. They established package-aware custody, converted usage projections, allowance status calculation, and backward-compatible schema fields. Phase 3 is the current implementation scope; operator and storekeeper UI changes remain intentionally deferred to Phases 4 and 5.
+
+## Phase 4 implementation update
+
+Phase 4 is complete for the operator request path:
+
+- The operator request modal now accepts multiple physical-material lines.
+- Package count is the editable primary quantity; converted base quantity is shown as read-only context.
+- Operators can add/remove material lines while keeping the clearance guard active.
+- Grouped requests persist both legacy `materialRequests` records and `materialRequestLines`.
+- Secondary materials are allowed when they are present in the job's immutable recipe requirements.
+- Each request line snapshots its package unit and conversion ratio for later handover and audit.
+- Legacy single-material request callers remain supported through the same mutation.
+
+Phase 5 is next: grouped storekeeper requisitions, partial/full package handover, short-stock handling, and line-level issue status.

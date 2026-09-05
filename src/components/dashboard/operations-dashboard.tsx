@@ -233,6 +233,12 @@ export function OperationsDashboard() {
         ...input,
         jobCardId: input.jobCardId as Id<"jobCards">,
         materialId: input.materialId as Id<"materials">,
+        requestedPackages: input.requestedPackages,
+        packageUnit: input.packageUnit,
+        lines: input.lines?.map((line) => ({
+          ...line,
+          materialId: line.materialId as Id<"materials">,
+        })),
       }),
       "የእቃ ጥያቄው ተልኳል",
     );
