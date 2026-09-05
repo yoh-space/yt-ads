@@ -192,19 +192,26 @@ export function MachinesView({
         </div>
       )}
       {/* Machine Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {machines.map((machine) => {
           const job = jobs.find((entry) => entry.code === machine.activeJob);
           const nextJobs = queuedJobsByMachine.get(machine.id);
           const nextJob = nextJobs?.[0];
+          const cardTone = machine.status === "Running"
+            ? "border-green/30 bg-green/5"
+            : machine.status === "Available"
+              ? "border-cyan/25 bg-cyan/5"
+              : machine.status === "Maintenance"
+                ? "border-gold/30 bg-gold/5"
+                : "border-coral/30 bg-coral/5";
           
           return (
-            <div key={machine.id} className="bg-white border border-line rounded-lg p-6 hover:shadow-md transition-shadow">
+            <div key={machine.id} className={cn("rounded-lg border p-4 shadow-sm transition-shadow hover:shadow-md", cardTone)}>
               {/* Machine Header */}
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
+              <div className="mb-3 flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-2.5">
                   <div className={cn(
-                    "flex items-center justify-center w-10 h-10 rounded-lg transition-colors",
+                    "flex h-9 w-9 flex-none items-center justify-center rounded-lg transition-colors",
                     machine.status === "Running" 
                       ? "bg-green/10 text-green animate-pulse" 
                       : machine.status === "Available"
@@ -214,24 +221,24 @@ export function MachinesView({
                       : "bg-gray-100 text-gray-600"
                   )}>
                     {machine.type.includes("Printer") ? (
-                      <Printer size={22} />
+                      <Printer size={19} />
                     ) : machine.type.includes("Laser") ? (
-                      <Scissors size={22} />
+                      <Scissors size={19} />
                     ) : (
-                      <Command size={22} />
+                      <Command size={19} />
                     )}
                   </div>
                   <div>
-                    <h3 className="font-semibold text-navy">{machine.name}</h3>
-                    <p className="text-sm text-gray-600">
+                    <h3 className="truncate text-sm font-semibold text-navy">{machine.name}</h3>
+                    <p className="truncate text-xs text-gray-600">
                       {machine.code} · {machine.manufacturer || "Manufacturer not set"}
                     </p>
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-none items-center gap-1.5">
                   <span className={cn(
-                    "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium",
+                    "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium",
                     {
                       "bg-green/10 text-green": machine.status === "Running",
                       "bg-cyan/10 text-cyan": machine.status === "Available", 
@@ -245,7 +252,7 @@ export function MachinesView({
                     <select
                       value={machine.status}
                       onChange={(event) => onStatusChange(machine.id, event.target.value as MachineStatus)}
-                      className="h-8 rounded-lg border border-line bg-white px-2 text-xs text-navy"
+                      className="h-8 rounded-lg border border-line bg-white/80 px-2 text-xs text-navy"
                       aria-label={`Update ${machine.name} status`}
                     >
                       <option>Running</option>
@@ -255,7 +262,7 @@ export function MachinesView({
                     </select>
                   ) : null}
                   <button
-                    className="flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/70 text-gray-500 transition-colors hover:bg-white hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2"
                     onClick={() => onSettings(machine)}
                     aria-label="Machine settings"
                   >
@@ -266,16 +273,16 @@ export function MachinesView({
 
               {/* Machine Specs */}
               {(machine.model || machine.capability) && (
-                <div className="mb-4 text-xs text-gray-500">
+                <div className="mb-3 text-[11px] text-gray-600">
                   {machine.model || "Model pending"}
                   {machine.capability && ` · ${machine.capability}`}
                 </div>
               )}
 
               {/* Job Information */}
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+              <div className="mb-3 rounded-lg border border-gray-200/80 bg-white/65 p-3">
                 {job ? (
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <span className="text-xs font-mono font-bold tracking-wider text-cyan-dark uppercase">
                       ACTIVE JOB CARD
                     </span>
@@ -295,7 +302,7 @@ export function MachinesView({
                     )}
                   </div>
                 ) : nextJob ? (
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <span className="text-xs font-mono font-bold tracking-wider text-gold uppercase">
                       NEXT IN QUEUE
                     </span>
@@ -309,7 +316,7 @@ export function MachinesView({
                     </div>
                   </div>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <span className="text-xs font-mono font-bold tracking-wider text-gray-500 uppercase">
                       READY FOR ASSIGNMENT
                     </span>
@@ -326,7 +333,7 @@ export function MachinesView({
                 {job && canComplete ? (
                   <button 
                     className={cn(
-                      "inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-green focus:ring-offset-2",
+                      "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-green focus:ring-offset-2",
                       isPending(`complete-job-${job.id}`)
                         ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                         : "bg-green text-white hover:bg-green/90"
@@ -339,7 +346,7 @@ export function MachinesView({
                 ) : !job && isManagement && nextJob ? (
                   <button 
                     className={cn(
-                      "inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-navy focus:ring-offset-2",
+                      "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-navy focus:ring-offset-2",
                       isPending(`assign-job-${machine.id}`)
                         ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                         : "bg-navy text-white hover:bg-navy-2"
