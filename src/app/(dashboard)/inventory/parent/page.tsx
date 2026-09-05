@@ -123,7 +123,7 @@ export default function ParentInventoryPage() {
             <span className="font-mono text-2xl font-bold text-white tabular-nums">
               {Number(totalCanisters.toFixed(1))}
             </span>
-            <span className="font-mono text-xs font-semibold text-[#FFB703]">1L/5L CANISTERS</span>
+            <span className="font-mono text-xs font-semibold text-[#FFB703]">1L CANISTERS</span>
           </div>
         </div>
       </div>
