@@ -126,6 +126,49 @@ export const getByTelegramId = query({
   },
 });
 
+export const updateTelegramProfile = mutation({
+  args: {
+    telegramId: v.string(),
+    initData: v.string(),
+    phone: v.string(),
+    name: v.optional(v.string()),
+    companyLegalName: v.optional(v.string()),
+    tinNumber: v.optional(v.string()),
+    notes: v.optional(v.string()),
+  },
+  returns: v.object({
+    telegramId: v.string(),
+    phone: v.string(),
+    name: v.optional(v.string()),
+    companyLegalName: v.optional(v.string()),
+    tinNumber: v.optional(v.string()),
+    notes: v.optional(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    const telegramId = args.telegramId.trim();
+    const verified = await verifyTelegramInitData(args.initData);
+    if (!telegramId || verified.telegramId !== telegramId) throw new Error("Telegram identity mismatch.");
+    const phone = args.phone.replace(/[^+\d]/g, "").trim();
+    if (!/^\+?\d{7,15}$/.test(phone)) throw new Error("Enter a valid phone number.");
+    const name = args.name?.trim() || undefined;
+    const companyLegalName = args.companyLegalName?.trim() || undefined;
+    const tinNumber = args.tinNumber?.replace(/\D/g, "").trim() || undefined;
+    const notes = args.notes?.trim() || undefined;
+    if (name && name.length > 160) throw new Error("Name is too long.");
+    if (companyLegalName && companyLegalName.length > 160) throw new Error("Company name is too long.");
+    if (tinNumber && !/^\d{10}$/.test(tinNumber)) throw new Error("TIN must contain exactly 10 digits.");
+    if (notes && notes.length > 2000) throw new Error("Notes are too long.");
+    const existing = await ctx.db.query("telegramUsers").withIndex("by_telegram_id", (q) => q.eq("telegramId", telegramId)).unique();
+    const now = Date.now();
+    if (existing) {
+      await ctx.db.patch(existing._id, { phone, name, companyLegalName, tinNumber, notes, verifiedAt: now, updatedAt: now });
+      return { telegramId, phone, name, companyLegalName, tinNumber, notes };
+    }
+    await ctx.db.insert("telegramUsers", { telegramId, phone, name, companyLegalName, tinNumber, notes, verifiedAt: now, createdAt: now, updatedAt: now });
+    return { telegramId, phone, name, companyLegalName, tinNumber, notes };
+  },
+});
+
 /**
  * Bot-only lookup for a customer's verified phone + display name, used so the
  * `/start` handler can skip the share-contact prompt for known customers and

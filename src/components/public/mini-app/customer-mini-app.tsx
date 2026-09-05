@@ -41,6 +41,8 @@ import { SERVICE_CATEGORIES, getServiceLabel, type ServiceId } from "@/constants
 import { BottomNavigation } from "./bottom-navigation";
 import { CustomerOrdersView } from "./customer-orders-view";
 import { CustomerProfileView } from "./customer-profile-view";
+import { CustomerProfileForm } from "./customer-profile-form";
+import { PhoneVerificationGate } from "./phone-verification-gate";
 import { DimensionsInput } from "./dimensions-input";
 import { ServicePicker } from "./service-picker";
 import type { CustomerOrderSummary, MiniAppTab, OrderFormState } from "./types";
@@ -93,6 +95,7 @@ export function TelegramMiniAppOrder() {
   const info = useQuery(api.orders.publicInfo);
   const generateUploadUrl = useMutation(api.orders.generateUploadUrl);
   const submitOrder = useMutation(api.orders.submit);
+  const updateTelegramProfile = useMutation(api.users.updateTelegramProfile);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [activeCategory, setActiveCategory] = useState<string>("ALL");
@@ -128,12 +131,23 @@ export function TelegramMiniAppOrder() {
     telegramId && telegramInitData ? { telegramId, initData: telegramInitData } : "skip",
   );
   const verifiedPhone = launchPhone ?? userProfile?.phone ?? null;
-  const phoneReady = verifiedPhone !== null;
+  const phoneReady = Boolean(verifiedPhone);
 
   useEffect(() => {
     if (!launchName) return;
     setForm((prev) => (prev.clientName ? prev : { ...prev, clientName: launchName }));
   }, [launchName]);
+
+  useEffect(() => {
+    if (!userProfile) return;
+    setForm((prev) => ({
+      ...prev,
+      clientName: prev.clientName || userProfile.name || "",
+      companyLegalName: userProfile.companyLegalName ?? prev.companyLegalName,
+      tinNumber: userProfile.tinNumber ?? prev.tinNumber,
+      notes: prev.notes || userProfile.notes || "",
+    }));
+  }, [userProfile]);
 
   const isInsideTelegram = isTelegramMiniApp();
 
@@ -203,6 +217,10 @@ export function TelegramMiniAppOrder() {
       });
       return;
     }
+    if (!form.serviceType) {
+      setMessage({ tone: "error", text: "እባክዎ የሚፈልጉትን አገልግሎት ይምረጡ።" });
+      return;
+    }
 
     const width = Number(form.width);
     const height = Number(form.height);
@@ -225,7 +243,7 @@ export function TelegramMiniAppOrder() {
       const dimensions = `${width}m x ${height}m`;
       const result = await submitOrder({
         clientName: form.clientName.trim(),
-        phone: verifiedPhone,
+        phone: verifiedPhone!,
         telegramId,
         telegramInitData,
         serviceType: form.serviceType,
@@ -257,7 +275,7 @@ export function TelegramMiniAppOrder() {
         clientName: launchName ?? "",
         companyLegalName: "",
         tinNumber: "",
-        serviceType: SERVICE_CATEGORIES[0]?.items[0]?.id ?? "banner_print",
+        serviceType: null,
         width: "",
         height: "",
         quantity: "1",
@@ -279,6 +297,12 @@ export function TelegramMiniAppOrder() {
     if (activeCategory === "ALL") return SERVICE_CATEGORIES;
     return SERVICE_CATEGORIES.filter((cat) => cat.categoryId === activeCategory);
   }, [activeCategory]);
+
+  async function saveProfile(profile: { name: string; phone: string; companyLegalName: string; tinNumber: string; notes: string }) {
+    if (!telegramId || !telegramInitData) throw new Error("Telegram መለያ አልተገኘም።");
+    await updateTelegramProfile({ telegramId, initData: telegramInitData, ...profile });
+    setMessage({ tone: "success", text: "መገለጫዎ ተቀምጧል።" });
+  }
 
   return (
     <div className="min-h-screen bg-[#0C0D10] text-[#D4D4D4] font-sans antialiased pb-28">
@@ -319,7 +343,7 @@ export function TelegramMiniAppOrder() {
       {/* ── Main Form ─────────────────────────────────────────────── */}
       <BottomNavigation activeTab={activeTab} onChange={setActiveTab} />
 
-      {activeTab === "create" ? <form onSubmit={submit} className="p-4 space-y-5 max-w-xl mx-auto">
+      {!isInsideTelegram ? <div className="mx-auto max-w-md p-6 text-center text-sm text-neutral-300">ይህ ገጽ በTelegram Mini App ውስጥ ብቻ ይሰራል።</div> : !phoneReady ? <PhoneVerificationGate initialName={launchName ?? ""} busy={busy} onSubmit={async (phone) => { if (!telegramId || !telegramInitData) throw new Error("Telegram መለያ አልተገኘም።"); setBusy(true); try { await updateTelegramProfile({ telegramId, initData: telegramInitData, phone, name: launchName ?? undefined }); } finally { setBusy(false); } }} /> : activeTab === "create" ? <form onSubmit={submit} className="p-4 space-y-5 max-w-xl mx-auto">
 
         {/* Feedback Alert */}
         {message ? (
@@ -347,7 +371,7 @@ export function TelegramMiniAppOrder() {
           </div>
         ) : null}
 
-        <ServicePicker value={form.serviceType} onChange={(serviceType) => setForm({ ...form, serviceType })} />
+        <ServicePicker value={form.serviceType} onChange={(serviceType) => setForm({ ...form, serviceType })} onClear={() => setForm({ ...form, serviceType: null })} />
         <DimensionsInput form={form} setForm={setForm} estimatedArea={estimatedArea} />
         {false && <>
         {/* ── Section 1: Service Selection ─────────────────────────── */}
@@ -719,7 +743,7 @@ export function TelegramMiniAppOrder() {
       </form> : activeTab === "orders" ? (
         <CustomerOrdersView orders={customerOrders as CustomerOrderSummary[] | undefined} />
       ) : (
-        <CustomerProfileView name={launchName ?? userProfile?.name ?? null} phone={verifiedPhone} telegramId={telegramId} />
+        <CustomerProfileForm initialName={launchName ?? userProfile?.name ?? ""} initialPhone={verifiedPhone ?? ""} initialCompany={userProfile?.companyLegalName ?? ""} initialTin={userProfile?.tinNumber ?? ""} initialNotes={userProfile?.notes ?? ""} onSave={saveProfile} />
       )}
     </div>
   );
