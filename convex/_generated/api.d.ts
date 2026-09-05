@@ -26,6 +26,7 @@ import type * as notificationHelpers from "../notificationHelpers.js";
 import type * as notifications from "../notifications.js";
 import type * as offcuts from "../offcuts.js";
 import type * as orders from "../orders.js";
+import type * as overuseExceptions from "../overuseExceptions.js";
 import type * as reconciliation from "../reconciliation.js";
 import type * as reports from "../reports.js";
 import type * as security from "../security.js";
@@ -65,6 +66,7 @@ declare const fullApi: ApiFromModules<{
   notifications: typeof notifications;
   offcuts: typeof offcuts;
   orders: typeof orders;
+  overuseExceptions: typeof overuseExceptions;
   reconciliation: typeof reconciliation;
   reports: typeof reports;
   security: typeof security;

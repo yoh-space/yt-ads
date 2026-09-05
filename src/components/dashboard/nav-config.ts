@@ -31,7 +31,7 @@ export type Modal =
   | "reconciliation"
   | null;
 
-export type SettingsCategory = "profile" | "security" | "team" | "company";
+export type SettingsCategory = "profile" | "security" | "team" | "company" | "migration";
 
 export const roleVisibleViews: Record<Role, View[]> = Object.fromEntries(
   (Object.keys(WORKSPACE_REGISTRY) as Array<keyof typeof WORKSPACE_REGISTRY>).flatMap((workspaceId) =>

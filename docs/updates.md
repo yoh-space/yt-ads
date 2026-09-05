@@ -165,3 +165,25 @@ Phase 6 monitoring foundations are now implemented:
 - Original inventory ledger events remain immutable; reconciliation can resolve exceptions without erasing history.
 
 Phase 7 remains for migration rehearsal, broader audit workflows, and end-to-end release verification.
+
+## Phase 7 implementation update
+
+Phase 7 release safeguards are now implemented:
+
+- Added an idempotent `packageMetadata` migration that derives missing package units, labels, and package sizes from existing purchase units and conversion ratios.
+- Added an owner/admin-triggered migration entry point protected by `company_settings.update`.
+- Added reactive overuse exception listing and reconciliation-review resolution controls.
+- Added migration and exception APIs to the generated Convex surface.
+- Preserved legacy rows and made the package backfill safe to re-run.
+
+Production deployment remains intentionally separate and requires explicit approval. The final verification commands below are the release gate:
+
+```text
+pnpm check
+pnpm test
+NODE_ENV=production pnpm build
+pnpm exec convex codegen
+git diff --check
+```
+
+All completed phases preserve immutable inventory movements and retain legacy compatibility during migration.

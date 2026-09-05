@@ -1,6 +1,7 @@
 import { internalMutation, internalAction, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
+import { requirePermission } from "./users";
 
 /**
  * Canonical `customerOrders.status` values. Any stored value outside this set
@@ -232,6 +233,70 @@ export const runServiceTypeMigration = mutation({
     await ctx.scheduler.runAfter(0, internal.migrations.migrateServiceTypeLegacy, {
       force: args.force ?? false,
     });
+
     return { scheduled: true as const };
+  },
+});
+
+const packageMigrationResult = v.object({
+  patched: v.number(),
+  skipped: v.optional(v.boolean()),
+});
+
+export const migratePackageMetadata = internalAction({
+  args: {},
+  returns: packageMigrationResult,
+  handler: async (ctx): Promise<{ patched: number; skipped?: boolean }> =>
+    ctx.runMutation(internal.migrations.normalizePackageMetadata, {}),
+});
+
+export const normalizePackageMetadata = internalMutation({
+  args: {},
+  returns: packageMigrationResult,
+  handler: async (ctx) => {
+    const existing = await ctx.db.query("migrations")
+      .withIndex("by_key", (q) => q.eq("key", "packageMetadata"))
+      .unique();
+    if (existing) return { patched: 0, skipped: true };
+
+    let patched = 0;
+    const materials = await ctx.db.query("materials").collect();
+    for (const material of materials) {
+      if (material.packageUnit !== undefined) continue;
+      const packageUnit = material.purchaseUnit === "roll"
+        ? "ROLL"
+        : material.purchaseUnit === "sheet"
+          ? "SHEET"
+          : material.purchaseUnit === "canister" || material.purchaseUnit === "liter"
+            ? "CANISTER"
+            : material.purchaseUnit === "piece"
+              ? "PIECE"
+              : material.purchaseUnit === "pack"
+                ? "PACKAGE"
+                : undefined;
+      if (!packageUnit) continue;
+      await ctx.db.patch(material._id, {
+        packageUnit,
+        packageSize: material.conversionRatio && material.conversionRatio > 0 ? material.conversionRatio : undefined,
+        packageLabel: packageUnit === "ROLL" ? "Roll" : packageUnit === "SHEET" ? "Sheet" : packageUnit === "CANISTER" ? "1L canister" : packageUnit === "PIECE" ? "Piece" : "Package",
+      });
+      patched++;
+    }
+    await ctx.db.insert("migrations", { key: "packageMetadata", ranAt: Date.now() });
+    return { patched };
+  },
+});
+
+export const runPackageMetadataMigration = mutation({
+  args: {},
+  returns: v.object({ scheduled: v.optional(v.boolean()), skipped: v.optional(v.boolean()), reason: v.optional(v.string()) }),
+  handler: async (ctx) => {
+    await requirePermission(ctx, "company_settings.update");
+    const existing = await ctx.db.query("migrations")
+      .withIndex("by_key", (q) => q.eq("key", "packageMetadata"))
+      .unique();
+    if (existing) return { skipped: true, reason: "already run" };
+    await ctx.scheduler.runAfter(0, internal.migrations.migratePackageMetadata, {});
+    return { scheduled: true };
   },
 });
