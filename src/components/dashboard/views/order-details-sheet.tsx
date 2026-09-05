@@ -182,7 +182,7 @@ export function OrderDetailsSheet({
           {/* Telegram Intake & Customer Credentials */}
           <section className="space-y-3">
             <SectionHeading icon={<FileText size={15} />} title="Telegram Intake Credentials" />
-            <div className="rounded-lg border border-line bg-gray-50/60 p-3.5 space-y-2.5">
+            <div className="rounded-lg border border-line bg-gray-900 p-3.5 space-y-2.5">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <span className="text-[10px] font-mono uppercase tracking-wider text-gray-500 block">Order PIN</span>
