@@ -40,7 +40,6 @@ import { bootstrapTelegramWebApp, isTelegramMiniApp, sendTelegramOrderResult } f
 import { SERVICE_CATEGORIES, getServiceLabel, type ServiceId } from "@/constants/services";
 import { BottomNavigation } from "./bottom-navigation";
 import { CustomerOrdersView } from "./customer-orders-view";
-import { CustomerProfileView } from "./customer-profile-view";
 import { CustomerProfileForm } from "./customer-profile-form";
 import { PhoneVerificationGate } from "./phone-verification-gate";
 import { DimensionsInput } from "./dimensions-input";
@@ -106,10 +105,12 @@ export function TelegramMiniAppOrder() {
     name?: string;
     phone?: string;
   }>({});
+  const [isInsideTelegram, setIsInsideTelegram] = useState(false);
 
   useEffect(() => {
     const ctx = bootstrapTelegramWebApp();
     setLaunchContext(ctx);
+    setIsInsideTelegram(isTelegramMiniApp());
   }, []);
 
   const [telegramInitData, setTelegramInitData] = useState<string | null>(null);
@@ -148,8 +149,6 @@ export function TelegramMiniAppOrder() {
       notes: prev.notes || userProfile.notes || "",
     }));
   }, [userProfile]);
-
-  const isInsideTelegram = isTelegramMiniApp();
 
   const [form, setForm] = useState<OrderFormState>({
     clientName: "",
@@ -328,13 +327,6 @@ export function TelegramMiniAppOrder() {
             >
               <Clock size={11} className="text-[#E5C07B]" />
               <span>መከታተያ</span>
-            </Link>
-            <Link
-              href="/dashboard"
-              className="font-mono text-[11px] text-[#0C0D10] bg-[#E5C07B] hover:bg-[#d8b067] px-2.5 py-1 rounded-sm transition-colors font-semibold flex items-center gap-1"
-            >
-              <span>መግቢያ</span>
-              <ArrowUpRight size={11} />
             </Link>
           </div>
         </div>
