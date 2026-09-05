@@ -83,7 +83,7 @@ export function isRouteAllowedForRole(role: Role, pathname: string): boolean {
     return true;
   }
 
-  // Manager has broad access: overview, orders, inventory, reports, reconciliation, settings
+  // Manager has operational access only; reports and reconciliation are owner/admin domains.
   if (role === "manager") {
     if (cleanPath.startsWith("/dashboard/owner")) return false; // strictly owner
     return (
@@ -91,8 +91,6 @@ export function isRouteAllowedForRole(role: Role, pathname: string): boolean {
       cleanPath.startsWith("/dashboard/operator") ||
       cleanPath.startsWith("/inventory") ||
       cleanPath.startsWith("/orders") ||
-      cleanPath.startsWith("/reports") ||
-      cleanPath.startsWith("/reconciliation") ||
       cleanPath.startsWith("/settings")
     );
   }

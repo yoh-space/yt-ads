@@ -17,6 +17,7 @@ export type Capability =
   | "orders.view"
   | "reports.view"
   | "reconciliation.record"
+  | "reconciliation.operator"
   | "reconciliation.review"
   | "machines.manage"
   | "finance.view"
@@ -44,6 +45,7 @@ const CAPABILITY_PERMISSIONS: Record<Capability, Permission | null> = {
   "orders.view": "order.view",
   "reports.view": "reports.view",
   "reconciliation.record": "reconciliation.record",
+  "reconciliation.operator": "reconciliation.operator",
   "reconciliation.review": "reconciliation.review",
   "machines.manage": "machine.update",
   "finance.view": "reports.view",
@@ -52,7 +54,13 @@ const CAPABILITY_PERMISSIONS: Record<Capability, Permission | null> = {
 
 const ROLE_CAPABILITY_OVERRIDES: Partial<Record<Role, Partial<Record<Capability, boolean>>>> = {
   owner: { "finance.view": true },
-  manager: { "finance.view": false, "jobs.execute": false, "inventory.substock.view": false },
+  manager: {
+    "finance.view": false,
+    "reports.view": false,
+    "reconciliation.review": false,
+    "jobs.execute": false,
+    "inventory.substock.view": false,
+  },
   admin: { "finance.view": true },
   receptionist: {
     "orders.view": true,
@@ -71,10 +79,10 @@ const ROLE_CAPABILITY_OVERRIDES: Partial<Record<Role, Partial<Record<Capability,
     "reconciliation.record": true,
     "jobs.execute": false,
   },
-  laser_operator: { "inventory.parent.view": false, "inventory.substock.view": true, "jobs.execute": true },
-  cnc_operator: { "inventory.parent.view": false, "inventory.substock.view": true, "jobs.execute": true },
-  plotter_operator: { "inventory.parent.view": false, "inventory.substock.view": true, "jobs.execute": true },
-  printer_operator: { "inventory.parent.view": false, "inventory.substock.view": true, "jobs.execute": true },
+  laser_operator: { "inventory.parent.view": false, "inventory.substock.view": true, "reconciliation.operator": true, "jobs.execute": true },
+  cnc_operator: { "inventory.parent.view": false, "inventory.substock.view": true, "reconciliation.operator": true, "jobs.execute": true },
+  plotter_operator: { "inventory.parent.view": false, "inventory.substock.view": true, "reconciliation.operator": true, "jobs.execute": true },
+  printer_operator: { "inventory.parent.view": false, "inventory.substock.view": true, "reconciliation.operator": true, "jobs.execute": true },
 };
 
 export function canAccess(context: AccessContext, capability: Capability): boolean {

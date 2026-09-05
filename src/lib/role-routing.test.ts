@@ -61,8 +61,8 @@ describe("role-routing", () => {
 
     // Manager
     expect(isRouteAllowedForRole("manager", "/dashboard/manager")).toBe(true);
-    expect(isRouteAllowedForRole("manager", "/reports")).toBe(true);
-    expect(isRouteAllowedForRole("manager", "/reconciliation")).toBe(true);
+    expect(isRouteAllowedForRole("manager", "/reports")).toBe(false);
+    expect(isRouteAllowedForRole("manager", "/reconciliation")).toBe(false);
     expect(isRouteAllowedForRole("manager", "/dashboard/owner")).toBe(false);
 
     // Storekeeper

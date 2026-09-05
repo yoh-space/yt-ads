@@ -91,6 +91,7 @@ const OPERATIONS: Permission[] = [
 
 const EXCLUDED_FROM_MANAGER: Set<Permission> = new Set([
   "company_settings.update",
+  "reports.view",
   "reconciliation.review",
   "reconciliation.clearance",
 ]);

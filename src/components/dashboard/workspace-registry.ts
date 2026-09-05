@@ -39,11 +39,10 @@ export const WORKSPACE_REGISTRY: Record<WorkspaceId, WorkspaceDefinition> = {
     route: "/dashboard/manager",
     roles: ["manager"],
     primaryCapability: "dashboard.view",
-    navViews: ["overview", "orders", "inventory", "jobs", "machines", "reports", "reconciliation", "settings"],
+    navViews: ["overview", "orders", "inventory", "jobs", "machines", "settings"],
     modules: [
       { id: "dashboard.kpis", capability: "dashboard.view", placement: "primary" },
       { id: "orders.queue", capability: "orders.view", placement: "primary" },
-      { id: "reconciliation.queue", capability: "reconciliation.review", placement: "secondary" },
     ],
   },
   admin: {
@@ -87,10 +86,11 @@ export const WORKSPACE_REGISTRY: Record<WorkspaceId, WorkspaceDefinition> = {
     route: "/dashboard/operator",
     roles: ["laser_operator", "cnc_operator", "plotter_operator", "printer_operator"],
     primaryCapability: "jobs.execute",
-    navViews: ["overview", "inventory", "settings"],
+    navViews: ["overview", "inventory", "reconciliation", "settings"],
     modules: [
       { id: "jobs.queue", capability: "jobs.execute", placement: "primary" },
       { id: "inventory.substock", capability: "inventory.substock.view", placement: "secondary" },
+      { id: "reconciliation.operator", capability: "reconciliation.operator", placement: "secondary" },
     ],
   },
 };

@@ -81,6 +81,10 @@ export function getNavItemHref(view: View, role: Role): string {
       return "/reports";
     case "reconciliation":
       if (role === "storekeeper") return "/dashboard/storekeeper/reconciliation";
+      if (role === "laser_operator") return "/dashboard/operator/laser/reconciliation";
+      if (role === "cnc_operator") return "/dashboard/operator/cnc/reconciliation";
+      if (role === "plotter_operator") return "/dashboard/operator/plotter/reconciliation";
+      if (role === "printer_operator") return "/dashboard/operator/printer/reconciliation";
       return "/reconciliation";
     case "financial":
       return "/reports";

@@ -226,16 +226,18 @@ export function Overview({
             metadata={`${orderStats.activeProductionOrders} active on machines now`}
           />
 
-          <StatCard
-            interactive
-            onClick={() => onView("orders")}
-            variant="cost"
-            icon={<CreditCard size={20} />}
-            label="PENDING PAYMENT / CREDIT"
-            value={String(kpis.pendingPaymentCount)}
-            description="ክፍያ የሚጠብቁ ወይም የጸደቀ ብዕር ያላቸው ትዕዛዞች"
-            metadata={financialMetrics ? `${formatEtb(kpis.pendingPaymentTotal)} outstanding` : "Financial value masked"}
-          />
+          {role === "owner" ? (
+            <StatCard
+              interactive
+              onClick={() => onView("orders")}
+              variant="cost"
+              icon={<CreditCard size={20} />}
+              label="PENDING PAYMENT / CREDIT"
+              value={String(kpis.pendingPaymentCount)}
+              description="ክፍያ የሚጠብቁ ወይም የጸደቀ ብዕር ያላቸው ትዕዛዞች"
+              metadata={`${formatEtb(kpis.pendingPaymentTotal)} outstanding`}
+            />
+          ) : null}
 
           <StatCard
             interactive

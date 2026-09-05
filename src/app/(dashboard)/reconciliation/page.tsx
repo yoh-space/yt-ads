@@ -34,10 +34,12 @@ export default function ReconciliationPage() {
   useEffect(() => {
     if (profile?.role === "storekeeper") {
       router.replace("/dashboard/storekeeper/reconciliation");
+    } else if (profile?.role === "manager") {
+      router.replace("/dashboard/manager");
     }
   }, [profile?.role, router]);
 
-  if (profile?.role === "storekeeper") {
+  if (profile?.role === "storekeeper" || profile?.role === "manager") {
     return <div className="flex min-h-[400px] items-center justify-center"><InventoryLoader label="Opening Storekeeper Reconciliation…" /></div>;
   }
 
