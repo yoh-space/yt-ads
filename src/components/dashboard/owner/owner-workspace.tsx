@@ -103,6 +103,7 @@ export default function OwnerWorkspace({
           if (view === "orders") router.push("/orders");
           else if (view === "inventory") router.push("/inventory/parent");
           else if (view === "reports") router.push("/reports");
+          else if (view === "machines") router.push("/dashboard/owner/machines");
           else if (view === "reconciliation") router.push("/reconciliation");
           else if (view === "settings") router.push("/settings");
         }}

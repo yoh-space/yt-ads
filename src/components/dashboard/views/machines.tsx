@@ -38,6 +38,7 @@ export function MachinesView({
   onRecordProduction,
   onAssignNextJob,
   onSettings,
+  onStatusChange,
   onView,
   isPending,
 }: {
@@ -57,6 +58,7 @@ export function MachinesView({
   onRecordProduction: (id: string, inputQuantity: number, outputQuantity: number, wasteQuantity: number) => void;
   onAssignNextJob: (machineId: string) => void;
   onSettings: (machine: Machine) => void;
+  onStatusChange?: (machineId: string, status: MachineStatus) => void;
   onView: (view: View) => void;
   isPending: (key: string) => boolean;
 }) {
@@ -239,6 +241,19 @@ export function MachinesView({
                   )}>
                     {machine.status}
                   </span>
+                  {onStatusChange ? (
+                    <select
+                      value={machine.status}
+                      onChange={(event) => onStatusChange(machine.id, event.target.value as MachineStatus)}
+                      className="h-8 rounded-lg border border-line bg-white px-2 text-xs text-navy"
+                      aria-label={`Update ${machine.name} status`}
+                    >
+                      <option>Running</option>
+                      <option>Available</option>
+                      <option>Maintenance</option>
+                      <option>Unavailable</option>
+                    </select>
+                  ) : null}
                   <button
                     className="flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2"
                     onClick={() => onSettings(machine)}
