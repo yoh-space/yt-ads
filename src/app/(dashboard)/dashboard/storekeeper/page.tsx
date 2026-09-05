@@ -31,6 +31,24 @@ function physicalQuantity(quantity: number, unitType: string) {
   return `${Number(quantity.toFixed(1))} ${unitLabel(unitType)}`;
 }
 
+function inventoryBreakdown(
+  items: Array<{ materialName: string; totalStockQuantity: number; unitType: string }>,
+  unitType: string,
+) {
+  const totalsByMaterial = new Map<string, number>();
+  for (const item of items) {
+    if (item.unitType !== unitType) continue;
+    totalsByMaterial.set(item.materialName, (totalsByMaterial.get(item.materialName) ?? 0) + item.totalStockQuantity);
+  }
+
+  const breakdown = [...totalsByMaterial.entries()]
+    .sort((left, right) => right[1] - left[1])
+    .slice(0, 3)
+    .map(([name, quantity]) => `${Number(quantity.toFixed(1))} ${name}`);
+
+  return breakdown.length > 0 ? breakdown.join(" · ") : "No stock recorded";
+}
+
 function csvCell(value: string | number) {
   return `"${String(value).replaceAll('"', '""')}"`;
 }
@@ -85,7 +103,7 @@ export default function StorekeeperDashboardPage() {
   });
 
   function exportCsv() {
-    const header = ["የእቃ SKU እና ዝርዝር", "PACKAGING UNIT", "PHYSICAL STOCK", "MIN THRESHOLD", "BAY LOCATION"];
+    const header = ["የእቃ ስም እና መግለጫ", "PACKAGE TYPE", "STOCK ON HAND", "MINIMUM LEVEL", "STORAGE BAY"];
     const rows = filteredItems.map((item) => [
       item.materialName,
       unitLabel(item.unitType),
@@ -116,7 +134,7 @@ export default function StorekeeperDashboardPage() {
         <div>
           <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-primary">CENTRAL STORE / LIVE LEDGER</p>
           <h1 className="mt-1 text-2xl font-bold tracking-tight text-foreground">የዋና ዕቃ ግምጃ ቤት ቁጥጥር</h1>
-          <p className="mt-1 text-xs text-muted-foreground">Parent stock is controlled in discrete physical packaging units.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Main raw stock management</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button className="rounded-md border border-border bg-surface px-3 py-2 text-xs font-semibold text-muted-foreground transition hover:border-primary hover:text-foreground" onClick={() => router.push("/inventory/parent")}>
@@ -134,10 +152,10 @@ export default function StorekeeperDashboardPage() {
       <WorkspaceModuleGate context={accessContext} moduleId="inventory.kpis">
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          { label: "የሮል እቃዎች", value: totals.rolls, unit: "ROLLS", detail: "Starflex 500g · Stickers/Vinyl", tone: "text-primary" },
-          { label: "የአክሪሊክ እና ፎም ሺቶች", value: totals.sheets, unit: "SHEETS", detail: "Acrylic 3mm · Forex PVC 5mm", tone: "text-emerald-500" },
-          { label: "ቀለሞች እና ኬሚካሎች", value: totals.inks, unit: "CANISTERS", detail: "CMYK Balance: C, M, Y, K", tone: "text-purple-300" },
-          { label: "ፈቃድ የሚጠብቁ ጥያቄዎች", value: pendingRequests.length, unit: "PENDING", detail: "Immediate floor handover", tone: "text-amber-500" },
+          { label: "የሮል እቃዎች", value: totals.rolls, unit: "ROLLS", detail: inventoryBreakdown(items, "ROLL"), tone: "text-primary" },
+          { label: "የአክሪሊክ እና ፎም ሺቶች", value: totals.sheets, unit: "SHEETS", detail: inventoryBreakdown(items, "SHEET"), tone: "text-emerald-500" },
+          { label: "ቀለሞች እና ኬሚካሎች", value: totals.inks, unit: "CANISTERS", detail: inventoryBreakdown(items, "LITER"), tone: "text-purple-300" },
+          { label: "ፈቃድ የሚጠብቁ ጥያቄዎች", value: pendingRequests.length, unit: "PENDING", detail: `${pendingRequests.length} request${pendingRequests.length === 1 ? "" : "s"} awaiting handover`, tone: "text-amber-500" },
         ].map((card) => (
           <div key={card.label} className="rounded-lg border border-border bg-card p-4 shadow-custom">
             <p className="text-xs font-semibold text-muted-foreground">{card.label}</p>
@@ -145,7 +163,7 @@ export default function StorekeeperDashboardPage() {
               <strong className={`font-mono text-3xl tabular-nums ${card.tone}`}>{Number(card.value.toFixed(1))}</strong>
               <span className={`font-mono text-[10px] font-bold ${card.tone}`}>{card.unit}</span>
             </div>
-            <p className="mt-3 truncate text-[11px] text-muted-foreground">{card.detail}</p>
+            <p className="mt-3 truncate text-[10px] text-muted-foreground">{card.detail}</p>
           </div>
         ))}
       </section>
@@ -163,7 +181,7 @@ export default function StorekeeperDashboardPage() {
               </div>
               <div className="relative w-full sm:w-72">
                 <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Search SKU, sheet size, ink, bay…" className="w-full rounded-md border border-border bg-background py-2 pl-9 pr-3 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-primary" />
+                <input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Search material name, sheet size, ink, or bay…" className="w-full rounded-md border border-border bg-background py-2 pl-9 pr-3 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-primary" />
               </div>
             </div>
             <div className="flex gap-1 border-b border-border">
@@ -178,7 +196,7 @@ export default function StorekeeperDashboardPage() {
             <table className="w-full min-w-[720px] text-left text-xs">
               <thead className="bg-background/70 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
                 <tr>
-                  <th className="px-5 py-3">የእቃ SKU እና ዝርዝር</th><th className="px-4 py-3">Packaging Unit</th><th className="px-4 py-3 text-right">Physical Stock</th><th className="px-4 py-3 text-right">Min Threshold</th><th className="px-5 py-3 text-right">Actions</th>
+                  <th className="px-5 py-3">የእቃ ስም እና መግለጫ</th><th className="px-4 py-3">Package Type</th><th className="px-4 py-3 text-right">Stock on Hand</th><th className="px-4 py-3 text-right">Minimum Level</th><th className="px-5 py-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/70">

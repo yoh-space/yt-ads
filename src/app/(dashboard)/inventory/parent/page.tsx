@@ -32,7 +32,7 @@ export default function ParentInventoryPage() {
       case "SHEET":
         return `${formattedNum} SHEETS`;
       case "LITER":
-        return `${formattedNum} CANISTERS (1L/5L)`;
+        return `${formattedNum} CANISTERS (1L)`;
       default:
         return `${formattedNum} UNITS`;
     }
@@ -192,7 +192,7 @@ export default function ParentInventoryPage() {
                           ? "ROLL"
                           : item.unitType === "SHEET"
                             ? "SHEET"
-                            : "1L/5L CANISTER"}
+                            : "1L CANISTER"}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right font-bold text-white">
