@@ -42,7 +42,12 @@ function DashboardShellInner({ children }: { children: ReactNode }) {
   const profile = useQuery(api.users.getCurrentProfile);
   const companySettings = useQuery(api.users.getCompanySettings);
   const state = useQuery(api.dashboard.getState, profile?.active ? {} : "skip");
-  const ordersQuery = useQuery(api.orders.list, profile?.active ? {} : "skip");
+  // Storekeepers operate the physical stock workflow only; avoid mounting the
+  // order query because their role intentionally has no order.view permission.
+  const ordersQuery = useQuery(
+    api.orders.list,
+    profile?.active && profile.role !== "storekeeper" ? {} : "skip",
+  );
   const role: Role = profile?.role ?? "admin";
 
   const {
@@ -138,7 +143,8 @@ function DashboardShellInner({ children }: { children: ReactNode }) {
   const machines = state ? (withIds(state.machines) as Machine[]) : [];
   const jobs = state ? (withIds(state.jobs) as JobCard[]) : [];
   const runningJobsCount = jobs.filter((job) => job.status === "In production").length;
-  const ordersCount = ordersQuery?.length ?? state?.orderStats?.todaysOrders ?? 0;
+  const ordersCount =
+    role === "storekeeper" ? 0 : ordersQuery?.length ?? state?.orderStats?.todaysOrders ?? 0;
   const activeMachinesCount = machines.filter((machine) => machine.status === "Running").length;
   const resolvedProfile: Profile | null = profile ? { ...profile, id: profile._id } : null;
 

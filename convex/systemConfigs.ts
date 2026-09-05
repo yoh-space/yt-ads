@@ -41,6 +41,20 @@ export const getSystemConfig = query({
   },
 });
 
+/** Safe operational freshness read for inventory workspaces; excludes all financial settings. */
+export const getStorekeeperConfig = query({
+  args: {},
+  returns: v.object({ updatedAt: v.union(v.number(), v.null()) }),
+  handler: async (ctx) => {
+    await requirePermission(ctx, "material.view");
+    const row = await ctx.db
+      .query("systemConfigs")
+      .withIndex("by_key", (q) => q.eq("key", CONFIG_KEY))
+      .unique();
+    return { updatedAt: row?.updatedAt ?? null };
+  },
+});
+
 /**
  * Owner/admin-only mutation: write the operational & financial configuration. All
  * numeric inputs are validated (finite, in-range) and overrides are deduped by

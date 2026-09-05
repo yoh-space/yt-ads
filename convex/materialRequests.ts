@@ -32,12 +32,15 @@ export const list = query({
       .map((request) => {
         const job = jobMap.get(request.jobCardId);
         const material = materialMap.get(request.materialId);
+        const machine = job ? machineMap.get(job.machineId) : undefined;
         return {
           ...request,
           jobCode: job?.code ?? "Unknown job",
           client: job?.client ?? "Unknown client",
           jobTitle: job?.title ?? "Unknown job",
           materialName: material?.name ?? "Unknown material",
+          machineName: machine?.name ?? machine?.code ?? "Unassigned station",
+          pickLocation: material?.storageLocation ?? "Central store",
           requesterName: userMap.get(request.requestedBy) ?? request.requestedBy,
           issuerName: request.issuedBy ? userMap.get(request.issuedBy) ?? request.issuedBy : undefined,
           receiverName: request.receivedBy ? userMap.get(request.receivedBy) ?? request.receivedBy : undefined,

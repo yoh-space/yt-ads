@@ -50,7 +50,7 @@ export function MaterialRequestsPanel({
   isPending: (key: string) => boolean;
 }) {
   const [issueQuantities, setIssueQuantities] = useState<Record<string, number>>({});
-  const canRequest = hasPermission(role, "request.create");
+  const canRequest = role !== "storekeeper" && hasPermission(role, "request.create");
   const canIssue = hasPermission(role, "request.issue");
   const canAcknowledge = hasPermission(role, "request.acknowledge");
 
@@ -150,7 +150,7 @@ export function MaterialRequestsPanel({
                     ) : null}
                   </p>
                   <p className="mt-0.5 text-[11px] text-muted-foreground/90">
-                    {request.requesterName} · {PHASE_LABEL[request.status] ?? request.status}
+                    {request.requesterName} · {request.machineName ?? "Unassigned station"} · {request.pickLocation ?? "Central store"} · {PHASE_LABEL[request.status] ?? request.status}
                   </p>
                 </div>
 
@@ -180,7 +180,7 @@ export function MaterialRequestsPanel({
                         onClick={() => onIssue(request.id, issueQuantity)}
                       >
                         <PackageCheck size={13} />
-                        {isPending(`issue-${request.id}`) ? "Issuing..." : "Issue"}
+                        {isPending(`issue-${request.id}`) ? "Handing over..." : role === "storekeeper" ? "Approve & Hand Over" : "Issue"}
                       </Button>
                     </>
                   ) : null}

@@ -193,6 +193,8 @@ export type MaterialRequest = {
   client: string;
   jobTitle: string;
   materialName: string;
+  machineName?: string;
+  pickLocation?: string;
   requesterName: string;
   issuerName?: string;
   receiverName?: string;

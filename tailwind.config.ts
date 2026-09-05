@@ -12,6 +12,7 @@ const config: Config = {
         canvas: "hsl(var(--canvas))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
+        surface: "hsl(var(--surface))",
 
         // Brand Colors
         navy: {
@@ -41,6 +42,16 @@ const config: Config = {
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
+        },
+        amber: {
+          500: "hsl(var(--amber))",
+        },
+        emerald: {
+          500: "hsl(var(--emerald))",
+        },
+        purple: {
+          900: "hsl(var(--purple))",
+          300: "hsl(var(--purple-foreground))",
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",

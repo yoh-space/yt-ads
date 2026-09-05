@@ -52,6 +52,8 @@ export const listParentInventory = query({
           ...item,
           materialName: material?.name ?? "Unknown material",
           materialCategory: material?.category ?? "—",
+          reorderAt: material?.reorderAt ?? 0,
+          storageLocation: material?.storageLocation ?? "Central store",
           baseUnit: material?.baseUnit ?? material?.unit ?? "m²",
           conversionFactor: factor,
           baseUnitsInStock: factor ? Number((item.totalStockQuantity * factor).toFixed(3)) : undefined,
