@@ -33,9 +33,9 @@ export function Sidebar({
   onClose: () => void;
   onToggleSidebar: () => void;
   collapsed: boolean;
-  runningJobsCount: number;
-  ordersCount: number;
-  activeMachinesCount: number;
+  runningJobsCount?: number;
+  ordersCount?: number;
+  activeMachinesCount?: number;
   companyName?: string;
   logoUrl?: string;
   role: Role;
@@ -207,17 +207,17 @@ export function Sidebar({
                       </span>
                     ) : null}
 
-                    {!collapsed && item.id === "orders" ? (
+                    {!collapsed && item.id === "orders" && ordersCount !== undefined ? (
                       <b className="ml-auto rounded-full bg-slate-600 px-2 py-0.5 font-mono text-[12px] text-red-400">
                         {ordersCount}
                       </b>
                     ) : null}
-                    {!collapsed && item.id === "machines" ? (
+                    {!collapsed && item.id === "machines" && activeMachinesCount !== undefined ? (
                       <b className="ml-auto rounded-full bg-cyan/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-cyan-dark">
                         {activeMachinesCount} Active
                       </b>
                     ) : null}
-                    {item.id === "jobs" && runningJobsCount > 0 ? (
+                    {item.id === "jobs" && runningJobsCount !== undefined && runningJobsCount > 0 ? (
                       <b
                         className={cn(
                           "grid place-items-center w-5 h-5 flex-none rounded-full bg-coral text-white text-[10px] font-bold font-mono",
