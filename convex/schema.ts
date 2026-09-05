@@ -156,8 +156,18 @@ export const purchaseUnit = v.union(
   v.literal("roll"),
   v.literal("sheet"),
   v.literal("pack"),
+  v.literal("canister"),
   v.literal("liter"),
   v.literal("piece"),
+);
+
+/** Physical package labels used for custody and storekeeper transfers. */
+export const packageUnit = v.union(
+  v.literal("ROLL"),
+  v.literal("SHEET"),
+  v.literal("PACKAGE"),
+  v.literal("CANISTER"),
+  v.literal("PIECE"),
 );
 
 export const stockInputUnit = v.union(
@@ -280,6 +290,10 @@ export default defineSchema({
     unit,
     baseUnit: v.optional(unit),
     purchaseUnit: v.optional(purchaseUnit),
+    /** Physical unit shown for custody and transfer; base units remain audit-only. */
+    packageUnit: v.optional(packageUnit),
+    packageSize: v.optional(v.number()),
+    packageLabel: v.optional(v.string()),
     conversionRatio: v.optional(v.number()),
     specification: v.optional(v.string()),
     specificationValue: v.optional(v.string()),
@@ -338,6 +352,8 @@ export default defineSchema({
     issuedAt: v.optional(v.number()),
     receivedAt: v.optional(v.number()),
     note: v.optional(v.string()),
+    /** Optional multi-line request header; legacy requests remain one-line compatible. */
+    requestGroupId: v.optional(v.string()),
   })
     .index("by_job_card", ["jobCardId"])
     .index("by_status", ["status"]),
@@ -451,6 +467,7 @@ export default defineSchema({
     length: v.optional(v.number()),
     width: v.optional(v.number()),
     deductOnComplete: v.optional(v.boolean()),
+    serviceType: v.optional(serviceType),
   })
     .index("by_status", ["status"])
     .index("by_machine", ["machineId"])
@@ -465,6 +482,15 @@ export default defineSchema({
     unit,
     operatorId: v.string(),
     createdAt: v.number(),
+    /** Usage monitoring snapshot captured at production time. */
+    plannedQuantity: v.optional(v.number()),
+    approvedScrapQuantity: v.optional(v.number()),
+    usageAllowanceStatus: v.optional(v.union(
+      v.literal("NORMAL"),
+      v.literal("WATCH"),
+      v.literal("CRITICAL"),
+      v.literal("EXCEEDED"),
+    )),
   })
     .index("by_job_card", ["jobCardId"])
     .index("by_machine", ["machineId"]),
@@ -576,6 +602,12 @@ export default defineSchema({
     orderExpirationHours: v.optional(v.number()),
     updatedAt: v.number(),
     updatedBy: v.optional(v.string()),
+    /** Owner/admin-controlled usage leakage threshold, expressed as a percentage. */
+    defaultScrapAllowancePercent: v.optional(v.number()),
+    materialScrapAllowances: v.optional(v.array(v.object({
+      materialId: v.id("materials"),
+      allowancePercent: v.number(),
+    }))),
   })
     .index("by_key", ["key"]),
 
@@ -619,6 +651,21 @@ export default defineSchema({
     issuedBy: v.optional(v.string()),
     issuedAt: v.number(),
     updatedAt: v.number(),
+    /** Physical custody balance, kept separate from converted audit quantities. */
+    packageUnit: v.optional(packageUnit),
+    issuedPackages: v.optional(v.number()),
+    remainingPackages: v.optional(v.number()),
+    baseUnit: v.optional(unit),
+    conversionRatioSnapshot: v.optional(v.number()),
+    issuedBaseQuantity: v.optional(v.number()),
+    consumedBaseQuantity: v.optional(v.number()),
+    remainingBaseQuantity: v.optional(v.number()),
+    usageAllowanceStatus: v.optional(v.union(
+      v.literal("NORMAL"),
+      v.literal("WATCH"),
+      v.literal("CRITICAL"),
+      v.literal("EXCEEDED"),
+    )),
     /** Owner/admin clearance trail recorded once the batch is fully reconciled. */
     clearedBy: v.optional(v.string()),
     clearedAt: v.optional(v.number()),
@@ -628,6 +675,84 @@ export default defineSchema({
     .index("by_machine", ["machineId"])
     .index("by_operator", ["operatorId"])
     .index("by_material_machine", ["materialId", "machineId"])
+    .index("by_status", ["status"]),
+
+  /** Owner/admin-managed raw-material recipe for a customer service. */
+  serviceMaterialRecipes: defineTable({
+    serviceType,
+    materialId: v.id("materials"),
+    requirementMode: v.union(
+      v.literal("fixed"),
+      v.literal("area_rate"),
+      v.literal("linear_rate"),
+      v.literal("quantity_rate"),
+    ),
+    quantity: v.number(),
+    wasteAllowancePercent: v.optional(v.number()),
+    required: v.boolean(),
+    active: v.boolean(),
+    updatedAt: v.number(),
+    updatedBy: v.string(),
+  })
+    .index("by_service", ["serviceType"])
+    .index("by_material", ["materialId"])
+    .index("by_active_service", ["active", "serviceType"]),
+
+  /** Immutable per-job snapshot of the service recipe calculation. */
+  jobMaterialRequirements: defineTable({
+    jobCardId: v.id("jobCards"),
+    materialId: v.id("materials"),
+    packageUnit: packageUnit,
+    suggestedPackages: v.number(),
+    requestedPackages: v.optional(v.number()),
+    issuedPackages: v.optional(v.number()),
+    baseUnit: unit,
+    plannedBaseQuantity: v.number(),
+    approvedScrapQuantity: v.number(),
+    conversionRatioSnapshot: v.number(),
+    status: v.union(
+      v.literal("PLANNED"),
+      v.literal("REQUESTED"),
+      v.literal("PARTIALLY_ISSUED"),
+      v.literal("ISSUED"),
+      v.literal("COMPLETED"),
+      v.literal("OVER_ALLOWANCE"),
+    ),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_job_card", ["jobCardId"])
+    .index("by_material", ["materialId"])
+    .index("by_status", ["status"]),
+
+  /** Physical package lines belonging to a multi-material operator request. */
+  materialRequestLines: defineTable({
+    requestGroupId: v.string(),
+    jobCardId: v.id("jobCards"),
+    materialId: v.id("materials"),
+    packageUnit: packageUnit,
+    requestedPackages: v.number(),
+    issuedPackages: v.number(),
+    baseUnit: unit,
+    requestedBaseQuantity: v.number(),
+    issuedBaseQuantity: v.number(),
+    conversionRatioSnapshot: v.number(),
+    status: v.union(
+      v.literal("Requested"),
+      v.literal("Partially Issued"),
+      v.literal("Issued"),
+      v.literal("Short Stock"),
+      v.literal("Discrepancy"),
+    ),
+    note: v.optional(v.string()),
+    requestedBy: v.string(),
+    issuedBy: v.optional(v.string()),
+    requestedAt: v.number(),
+    issuedAt: v.optional(v.number()),
+  })
+    .index("by_request_group", ["requestGroupId"])
+    .index("by_job_card", ["jobCardId"])
+    .index("by_material", ["materialId"])
     .index("by_status", ["status"]),
 
   /**

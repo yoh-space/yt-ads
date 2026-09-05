@@ -121,7 +121,7 @@ export const recordStockMovement = mutation({
     materialId: v.id("materials"),
     direction: v.union(v.literal("in"), v.literal("out")),
     quantity: v.number(),
-    inputUnit: v.union(v.literal("roll"), v.literal("sheet"), v.literal("pack"), v.literal("liter"), unit),
+    inputUnit: v.union(v.literal("roll"), v.literal("sheet"), v.literal("pack"), v.literal("canister"), v.literal("liter"), unit),
     note: v.string(),
   },
   handler: async (ctx, args) => {

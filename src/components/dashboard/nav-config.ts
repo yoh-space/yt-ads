@@ -135,7 +135,7 @@ export const navItems: Array<{
 ];
 
 export const baseUnitOptions = ["m²", "m", "pcs", "L"] as const;
-export const purchaseUnitOptions = ["roll", "sheet", "pack", "liter", "piece"] as const;
+export const purchaseUnitOptions = ["roll", "sheet", "pack", "canister", "liter", "piece"] as const;
 export const unitOptions = ["m²", "m", "sheet", "piece", "pcs", "L"] as const;
 export const materialDefinitionOptions = MATERIAL_SPECIFICATIONS.map((material) => material.name);
 export const neonLightColorOptions = MATERIAL_SPECIFICATIONS.find((material) => material.name === "Neon Light")?.specificationOptions ?? [];

@@ -11,7 +11,7 @@ export type Role =
 
 export type Unit = "m²" | "m" | "sheet" | "piece" | "pcs" | "L";
 
-export type PurchaseUnit = "roll" | "sheet" | "pack" | "liter" | "piece";
+export type PurchaseUnit = "roll" | "sheet" | "pack" | "canister" | "liter" | "piece";
 export type MaterialSpecification =
   | "Color Type"
   | "Roll Weight & Size"

@@ -9,7 +9,8 @@ export type Role =
   | "plotter_operator"
   | "printer_operator";
 export type Unit = "m²" | "m" | "sheet" | "piece" | "pcs" | "L";
-export type PurchaseUnit = "roll" | "sheet" | "pack" | "liter" | "piece";
+export type PurchaseUnit = "roll" | "sheet" | "pack" | "canister" | "liter" | "piece";
+export type PackageUnit = "ROLL" | "SHEET" | "PACKAGE" | "CANISTER" | "PIECE";
 export type MaterialSpecification =
   | "Color Type"
   | "Roll Weight & Size"
@@ -77,6 +78,7 @@ export type StockException = {
 };
 export type Accent = "cyan" | "gold" | "violet" | "blue" | "green";
 export type ProductionType = "area" | "linear" | "ink" | "unit";
+export type UsageAllowanceStatus = "NORMAL" | "WATCH" | "CRITICAL" | "EXCEEDED";
 export type ReconciliationStatus = "Open" | "Reviewed" | "Resolved";
 
 export type Material = {
@@ -86,6 +88,9 @@ export type Material = {
   unit: Unit;
   baseUnit?: Unit;
   purchaseUnit?: PurchaseUnit;
+  packageUnit?: PackageUnit;
+  packageSize?: number;
+  packageLabel?: string;
   conversionRatio?: number;
   specification?: MaterialSpecification | string;
   specificationValue?: string;
@@ -141,6 +146,7 @@ export type JobCard = {
   length?: number;
   width?: number;
   deductOnComplete?: boolean;
+  serviceType?: string;
 };
 
 export type Offcut = {
