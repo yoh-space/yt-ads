@@ -12,7 +12,7 @@ const COOKIE_SESSION_NAME = "better-auth.session_token";
 const COOKIE_SECURE_SESSION_NAME = "__Secure-better-auth.session_token";
 const COOKIE_ROLE_NAME = "user_role";
 
-async function resolveRoleFromConvex(sessionToken: string): Promise<Role | null> {
+async function resolveRoleFromConvex(sessionToken: string, cookieName: string): Promise<Role | null> {
   const siteUrl = process.env.NEXT_PUBLIC_CONVEX_SITE_URL;
   const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
   if (!siteUrl || !convexUrl) return null;
@@ -22,7 +22,7 @@ async function resolveRoleFromConvex(sessionToken: string): Promise<Role | null>
     const tokenRes = await fetch(`${siteUrl}/api/auth/convex/token`, {
       headers: {
         host: new URL(siteUrl).host,
-        cookie: `${COOKIE_SESSION_NAME}=${sessionToken}`,
+        cookie: `${cookieName}=${sessionToken}`,
       },
     });
     if (!tokenRes.ok) return null;
@@ -69,9 +69,10 @@ export async function proxy(request: NextRequest) {
   }
 
   // 2. Verify Better Auth session cookie
-  const sessionToken =
-    request.cookies.get(COOKIE_SESSION_NAME)?.value ||
-    request.cookies.get(COOKIE_SECURE_SESSION_NAME)?.value;
+  const sessionCookie =
+    request.cookies.get(COOKIE_SESSION_NAME) ??
+    request.cookies.get(COOKIE_SECURE_SESSION_NAME);
+  const sessionToken = sessionCookie?.value;
 
   if (!sessionToken) {
     const signInUrl = new URL("/sign-in", request.url);
@@ -85,7 +86,7 @@ export async function proxy(request: NextRequest) {
   if (isValidRole(cachedRole)) {
     role = cachedRole;
   } else {
-    role = await resolveRoleFromConvex(sessionToken);
+    role = await resolveRoleFromConvex(sessionToken, sessionCookie?.name ?? COOKIE_SESSION_NAME);
   }
 
   // If session is expired/invalid, redirect to sign-in

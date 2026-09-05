@@ -51,8 +51,8 @@ export default function SignInPage() {
         throw new Error(result.error.message ?? "Invalid email or password.");
       }
       await ensureProfile().catch(() => {});
-      router.push("/dashboard");
-      router.refresh();
+      const redirect = new URLSearchParams(window.location.search).get("redirect");
+      window.location.assign(redirect?.startsWith("/") ? redirect : "/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign in failed. Check your email and password.");
       setLoading(false);
