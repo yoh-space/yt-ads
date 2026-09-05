@@ -1,19 +1,25 @@
 "use client";
 
 import { AlertTriangle, CheckCircle2, ClipboardCheck, Scale } from "lucide-react";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { cn } from "@/lib/utils";
 import { Button, StatusPill } from "@/components/ui";
 import { ModalShell } from "../modals/modal-shell";
 import { useState } from "react";
+import type { OperatorStockEntry } from "./operator-stock";
 
 function formatNumber(n: number) {
   return n.toLocaleString("en-US", { maximumFractionDigits: 3 });
 }
 
-export function WeeklyReconciliationModal({ onClose }: { onClose: () => void }) {
-  const stock = useQuery(api.inventory.listOperatorMachineStock);
+export function WeeklyReconciliationModal({
+  stock,
+  onClose,
+}: {
+  stock: OperatorStockEntry[] | undefined;
+  onClose: () => void;
+}) {
   const reconcile = useMutation(api.inventory.performWeeklyReconciliation);
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [physicalCounts, setPhysicalCounts] = useState<Record<string, number>>({});

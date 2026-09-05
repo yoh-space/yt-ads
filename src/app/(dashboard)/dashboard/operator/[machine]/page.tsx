@@ -19,7 +19,7 @@ import { useSafeMutation } from "@/components/dashboard/pending-store";
 import { useDashboardModal } from "@/components/dashboard/modal-context";
 import { StatusPill } from "@/components/ui/status-pill";
 import { formatQuantity } from "@/lib/units";
-import { OperatorStockWidget } from "@/components/dashboard/views/operator-stock";
+import { OperatorStockWidget, type OperatorStockEntry } from "@/components/dashboard/views/operator-stock";
 import type { JobCard, Machine } from "@/lib/operations-types";
 import type { AccessContext } from "@/lib/access-policy";
 import { WorkspaceModuleGate } from "@/components/dashboard/workspace-renderer";
@@ -44,6 +44,7 @@ export default function OperatorMachinePage({
 
   const profile = useQuery(api.users.getCurrentProfile);
   const state = useQuery(api.dashboard.getState, profile?.active ? {} : "skip");
+  const floorStockQuery = useQuery(api.inventory.listOperatorMachineStock, profile?.active ? {} : "skip");
   const unclearedStockQuery = useQuery(api.inventory.myUnclearedStock, profile?.active ? {} : "skip");
 
   const { openModal } = useDashboardModal();
@@ -356,7 +357,7 @@ export default function OperatorMachinePage({
         {/* Right 1 Col: Active Floor Sub-Stock Widget */}
         <div className="space-y-6">
           {currentMachine ? (
-            <OperatorStockWidget machineId={currentMachine.id} />
+            <OperatorStockWidget machineId={currentMachine.id} stock={floorStockQuery as OperatorStockEntry[] | undefined} />
           ) : null}
         </div>
       </div>

@@ -3,11 +3,24 @@
 import { AlertTriangle, RefreshCw, Trash2, Scale } from "lucide-react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { cn } from "@/lib/utils";
 import { Button, Panel, PanelHeader, StatusPill } from "@/components/ui";
 import { ModalShell } from "../modals/modal-shell";
 import { useState } from "react";
 import { WeeklyReconciliationModal } from "./weekly-reconciliation-modal";
+
+export type OperatorStockEntry = {
+  _id: Id<"operatorSubStock">;
+  machineId: string;
+  machineName?: string;
+  materialName: string;
+  baseUnit: string;
+  issuedQuantity: number;
+  currentRemaining: number;
+  usagePercent: number;
+  status: string;
+};
 
 function formatQuantity(n: number, unit: string) {
   return `${n.toFixed(2)} ${unit}`;
@@ -17,8 +30,15 @@ function formatPercentage(value: number) {
   return `${Math.round(value)}%`;
 }
 
-export function OperatorStockWidget({ machineId }: { machineId: string }) {
-  const stock = useQuery(api.inventory.listOperatorMachineStock);
+export function OperatorStockWidget({
+  machineId,
+  stock: providedStock,
+}: {
+  machineId: string;
+  stock?: OperatorStockEntry[];
+}) {
+  const queriedStock = useQuery(api.inventory.listOperatorMachineStock, providedStock === undefined ? {} : "skip");
+  const stock = providedStock ?? queriedStock;
   const [exhaustingId, setExhaustingId] = useState<string | null>(null);
   const [reconciling, setReconciling] = useState(false);
   const exhaustStock = useMutation(api.inventory.exhaustOperatorStock);
@@ -107,7 +127,7 @@ export function OperatorStockWidget({ machineId }: { machineId: string }) {
           })
         )}
       </div>
-      {reconciling ? <WeeklyReconciliationModal onClose={() => setReconciling(false)} /> : null}
+      {reconciling ? <WeeklyReconciliationModal stock={stock} onClose={() => setReconciling(false)} /> : null}
     </Panel>
   );
 }
