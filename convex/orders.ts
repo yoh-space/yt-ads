@@ -208,8 +208,25 @@ export const submit = mutation({
     const serviceType = serviceTypeRaw as typeof args.serviceType;
     const dimensions = args.dimensions.trim();
     const quantity = args.quantity.trim();
-    if (!clientName || !serviceType || !dimensions || !quantity) {
+    if (!clientName || clientName.length > 160 || !serviceType || !dimensions || !quantity) {
       throw new Error("Client, service, dimensions, and quantity are required.");
+    }
+    const dimensionMatch = dimensions.match(/^([0-9]+(?:\.[0-9]{1,2})?)m\s*x\s*([0-9]+(?:\.[0-9]{1,2})?)m$/i);
+    if (!dimensionMatch || Number(dimensionMatch[1]) <= 0 || Number(dimensionMatch[2]) <= 0) {
+      throw new Error("Dimensions must be positive width and height in meters.");
+    }
+    if (!/^[1-9]\d*$/.test(quantity) || Number(quantity) > 100000) {
+      throw new Error("Quantity must be a positive whole number.");
+    }
+    const normalizedTin = args.tinNumber?.trim();
+    if (normalizedTin && !/^\d{10}$/.test(normalizedTin)) {
+      throw new Error("TIN must contain exactly 10 digits.");
+    }
+    if (args.companyLegalName && args.companyLegalName.trim().length > 160) {
+      throw new Error("Company name is too long.");
+    }
+    if (args.notes && args.notes.trim().length > 2000) {
+      throw new Error("Notes are too long.");
     }
 
     // The verified phone lives on the customer's Telegram profile; the manual
@@ -257,7 +274,7 @@ export const submit = mutation({
       priority: args.priority ?? "Medium",
       source: "public_portal",
       notes: args.notes?.trim() || undefined,
-      tinNumber: args.tinNumber?.trim() || undefined,
+      tinNumber: normalizedTin || undefined,
       companyLegalName: args.companyLegalName?.trim() || undefined,
       fileStorageId: args.fileStorageId,
       fileName: args.fileName?.trim() || undefined,
