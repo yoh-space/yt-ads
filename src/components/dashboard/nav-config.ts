@@ -72,6 +72,7 @@ export function getNavItemHref(view: View, role: Role): string {
       if (role === "cnc_operator") return "/dashboard/operator/cnc";
       if (role === "plotter_operator") return "/dashboard/operator/plotter";
       if (role === "printer_operator") return "/dashboard/operator/printer";
+      if (role === "owner" || role === "admin") return "/dashboard/owner/jobs";
       return "/dashboard/manager";
     case "machines":
       return "/dashboard/manager";

@@ -106,7 +106,7 @@ export default function OwnerWorkspace({
           else if (view === "reconciliation") router.push("/reconciliation");
           else if (view === "settings") router.push("/settings");
         }}
-        onFilterJobs={() => router.push("/dashboard/manager")}
+        onFilterJobs={() => router.push("/dashboard/owner/jobs")}
         onComplete={(id) => {
           void safeMutation("complete-job", Promise.resolve(id));
         }}
