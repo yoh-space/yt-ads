@@ -8,7 +8,7 @@ import { baseUnitOptions } from "../nav-config";
 import { ModalShell } from "./modal-shell";
 import { Button } from "@/components/ui";
 
-type MachineEditInput = {
+export type MachineEditInput = {
   name?: string;
   code?: string;
   type?: string;

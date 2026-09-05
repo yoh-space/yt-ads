@@ -7,6 +7,8 @@ import { api } from "@/convex/_generated/api";
 import { InventoryLoader } from "@/components/dashboard/inventory-loader";
 import { MachinesView } from "@/components/dashboard/views/machines";
 import { MachineModal, type NewMachineInput } from "@/components/dashboard/modals/machine-modal";
+import { MachineEditModal, type MachineEditInput } from "@/components/dashboard/modals/machine-edit-modal";
+import { MachineSettingsModal } from "@/components/dashboard/modals/machine-settings-modal";
 import { useSafeMutation } from "@/components/dashboard/pending-store";
 import type { JobCard, Machine, MachineStatus, Material } from "@/lib/operations-types";
 
@@ -21,10 +23,14 @@ export default function OwnerMachinesPage() {
   const state = useQuery(api.dashboard.getState, profile?.active ? {} : "skip");
   const createMachine = useMutation(api.machines.create);
   const updateMachineStatus = useMutation(api.machines.updateStatus);
+  const updateMachine = useMutation(api.machines.update);
+  const removeMachine = useMutation(api.machines.remove);
   const assignNextJob = useMutation(api.machines.assignNextJob);
   const completeJob = useMutation(api.jobs.complete);
   const { safeMutation, isPending } = useSafeMutation();
   const [showCreate, setShowCreate] = useState(false);
+  const [settingsMachine, setSettingsMachine] = useState<Machine | null>(null);
+  const [editMachine, setEditMachine] = useState<Machine | null>(null);
 
   if (!profile || !state) {
     return <div className="flex min-h-[400px] items-center justify-center"><InventoryLoader label="Loading Machines…" /></div>;
@@ -32,7 +38,6 @@ export default function OwnerMachinesPage() {
 
   const machines = withIds(state.machines) as Machine[];
   const jobs = withIds(state.jobs) as JobCard[];
-  const materials = withIds(state.materials) as Material[];
 
   return (
     <>
@@ -62,7 +67,7 @@ export default function OwnerMachinesPage() {
         onComplete={(id) => void safeMutation(`complete-job-${id}`, completeJob({ jobId: id as Id<"jobCards"> }))}
         onRecordProduction={() => undefined}
         onAssignNextJob={(machineId) => void safeMutation(`assign-job-${machineId}`, assignNextJob({ machineId: machineId as Id<"machines"> }))}
-        onSettings={() => undefined}
+        onSettings={setSettingsMachine}
         onStatusChange={(machineId, status) => void safeMutation(`status-machine-${machineId}`, updateMachineStatus({ machineId: machineId as Id<"machines">, status }))}
         onView={() => undefined}
         isPending={isPending}
@@ -72,6 +77,35 @@ export default function OwnerMachinesPage() {
           onClose={() => setShowCreate(false)}
           onSave={(input: NewMachineInput) => {
             safeMutation("create-machine", createMachine(input), () => setShowCreate(false));
+          }}
+        />
+      ) : null}
+      {settingsMachine ? (
+        <MachineSettingsModal
+          machine={settingsMachine}
+          onClose={() => setSettingsMachine(null)}
+          onEdit={(machine) => { setSettingsMachine(null); setEditMachine(machine); }}
+          onRemove={(machineId) => {
+            safeMutation(`remove-machine-${machineId}`, removeMachine({ machineId: machineId as Id<"machines"> }), () => setSettingsMachine(null));
+          }}
+          onStatusChange={(machineId, status) => {
+            safeMutation(`status-machine-${machineId}`, updateMachineStatus({ machineId: machineId as Id<"machines">, status }));
+          }}
+          isPending={isPending}
+          canUpdateMachine
+          canDeleteMachine={profile.role === "admin" || profile.role === "owner"}
+          canCreateOffcut={false}
+          onOffcut={() => undefined}
+          canCreateScrap={false}
+          onScrap={() => undefined}
+        />
+      ) : null}
+      {editMachine ? (
+        <MachineEditModal
+          machine={editMachine}
+          onClose={() => setEditMachine(null)}
+          onSave={(input: MachineEditInput) => {
+            safeMutation(`edit-machine-${editMachine.id}`, updateMachine({ machineId: editMachine.id as Id<"machines">, ...input }), () => setEditMachine(null));
           }}
         />
       ) : null}

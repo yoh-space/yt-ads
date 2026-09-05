@@ -198,12 +198,12 @@ export function MachinesView({
           const nextJobs = queuedJobsByMachine.get(machine.id);
           const nextJob = nextJobs?.[0];
           const cardTone = machine.status === "Running"
-            ? "border-green/30 bg-green/5"
+            ? "border-emerald-400/35 bg-emerald-950/35"
             : machine.status === "Available"
-              ? "border-cyan/25 bg-cyan/5"
+              ? "border-sky-400/30 bg-sky-950/30"
               : machine.status === "Maintenance"
-                ? "border-gold/30 bg-gold/5"
-                : "border-coral/30 bg-coral/5";
+                ? "border-amber-400/35 bg-amber-950/30"
+                : "border-rose-400/35 bg-rose-950/30";
           
           return (
             <div key={machine.id} className={cn("rounded-lg border p-4 shadow-sm transition-shadow hover:shadow-md", cardTone)}>
@@ -229,8 +229,8 @@ export function MachinesView({
                     )}
                   </div>
                   <div>
-                    <h3 className="truncate text-sm font-semibold text-navy">{machine.name}</h3>
-                    <p className="truncate text-xs text-gray-600">
+                    <h3 className="truncate text-sm font-semibold text-slate-100">{machine.name}</h3>
+                    <p className="truncate text-xs text-slate-400">
                       {machine.code} · {machine.manufacturer || "Manufacturer not set"}
                     </p>
                   </div>
@@ -252,17 +252,17 @@ export function MachinesView({
                     <select
                       value={machine.status}
                       onChange={(event) => onStatusChange(machine.id, event.target.value as MachineStatus)}
-                      className="h-8 rounded-lg border border-line bg-white/80 px-2 text-xs text-navy"
+                      className="h-8 rounded-lg border border-slate-600 bg-slate-950 px-2 text-xs font-medium text-slate-100 [color-scheme:dark]"
                       aria-label={`Update ${machine.name} status`}
                     >
-                      <option>Running</option>
-                      <option>Available</option>
-                      <option>Maintenance</option>
-                      <option>Unavailable</option>
+                      <option className="bg-slate-950 text-slate-100">Running</option>
+                      <option className="bg-slate-950 text-slate-100">Available</option>
+                      <option className="bg-slate-950 text-slate-100">Maintenance</option>
+                      <option className="bg-slate-950 text-slate-100">Unavailable</option>
                     </select>
                   ) : null}
                   <button
-                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/70 text-gray-500 transition-colors hover:bg-white hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-600 bg-slate-800 text-slate-200 transition-colors hover:bg-slate-700 hover:text-white focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2"
                     onClick={() => onSettings(machine)}
                     aria-label="Machine settings"
                   >
@@ -273,26 +273,26 @@ export function MachinesView({
 
               {/* Machine Specs */}
               {(machine.model || machine.capability) && (
-                <div className="mb-3 text-[11px] text-gray-600">
+                <div className="mb-3 text-[11px] text-slate-300">
                   {machine.model || "Model pending"}
                   {machine.capability && ` · ${machine.capability}`}
                 </div>
               )}
 
               {/* Job Information */}
-              <div className="mb-3 rounded-lg border border-gray-200/80 bg-white/65 p-3">
+              <div className="mb-3 rounded-lg border border-slate-700/80 bg-slate-950/75 p-3 text-slate-100">
                 {job ? (
                   <div className="space-y-1.5">
                     <span className="text-xs font-mono font-bold tracking-wider text-cyan-dark uppercase">
                       ACTIVE JOB CARD
                     </span>
-                    <div className="font-mono font-bold text-navy">{job.code}</div>
-                    <div className="text-sm text-gray-700">{job.title}</div>
+                    <div className="font-mono font-bold text-slate-100">{job.code}</div>
+                    <div className="text-sm text-slate-300">{job.title}</div>
                     <div className="flex items-center justify-between">
-                      <span className="font-semibold text-navy">
+                      <span className="font-semibold text-slate-100">
                         {formatQuantity(job.quantity, job.unit)}
                       </span>
-                      <span className="text-xs text-gray-500">Due {job.due}</span>
+                      <span className="text-xs text-slate-400">Due {job.due}</span>
                     </div>
                     {job.orderOverdue && (
                       <div className="flex items-center gap-1.5 text-xs text-coral font-medium">
@@ -306,13 +306,13 @@ export function MachinesView({
                     <span className="text-xs font-mono font-bold tracking-wider text-gold uppercase">
                       NEXT IN QUEUE
                     </span>
-                    <div className="font-mono font-bold text-navy">{nextJob.code}</div>
-                    <div className="text-sm text-gray-700">{nextJob.client} · {nextJob.title}</div>
+                    <div className="font-mono font-bold text-slate-100">{nextJob.code}</div>
+                    <div className="text-sm text-slate-300">{nextJob.client} · {nextJob.title}</div>
                     <div className="flex items-center justify-between">
-                      <span className="font-semibold text-navy">
+                      <span className="font-semibold text-slate-100">
                         {formatQuantity(nextJob.quantity, nextJob.unit)}
                       </span>
-                      <span className="text-xs text-gray-500">Due {nextJob.due}</span>
+                      <span className="text-xs text-slate-400">Due {nextJob.due}</span>
                     </div>
                   </div>
                 ) : (
@@ -320,8 +320,8 @@ export function MachinesView({
                     <span className="text-xs font-mono font-bold tracking-wider text-gray-500 uppercase">
                       READY FOR ASSIGNMENT
                     </span>
-                    <div className="font-semibold text-navy">No active job</div>
-                    <div className="text-sm text-gray-600">
+                    <div className="font-semibold text-slate-100">No active job</div>
+                    <div className="text-sm text-slate-300">
                       Machine is available for the next card.
                     </div>
                   </div>
