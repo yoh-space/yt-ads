@@ -73,7 +73,6 @@ export function OperationsDashboard() {
   const canIssueRequest = Boolean(profile && hasPermission(role, "request.issue"));
   const canRecordException = Boolean(profile && hasPermission(role, "stock.exception"));
   const canCreateOrder = Boolean(profile && hasPermission(role, "order.create"));
-  const canCreateInvoice = Boolean(profile && hasPermission(role, "invoice.create"));
   const canManageConfig = Boolean(profile && hasPermission(role, "company_settings.update"));
   const canRecordReconciliation = Boolean(profile && hasPermission(role, "reconciliation.record"));
   const canReviewReconciliation = Boolean(profile && hasPermission(role, "reconciliation.review"));
@@ -113,7 +112,6 @@ export function OperationsDashboard() {
   const recordExceptionStockOut = useMutation(api.orders.recordExceptionStockOut);
   const notifyOverdue = useMutation(api.orders.notifyOverdue);
   const createWalkIn = useMutation(api.orders.createWalkIn);
-  const createInvoice = useMutation(api.orders.createInvoice);
   const countMaterial = useMutation(api.reconciliation.countMaterial);
   const reviewReconciliation = useMutation(api.reconciliation.review);
 
@@ -428,26 +426,7 @@ export function OperationsDashboard() {
               onComplete={completeJob}
             />
           ) : null}
-          {visibleView === "orders" ? <OrdersView orders={orders} machines={machines} materials={materials} canManage={canManageOrders} canCreateOrder={canCreateOrder} canInvoice={canCreateInvoice} onConvert={setConvertOrderTarget} onStatus={(orderId, status) => finishMutation(`order-status-${orderId}`, updateOrderStatus({ orderId: orderId as Id<"customerOrders">, status }), `Order status updated to ${status}`)} onCreateOrder={() => openModal("order", "order.create")} onInvoice={(order, input?: InvoiceInput) => {
-            if (!input) return;
-            return createInvoice({
-              orderId: order.id as Id<"customerOrders">,
-              type: input.type,
-              companyLegalName: input.companyLegalName,
-              tinNumber: input.tinNumber,
-              lineItems: input.lineItems,
-              taxRate: input.taxRate,
-            }).then(() => {
-              const message = `${order.code} invoice issued`;
-              setNotice(message);
-              toast.success(message);
-            }).catch((error: unknown) => {
-              const message = error instanceof Error ? error.message : "Unable to issue invoice.";
-              setNotice(message);
-              toast.error(message);
-              throw error;
-            });
-          }} isPending={isPending} /> : null}
+          {visibleView === "orders" ? <OrdersView orders={orders} machines={machines} materials={materials} canManage={canManageOrders} canCreateOrder={canCreateOrder} onConvert={setConvertOrderTarget} onStatus={(orderId, status) => finishMutation(`order-status-${orderId}`, updateOrderStatus({ orderId: orderId as Id<"customerOrders">, status }), `Order status updated to ${status}`)} onCreateOrder={() => openModal("order", "order.create")} isPending={isPending} /> : null}
           {visibleView === "inventory" ? (
             <>
               {canManageClearance ? (
@@ -703,4 +682,3 @@ export function OperationsDashboard() {
     </>
   );
 }
-

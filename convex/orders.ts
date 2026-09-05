@@ -2,9 +2,8 @@ import { internalMutation, internalAction, mutation, query, action } from "./_ge
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { authComponent } from "./auth";
-import { exceptionReason, invoiceLineItem, invoiceType, orderPriority, orderStatus, paymentStatus, unit, serviceType } from "./schema";
+import { exceptionReason, orderPriority, orderStatus, paymentStatus, unit, serviceType } from "./schema";
 import { requireAnyPermission, requirePermission } from "./users";
-import { hasPermission } from "./authorization";
 import { notifyRoles } from "./notificationHelpers";
 import { ensureSystemConfig } from "./systemConfigs";
 import { recordInventoryEvent } from "./inventoryLedger";
@@ -75,14 +74,6 @@ type OrderDoc = {
   lastOverdueNotifiedAt?: number;
   tinNumber?: string;
   companyLegalName?: string;
-  invoiceType?: "PROFORMA" | "TAX_INVOICE";
-  invoiceNumber?: string;
-  subtotal?: number;
-  taxRate?: number;
-  taxAmount?: number;
-  paymentReceiptStorageId?: string;
-  paymentReceiptFileName?: string;
-  invoiceId?: string;
 };
 
 function normalizePhone(phone: string) {
@@ -405,81 +396,6 @@ export const listForTelegramUser = query({
   },
 });
 
-export const createInvoice = mutation({
-  args: {
-    orderId: v.id("customerOrders"),
-    type: invoiceType,
-    companyLegalName: v.optional(v.string()),
-    tinNumber: v.optional(v.string()),
-    lineItems: v.array(invoiceLineItem),
-    taxRate: v.number(),
-  },
-  handler: async (ctx, args) => {
-    const { identity } = await requirePermission(ctx, "invoice.create");
-    const order = await ctx.db.get(args.orderId);
-    if (!order) throw new Error("Order not found.");
-    if (!Number.isFinite(args.taxRate) || args.taxRate < 0 || args.taxRate > 100) throw new Error("Tax rate must be between 0 and 100.");
-    if (args.lineItems.length === 0) throw new Error("At least one invoice line item is required.");
-
-    const lineItems = args.lineItems.map((line) => {
-      if (!line.description.trim() || !Number.isFinite(line.quantity) || line.quantity <= 0 || !Number.isFinite(line.unitPrice) || line.unitPrice < 0) {
-        throw new Error("Invoice line items must have a description, positive quantity, and non-negative unit price.");
-      }
-      const lineTotal = Number((line.quantity * line.unitPrice).toFixed(2));
-      if (Math.abs(line.lineTotal - lineTotal) > 0.01) throw new Error("Invoice line total does not match quantity and unit price.");
-      return { ...line, description: line.description.trim(), unit: line.unit.trim(), lineTotal };
-    });
-    const subtotal = Number(lineItems.reduce((sum, line) => sum + line.lineTotal, 0).toFixed(2));
-    const taxAmount = Number((subtotal * args.taxRate / 100).toFixed(2));
-    const total = Number((subtotal + taxAmount).toFixed(2));
-    const invoiceNumber = `INV-${new Date().getFullYear()}-${String(Date.now()).slice(-8)}`;
-    const now = Date.now();
-    const invoiceId = await ctx.db.insert("invoices", {
-      orderId: order._id,
-      invoiceNumber,
-      type: args.type,
-      status: "ISSUED",
-      clientName: order.clientName,
-      companyLegalName: args.companyLegalName?.trim() || order.companyLegalName,
-      tinNumber: args.tinNumber?.trim() || order.tinNumber,
-      lineItems,
-      subtotal,
-      taxRate: args.taxRate,
-      taxAmount,
-      total,
-      currency: "ETB",
-      issuedBy: identity._id,
-      issuedAt: now,
-      updatedAt: now,
-    });
-    await ctx.db.patch(order._id, {
-      amount: total,
-      companyLegalName: args.companyLegalName?.trim() || order.companyLegalName,
-      tinNumber: args.tinNumber?.trim() || order.tinNumber,
-      invoiceType: args.type,
-      invoiceNumber,
-      invoiceId,
-      subtotal,
-      taxRate: args.taxRate,
-      taxAmount,
-      updatedAt: now,
-    });
-    return (await ctx.db.get(invoiceId))!;
-  },
-});
-
-export const getInvoice = query({
-  args: { orderId: v.id("customerOrders") },
-  handler: async (ctx, args) => {
-    await requirePermission(ctx, "invoice.view");
-    const invoices = await ctx.db
-      .query("invoices")
-      .withIndex("by_order", (q) => q.eq("orderId", args.orderId))
-      .collect();
-    return invoices.sort((left, right) => right.issuedAt - left.issuedAt)[0] ?? null;
-  },
-});
-
 /** Bot-only lookup used by the trusted webhook for the `/my-orders` command. */
 export const listByTelegramChat = query({
   args: { telegramChatId: v.string() },
@@ -501,7 +417,7 @@ export const listByTelegramChat = query({
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    const { profile } = await requirePermission(ctx, "order.view");
+    await requirePermission(ctx, "order.view");
     const orders = await ctx.db.query("customerOrders").withIndex("by_due_date").collect();
     const machines = await ctx.db.query("machines").collect();
     const machineNames = new Map(machines.map((machine) => [machine._id, machine.name]));
@@ -509,20 +425,10 @@ export const list = query({
       const rank = { High: 0, Medium: 1, Low: 2 } as const;
       return rank[left.priority] - rank[right.priority] || left.preferredDueDate - right.preferredDueDate;
     });
-    const canSeeBilling = hasPermission(profile.role, "invoice.view");
     return Promise.all(ordered.map(async (order) => ({
       ...order,
-      amount: canSeeBilling ? order.amount : undefined,
-      tinNumber: canSeeBilling ? order.tinNumber : undefined,
-      companyLegalName: canSeeBilling ? order.companyLegalName : undefined,
-      invoiceType: canSeeBilling ? order.invoiceType : undefined,
-      invoiceNumber: canSeeBilling ? order.invoiceNumber : undefined,
-      invoiceId: canSeeBilling ? order.invoiceId : undefined,
-      subtotal: canSeeBilling ? order.subtotal : undefined,
-      taxRate: canSeeBilling ? order.taxRate : undefined,
-      taxAmount: canSeeBilling ? order.taxAmount : undefined,
-      paymentReceiptStorageId: canSeeBilling ? order.paymentReceiptStorageId : undefined,
-      paymentReceiptFileName: canSeeBilling ? order.paymentReceiptFileName : undefined,
+      tinNumber: order.tinNumber,
+      companyLegalName: order.companyLegalName,
       machineName: order.machineId ? machineNames.get(order.machineId) : undefined,
      overdue: !["COMPLETED", "READY_FOR_PICKUP", "EXPIRED", "EXPIRED_JUNK"].includes(order.status) && order.preferredDueDate < Date.now(),
       fileUrl: order.fileStorageId ? await ctx.storage.getUrl(order.fileStorageId) : undefined,
@@ -623,7 +529,7 @@ export const priceOrder = mutation({
  * production. Confirms advance payment (PAID) or approved credit
  * (APPROVED_CREDIT), creates the job card, and queues it on the selected
  * machine. Job card creation is impossible before this mutation runs, and it
- * additionally notifies the Telegram customer with their receipt when the
+ *  additionally notifies the Telegram customer when payment is confirmed and
  * order carries a chat id.
  */
 export const confirmOrderAndIssueJobCard = mutation({
@@ -709,7 +615,7 @@ export const confirmOrderAndIssueJobCard = mutation({
       relatedId: args.orderId,
     });
 
-    // Receipt to the Telegram customer: the customer push is centralised in
+    // Payment confirmation to the Telegram customer: the customer push is centralised in
     // `pushCustomerOrderStatus` and fires only when reception explicitly
     // transitions the order past PENDING_REVIEW. It never runs from the
     // public/Mini App create path.

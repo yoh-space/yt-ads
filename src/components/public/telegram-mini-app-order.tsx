@@ -598,7 +598,7 @@ export function TelegramMiniAppOrder() {
               )}
             </div>
 
-            {/* Enterprise TIN / Invoicing Toggle */}
+            {/* Optional organization details for reception */}
             <div className="pt-0.5">
               <button
                 type="button"
@@ -606,7 +606,7 @@ export function TelegramMiniAppOrder() {
                 className="font-mono text-[11px] text-[#E5C07B] hover:text-[#F0D296] flex items-center gap-1.5 transition-colors cursor-pointer"
               >
                 <Building2 size={12} />
-                {showEnterpriseFields ? "የድርጅት TIN ደብቅ (Hide TIN)" : "የድርጅት ደረሰኝ / TIN ማካተት (Add TIN / Legal Invoice)"}
+                {showEnterpriseFields ? "የድርጅት TIN ደብቅ (Hide TIN)" : "የድርጅት መረጃ አክል (Add Organization Details)"}
               </button>
             </div>
 

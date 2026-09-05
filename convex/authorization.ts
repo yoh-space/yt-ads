@@ -36,8 +36,6 @@ export type Permission =
   | "reconciliation.review"
   | "reconciliation.operator"
   | "reconciliation.clearance"
-  | "invoice.view"
-  | "invoice.create";
 
 const ALL: Permission[] = [
   "dashboard.view",
@@ -74,8 +72,6 @@ const ALL: Permission[] = [
   "reconciliation.review",
   "reconciliation.operator",
   "reconciliation.clearance",
-  "invoice.view",
-  "invoice.create",
 ];
 
 const OPERATIONS: Permission[] = [
@@ -146,8 +142,6 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "reconciliation.review", // Added for administrative review
     "reconciliation.operator",
     "reconciliation.clearance",
-    "invoice.view",
-    "invoice.create",
   ],
   storekeeper: [
     "material.view",
@@ -175,8 +169,6 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "order.view",
     "order.create",
     "order.manage",
-    "invoice.view",
-    "invoice.create",
   ],
 };
 

@@ -43,7 +43,7 @@ The 38 permission tokens grouped by concern:
 | Jobs & production | `job.view`, `job.create`, `job.complete`, `job.record_production` |
 | Floor offcuts / scrap | `offcut.view`, `offcut.create`, `scrap.view`, `scrap.create` |
 | Material request handover | `request.view`, `request.create`, `request.issue`, `request.acknowledge` |
-| Orders / invoices | `order.view`, `order.create`, `order.manage`, `invoice.view`, `invoice.create` |
+| Customer orders | `order.view`, `order.create`, `order.manage` |
 | Reconciliation | `reconciliation.record`, `reconciliation.review`, `reconciliation.operator`, `reconciliation.clearance` |
 | Workspace | `team.view`, `team.manage`, `company_settings.update` |
 
@@ -79,8 +79,6 @@ The matrix below is the source of truth for **server-side** access. The React mi
 | `order.view` | ✓ | ✓ | ✓ | | | | | | ✓ |
 | `order.create` | ✓ | ✓ | ✓ | | | | | | ✓ |
 | `order.manage` | ✓ | ✓ | ✓ | | | | | | ✓ |
-| `invoice.view` | ✓ | ✓ | ✓ | | | | | | ✓ |
-| `invoice.create` | ✓ | ✓ | ✓ | | | | | | ✓ |
 | `reconciliation.record` | ✓ | ✓ | ✓ | ✓ | | | | | |
 | `reconciliation.review` | — **Manager excluded** | — | ✓ (admin) | | | | | | |
 | `reconciliation.operator` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | |
@@ -98,7 +96,7 @@ Differences from a naïve "everyone gets everything" map:
 - **Admin** holds **every** permission. It is the operational back-office for the Owner; the audit trail (`clearedBy`, `reviewedBy`) records who actually pressed the buttons.
 - **Storekeeper** keeps the central store (`material.edit`, `stock.record`, `stock.exception`) but does not carry `reconciliation.review` — the Owner/manager is the reviewer of the store's counts.
 - The four **operator roles** share the `OPERATIONS` array (`authorization.ts:81`). They never write customer orders; they only drive machines and log their own production.
-- **Receptionist** carries only the order-management bundle: `dashboard.view`, `order.view`, `order.create`, `order.manage`, `invoice.view`, `invoice.create`. They own the order lifecycle.
+- **Receptionist** carries only the order-management bundle: `dashboard.view`, `order.view`, `order.create`, `order.manage`. They own the order lifecycle and copy customer-provided TIN and organization details from Telegram orders when needed.
 
 The frontend mirror (`src/lib/permissions.ts:100`) keeps the exact same map with one cosmetic difference: the frontend additionally offers `dashboard.view` to all operator roles — UI nicety for the operator workspace landing page.
 
@@ -285,7 +283,7 @@ Every server-side guard rejects the input rather than silently clamping — a re
 | **Manager** | Manage orders and production; see operator-floor summaries; manage team roles; configure operational thresholds. | Review / clear operator floor batches (`reconciliation.clearance`, `reconciliation.review`); update ETB rate cards (`company_settings.update`). |
 | **Admin** | Operate as a back-office Owner substitute across all surfaces; the only role besides Owner with `reconciliation.review` / `reconciliation.clearance` / `company_settings.update`. | Be the canonical financial audience for ETB monetary loss (`canViewFinancial` is Owner-only). |
 | **Storekeeper** | Receive stock; issue batch to operator; record central physical counts; record exception stock-outs; view materials. | Issue a customer-facing order; modify ETB rates; review or clear operator batches. |
-| **Receptionist** | Receive customer orders; price and confirm payment; close orders; issue proforma / tax invoices. | Receive or issue raw stock; record production; review central reconciliations. |
+| **Receptionist** | Receive customer orders; copy customer-provided TIN and organization details; price and confirm payment; close orders. | Generate invoices or receipts; receive or issue raw stock; record production; review central reconciliations. |
 | **Laser / CNC / Plotter / Printer operator** | Record production on their machine; reconcile their floor stock; request new material (only when all their batches are `CLEARED` or `EXHAUSTED`); register offcuts and scrap. | Touch the central store; touch other operators' machines; create customer orders. |
 
 ## 10. Hardening checklist for new surfaces

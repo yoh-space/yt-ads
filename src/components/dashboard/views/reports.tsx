@@ -351,7 +351,7 @@ export function ReportsView({ canSeeFinancial = false }: { canSeeFinancial?: boo
         <ExecutiveKPICard
           tone="sky"
           kicker="የተጣራ ገቢ እና ወጪ"
-          label="Uninvoiced / Net Production Yield"
+          label="Unbilled / Net Production Yield"
           value={canSeeFinancial ? formatCurrency(Math.max(0, d.netYieldETB)) : `${d.output.toFixed(0)} ${report.production.inputQuantity > 0 ? "units" : "—"} output`}
           indicator={
             report.financial.pendingOrders > 0 ? (

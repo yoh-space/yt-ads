@@ -51,14 +51,6 @@ export type CustomerOrder = {
   notes?: string;
   tinNumber?: string;
   companyLegalName?: string;
-  invoiceType?: "PROFORMA" | "TAX_INVOICE";
-  invoiceNumber?: string;
-  invoiceId?: string;
-  subtotal?: number;
-  taxRate?: number;
-  taxAmount?: number;
-  paymentReceiptStorageId?: string;
-  paymentReceiptFileName?: string;
   machineId?: string;
   machineName?: string;
   jobCardId?: string;

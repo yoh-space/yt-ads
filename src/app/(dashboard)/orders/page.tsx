@@ -4,7 +4,7 @@ import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { OrdersView, type InvoiceInput } from "@/components/dashboard/views/orders";
+import { OrdersView } from "@/components/dashboard/views/orders";
 import { InventoryLoader } from "@/components/dashboard/inventory-loader";
 import { useSafeMutation } from "@/components/dashboard/pending-store";
 import { useDashboardModal } from "@/components/dashboard/modal-context";
@@ -29,7 +29,6 @@ export default function OrdersPage() {
   const { openModal, setConvertOrderTarget } = useDashboardModal();
 
   const updateOrderStatus = useMutation(api.orders.setStatus);
-  const createInvoiceMutation = useMutation(api.orders.createInvoice);
 
   if (!profile || !state || ordersQuery === undefined) {
     return (
@@ -46,12 +45,6 @@ export default function OrdersPage() {
 
   const canManage = hasPermission(role, "order.manage");
   const canCreateOrder = hasPermission(role, "order.create");
-
-  // Strict POS Restriction: Receptionist has NO Invoice or Receipt creation capabilities.
-  // Only owners and managers may create invoices.
-  const canInvoice =
-    (role === "owner" || role === "admin" || role === "manager") &&
-    hasPermission(role, "invoice.create");
 
   return (
     <div className="space-y-6">
@@ -75,7 +68,6 @@ export default function OrdersPage() {
         materials={materials}
         canManage={canManage}
         canCreateOrder={canCreateOrder}
-        canInvoice={canInvoice}
         onConvert={(order) => setConvertOrderTarget(order)}
         onStatus={(orderId, status) => {
           void safeMutation(
@@ -88,21 +80,6 @@ export default function OrdersPage() {
           );
         }}
         onCreateOrder={() => openModal("order")}
-        onInvoice={(order, input) => {
-          if (!input) return;
-          void safeMutation(
-            `invoice-${order.id}`,
-            createInvoiceMutation({
-              orderId: order.id as Id<"customerOrders">,
-              type: input.type,
-              companyLegalName: input.companyLegalName,
-              tinNumber: input.tinNumber,
-              taxRate: input.taxRate,
-              lineItems: input.lineItems,
-            }),
-            () => toast.success("Invoice generated successfully")
-          );
-        }}
         isPending={isPending}
       />
     </div>

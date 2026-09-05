@@ -240,8 +240,6 @@ export async function clearWorkspaceData(ctx: MutationCtx) {
   for (const record of scraps) await ctx.db.delete(record._id);
   const stockExceptions = await ctx.db.query("stockExceptions").collect();
   for (const record of stockExceptions) await ctx.db.delete(record._id);
-  const invoices = await ctx.db.query("invoices").collect();
-  for (const record of invoices) await ctx.db.delete(record._id);
   const customerOrders = await ctx.db.query("customerOrders").collect();
   for (const record of customerOrders) await ctx.db.delete(record._id);
   const jobCards = await ctx.db.query("jobCards").collect();
@@ -1052,7 +1050,7 @@ export const seedAll = mutation({
  *   4. Floor issuance — STORE_TO_OPERATOR_TRANSFER events seeding
  *                       operatorSubStock (one operator per machine, plus an
  *                       ACTIVE Banner Ink batch on the banner printer)
- *   5. Orders         — customerOrders + matching invoices
+ *   5. Orders
  *   6. Production     — jobCards + productionLogs + PRODUCTION_CONSUMPTION
  *                       (both substrate and ink legs for print jobs)
  *   7. Clearance      — reconciliations + weeklyReconciliations; flips some
@@ -1252,7 +1250,6 @@ async function clearLifecycleData(ctx: MutationCtx): Promise<void> {
     "offcutConsumptions",
     "scraps",
     "stockExceptions",
-    "invoices",
     "customerOrders",
     "jobCards",
     "stock_movements",
@@ -1769,7 +1766,7 @@ export const seedDemoLifecycle = mutation({
       });
     }
 
-    /* ---------- 5. Orders & invoices ---------- */
+    /* ---------- 5. Orders ---------- */
     interface CustomerOrderSpec {
       code: string;
       clientName: string;
@@ -1783,7 +1780,6 @@ export const seedDemoLifecycle = mutation({
       dimensions: string;
       quantity: string;
       amount: number;
-      invoiceType: "PROFORMA" | "TAX_INVOICE";
       paymentStatus: "UNPAID" | "PAID" | "APPROVED_CREDIT";
       tinNumber?: string;
       companyLegalName?: string;
@@ -1803,7 +1799,6 @@ export const seedDemoLifecycle = mutation({
         dimensions: "320cm × 270cm",
         quantity: "1",
         amount: 12500,
-        invoiceType: "TAX_INVOICE",
         paymentStatus: "PAID",
         tinNumber: "0012345678",
         companyLegalName: "Abyssinia Bank S.C.",
@@ -1821,7 +1816,6 @@ export const seedDemoLifecycle = mutation({
         dimensions: "122cm × 244cm",
         quantity: "2",
         amount: 7800,
-        invoiceType: "TAX_INVOICE",
         paymentStatus: "PAID",
         priority: "Medium",
         dueOffsetDays: 1,
@@ -1837,7 +1831,6 @@ export const seedDemoLifecycle = mutation({
         dimensions: "60cm × 85cm",
         quantity: "4",
         amount: 9600,
-        invoiceType: "PROFORMA",
         paymentStatus: "UNPAID",
         priority: "Low",
         dueOffsetDays: 2,
@@ -1848,7 +1841,6 @@ export const seedDemoLifecycle = mutation({
     ];
 
     const orderIds: Record<string, Id<"customerOrders">> = {};
-    const invoiceIds: Record<string, Id<"invoices">> = {};
     for (const order of orders) {
       const orderId = await ctx.db.insert("customerOrders", {
         code: order.code,
@@ -1872,7 +1864,6 @@ export const seedDemoLifecycle = mutation({
         notes: undefined,
         tinNumber: order.tinNumber,
         companyLegalName: order.companyLegalName,
-        invoiceType: order.invoiceType,
         machineId: machineIds[order.machineCode],
         createdBy: operatorIds.receptionist,
         createdAt: Date.now(),
@@ -1880,38 +1871,6 @@ export const seedDemoLifecycle = mutation({
       });
       orderIds[order.code] = orderId;
 
-      const subtotal = order.amount;
-      const taxRate = order.invoiceType === "TAX_INVOICE" ? 0.15 : 0;
-      const taxAmount = qty(subtotal * taxRate);
-      const total = qty(subtotal + taxAmount);
-      const invoiceId = await ctx.db.insert("invoices", {
-        orderId,
-        invoiceNumber: `INV-${order.code.replace(/^CO-/, "")}`,
-        type: order.invoiceType,
-        status: "ISSUED",
-        clientName: order.clientName,
-        companyLegalName: order.companyLegalName,
-        tinNumber: order.tinNumber,
-        lineItems: [
-          {
-            description: `${order.dimensions} × ${order.quantity} ${order.serviceType}`,
-            quantity: Number(order.quantity) || 1,
-            unit: order.serviceType === "light_box_a1" ? "pcs" : "m²",
-            unitPrice: qty(subtotal / (Number(order.quantity) || 1)),
-            lineTotal: subtotal,
-          },
-        ],
-        subtotal,
-        taxRate,
-        taxAmount,
-        total,
-        currency: "ETB",
-        issuedBy: operatorIds.receptionist,
-        issuedAt: Date.now(),
-        updatedAt: Date.now(),
-      });
-      invoiceIds[order.code] = invoiceId;
-      await ctx.db.patch(orderId, { invoiceId });
       log.push({
         step: "order",
         detail: `${order.code} ${order.clientName} (${order.amount} ETB, ${order.priority})`,
@@ -2280,7 +2239,6 @@ export const seedDemoLifecycle = mutation({
         operators: assignments.length,
         inkBatches: operatorBatchIds[INK_STOCK_KEY] ? 1 : 0,
         orders: orders.length,
-        invoices: Object.keys(invoiceIds).length,
         jobs: jobs.length,
       },
       log,

@@ -125,9 +125,9 @@ The schema is defined in `convex/schema.ts`; every table there is annotated with
 `customerOrders` (`schema.ts:396`) is the customer-facing order ledger. The schema encodes:
 
 - **Lifecycle** — `status: orderStatus`. The canonical lifecycle is `PENDING_REVIEW → PRICED_AND_PENDING_PAYMENT → CONFIRMED_PAID_OR_CREDIT → JOB_CARD_CREATED → IN_PRODUCTION → COMPLETED → READY_FOR_PICKUP`, with terminal `Expired` and `EXPIRED_JUNK`. Legacy aliases (`"Received"`, `"In Production"`, `"Completed"`, `"Ready for Pickup"`) are kept only as a bridge for `convex/migrations.ts` to read legacy rows and re-case them.
-- **Enterprise fields** — `tinNumber`, `companyLegalName`, `invoiceType`, `invoiceNumber`, `invoiceId`, `subtotal`, `taxRate`, `taxAmount`, plus optional `paymentReceiptStorageId/FileName`, `paymentReceiptUploadedAt`, `paymentReceiptVerifiedAt/By`. These allow a TIN-issued VAT tax invoice to be generated from the order without a follow-up revision.
+- **Customer organization fields** — `tinNumber` and `companyLegalName` are captured from Telegram orders and shown to reception for copying into the external workflow. The application does not generate invoices or receipts.
 - **Telegram binding** — `telegramChatId`, optional `telegramId` not stored (the binding is on `telegramUsers` for verified customers). Indexed by `by_telegram_chat_id` for fast customer look-ups.
-- **Pricing + payment** — `amount`, `paymentStatus ∈ {UNPAID, PAID, APPROVED_CREDIT}`, `paymentConfirmedAt/By`, `paymentReceiptVerifiedAt/By`. The first external-touch push to the customer is fired when `paymentDecision = PAID` is recorded (`convex/orders.ts` `confirmOrderAndIssueJobCard`).
+- **Pricing + payment** — `amount`, `paymentStatus ∈ {UNPAID, PAID, APPROVED_CREDIT}`, and `paymentConfirmedAt/By`. The first external-touch push to the customer is fired when `paymentDecision = PAID` is recorded (`convex/orders.ts` `confirmOrderAndIssueJobCard`).
 - **Cron-friendly indexes** — `by_due_date` (overdue alerts), `by_expires_at` (24-hour unpaid-order expiry). The cron at `convex/crons.ts:7` runs `expireOrdersInternal` every 30 minutes.
 
 `jobCards` (`schema.ts:522`), `productionLogs` (`schema.ts:544`), and the related `offcuts` / `offcutConsumptions` / `scraps` tables chain behind an order. `JobCard.quantity` is the planned base-unit quantity; each `productionLog` row records the operator's per-session *input* and *output* quantities; the ledger difference between them is what's recorded as `PRODUCTION_CONSUMPTION` (or split into `PRODUCTION_CONSUMPTION` + `SCRAP_LOG` + `OFFCUT_RETURN`).
@@ -151,17 +151,7 @@ The schema is defined in `convex/schema.ts`; every table there is annotated with
 | `weeklyReconciliations` | Audit log of physical floor counts. Carries `systemCalculatedRemaining`, `physicalActualRemaining`, `discrepancy`, and the unit. The discrepancy is also written as a `RECONCILIATION_ADJUSTMENT` event. | `by_machine`, `by_stock`, `by_reconciled_at` |
 | `reconciliations` | Central-store physical-count history. Carries `systemQuantity`, `countedQuantity`, `variance`, optional `etbValue` and `monetaryLoss`, the reviewer chain (`reviewedBy`, `reviewedAt`), and the **Owner-only** lifecycle `Open → Reviewed → Resolved`. Reviewing is via `requireRoles(["owner"])` in `convex/reconciliation.ts:76`. | `by_material`, `by_created`, `by_status` |
 
-### 5.6 Invoicing
-
-`invoices` (`schema.ts:461`) is an immutable commercial document generated from a `customerOrder`. Each row freezes:
-- the bill-of-sale `lineItems` (description, quantity, unit, unitPrice, lineTotal),
-- the financial totals (`subtotal`, `taxRate`, `taxAmount`, `total`, `currency` — always `ETB` in this codebase),
-- the tax identification (`clientName`, `companyLegalName`, `tinNumber`),
-- the lifecycle (`type ∈ {PROFORMA, TAX_INVOICE}`, `status ∈ {DRAFT, ISSUED, VOID}`).
-
-Proforma invoices (`type: PROFORMA`) are issued before payment to capture the quote; tax invoices (`type: TAX_INVOICE`) are issued after payment is confirmed. Both share the same projection shape.
-
-### 5.7 External surfaces (Telegram)
+### 5.6 External surfaces (Telegram)
 
 | Table | Purpose |
 | --- | --- |

@@ -194,17 +194,6 @@ export const materialRequestStatus = v.union(
   v.literal("Discrepancy"),
 );
 
-export const invoiceType = v.union(
-  v.literal("PROFORMA"),
-  v.literal("TAX_INVOICE"),
-);
-
-export const invoiceStatus = v.union(
-  v.literal("DRAFT"),
-  v.literal("ISSUED"),
-  v.literal("VOID"),
-);
-
 /** Owner-managed conversion rule used when a material has no local override. */
 export const unitConversionRule = v.object({
   materialName: v.string(),
@@ -212,14 +201,6 @@ export const unitConversionRule = v.object({
   baseUnit: unit,
   inputDimension: v.optional(v.number()),
   conversionRatio: v.number(),
-});
-
-export const invoiceLineItem = v.object({
-  description: v.string(),
-  quantity: v.number(),
-  unit: v.string(),
-  unitPrice: v.number(),
-  lineTotal: v.number(),
 });
 
 export const notificationType = v.union(
@@ -384,17 +365,6 @@ export default defineSchema({
     notes: v.optional(v.string()),
     tinNumber: v.optional(v.string()),
     companyLegalName: v.optional(v.string()),
-    invoiceType: v.optional(invoiceType),
-    invoiceNumber: v.optional(v.string()),
-    invoiceId: v.optional(v.id("invoices")),
-    subtotal: v.optional(v.number()),
-    taxRate: v.optional(v.number()),
-    taxAmount: v.optional(v.number()),
-    paymentReceiptStorageId: v.optional(v.id("_storage")),
-    paymentReceiptFileName: v.optional(v.string()),
-    paymentReceiptUploadedAt: v.optional(v.number()),
-    paymentReceiptVerifiedAt: v.optional(v.number()),
-    paymentReceiptVerifiedBy: v.optional(v.string()),
     machineId: v.optional(v.id("machines")),
     jobCardId: v.optional(v.id("jobCards")),
     createdBy: v.optional(v.string()),
@@ -424,29 +394,6 @@ export default defineSchema({
     createdBy: v.string(),
     createdAt: v.number(),
   }).index("by_created", ["createdAt"]),
-
-  /** Immutable commercial document generated from an order. */
-  invoices: defineTable({
-    orderId: v.id("customerOrders"),
-    invoiceNumber: v.string(),
-    type: invoiceType,
-    status: invoiceStatus,
-    clientName: v.string(),
-    companyLegalName: v.optional(v.string()),
-    tinNumber: v.optional(v.string()),
-    lineItems: v.array(invoiceLineItem),
-    subtotal: v.number(),
-    taxRate: v.number(),
-    taxAmount: v.number(),
-    total: v.number(),
-    currency: v.string(),
-    issuedBy: v.string(),
-    issuedAt: v.number(),
-    updatedAt: v.number(),
-  })
-    .index("by_order", ["orderId"])
-    .index("by_number", ["invoiceNumber"])
-    .index("by_issued_at", ["issuedAt"]),
 
   /**
    * Authoritative inventory event stream. Balances on materials, parentInventory,

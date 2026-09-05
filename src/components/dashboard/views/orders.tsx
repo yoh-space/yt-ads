@@ -55,7 +55,7 @@ function copyToClipboard(value: string, key: string, setCopiedKey: (key: string 
   if (!value) return;
   void navigator.clipboard.writeText(value).then(() => {
     setCopiedKey(key);
-    window.setTimeout(() => setCopiedKey((current) => (current === key ? null : current)), 1600);
+    window.setTimeout(() => setCopiedKey(null), 1600);
   });
 }
 
