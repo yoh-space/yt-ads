@@ -8,8 +8,10 @@ describe("workspace access policy", () => {
 
     expect(canAccess(context, "inventory.parent.view")).toBe(true);
     expect(canAccess(context, "inventory.dispatch")).toBe(true);
+    expect(canAccess(context, "reconciliation.record")).toBe(true);
     expect(canAccess(context, "orders.view")).toBe(false);
     expect(canAccess(context, "finance.view")).toBe(false);
+    expect(visibleModules(workspaceForRole("storekeeper"), context).some((module) => module.id === "inventory.reconciliation")).toBe(true);
   });
 
   it("denies all capabilities to inactive profiles", () => {

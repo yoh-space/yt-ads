@@ -16,6 +16,7 @@ export type Capability =
   | "inventory.substock.view"
   | "orders.view"
   | "reports.view"
+  | "reconciliation.record"
   | "reconciliation.review"
   | "machines.manage"
   | "finance.view"
@@ -42,6 +43,7 @@ const CAPABILITY_PERMISSIONS: Record<Capability, Permission | null> = {
   "inventory.substock.view": "material.view",
   "orders.view": "order.view",
   "reports.view": "reports.view",
+  "reconciliation.record": "reconciliation.record",
   "reconciliation.review": "reconciliation.review",
   "machines.manage": "machine.update",
   "finance.view": "reports.view",
@@ -66,6 +68,7 @@ const ROLE_CAPABILITY_OVERRIDES: Partial<Record<Role, Partial<Record<Capability,
     "inventory.dispatch": true,
     "inventory.requisition.approve": true,
     "inventory.substock.view": false,
+    "reconciliation.record": true,
     "jobs.execute": false,
   },
   laser_operator: { "inventory.parent.view": false, "inventory.substock.view": true, "jobs.execute": true },

@@ -1,6 +1,8 @@
 "use client";
 
 import { useMutation, useQuery } from "convex/react";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -22,11 +24,22 @@ function withIds<T extends { _id: string }>(docs: T[]): WithId<T>[] {
 
 export default function ReconciliationPage() {
   const profile = useQuery(api.users.getCurrentProfile);
-  const state = useQuery(api.dashboard.getState, profile?.active ? {} : "skip");
+  const router = useRouter();
+  const state = useQuery(api.dashboard.getState, profile?.active && profile.role !== "storekeeper" ? {} : "skip");
 
   const { openModal } = useDashboardModal();
   const { safeMutation } = useSafeMutation();
   const reviewReconciliationMutation = useMutation(api.reconciliation.review);
+
+  useEffect(() => {
+    if (profile?.role === "storekeeper") {
+      router.replace("/dashboard/storekeeper/reconciliation");
+    }
+  }, [profile?.role, router]);
+
+  if (profile?.role === "storekeeper") {
+    return <div className="flex min-h-[400px] items-center justify-center"><InventoryLoader label="Opening Storekeeper Reconciliation…" /></div>;
+  }
 
   if (!profile || !state) {
     return (

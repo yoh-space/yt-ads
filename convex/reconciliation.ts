@@ -5,6 +5,7 @@ import { canViewFinancial } from "./authorization";
 import { resolveEtbValueFromConfig } from "./materialUsage";
 import { ensureSystemConfig } from "./systemConfigs";
 import { recordInventoryEvent } from "./inventoryLedger";
+import { inventoryUnitType, reconciliationStatus } from "./schema";
 
 /**
  * Physical Stock Reconciliation engine.
@@ -47,6 +48,7 @@ export const countMaterial = mutation({
       note: args.note?.trim() || undefined,
       createdAt: Date.now(),
     });
+
     if (variance !== 0) {
       await recordInventoryEvent(ctx, {
         materialId: material._id,
@@ -64,6 +66,67 @@ export const countMaterial = mutation({
     }
     return (await ctx.db.get(id))!;
   },
+});
+
+/** Record a physical count in parent-store packaging units. */
+export const countParentInventory = mutation({
+ args: {
+   parentInventoryId: v.id("parentInventory"),
+   countedPackages: v.number(),
+   note: v.optional(v.string()),
+ },
+ returns: v.id("reconciliations"),
+ handler: async (ctx, args) => {
+   const { identity } = await requirePermission(ctx, "reconciliation.record");
+   if (!Number.isFinite(args.countedPackages) || args.countedPackages < 0) {
+     throw new Error("Physical package count must be zero or greater.");
+   }
+   const parentItem = await ctx.db.get(args.parentInventoryId);
+   if (!parentItem) throw new Error("Parent inventory item not found.");
+   const material = await ctx.db.get(parentItem.materialId);
+   if (!material || !material.active) throw new Error("Active material not found.");
+   const conversion =
+     parentItem.unitType === "ROLL"
+       ? parentItem.lengthPerRoll
+       : parentItem.unitType === "SHEET"
+         ? parentItem.areaPerSheet
+         : parentItem.volumePerContainer;
+   if (!conversion || conversion <= 0) throw new Error("Parent inventory conversion is not configured.");
+   const systemQuantity = Number((material.quantity ?? 0).toFixed(3));
+   const countedQuantity = Number((args.countedPackages * conversion).toFixed(3));
+   const variance = Number((countedQuantity - systemQuantity).toFixed(3));
+   const config = await ensureSystemConfig(ctx, identity._id);
+   const etbValue = resolveEtbValueFromConfig(material, config);
+   const monetaryLoss = variance < 0 ? Number((-variance * etbValue).toFixed(2)) : 0;
+   const id = await ctx.db.insert("reconciliations", {
+     materialId: material._id,
+     status: "Open",
+     systemQuantity,
+     countedQuantity,
+     variance,
+     etbValue,
+     monetaryLoss,
+     countedBy: identity._id,
+     note: args.note?.trim() || undefined,
+     createdAt: Date.now(),
+   });
+   if (variance !== 0) {
+     await recordInventoryEvent(ctx, {
+       materialId: material._id,
+       eventType: "RECONCILIATION_ADJUSTMENT",
+       custody: "parent",
+       balanceEffect: variance > 0 ? "in" : "out",
+       quantity: Math.abs(variance),
+       unit: material.baseUnit ?? material.unit,
+       baseUnit: material.baseUnit ?? material.unit,
+       baseQuantity: Math.abs(variance),
+       materialReconciliationId: id,
+       note: `Parent packaging reconciliation · ${material.name}`,
+       createdBy: identity._id,
+     });
+   }
+   return id;
+ },
 });
 
 export const review = mutation({
@@ -157,6 +220,94 @@ export const summary = query({
       totalMonetaryLoss: canSeeFinancial ? Number(totalMonetaryLoss.toFixed(2)) : 0,
       countRecords: records.length,
       currentVariances,
+    };
+  },
+});
+
+/** Storekeeper-only physical parent-store reconciliation surface. */
+export const storekeeperOverview = query({
+  args: {},
+  returns: v.object({
+    items: v.array(v.object({
+      id: v.id("parentInventory"),
+      materialId: v.id("materials"),
+      materialName: v.string(),
+      category: v.string(),
+      unitType: inventoryUnitType,
+      stockQuantity: v.number(),
+      minThreshold: v.number(),
+      storageLocation: v.string(),
+      lastCountedAt: v.optional(v.number()),
+      lastVariance: v.optional(v.number()),
+      lastStatus: v.optional(reconciliationStatus),
+    })),
+    recentCounts: v.array(v.object({
+      id: v.id("reconciliations"),
+      materialId: v.id("materials"),
+      materialName: v.string(),
+      unit: v.string(),
+      systemQuantity: v.number(),
+      countedQuantity: v.number(),
+      variance: v.number(),
+      status: reconciliationStatus,
+      note: v.optional(v.string()),
+      createdAt: v.number(),
+    })),
+    openCount: v.number(),
+    shortageCount: v.number(),
+    surplusCount: v.number(),
+  }),
+  handler: async (ctx) => {
+    await requirePermission(ctx, "reconciliation.record");
+    const [parentInventory, materials, records] = await Promise.all([
+      ctx.db.query("parentInventory").withIndex("by_unit_type").take(500),
+      ctx.db.query("materials").withIndex("by_unit").take(500),
+      ctx.db.query("reconciliations").withIndex("by_created").order("desc").take(200),
+    ]);
+    const materialMap = new Map(materials.map((material) => [material._id, material]));
+    const latestByMaterial = new Map<string, typeof records[number]>();
+    for (const record of records) {
+      if (!latestByMaterial.has(record.materialId)) latestByMaterial.set(record.materialId, record);
+    }
+    const items = parentInventory.flatMap((item) => {
+      const material = materialMap.get(item.materialId);
+      if (!material || !material.active) return [];
+      const latest = latestByMaterial.get(item.materialId);
+      return [{
+        id: item._id,
+        materialId: item.materialId,
+        materialName: material.name,
+        category: material.category,
+        unitType: item.unitType,
+        stockQuantity: item.totalStockQuantity,
+        minThreshold: material.reorderAt,
+        storageLocation: material.storageLocation ?? "Unassigned",
+        lastCountedAt: latest?.createdAt,
+        lastVariance: latest?.variance,
+        lastStatus: latest?.status,
+      }];
+    });
+    const recentCounts = records.map((record) => {
+      const material = materialMap.get(record.materialId);
+      return {
+        id: record._id,
+        materialId: record.materialId,
+        materialName: material?.name ?? "Unknown material",
+        unit: material?.baseUnit ?? material?.unit ?? "unit",
+        systemQuantity: record.systemQuantity,
+        countedQuantity: record.countedQuantity,
+        variance: record.variance,
+        status: record.status,
+        note: record.note,
+        createdAt: record.createdAt,
+      };
+    });
+    return {
+      items,
+      recentCounts,
+      openCount: records.filter((record) => record.status === "Open").length,
+      shortageCount: records.filter((record) => record.variance < 0).length,
+      surplusCount: records.filter((record) => record.variance > 0).length,
     };
   },
 });

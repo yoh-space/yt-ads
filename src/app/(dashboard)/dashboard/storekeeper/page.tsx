@@ -85,7 +85,7 @@ export default function StorekeeperDashboardPage() {
   });
 
   function exportCsv() {
-    const header = ["MATERIAL SKU & SPEC", "PACKAGING UNIT", "PHYSICAL STOCK", "MIN THRESHOLD", "BAY LOCATION"];
+    const header = ["የእቃ SKU እና ዝርዝር", "PACKAGING UNIT", "PHYSICAL STOCK", "MIN THRESHOLD", "BAY LOCATION"];
     const rows = filteredItems.map((item) => [
       item.materialName,
       unitLabel(item.unitType),
@@ -178,7 +178,7 @@ export default function StorekeeperDashboardPage() {
             <table className="w-full min-w-[720px] text-left text-xs">
               <thead className="bg-background/70 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
                 <tr>
-                  <th className="px-5 py-3">Material SKU & Spec</th><th className="px-4 py-3">Packaging Unit</th><th className="px-4 py-3 text-right">Physical Stock</th><th className="px-4 py-3 text-right">Min Threshold</th><th className="px-5 py-3 text-right">Actions</th>
+                  <th className="px-5 py-3">የእቃ SKU እና ዝርዝር</th><th className="px-4 py-3">Packaging Unit</th><th className="px-4 py-3 text-right">Physical Stock</th><th className="px-4 py-3 text-right">Min Threshold</th><th className="px-5 py-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/70">
@@ -188,7 +188,7 @@ export default function StorekeeperDashboardPage() {
                   return (
                     <tr key={item._id} className="transition hover:bg-muted/30">
                       <td className="px-5 py-3"><p className="font-semibold text-foreground">{item.materialName}</p><p className="mt-0.5 text-[11px] text-muted-foreground">{item.materialCategory} · {item.storageLocation}</p></td>
-                      <td className="px-4 py-3"><span className="rounded bg-muted px-2 py-1 font-mono text-[10px] text-muted-foreground">{unitLabel(item.unitType)}</span></td>
+                      <td className="px-4 py-3"><span className="inline-flex rounded border border-border bg-muted px-2 py-1 font-mono text-[10px] font-bold text-black">{unitLabel(item.unitType)}</span></td>
                       <td className={`px-4 py-3 text-right font-mono font-bold tabular-nums ${low ? "text-amber-500" : "text-foreground"}`}>{physicalQuantity(item.totalStockQuantity, item.unitType)}</td>
                       <td className="px-4 py-3 text-right font-mono text-muted-foreground">{threshold || "—"}</td>
                       <td className="px-5 py-3 text-right"><button className="inline-flex items-center gap-1 rounded border border-primary/40 px-2 py-1 text-[10px] font-bold text-primary hover:bg-primary/10" onClick={() => toast.info("Select an operator request to complete the handover.")}><Truck size={12} /> Hand Over</button></td>

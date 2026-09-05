@@ -68,6 +68,7 @@ export const WORKSPACE_REGISTRY: Record<WorkspaceId, WorkspaceDefinition> = {
       { id: "inventory.kpis", capability: "inventory.parent.view", placement: "primary" },
       { id: "inventory.parent-stock", capability: "inventory.parent.view", placement: "primary" },
       { id: "inventory.requisitions", capability: "inventory.requisition.approve", placement: "secondary" },
+      { id: "inventory.reconciliation", capability: "reconciliation.record", placement: "secondary" },
       { id: "inventory.reorder-alerts", capability: "inventory.reorder.create", placement: "footer" },
     ],
   },
