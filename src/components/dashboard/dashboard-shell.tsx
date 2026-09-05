@@ -14,6 +14,8 @@ import { InventoryLoader } from "./inventory-loader";
 import { DashboardAccessDenied } from "./access-denied";
 import { useSafeMutation } from "./pending-store";
 import { hasPermission } from "@/lib/permissions";
+import { canAccess } from "@/lib/access-policy";
+import { resolveWorkspace, visibleModules } from "./workspace-registry";
 import { DashboardModalProvider, useDashboardModal } from "./modal-context";
 import { StockModal } from "./modals/stock-modal";
 import { OffcutModal, type NewOffcutInput } from "./modals/offcut-modal";
@@ -42,14 +44,16 @@ function DashboardShellInner({ children }: { children: ReactNode }) {
   const profile = useQuery(api.users.getCurrentProfile);
   const companySettings = useQuery(api.users.getCompanySettings);
   const state = useQuery(api.dashboard.getState, profile?.active ? {} : "skip");
+  const role: Role = profile?.role ?? "admin";
+  const accessContext = { profile: profile ? { role: profile.role, active: profile.active } : null };
+  const workspace = resolveWorkspace(accessContext);
+  const workspaceModules = workspace ? visibleModules(workspace, accessContext) : [];
   // Storekeepers operate the physical stock workflow only; avoid mounting the
   // order query because their role intentionally has no order.view permission.
   const ordersQuery = useQuery(
     api.orders.list,
-    profile?.active && profile.role !== "storekeeper" ? {} : "skip",
+    profile?.active && canAccess(accessContext, "orders.view") ? {} : "skip",
   );
-  const role: Role = profile?.role ?? "admin";
-
   const {
     modal,
     openModal,
@@ -143,8 +147,9 @@ function DashboardShellInner({ children }: { children: ReactNode }) {
   const machines = state ? (withIds(state.machines) as Machine[]) : [];
   const jobs = state ? (withIds(state.jobs) as JobCard[]) : [];
   const runningJobsCount = jobs.filter((job) => job.status === "In production").length;
-  const ordersCount =
-    role === "storekeeper" ? 0 : ordersQuery?.length ?? state?.orderStats?.todaysOrders ?? 0;
+  const ordersCount = canAccess(accessContext, "orders.view")
+    ? ordersQuery?.length ?? state?.orderStats?.todaysOrders ?? 0
+    : 0;
   const activeMachinesCount = machines.filter((machine) => machine.status === "Running").length;
   const resolvedProfile: Profile | null = profile ? { ...profile, id: profile._id } : null;
 
@@ -159,7 +164,11 @@ function DashboardShellInner({ children }: { children: ReactNode }) {
   const canRecordReconciliation = Boolean(profile && hasPermission(role, "reconciliation.record"));
 
   return (
-    <div className="min-h-screen bg-[#0C0D10] text-[#E2E8F0]">
+    <div
+      data-workspace={workspace?.id ?? "unresolved"}
+      data-workspace-modules={workspaceModules.map((module) => module.id).join(",")}
+      className="min-h-screen bg-[#0C0D10] text-[#E2E8F0]"
+    >
       <Sidebar
         mobileOpen={mobileNavOpen}
         onClose={() => setMobileNavOpen(false)}

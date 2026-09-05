@@ -1,5 +1,6 @@
 import { MATERIAL_SPECIFICATIONS } from "@/shared/material-specifications";
 import type { Role } from "@/lib/operations-types";
+import { WORKSPACE_REGISTRY } from "./workspace-registry";
 import {
   Boxes,
   ClipboardList,
@@ -32,17 +33,11 @@ export type Modal =
 
 export type SettingsCategory = "profile" | "security" | "team" | "company";
 
-export const roleVisibleViews: Record<Role, View[]> = {
-  owner: ["overview", "orders", "inventory", "jobs", "machines", "reports", "reconciliation", "financial", "settings"],
-  manager: ["overview", "orders", "inventory", "jobs", "machines", "reports", "reconciliation", "settings"],
-  admin: ["overview", "orders", "inventory", "jobs", "machines", "reports", "reconciliation", "financial", "settings"],
-  storekeeper: ["overview", "inventory", "reconciliation", "settings"],
-  receptionist: ["overview", "orders", "settings"],
-  laser_operator: ["overview", "inventory", "settings"],
-  cnc_operator: ["overview", "inventory", "settings"],
-  plotter_operator: ["overview", "inventory", "settings"],
-  printer_operator: ["overview", "inventory", "settings"],
-};
+export const roleVisibleViews: Record<Role, View[]> = Object.fromEntries(
+  (Object.keys(WORKSPACE_REGISTRY) as Array<keyof typeof WORKSPACE_REGISTRY>).flatMap((workspaceId) =>
+    WORKSPACE_REGISTRY[workspaceId].roles.map((role) => [role, WORKSPACE_REGISTRY[workspaceId].navViews] as const),
+  ),
+) as Record<Role, View[]>;
 
 export function canAccessView(role: Role, view: View) {
   return roleVisibleViews[role]?.includes(view) ?? false;
