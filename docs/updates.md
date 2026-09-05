@@ -152,3 +152,16 @@ Phase 5 backend and dashboard workflow are now implemented:
 - Authorization continues to use `request.issue` and `request.acknowledge`, so operators cannot approve their own handovers.
 
 Phase 6 is next: production monitoring surfaces, allowance warnings, overuse exceptions, and reconciliation controls.
+
+## Phase 6 implementation update
+
+Phase 6 monitoring foundations are now implemented:
+
+- Production logs retain allowance status and converted actual/planned usage.
+- `listUsageAlerts` exposes reactive `WATCH`, `CRITICAL`, and `EXCEEDED` production alerts.
+- `overuseExceptions` records excess quantity, approved scrap, material, job, unit, actor, and lifecycle status.
+- Exceeded usage creates an open exception and notifies owner, manager, and admin.
+- Storekeeper requests retain explicit short-stock handling from Phase 5.
+- Original inventory ledger events remain immutable; reconciliation can resolve exceptions without erasing history.
+
+Phase 7 remains for migration rehearsal, broader audit workflows, and end-to-end release verification.

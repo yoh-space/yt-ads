@@ -225,6 +225,7 @@ export const notificationType = v.union(
   v.literal("material_issue"),
   v.literal("material_received"),
   v.literal("short_stock"),
+  v.literal("material_overuse"),
   v.literal("discrepancy"),
   v.literal("job_update"),
   v.literal("machine_update"),
@@ -504,7 +505,28 @@ export default defineSchema({
     )),
   })
     .index("by_job_card", ["jobCardId"])
-    .index("by_machine", ["machineId"]),
+    .index("by_machine", ["machineId"])
+    .index("by_allowance_status", ["usageAllowanceStatus"]),
+
+  overuseExceptions: defineTable({
+    jobCardId: v.id("jobCards"),
+    materialId: v.id("materials"),
+    productionLogId: v.optional(v.id("productionLogs")),
+    actualUsage: v.number(),
+    plannedUsage: v.number(),
+    approvedScrapQuantity: v.number(),
+    excessQuantity: v.number(),
+    unit,
+    status: v.union(v.literal("OPEN"), v.literal("ACKNOWLEDGED"), v.literal("RESOLVED")),
+    createdBy: v.string(),
+    createdAt: v.number(),
+    note: v.optional(v.string()),
+    resolvedBy: v.optional(v.string()),
+    resolvedAt: v.optional(v.number()),
+  })
+    .index("by_status", ["status"])
+    .index("by_job_card", ["jobCardId"])
+    .index("by_material", ["materialId"]),
 
   offcuts: defineTable({
     materialId: v.id("materials"),

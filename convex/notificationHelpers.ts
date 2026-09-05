@@ -6,6 +6,7 @@ type NotificationType =
   | "material_issue"
   | "material_received"
   | "short_stock"
+  | "material_overuse"
   | "discrepancy"
   | "job_update"
   | "machine_update"

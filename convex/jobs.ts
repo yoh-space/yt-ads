@@ -100,6 +100,30 @@ async function recordProductionInternal(ctx: any, args: ProductionInput, operato
     approvedScrapQuantity: Number((job.quantity * allowancePercent / 100).toFixed(3)),
     usageAllowanceStatus,
   });
+  if (usageAllowanceStatus === "EXCEEDED") {
+    const excessQuantity = Number((previousInput + args.inputQuantity + args.wasteQuantity - job.quantity * (1 + allowancePercent / 100)).toFixed(3));
+    await ctx.db.insert("overuseExceptions", {
+      jobCardId: job._id,
+      materialId: job.materialId,
+      actualUsage: previousInput + args.inputQuantity + args.wasteQuantity,
+      plannedUsage: job.quantity,
+      approvedScrapQuantity: Number((job.quantity * allowancePercent / 100).toFixed(3)),
+      excessQuantity: Math.max(0, excessQuantity),
+      unit: job.unit,
+      status: "OPEN",
+      createdBy: operatorId,
+      createdAt: Date.now(),
+      note: "Production usage exceeded the approved scrap allowance.",
+    });
+    await notifyRoles(ctx, ["owner", "manager", "admin"], {
+      title: "Material overuse exception",
+      message: `${job.code} exceeded the approved usage allowance by ${Math.max(0, excessQuantity)} ${job.unit}.`,
+      type: "material_overuse",
+      actorAuthUserId: operatorId,
+      relatedTable: "jobCards",
+      relatedId: job._id,
+    });
+  }
   await ctx.db.patch(job._id, { status: "In production" });
   if (job.orderId) {
     await ctx.db.patch(job.orderId, { status: "IN_PRODUCTION", updatedAt: Date.now() });
@@ -119,6 +143,39 @@ export const list = query({
     const machines = await ctx.db.query("machines").collect();
     const assignedMachineIds = new Set(machines.filter((machine) => machine.operatorRole === profile.role).map((machine) => machine._id));
     return jobs.filter((job) => assignedMachineIds.has(job.machineId));
+  },
+});
+
+export const listUsageAlerts = query({
+  args: {},
+  returns: v.array(v.object({
+    id: v.id("productionLogs"),
+    jobCardId: v.id("jobCards"),
+    status: v.union(v.literal("WATCH"), v.literal("CRITICAL"), v.literal("EXCEEDED")),
+    actualUsage: v.number(),
+    plannedQuantity: v.number(),
+    approvedScrapQuantity: v.number(),
+    createdAt: v.number(),
+  })),
+  handler: async (ctx) => {
+    await requirePermission(ctx, "material.view");
+    const logs = await ctx.db.query("productionLogs")
+      .withIndex("by_allowance_status")
+      .order("desc")
+      .take(100);
+    return logs
+      .filter((log): log is typeof log & { usageAllowanceStatus: "WATCH" | "CRITICAL" | "EXCEEDED"; plannedQuantity: number; approvedScrapQuantity: number } =>
+        (log.usageAllowanceStatus === "WATCH" || log.usageAllowanceStatus === "CRITICAL" || log.usageAllowanceStatus === "EXCEEDED")
+        && log.plannedQuantity !== undefined && log.approvedScrapQuantity !== undefined)
+      .map((log) => ({
+        id: log._id,
+        jobCardId: log.jobCardId,
+        status: log.usageAllowanceStatus,
+        actualUsage: log.inputQuantity + log.wasteQuantity,
+        plannedQuantity: log.plannedQuantity,
+        approvedScrapQuantity: log.approvedScrapQuantity,
+        createdAt: log.createdAt,
+      }));
   },
 });
 
