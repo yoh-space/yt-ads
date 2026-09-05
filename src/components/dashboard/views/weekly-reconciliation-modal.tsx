@@ -55,20 +55,20 @@ export function WeeklyReconciliationModal({
 
   return (
     <ModalShell
-      title="Weekly Floor Stock Reconciliation"
-      subtitle="Compare physical counts against system-calculated remaining stock"
-      kicker="WEEKLY AUDIT"
+      title="የማሽን ዕቃ ቆጠራ"
+      subtitle="በእጅ የቆጠሩትን ዕቃ ከሲስተሙ ቁጥር ጋር ያነጻጽሩ"
+      kicker="የዕቃ ማረጋገጫ"
       onClose={onClose}
       footer={
         <div className="flex gap-3 justify-end">
-          <Button type="button" variant="tertiary" onClick={onClose}>Close</Button>
+          <Button type="button" variant="tertiary" onClick={onClose}>ዝጋ</Button>
         </div>
       }
     >
       <div className="space-y-4">
         {activeStock.length === 0 ? (
           <div className="text-center py-8 text-sm text-gray-500">
-            No active floor stock to reconcile.
+            ለመቆጠር የሚጠበቅ የማሽን ዕቃ የለም።
           </div>
         ) : (
           activeStock.map((batch) => {
@@ -98,11 +98,11 @@ export function WeeklyReconciliationModal({
 
                 <div className="grid grid-cols-3 gap-4 text-sm">
                   <div>
-                    <span className="block text-xs text-gray-500 mb-1">System Remaining</span>
+                    <span className="block text-xs text-gray-500 mb-1">በሲስተም የቀረ</span>
                     <strong className="text-navy">{formatNumber(batch.currentRemaining)}</strong>
                   </div>
                   <div>
-                    <span className="block text-xs text-gray-500 mb-1">Physical Count</span>
+                    <span className="block text-xs text-gray-500 mb-1">በእጅ የቆጠሩት</span>
                     <input
                       type="number"
                       step="0.001"
@@ -115,7 +115,7 @@ export function WeeklyReconciliationModal({
                     />
                   </div>
                   <div>
-                    <span className="block text-xs text-gray-500 mb-1">Discrepancy</span>
+                    <span className="block text-xs text-gray-500 mb-1">ልዩነት</span>
                     <span className={cn("font-medium", isShortage ? "text-coral" : hasDiscrepancy ? "text-green" : "text-gray-600")}>
                       {isShortage ? "-" : hasDiscrepancy ? "+" : ""}{formatNumber(Math.abs(discrepancy))}
                     </span>
@@ -126,17 +126,17 @@ export function WeeklyReconciliationModal({
                   <div className="flex items-start gap-2 p-2 bg-gold/10 border border-gold/20 rounded">
                     <AlertTriangle size={14} className="text-gold flex-none mt-0.5" />
                     <span className="text-xs text-gray-600">
-                      {isShortage ? "Shortage detected" : "Surplus detected"}: {formatNumber(Math.abs(discrepancy))} {batch.baseUnit}
+                      {isShortage ? "የዕቃ እጥረት ታይቷል" : "ከሚጠበቀው በላይ ተገኝቷል"}: {formatNumber(Math.abs(discrepancy))} {batch.baseUnit}
                     </span>
                   </div>
                 )}
 
                 <label className="block">
-                  <span className="block text-xs text-gray-500 mb-1">Notes (optional)</span>
+                  <span className="block text-xs text-gray-500 mb-1">ማስታወሻ (ካለ)</span>
                   <textarea
                     value={notes[batch._id] ?? ""}
                     onChange={(e) => setNotes((prev) => ({ ...prev, [batch._id]: e.target.value }))}
-                    placeholder="Reason for discrepancy, waste notes, etc."
+                    placeholder="ስለ ልዩነቱ፣ ብክነት ወይም ሌላ ማስታወሻ ይጻፉ"
                     className="w-full px-2 py-1 border border-line rounded text-sm text-ink outline-none focus:border-cyan resize-none"
                     rows={2}
                   />
@@ -149,7 +149,7 @@ export function WeeklyReconciliationModal({
                     disabled={submittingId === batch._id || physical === batch.currentRemaining}
                     onClick={() => handleSubmit(batch._id)}
                   >
-                    {submittingId === batch._id ? "Submitting…" : "Submit Reconciliation"}
+                    {submittingId === batch._id ? "በመላክ ላይ…" : "ቆጠራውን ላክ"}
                   </Button>
                 </div>
               </div>

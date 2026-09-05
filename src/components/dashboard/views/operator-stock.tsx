@@ -49,7 +49,7 @@ export function OperatorStockWidget({
     return (
       <div className="flex items-center justify-center min-h-[120px] bg-white border border-line rounded-lg shadow-sm">
         <div className="flex items-center gap-2 text-sm text-gray-500">
-          <RefreshCw size={16} className="animate-spin" /> Loading stock…
+          <RefreshCw size={16} className="animate-spin" /> ዕቃ በመጫን ላይ…
         </div>
       </div>
     );
@@ -58,15 +58,15 @@ export function OperatorStockWidget({
   return (
     <Panel>
       <PanelHeader
-        title="Active Floor Stock"
-        subtitle="Materials issued to this machine"
-        kicker="FLOOR STOCK"
-        action={<Button size="small" variant="tertiary" onClick={() => setReconciling(true)}><Scale size={13} />Reconcile</Button>}
+        title="ማሽኑ ላይ ያለ ዕቃ"
+        subtitle="ለዚህ ማሽን የተሰጠ የስራ ዕቃ"
+        kicker="የማሽን ዕቃ"
+        action={<Button size="small" variant="tertiary" onClick={() => setReconciling(true)}><Scale size={13} />ቆጥር እና አረጋግጥ</Button>}
       />
       <div className="p-4 space-y-3">
         {machineStock.length === 0 ? (
           <div className="text-center py-6 text-sm text-gray-500">
-            No active stock on this machine. Request material from storekeeper.
+            በዚህ ማሽን ላይ የተሰጠ ዕቃ የለም። ከግምጃ ቤት ዕቃ ይጠይቁ።
           </div>
         ) : (
           machineStock.map((batch) => {
@@ -83,14 +83,14 @@ export function OperatorStockWidget({
                       <strong className="text-sm font-semibold text-navy">{batch.materialName}</strong>
                       {isLow && (
                         <span className="flex items-center gap-1 px-2 py-0.5 bg-coral/10 text-coral text-xs font-medium rounded-full">
-                          <AlertTriangle size={11} /> Low
+                          <AlertTriangle size={11} /> ቀሪው እያነሰ ነው
                         </span>
                       )}
                     </div>
                     <div className="mt-2 space-y-1">
                       <div className="flex items-center justify-between text-xs text-gray-600">
-                        <span>Issued: {formatQuantity(batch.issuedQuantity, batch.baseUnit)}</span>
-                        <span>Remaining: {formatQuantity(batch.currentRemaining, batch.baseUnit)}</span>
+                        <span>የተሰጠ: {formatQuantity(batch.issuedQuantity, batch.baseUnit)}</span>
+                        <span>የቀረ: {formatQuantity(batch.currentRemaining, batch.baseUnit)}</span>
                       </div>
                       <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                         <div
@@ -102,9 +102,9 @@ export function OperatorStockWidget({
                         />
                       </div>
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-gray-500">Used: {formatPercentage(usagePercent)}</span>
+                        <span className="text-gray-500">የተጠቀምነው: {formatPercentage(usagePercent)}</span>
                         <span className={cn("font-medium", isLow ? "text-coral" : "text-green")}>
-                          {formatPercentage(100 - usagePercent)} left
+                          {formatPercentage(100 - usagePercent)} ቀሪ
                         </span>
                       </div>
                     </div>
@@ -119,7 +119,7 @@ export function OperatorStockWidget({
                     }}
                   >
                     <Trash2 size={13} />
-                    {exhaustingId === batch._id ? "Exhausting…" : "Exhaust"}
+                    {exhaustingId === batch._id ? "በመዝጋት ላይ…" : "ዕቃው አልቋል"}
                   </Button>
                 </div>
               </div>

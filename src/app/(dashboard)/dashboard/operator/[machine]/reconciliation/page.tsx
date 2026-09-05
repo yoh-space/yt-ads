@@ -78,10 +78,10 @@ export default function OperatorReconciliationPage({
     <WorkspaceModuleGate context={accessContext} moduleId="reconciliation.operator">
       <div className="space-y-6">
         <header className="border-b border-border pb-5">
-          <p className="font-mono text-xs uppercase tracking-widest text-primary">MACHINE RECONCILIATION</p>
-          <h1 className="mt-1 text-2xl font-bold text-foreground">Request Stock Clearance</h1>
+          <p className="font-mono text-xs uppercase tracking-widest text-primary">የማሽን ዕቃ ቆጠራ</p>
+          <h1 className="mt-1 text-2xl font-bold text-foreground">የዕቃ ማረጋገጫ ጠይቅ</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Count every active floor-stock batch before requesting new material. Owner or manager approval unlocks the next stock cycle.
+            አዲስ ዕቃ ከመጠየቅዎ በፊት በማሽኑ ላይ ያለውን ዕቃ በሙሉ ይቁጠሩ። ባለቤቱ ወይም ሥራ አስኪያጁ ካጸደቁ በኋላ አዲስ ዕቃ መጠየቅ ይችላሉ።
           </p>
         </header>
 
@@ -90,8 +90,8 @@ export default function OperatorReconciliationPage({
             <div className="flex items-start gap-3">
               <CheckCircle2 className="mt-0.5 text-emerald-500" size={20} />
               <div>
-                <h2 className="font-semibold text-foreground">No active stock requires clearance</h2>
-                <p className="mt-1 text-sm text-muted-foreground">You may request material for an active job when needed.</p>
+                <h2 className="font-semibold text-foreground">ማረጋገጥ የሚጠበቅ የማሽን ዕቃ የለም</h2>
+                <p className="mt-1 text-sm text-muted-foreground">ካስፈለገ ለንቁ ሥራ ዕቃ መጠየቅ ይችላሉ።</p>
               </div>
             </div>
           </section>
@@ -99,7 +99,7 @@ export default function OperatorReconciliationPage({
           <div className="space-y-4">
             <div className="flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-200">
               <AlertTriangle size={18} className="text-amber-500" />
-              <span>New stock requests stay locked until these batches are counted and cleared.</span>
+              <span>እነዚህ ዕቃዎች ተቆጥረው እስኪጸድቁ ድረስ አዲስ ዕቃ መጠየቅ ተቆልፏል።</span>
             </div>
             {machineStock.map((batch) => {
               const physical = counts[batch._id] ?? batch.currentRemaining;
@@ -111,15 +111,15 @@ export default function OperatorReconciliationPage({
                       <h2 className="font-semibold text-foreground">{batch.materialName}</h2>
                       <p className="mt-1 text-xs text-muted-foreground">{machine?.name ?? machineParam} · Issued {formatNumber(batch.issuedQuantity)} {batch.baseUnit}</p>
                     </div>
-                    <span className="rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1 font-mono text-[10px] font-bold text-amber-400">ACTIVE</span>
+                    <span className="rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1 font-mono text-[10px] font-bold text-amber-400">በስራ ላይ</span>
                   </div>
                   <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                    <div className="rounded border border-border bg-background p-3"><p className="text-xs text-muted-foreground">System remaining</p><strong className="font-mono text-lg text-foreground">{formatNumber(batch.currentRemaining)} {batch.baseUnit}</strong></div>
-                    <label className="rounded border border-border bg-background p-3"><span className="block text-xs text-muted-foreground">Physical count</span><input type="number" min="0" step="0.001" value={physical} onChange={(event) => setCounts((current) => ({ ...current, [batch._id]: Number(event.target.value) }))} className="mt-1 w-full bg-transparent font-mono text-lg text-foreground outline-none" /></label>
-                    <div className="rounded border border-border bg-background p-3"><p className="text-xs text-muted-foreground">Difference</p><strong className={discrepancy < 0 ? "font-mono text-lg text-destructive" : "font-mono text-lg text-emerald-500"}>{discrepancy > 0 ? "+" : ""}{formatNumber(discrepancy)} {batch.baseUnit}</strong></div>
+                    <div className="rounded border border-border bg-background p-3"><p className="text-xs text-muted-foreground">በሲስተም የቀረ</p><strong className="font-mono text-lg text-foreground">{formatNumber(batch.currentRemaining)} {batch.baseUnit}</strong></div>
+                    <label className="rounded border border-border bg-background p-3"><span className="block text-xs text-muted-foreground">በእጅ የቆጠሩት</span><input type="number" min="0" step="0.001" value={physical} onChange={(event) => setCounts((current) => ({ ...current, [batch._id]: Number(event.target.value) }))} className="mt-1 w-full bg-transparent font-mono text-lg text-foreground outline-none" /></label>
+                    <div className="rounded border border-border bg-background p-3"><p className="text-xs text-muted-foreground">ልዩነት</p><strong className={discrepancy < 0 ? "font-mono text-lg text-destructive" : "font-mono text-lg text-emerald-500"}>{discrepancy > 0 ? "+" : ""}{formatNumber(discrepancy)} {batch.baseUnit}</strong></div>
                   </div>
-                  <textarea value={notes[batch._id] ?? ""} onChange={(event) => setNotes((current) => ({ ...current, [batch._id]: event.target.value }))} rows={2} placeholder="Add a note about waste, damage, or the physical count (optional)" className="mt-3 w-full rounded border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary" />
-                  <button type="button" disabled={savingId === batch._id} onClick={() => void submitCount(batch._id, batch.currentRemaining, batch.baseUnit)} className="mt-3 inline-flex items-center gap-2 rounded bg-primary px-3 py-2 text-xs font-bold text-primary-foreground disabled:opacity-50"><ClipboardCheck size={14} />{savingId === batch._id ? "Submitting…" : "Submit for Clearance"}</button>
+                  <textarea value={notes[batch._id] ?? ""} onChange={(event) => setNotes((current) => ({ ...current, [batch._id]: event.target.value }))} rows={2} placeholder="ስለ ብክነት፣ ጉድለት ወይም የቆጠራው ምክንያት ማስታወሻ ይጻፉ (ካለ)" className="mt-3 w-full rounded border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary" />
+                  <button type="button" disabled={savingId === batch._id} onClick={() => void submitCount(batch._id, batch.currentRemaining, batch.baseUnit)} className="mt-3 inline-flex items-center gap-2 rounded bg-primary px-3 py-2 text-xs font-bold text-primary-foreground disabled:opacity-50"><ClipboardCheck size={14} />{savingId === batch._id ? "በመላክ ላይ…" : "ለማረጋገጫ ላክ"}</button>
                 </section>
               );
             })}
