@@ -115,6 +115,7 @@ const CUSTOMER_PUSH_STATUSES = new Set([
   "JOB_CARD_CREATED",
   "IN_PRODUCTION",
   "COMPLETED",
+  "READY_FOR_PICKUP",
 ]);
 
 async function pushCustomerOrderStatus(
@@ -167,7 +168,12 @@ async function pushCustomerOrderStatus(
     message =
       `🎉 <b>ስራው ተጠናቋል!</b>\n\n` +
       `• የትዕዛዝ መለያ: <code>${order.code}</code>\n` +
-      `መጥተው መረከብ ወይም በነጣቂ ማስወሰድ ይችላሉ። እናመሰግናለን!${tracking}`;
+      `የመጨረሻ ማጠናቀቂያ ተከናውኗል። ሲዘጋጅ የመረከቢያ ማሳወቂያ ይደርስዎታል።${tracking}`;
+  } else if (order.status === "READY_FOR_PICKUP") {
+    message =
+      `📦 <b>ትዕዛዝዎ ለመረከብ ዝግጁ ነው!</b>\n\n` +
+      `• የትዕዛዝ መለያ: <code>${order.code}</code>\n` +
+      `እባክዎ ወደ ሪሴፕሽን በመምጣት ትዕዛዝዎን ይረከቡ። እናመሰግናለን!${tracking}`;
   }
 
   if (!message) return;
@@ -947,6 +953,7 @@ export const sendTelegramNotification = action({
     chatId: v.string(),
     message: v.string(),
   },
+  returns: v.object({ success: v.boolean() }),
   handler: async (ctx, args) => {
     const token = process.env.TELEGRAM_BOT_TOKEN;
     if (!token) {
@@ -979,11 +986,12 @@ export const sendTelegramNotification = action({
   },
 });
 
-export const sendTelegramNotificationInternal = internalMutation({
+export const sendTelegramNotificationInternal = internalAction({
   args: {
     chatId: v.string(),
     message: v.string(),
   },
+  returns: v.object({ success: v.boolean() }),
   handler: async (ctx, args) => {
     const token = process.env.TELEGRAM_BOT_TOKEN;
     if (!token) {
