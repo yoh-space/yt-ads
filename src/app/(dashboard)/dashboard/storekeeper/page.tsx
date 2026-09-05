@@ -13,6 +13,8 @@ import { useSafeMutation } from "@/components/dashboard/pending-store";
 import { useDashboardModal } from "@/components/dashboard/modal-context";
 import { StatusPill } from "@/components/ui/status-pill";
 import type { MaterialRequest } from "@/lib/operations-types";
+import type { AccessContext } from "@/lib/access-policy";
+import { WorkspaceModuleGate } from "@/components/dashboard/workspace-renderer";
 
 type WithId<T extends { _id: string }> = Omit<T, "_id"> & { id: T["_id"] };
 type PackagingTab = "ALL" | "ROLL" | "SHEET" | "LITER";
@@ -42,6 +44,9 @@ export default function StorekeeperDashboardPage() {
   const systemConfig = useQuery(api.systemConfigs.getStorekeeperConfig, isActive ? {} : "skip");
   const { isPending, safeMutation } = useSafeMutation();
   const { openModal } = useDashboardModal();
+  const accessContext: AccessContext = {
+    profile: profile ? { role: profile.role, active: profile.active } : null,
+  };
   const issueMaterialRequest = useMutation(api.materialRequests.issue);
   const acknowledgeMaterialRequest = useMutation(api.materialRequests.acknowledge);
   const [searchTerm, setSearchTerm] = useState("");
@@ -126,6 +131,7 @@ export default function StorekeeperDashboardPage() {
         </div>
       </header>
 
+      <WorkspaceModuleGate context={accessContext} moduleId="inventory.kpis">
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[
           { label: "የሮል እቃዎች", value: totals.rolls, unit: "ROLLS", detail: "Starflex 500g · Stickers/Vinyl", tone: "text-primary" },
@@ -143,8 +149,10 @@ export default function StorekeeperDashboardPage() {
           </div>
         ))}
       </section>
+      </WorkspaceModuleGate>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.85fr)_minmax(320px,1fr)]">
+        <WorkspaceModuleGate context={accessContext} moduleId="inventory.parent-stock">
         <section className="min-w-0 overflow-hidden rounded-lg border border-border bg-card shadow-custom">
           <div className="flex flex-col gap-4 border-b border-border p-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -195,7 +203,9 @@ export default function StorekeeperDashboardPage() {
             <button onClick={exportCsv} className="inline-flex items-center gap-1 font-semibold text-primary hover:text-primary/80"><Download size={13} /> Export Discrete Inventory CSV →</button>
           </div>
         </section>
+        </WorkspaceModuleGate>
 
+        <WorkspaceModuleGate context={accessContext} moduleId="inventory.requisitions">
         <section className="min-w-0">
           <div className="mb-3 flex items-center justify-between">
             <div><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary">FLOOR MATERIAL REQUISITIONS</p><h2 className="mt-1 text-lg font-bold text-foreground">የኦፕሬተሮች የዕቃ ጥያቄ መከታተያ</h2></div>
@@ -203,14 +213,17 @@ export default function StorekeeperDashboardPage() {
           </div>
           <MaterialRequestsPanel requests={requests} role="storekeeper" onRequest={() => {}} onIssue={(requestId, quantity) => void safeMutation(`issue-${requestId}`, issueMaterialRequest({ requestId: requestId as Id<"materialRequests">, issuedQuantity: quantity }), () => toast.success("Material handed over to operator"))} onAcknowledge={(requestId) => void safeMutation(`ack-${requestId}`, acknowledgeMaterialRequest({ requestId: requestId as Id<"materialRequests"> }), () => toast.success("Material receipt acknowledged"))} isPending={isPending} />
         </section>
+        </WorkspaceModuleGate>
       </div>
 
+      <WorkspaceModuleGate context={accessContext} moduleId="inventory.reorder-alerts">
       {lowStockItems.length > 0 ? (
         <aside className="flex flex-col gap-3 rounded-lg border border-destructive/40 bg-destructive/10 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3"><ArrowDownToLine className="mt-0.5 text-destructive" size={18} /><div><p className="font-semibold text-foreground">Critical reorder alert</p><p className="text-xs text-muted-foreground">{lowStockItems.map((item) => `${item.materialName}: ${physicalQuantity(item.totalStockQuantity, item.unitType)} vs ${item.reorderAt > 0 ? "minimum threshold" : "required threshold"}`).join(" · ")}</p></div></div>
           <button onClick={() => toast.success("Reorder request queued for manager review.")} className="shrink-0 rounded-md bg-destructive px-3 py-2 text-xs font-bold text-destructive-foreground hover:bg-destructive/90">Generate Reorder Request</button>
         </aside>
       ) : null}
+      </WorkspaceModuleGate>
     </div>
   );
 }

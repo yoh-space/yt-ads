@@ -19,6 +19,8 @@ import { useDashboardModal } from "@/components/dashboard/modal-context";
 import { StatusPill } from "@/components/ui/status-pill";
 import { getServiceLabel } from "@/constants/services";
 import type { CustomerOrder } from "@/lib/operations-types";
+import type { AccessContext } from "@/lib/access-policy";
+import { WorkspaceModuleGate } from "@/components/dashboard/workspace-renderer";
 
 type WithId<T extends { _id: string }> = Omit<T, "_id"> & { id: T["_id"] };
 
@@ -48,6 +50,9 @@ export default function ReceptionDashboardPage() {
   }
 
   const orders = withIds(ordersQuery) as CustomerOrder[];
+  const accessContext: AccessContext = {
+    profile: { role: profile.role, active: profile.active },
+  };
 
   function copyToClipboard(text: string, label: string, key: string) {
     if (!text || text === "—") {
@@ -86,6 +91,7 @@ export default function ReceptionDashboardPage() {
   const completedCount = orders.filter((o) => ["COMPLETED", "READY_FOR_PICKUP"].includes(o.status)).length;
 
   return (
+    <WorkspaceModuleGate context={accessContext} moduleId="orders.queue">
     <div className="space-y-6">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#1E293B] pb-5">
@@ -347,5 +353,6 @@ export default function ReceptionDashboardPage() {
         </div>
       </div>
     </div>
+    </WorkspaceModuleGate>
   );
 }

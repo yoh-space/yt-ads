@@ -27,3 +27,17 @@ export function WorkspaceRenderer({
     </section>
   );
 }
+
+export function WorkspaceModuleGate({
+  context,
+  moduleId,
+  children,
+}: {
+  context: AccessContext;
+  moduleId: string;
+  children: ReactNode;
+}) {
+  const workspace = resolveWorkspace(context);
+  const module = workspace ? visibleModules(workspace, context).find((item) => item.id === moduleId) : undefined;
+  return module ? <section data-workspace-module={module.id}>{children}</section> : null;
+}

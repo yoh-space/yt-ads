@@ -21,6 +21,8 @@ import { StatusPill } from "@/components/ui/status-pill";
 import { formatQuantity } from "@/lib/units";
 import { OperatorStockWidget } from "@/components/dashboard/views/operator-stock";
 import type { JobCard, Machine } from "@/lib/operations-types";
+import type { AccessContext } from "@/lib/access-policy";
+import { WorkspaceModuleGate } from "@/components/dashboard/workspace-renderer";
 
 type WithId<T extends { _id: string }> = Omit<T, "_id"> & { id: T["_id"] };
 
@@ -75,6 +77,13 @@ export default function OperatorMachinePage({
     (j) => currentMachine && j.machineId === currentMachine.id
   );
   const activeJob = machineJobs.find((j) => j.status === "In production") ?? machineJobs[0];
+  const accessContext: AccessContext = {
+    profile: { role: profile.role, active: profile.active },
+    attributes: {
+      machineId: currentMachine?.id,
+      machineType: machineParam as "laser" | "cnc" | "plotter" | "printer",
+    },
+  };
 
   // Clearance Gate Rule: If active sub-stock status is PENDING_CLEARANCE,
   // disable material requests and display the clearance alert banner
@@ -83,6 +92,7 @@ export default function OperatorMachinePage({
   );
 
   return (
+    <WorkspaceModuleGate context={accessContext} moduleId="jobs.queue">
     <div className="space-y-6">
       {/* Top Banner if Active Sub-stock is PENDING_CLEARANCE */}
       {hasPendingClearance ? (
@@ -351,5 +361,6 @@ export default function OperatorMachinePage({
         </div>
       </div>
     </div>
+    </WorkspaceModuleGate>
   );
 }
