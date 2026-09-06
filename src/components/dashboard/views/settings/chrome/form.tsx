@@ -38,7 +38,7 @@ export function FormSection({
           {icon}
         </span>
         <div className="min-w-0">
-          <strong className="block text-sm font-bold text-foreground">{title}</strong>
+          <strong className="block text-md font-bold text-foreground">{title}</strong>
           <span className="mt-0.5 block text-xs text-muted-foreground">{note}</span>
         </div>
       </div>
