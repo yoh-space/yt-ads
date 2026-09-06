@@ -28,8 +28,12 @@ import type { Material, Unit } from "@/lib/operations-types";
 import { formatQuantity } from "@/lib/units";
 import { cn } from "@/lib/utils";
 
-type AuditRow = NonNullable<ReturnType<typeof useQuery<typeof api.inventory.operatorClearanceAudit>>>[number];
-type HistoryRow = NonNullable<ReturnType<typeof useQuery<typeof api.reconciliation.list>>>[number];
+type AuditRow = NonNullable<
+  ReturnType<typeof useQuery<typeof api.inventory.operatorClearanceAudit>>
+>[number];
+type HistoryRow = NonNullable<
+  ReturnType<typeof useQuery<typeof api.reconciliation.list>>
+>[number];
 type OperatorFilter = "all" | "pending" | "cleared";
 
 function etb(amount: number): string {
@@ -93,7 +97,13 @@ function KpiCard({
         {badge ?? icon}
       </div>
       <div className="my-1">
-        <span className={cn("text-2xl font-bold font-mono tabular-nums", tone, valueClassName)}>
+        <span
+          className={cn(
+            "text-2xl font-bold font-mono tabular-nums",
+            tone,
+            valueClassName
+          )}
+        >
           {value}
         </span>
       </div>
@@ -162,11 +172,22 @@ function OperatorClearanceCard({
 }) {
   const isPending = batch.status === "PENDING_CLEARANCE";
   const isCleared = batch.status === "CLEARED";
-  const discrepancy = batch.lastDiscrepancy ?? (batch.issuedQuantity - batch.producedOutput - batch.scrapQuantity - batch.currentRemaining);
+  const discrepancy =
+    batch.lastDiscrepancy ??
+    batch.issuedQuantity -
+      batch.producedOutput -
+      batch.scrapQuantity -
+      batch.currentRemaining;
   const hasDiscrepancy = Math.abs(discrepancy) > 0.05;
   const isNegative = discrepancy < -0.05;
 
-  const initials = batch.operatorName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase() || "OP";
+  const initials =
+    batch.operatorName
+      .split(" ")
+      .map(n => n[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase() || "OP";
 
   return (
     <article
@@ -255,26 +276,30 @@ function OperatorClearanceCard({
             የማያገለግል ቁራጭ
           </span>
           <strong className="text-xs font-bold text-slate-200 block mt-0.5">
-            {formatQuantity(batch.scrapQuantity, batch.baseUnit as Unit)} ({batch.wastePercent}%)
+            {formatQuantity(batch.scrapQuantity, batch.baseUnit as Unit)} (
+            {batch.wastePercent}%)
           </strong>
           <span className="text-[10px] text-slate-400 block">
             Remain: {batch.currentRemaining} {batch.baseUnit}
           </span>
         </div>
 
-        <div className={cn(
-          "p-2.5 rounded-lg border",
-          isNegative
-            ? "bg-rose-950/40 border-rose-600/40 text-rose-300"
-            : hasDiscrepancy
-            ? "bg-amber-950/40 border-amber-600/40 text-amber-300"
-            : "bg-emerald-950/30 border-emerald-600/40 text-emerald-300"
-        )}>
-          <span className="text-[9px] uppercase tracking-wider block opacity-80">
+        <div
+          className={cn(
+            "p-2.5 rounded-lg border",
+            isNegative
+              ? "bg-rose-950/40 border-rose-600/40 text-rose-300"
+              : hasDiscrepancy
+                ? "bg-amber-950/40 border-amber-600/40 text-amber-300"
+                : "bg-emerald-950/30 border-emerald-600/40 text-emerald-300"
+          )}
+        >
+          <span className="text-[10px] uppercase tracking-wider block opacity-80">
             {isNegative ? "ያልታወቀ ጉድለት (GAP)" : "ልዩነት (VARIANCE)"}
           </span>
           <strong className="text-xs font-bold block mt-0.5">
-            {discrepancy > 0 ? "+" : ""}{discrepancy.toFixed(1)} {batch.baseUnit}
+            {discrepancy > 0 ? "+" : ""}
+            {discrepancy.toFixed(1)} {batch.baseUnit}
           </strong>
           <span className="text-[10px] block opacity-80">
             {isNegative ? "~Loss flagged" : "100% Verified"}
@@ -305,7 +330,7 @@ function OperatorClearanceCard({
           <input
             aria-label="Clearance review note"
             value={note}
-            onChange={(e) => onNoteChange(e.target.value)}
+            onChange={e => onNoteChange(e.target.value)}
             placeholder="የክሊራንስ ማብራሪያ ወይም የቅጣት ምክንያት ያስገቡ..."
             className="flex-1 min-w-[200px] h-10 px-3 rounded-lg bg-[#0B1222] border border-[#1E2E50] text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-[#00B4D8]"
           />
@@ -330,7 +355,8 @@ function OperatorClearanceCard({
       ) : isCleared ? (
         <div className="pt-2 border-t border-[#1C2A47] flex items-center justify-between text-xs font-mono text-slate-400">
           <span className="text-emerald-400 flex items-center gap-1.5">
-            <CheckCircle2 size={13} /> Cleared by Owner · Authorization Confirmed
+            <CheckCircle2 size={13} /> Cleared by Owner · Authorization
+            Confirmed
           </span>
           <span className="text-cyan-300 font-bold uppercase tracking-wider text-[10px]">
             አዲስ እቃ ጥየቃ ተፈቅዶለታል
@@ -349,7 +375,12 @@ function StockLeakageAlertCard({
   item: HistoryRow;
   canSeeFinancial: boolean;
 }) {
-  const severity = Math.abs(item.variance) > 3 ? "CRITICAL" : Math.abs(item.variance) > 1 ? "HIGH" : "MED";
+  const severity =
+    Math.abs(item.variance) > 3
+      ? "CRITICAL"
+      : Math.abs(item.variance) > 1
+        ? "HIGH"
+        : "MED";
   return (
     <div
       key={item.id}
@@ -359,14 +390,16 @@ function StockLeakageAlertCard({
         <strong className="text-white text-xs truncate max-w-[180px]">
           {item.materialName}
         </strong>
-        <span className={cn(
-          "px-1.5 py-0.5 rounded text-[9px] font-bold uppercase",
-          severity === "CRITICAL"
-            ? "bg-rose-950 text-rose-300 border border-rose-600/40"
-            : severity === "HIGH"
-            ? "bg-amber-950 text-amber-300 border border-amber-600/40"
-            : "bg-slate-800 text-slate-300 border border-slate-700"
-        )}>
+        <span
+          className={cn(
+            "px-1.5 py-0.5 rounded text-[9px] font-bold uppercase",
+            severity === "CRITICAL"
+              ? "bg-rose-950 text-rose-300 border border-rose-600/40"
+              : severity === "HIGH"
+                ? "bg-amber-950 text-amber-300 border border-amber-600/40"
+                : "bg-slate-800 text-slate-300 border border-slate-700"
+          )}
+        >
           {severity}
         </span>
       </div>
@@ -374,16 +407,28 @@ function StockLeakageAlertCard({
       {/* 3-Column Count Table */}
       <div className="grid grid-cols-3 gap-2 bg-[#0B1222] p-2 rounded-lg text-center text-[11px]">
         <div>
-          <span className="text-[9px] text-slate-400 block uppercase">Physical</span>
-          <strong className="text-white">{item.countedQuantity} {item.materialUnit}</strong>
+          <span className="text-[9px] text-slate-400 block uppercase">
+            Physical
+          </span>
+          <strong className="text-white">
+            {item.countedQuantity} {item.materialUnit}
+          </strong>
         </div>
         <div>
-          <span className="text-[9px] text-slate-400 block uppercase">Ledger</span>
-          <span className="text-slate-300">{item.systemQuantity} {item.materialUnit}</span>
+          <span className="text-[9px] text-slate-400 block uppercase">
+            Ledger
+          </span>
+          <span className="text-slate-300">
+            {item.systemQuantity} {item.materialUnit}
+          </span>
         </div>
         <div>
-          <span className="text-[9px] text-slate-400 block uppercase">Variance</span>
-          <strong className="text-rose-400 font-bold">{item.variance} {item.materialUnit}</strong>
+          <span className="text-[9px] text-slate-400 block uppercase">
+            Variance
+          </span>
+          <strong className="text-rose-400 font-bold">
+            {item.variance} {item.materialUnit}
+          </strong>
         </div>
       </div>
 
@@ -428,16 +473,26 @@ export function ReconciliationView({
   const [filter, setFilter] = useState<OperatorFilter>("all");
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [pendingId, setPendingId] = useState<string | null>(null);
-  const [emergencyLockActive, setEmergencyLockActive] = useState<boolean>(false);
+  const [emergencyLockActive, setEmergencyLockActive] =
+    useState<boolean>(false);
 
   const eatClock = useLiveEATClock();
 
   // Operator clearance rows
   const rows = useMemo<AuditRow[]>(() => audit ?? [], [audit]);
 
-  const pendingBatches = useMemo(() => rows.filter((b) => b.status === "PENDING_CLEARANCE"), [rows]);
-  const clearedBatches = useMemo(() => rows.filter((b) => b.status === "CLEARED"), [rows]);
-  const activeBatches = useMemo(() => rows.filter((b) => b.status === "ACTIVE"), [rows]);
+  const pendingBatches = useMemo(
+    () => rows.filter(b => b.status === "PENDING_CLEARANCE"),
+    [rows]
+  );
+  const clearedBatches = useMemo(
+    () => rows.filter(b => b.status === "CLEARED"),
+    [rows]
+  );
+  const activeBatches = useMemo(
+    () => rows.filter(b => b.status === "ACTIVE"),
+    [rows]
+  );
 
   const filteredRows = useMemo(() => {
     if (filter === "pending") return pendingBatches;
@@ -487,17 +542,20 @@ export function ReconciliationView({
   // Shrinkage / Leakage Alerts from physical reconciliation history
   const leakageAlerts = useMemo(() => {
     if (!history) return [];
-    return history
-      .filter((r) => r.variance < 0)
-      .slice(0, 5);
+    return history.filter(r => r.variance < 0).slice(0, 5);
   }, [history]);
 
   function runAction(action: "approve" | "reject", batch: AuditRow) {
     const note = notes[batch.id]?.trim() || undefined;
     setPendingId(`${action}-${batch.id}`);
-    const mutation = action === "approve"
-      ? approve({ operatorSubStockId: batch.id as Id<"operatorSubStock">, clearanceNote: note, physicalActualRemaining: batch.lastPhysicalCount })
-      : reject({ subStockId: batch.id as Id<"operatorSubStock">, note });
+    const mutation =
+      action === "approve"
+        ? approve({
+            operatorSubStockId: batch.id as Id<"operatorSubStock">,
+            clearanceNote: note,
+            physicalActualRemaining: batch.lastPhysicalCount,
+          })
+        : reject({ subStockId: batch.id as Id<"operatorSubStock">, note });
 
     void mutation
       .then(() => {
@@ -508,7 +566,9 @@ export function ReconciliationView({
         }
       })
       .catch((err: unknown) => {
-        toast.error(err instanceof Error ? err.message : "Clearance action failed");
+        toast.error(
+          err instanceof Error ? err.message : "Clearance action failed"
+        );
       })
       .finally(() => setPendingId(null));
   }
@@ -519,11 +579,16 @@ export function ReconciliationView({
       toast.error("ምንም የሚወርድ የኦዲት መረጃ የለም (No history to export)");
       return;
     }
-    const headers = ["Material,System Qty,Physical Qty,Variance,Monetary Loss (ETB),Counter,Date,Status\n"];
-    const rowsCsv = history.map((r) =>
-      `"${r.materialName}","${r.systemQuantity}","${r.countedQuantity}","${r.variance}","${r.monetaryLoss ?? 0}","${r.countedByName}","${shortDate(r.createdAt)}","${r.status}"`
+    const headers = [
+      "Material,System Qty,Physical Qty,Variance,Monetary Loss (ETB),Counter,Date,Status\n",
+    ];
+    const rowsCsv = history.map(
+      r =>
+        `"${r.materialName}","${r.systemQuantity}","${r.countedQuantity}","${r.variance}","${r.monetaryLoss ?? 0}","${r.countedByName}","${shortDate(r.createdAt)}","${r.status}"`
     );
-    const blob = new Blob([headers.concat(rowsCsv.join("\n")).join("")], { type: "text/csv;charset=utf-8;" });
+    const blob = new Blob([headers.concat(rowsCsv.join("\n")).join("")], {
+      type: "text/csv;charset=utf-8;",
+    });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -535,10 +600,12 @@ export function ReconciliationView({
   }
 
   function toggleEmergencyLock() {
-    setEmergencyLockActive((prev) => {
+    setEmergencyLockActive(prev => {
       const next = !prev;
       if (next) {
-        toast.error("🚨 EMERGENCY FLOOR LOCK ACTIVATED: All floor requisitions frozen.");
+        toast.error(
+          "🚨 EMERGENCY FLOOR LOCK ACTIVATED: All floor requisitions frozen."
+        );
       } else {
         toast.success("Emergency floor lock released.");
       }
@@ -560,7 +627,11 @@ export function ReconciliationView({
   return (
     <div className="bg-[#0B111E] text-slate-100 p-5 rounded-sm border border-[#1A253D] shadow-[0_12px_45px_rgba(0,0,0,0.6)] font-sans space-y-6">
       {/* ── Top Header Banner ─────────────────────────────────────── */}
-      <ReconciliationKPIHeader eatClock={eatClock} canRecord={canRecord} onCount={onCount} />
+      <ReconciliationKPIHeader
+        eatClock={eatClock}
+        canRecord={canRecord}
+        onCount={onCount}
+      />
 
       {/* ── Top 4 KPI Cards Grid ──────────────────────────────────── */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -569,7 +640,11 @@ export function ReconciliationView({
           label="የእቃ ጉድለት ኪሳራ"
           tone="text-[#F43F5E]"
           valueClassName="font-black"
-          value={canSeeFinancial ? etb(summary.totalMonetaryLoss) : `${summary.shortageCounts} Shortages`}
+          value={
+            canSeeFinancial
+              ? etb(summary.totalMonetaryLoss)
+              : `${summary.shortageCounts} Shortages`
+          }
           badge={
             <span className="px-1.5 py-0.5 rounded bg-rose-950/80 text-rose-300 border border-rose-600/50 text-[9px] font-mono font-bold">
               {summary.shortageCounts} CRIT
@@ -588,8 +663,12 @@ export function ReconciliationView({
           label="ማረጋገጫ የሚጠብቁ"
           tone="text-white"
           value={`${pendingBatches.length} Pending`}
-          badge={<span className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_6px_#f59e0b] inline-block" />}
-          footer={<span className="text-amber-300/90">Awaiting Owner Sign-off</span>}
+          badge={
+            <span className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_6px_#f59e0b] inline-block" />
+          }
+          footer={
+            <span className="text-amber-300/90">Awaiting Owner Sign-off</span>
+          }
         />
 
         {/* KPI 3: Stock Assets */}
@@ -600,7 +679,8 @@ export function ReconciliationView({
           icon={<Package size={14} className="text-[#00B4D8]" />}
           footer={
             <span className="text-slate-400 truncate">
-              {stockAssets.rolls} Rolls • {stockAssets.sheets} Acrylic • {stockAssets.liters} Inks
+              {stockAssets.rolls} Rolls • {stockAssets.sheets} Acrylic •{" "}
+              {stockAssets.liters} Inks
             </span>
           }
         />
@@ -610,8 +690,16 @@ export function ReconciliationView({
           label="የጥሬ ዕቃ ምርታማነት"
           tone="text-white"
           value={`${materialYield.totalOutput} / ${materialYield.totalIssued} m²`}
-          badge={<span className="font-mono text-xs font-bold text-emerald-400">{materialYield.yieldPct}%</span>}
-          footer={<span className="text-emerald-400/90">{materialYield.scrapPct}% Floor Scrap</span>}
+          badge={
+            <span className="font-mono text-xs font-bold text-emerald-400">
+              {materialYield.yieldPct}%
+            </span>
+          }
+          footer={
+            <span className="text-emerald-400/90">
+              {materialYield.scrapPct}% Floor Scrap
+            </span>
+          }
         />
       </section>
 
@@ -680,17 +768,22 @@ export function ReconciliationView({
           <div className="space-y-3">
             {filteredRows.length === 0 ? (
               <div className="p-8 text-center text-xs font-mono text-slate-400 bg-[#0B1222] rounded-sm border border-[#1C2A47]">
-                <CheckCircle2 size={20} className="mx-auto text-emerald-400 mb-2" />
+                <CheckCircle2
+                  size={20}
+                  className="mx-auto text-emerald-400 mb-2"
+                />
                 ምንም ማረጋገጫ የሚጠብቅ ባች የለም (No operator floor batches in this state)
               </div>
             ) : (
-              filteredRows.map((batch) => (
+              filteredRows.map(batch => (
                 <OperatorClearanceCard
                   key={batch.id}
                   batch={batch}
                   note={notes[batch.id] ?? ""}
                   busy={pendingId !== null}
-                  onNoteChange={(value) => setNotes((prev) => ({ ...prev, [batch.id]: value }))}
+                  onNoteChange={value =>
+                    setNotes(prev => ({ ...prev, [batch.id]: value }))
+                  }
                   onApprove={() => runAction("approve", batch)}
                   onReject={() => runAction("reject", batch)}
                 />
@@ -733,41 +826,50 @@ export function ReconciliationView({
             <div className="space-y-2.5">
               {leakageAlerts.length === 0 ? (
                 <div className="p-6 text-center text-xs font-mono text-slate-400 bg-[#0B1222] rounded-sm border border-[#1C2A47]">
-                  <CheckCircle2 size={18} className="mx-auto text-emerald-400 mb-1.5" />
+                  <CheckCircle2
+                    size={18}
+                    className="mx-auto text-emerald-400 mb-1.5"
+                  />
                   No open stock shrinkage alerts in store ledger.
                 </div>
               ) : (
-                leakageAlerts.map((item) => (
-                  <StockLeakageAlertCard key={item.id} item={item} canSeeFinancial={canSeeFinancial} />
+                leakageAlerts.map(item => (
+                  <StockLeakageAlertCard
+                    key={item.id}
+                    item={item}
+                    canSeeFinancial={canSeeFinancial}
+                  />
                 ))
               )}
             </div>
 
+            {/* Bottom Actions */}
+            <div className="pt-4 border-t border-[#1C2A47] space-y-2 font-mono">
+              <button
+                type="button"
+                onClick={exportAuditCSV}
+                className="w-full h-10 rounded-lg bg-[#142038] hover:bg-[#1A2947] text-slate-200 border border-[#233559] font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
+              >
+                <Download size={13} />
+                Export Audit CSV (ሪፖርት አውርድ)
+              </button>
 
-          {/* Bottom Actions */}
-          <div className="pt-4 border-t border-[#1C2A47] space-y-2 font-mono">
-            <button
-              type="button"
-              onClick={exportAuditCSV}
-              className="w-full h-10 rounded-lg bg-[#142038] hover:bg-[#1A2947] text-slate-200 border border-[#233559] font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
-            >
-              <Download size={13} />
-              Export Audit CSV (ሪፖርት አውርድ)
-            </button>
-
-            <button
-              type="button"
-              onClick={toggleEmergencyLock}
-              className={cn(
-                "w-full h-10 rounded-lg font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer",
-                emergencyLockActive
-                  ? "bg-rose-700 hover:bg-rose-800 text-white"
-                  : "bg-[#E11D48] hover:bg-[#BE123C] text-white shadow-[0_0_15px_rgba(225,29,72,0.3)]"
-              )}
-            >
-              <ShieldAlert size={14} />
-              {emergencyLockActive ? "Release Emergency Floor Lock" : "Emergency Floor Lock (የማሽን ማቆሚያ)"}
-            </button>
+              <button
+                type="button"
+                onClick={toggleEmergencyLock}
+                className={cn(
+                  "w-full h-10 rounded-lg font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer",
+                  emergencyLockActive
+                    ? "bg-rose-700 hover:bg-rose-800 text-white"
+                    : "bg-[#E11D48] hover:bg-[#BE123C] text-white shadow-[0_0_15px_rgba(225,29,72,0.3)]"
+                )}
+              >
+                <ShieldAlert size={14} />
+                {emergencyLockActive
+                  ? "Release Emergency Floor Lock"
+                  : "Emergency Floor Lock (የማሽን ማቆሚያ)"}
+              </button>
+            </div>
           </div>
         </div>
       </section>
