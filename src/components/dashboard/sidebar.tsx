@@ -14,6 +14,26 @@ import type { Role } from "@/lib/operations-types";
 import type { WorkspaceDefinition } from "./workspace-registry";
 import { cn } from "@/lib/utils";
 
+/**
+ * Determines if a navigation view is active based on the current pathname.
+ * Handles nested routes and workspace-prefixed paths correctly.
+ */
+function isViewActiveForPathname(view: View, pathname: string, href: string): boolean {
+  // Exact match
+  if (pathname === href) return true;
+  
+  // If href is just a view path (no workspace prefix), check if pathname contains it as a segment
+  // e.g., href="/reconciliation", pathname="/dashboard/owner/reconciliation" -> true
+  if (!href.startsWith("/dashboard/") && href !== "/dashboard") {
+    const viewSegment = href.startsWith("/") ? href.slice(1) : href;
+    const segments = pathname.split("/").filter(Boolean);
+    return segments.includes(viewSegment);
+  }
+  
+  // For dashboard-prefixed hrefs, check if pathname starts with href
+  return pathname.startsWith(href);
+}
+
 export function Sidebar({
   activeView,
   onNavigate,
@@ -156,7 +176,7 @@ export function Sidebar({
                 const href = getNavItemHref(item.id, role);
                 const isActive = activeView
                   ? activeView === item.id
-                  : (pathname === href || (href !== "/dashboard" && pathname.startsWith(href)));
+                  : isViewActiveForPathname(item.id, pathname, href);
 
                 return (
                   <Link
