@@ -10,7 +10,8 @@
 | Backend | **Convex 1.25** | Authoritative database, real-time queries, mutations, and scheduled crons (`convex/crons.ts`). All business logic lives here. |
 | Auth | **Better Auth (`@convex-dev/better-auth`)** | Manages staff identities and the `users`/`staff` tables; powers `/sign-in` and `/sign-up` pages; also resolves the signed-in identity for every Convex handler. |
 | Styling | **Tailwind v3.4 + design tokens in `src/app/globals.css`** | Authoritative token set: deep-navy canvases (`--background: 222 47% 11%`), midnight-slate surfaces (`--card: 215 28% 17%`), electric-cyan accents (`--cyan: 199 89% 48%`). |
-| UI primitives | **`src/components/ui/*`** | `Panel`, `PanelHeader`, `Button`, `Badge`, `Input`, `Select`, `StatusPill`, `StatCard`, `TelemetryBar`, `Progress`, `MicroHistogram`, `MetricChart`, `Table`, `Typography` — every dashboard surface composes these. |
+| UI primitives | **`src/components/ui/*`** | `Panel`, `PanelHeader`, `Button`, `Badge`, `Input`, `Select`, `StatusPill`, `StatCard`, `TelemetryBar`, `Progress`, `MicroHistogram`, `MetricChart`, `Table`, `Typography` — every dashboard surface composes these. These are domain-neutral with no Convex or role imports. |
+| Dashboard domains | **`src/components/dashboard/*`** | Domain views and modals are organized under `views/` and `modals/`; shared UI primitives remain in `src/components/ui/*`. |
 | Telegram bot | **grammY (`src/telegram`)** | Long-polling bot over `TELEGRAM_BOT_TOKEN`. Webhook handler is mounted at `/api/telegram`. Sessions back into Convex (`telegramSessions`). |
 | Tauri desktop shell | **Tauri v2 (`src-tauri/`)** | Optional desktop wrapper that loads the existing web app at `http://localhost:3000`; auto-update is registered via `src/components/auto-updater.tsx`. |
 | Cron / schedulers | **`convex/crons.ts` + `ctx.scheduler.runAfter`** | Hourly overdue-order alerts, every-30-minutes order expiry, nightly status-casing migration, plus inline-deferred Telegram pushes and inventory write-backs. |
@@ -25,13 +26,13 @@
 ┌─────────────────────────────────┐    ┌─────────────────────────────────────────┐
 │  Telegram clients (customers)   │    │       Web dashboards (staff)            │
 │  - private chats w/ bot          │    │  - Next.js App Router /dashboard       │
-│  - Telegram Mini App (WebApp)    │    │  - React + Tailwind components          │
-└──────────────────┬──────────────┘    └────────────────────┬──────────────────┘
-                   │                                        │
-                   │ HMAC-SHA256 initData                   │ Better Auth session
+│  - Telegram Mini App (WebApp)    │    │  - Workspace-oriented routing          │
+└──────────────────┬──────────────┘    │  - React + Tailwind components          │
+                   │                                     │  - Dashboard domain components         │
+                   │ HMAC-SHA256 initData  └────────────────────┬──────────────────┘
                    │ Telegram WebApp primary button         │
-                   │                                        │
-                   ▼                                        ▼
+                   │                                        │ Better Auth session
+                   ▼                                        │
         ┌──────────────────────────────────────────────────────────┐
         │           grammY bot webhook + Mini App API              │
         │      /api/telegram  ◄──►  Convex mutations/queries       │
@@ -48,6 +49,17 @@
         │  ─ Single source of truth: stock_movements                │
         └──────────────────────────────────────────────────────────┘
 ```
+
+### 2.1 Workspace-oriented routing
+
+The dashboard uses a canonical workspace routing model defined in `docs/adr/0001-workspace-routing-architecture.md`:
+
+- **Canonical routes**: `/dashboard/[workspace]/...` where `workspace` ∈ `{owner, manager, admin, storekeeper, receptionist, operator}`
+- **Operator routes**: Stable at `/dashboard/operator/[machine]` for `laser`, `cnc`, `plotter`, `printer`
+- **Legacy redirects**: Flat routes (`/orders`, `/inventory`, `/reports`, `/settings`, `/reconciliation`) and the legacy reception route redirect to canonical workspace routes; owner, manager, and storekeeper roots are served directly by the dynamic workspace route
+- **Authorization**: Route contracts in `src/lib/role-routing.ts` define allowed prefixes per workspace; proxy interception in `src/proxy.ts` enforces redirects
+
+The workspace model separates functional operational domains from raw database roles, enabling modular feature loading and scoped layout ownership.
 
 The platform deliberately keeps the React/Next.js server out of the business-logic path: every authoritative decision (creating an order, pricing one, approving clearance, sending a Telegram alert) is a **Convex** call. The Next.js server is responsible only for SSR of the dashboard shell and for the `/api/auth/[...all]` and `/api/telegram` webhook routes.
 

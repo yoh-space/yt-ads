@@ -43,7 +43,8 @@ export default function OperatorMachinePage({
   const router = useRouter();
 
   const profile = useQuery(api.users.getCurrentProfile);
-  const state = useQuery(api.dashboard.getState, profile?.active ? {} : "skip");
+  const machinesQuery = useQuery(api.machines.list, profile?.active ? {} : "skip");
+  const jobsQuery = useQuery(api.jobs.list, profile?.active ? {} : "skip");
   const floorStockQuery = useQuery(api.inventory.listOperatorMachineStock, profile?.active ? {} : "skip");
   const unclearedStockQuery = useQuery(api.inventory.myUnclearedStock, profile?.active ? {} : "skip");
 
@@ -57,7 +58,7 @@ export default function OperatorMachinePage({
   const [outputQuantity, setOutputQuantity] = useState<number>(0);
   const [wasteQuantity, setWasteQuantity] = useState<number>(0);
 
-  if (!profile || !state) {
+  if (!profile || machinesQuery === undefined || jobsQuery === undefined) {
     return (
       <div className="flex min-h-[400px] items-center justify-center">
         <InventoryLoader label={`የ${machineParam.toUpperCase()} ኦፕሬተር ገጽ በመጫን ላይ…`} />
@@ -65,8 +66,8 @@ export default function OperatorMachinePage({
     );
   }
 
-  const machines = withIds(state.machines) as Machine[];
-  const jobs = withIds(state.jobs) as JobCard[];
+  const machines = withIds(machinesQuery) as Machine[];
+  const jobs = withIds(jobsQuery) as JobCard[];
 
   // Find machine matching slug (e.g. "laser", "cnc", "plotter", "printer")
   const currentMachine =

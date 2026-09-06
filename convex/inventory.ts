@@ -36,6 +36,18 @@ function conversionFactorFor(item: {
     : 1;
 }
 
+function conversionRatioForParent(
+  material: { name: string; baseUnit?: string; unit: string; purchaseUnit?: string; conversionRatio?: number; rollEquivalent?: number; sheetEquivalent?: number },
+  parent: { unitType: "ROLL" | "SHEET" | "LITER"; lengthPerRoll?: number; areaPerSheet?: number; volumePerContainer?: number },
+  config: Awaited<ReturnType<typeof ensureSystemConfig>>,
+  purchaseUnit: string,
+) {
+  const explicit = parent.unitType === "ROLL" ? parent.lengthPerRoll : parent.unitType === "SHEET" ? parent.areaPerSheet : parent.volumePerContainer;
+  return explicit && explicit > 0
+    ? explicit
+    : resolveConversionRatio(material, config, purchaseUnit) ?? (purchaseUnit === "roll" ? material.rollEquivalent : purchaseUnit === "sheet" ? material.sheetEquivalent : material.conversionRatio) ?? (purchaseUnit === "liter" ? 1 : null);
+}
+
 export const listParentInventory = query({
   args: {},
   handler: async (ctx) => {
@@ -94,9 +106,9 @@ export const upsertParentInventoryItem = mutation({
       await ctx.db.patch(existing._id, patch);
       const delta = Number((args.totalStockQuantity - existing.totalStockQuantity).toFixed(3));
       if (delta !== 0) {
-        const config = await ensureSystemConfig(ctx, identity._id);
         const purchaseUnit = args.unitType === "ROLL" ? "roll" : args.unitType === "SHEET" ? "sheet" : "liter";
         const baseUnit = material.baseUnit ?? material.unit;
+        const config = await ensureSystemConfig(ctx, identity._id);
         const ratio = conversionRatioForParent(material, patch, config, purchaseUnit);
         if (ratio === null) throw new Error("Set a positive conversion ratio before adjusting parent stock.");
         await recordInventoryEvent(ctx, {
@@ -120,9 +132,9 @@ export const upsertParentInventoryItem = mutation({
     }
     const id = await ctx.db.insert("parentInventory", { ...patch, materialId: args.materialId, totalStockQuantity: 0 });
     if (args.totalStockQuantity > 0) {
-      const config = await ensureSystemConfig(ctx, identity._id);
       const purchaseUnit = args.unitType === "ROLL" ? "roll" : args.unitType === "SHEET" ? "sheet" : "liter";
       const baseUnit = material.baseUnit ?? material.unit;
+      const config = await ensureSystemConfig(ctx, identity._id);
       const ratio = conversionRatioForParent(material, patch, config, purchaseUnit);
       if (ratio === null) throw new Error("Set a positive conversion ratio before adding parent stock.");
       await recordInventoryEvent(ctx, {
@@ -145,18 +157,6 @@ export const upsertParentInventoryItem = mutation({
     return id;
   },
 });
-
-function conversionRatioForParent(
-  material: { name: string; baseUnit?: string; unit: string; purchaseUnit?: string; conversionRatio?: number; rollEquivalent?: number; sheetEquivalent?: number },
-  parent: { unitType: "ROLL" | "SHEET" | "LITER"; lengthPerRoll?: number; areaPerSheet?: number; volumePerContainer?: number },
-  config: Awaited<ReturnType<typeof ensureSystemConfig>>,
-  purchaseUnit: string,
-) {
-  const explicit = parent.unitType === "ROLL" ? parent.lengthPerRoll : parent.unitType === "SHEET" ? parent.areaPerSheet : parent.volumePerContainer;
-  return explicit && explicit > 0
-    ? explicit
-    : resolveConversionRatio(material, config, purchaseUnit) ?? (purchaseUnit === "roll" ? material.rollEquivalent : purchaseUnit === "sheet" ? material.sheetEquivalent : material.conversionRatio) ?? (purchaseUnit === "liter" ? 1 : null);
-}
 
 /**
  * Tier 1 → tier 2 transfer: the storekeeper issues whole packaging units from
@@ -184,9 +184,9 @@ export const issueStockToOperator = mutation({
     if (args.units > item.totalStockQuantity) {
       throw new Error(`Insufficient ${material.name} in the central store — ${item.totalStockQuantity} ${item.unitType} available.`);
     }
-    const config = await ensureSystemConfig(ctx, identity._id);
     const purchaseUnit = item.unitType === "ROLL" ? "roll" : item.unitType === "SHEET" ? "sheet" : "liter";
-    const factor = conversionFactorFor(item) ?? resolveConversionRatio(material, config, purchaseUnit);
+    const config = await ensureSystemConfig(ctx, identity._id);
+    const factor = conversionFactorFor(item) ?? conversionRatioForParent(material, item, config, purchaseUnit);
     if (factor === undefined || factor === null || factor <= 0) {
       throw new Error(`Set the ${item.unitType === "ROLL" ? "length per roll" : "area per sheet"} conversion factor before issuing stock.`);
     }

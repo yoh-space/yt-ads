@@ -1,21 +1,28 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { InventoryLoader } from "@/components/dashboard/inventory-loader";
-import ReceptionWorkspace from "@/components/dashboard/reception/reception-workspace";
 
-export default function ReceptionDashboardPage() {
+export default function LegacyReceptionRedirectPage() {
+  const router = useRouter();
   const profile = useQuery(api.users.getCurrentProfile);
-  const ordersQuery = useQuery(api.orders.list, profile?.active ? {} : "skip");
 
-  if (!profile || ordersQuery === undefined) {
-    return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <InventoryLoader label="Loading Reception Order Desk…" />
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (profile === undefined) return;
+    if (!profile || !profile.active) {
+      router.replace("/sign-in?redirect=/dashboard/reception");
+      return;
+    }
 
-  return <ReceptionWorkspace profile={profile} ordersQuery={ordersQuery} />;
+    router.replace("/dashboard/receptionist");
+  }, [profile, router]);
+
+  return (
+    <div className="flex min-h-[400px] items-center justify-center">
+      <InventoryLoader label="Redirecting to Reception Workspace…" />
+    </div>
+  );
 }

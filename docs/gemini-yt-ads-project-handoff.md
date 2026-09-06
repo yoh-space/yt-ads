@@ -264,7 +264,11 @@ Do not replace the existing style with a generic admin template without explicit
 The shell is implemented mainly in:
 
 ```text
-components/dashboard/operations-dashboard.tsx
+components/dashboard/dashboard-shell.tsx
+components/dashboard/owner/owner-workspace.tsx
+components/dashboard/manager/manager-workspace.tsx
+components/dashboard/reception/reception-workspace.tsx
+components/dashboard/storekeeper/storekeeper-workspace.tsx
 components/dashboard/sidebar.tsx
 components/dashboard/topbar.tsx
 components/dashboard/user-menu.tsx
@@ -689,7 +693,8 @@ Do not claim a feature is deployed merely because `pnpm build` passes. Distingui
 | `convex/reports.ts` | Weekly, bi-weekly, and monthly summary aggregation |
 | `convex/audit.ts` | Derived activity feed, not a dedicated audit table |
 | `convex/dashboard.ts` | Aggregate reactive dashboard state query |
-| `components/dashboard/operations-dashboard.tsx` | Main authenticated dashboard orchestration and mutation wiring |
+| `components/dashboard/dashboard-shell.tsx` | Authenticated dashboard shell, layout, and global modal wiring |
+| `components/dashboard/*/*-workspace.tsx` | Role/workspace-specific dashboard orchestration |
 | `components/dashboard/sidebar.tsx` | Navigation, branding, responsive sidebar, settings entry |
 | `components/dashboard/topbar.tsx` | Header, breadcrumb, search placeholder, notification bell, user menu |
 | `components/dashboard/user-menu.tsx` | Account settings and sign-out popover |

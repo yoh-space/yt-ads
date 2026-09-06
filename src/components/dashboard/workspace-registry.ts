@@ -1,9 +1,10 @@
 import type { Role } from "@/lib/operations-types";
 import type { AccessContext, Capability } from "@/lib/access-policy";
 import { canAccess } from "@/lib/access-policy";
+import type { WorkspaceId } from "@/lib/role-routing";
 import type { View } from "./nav-config";
 
-export type WorkspaceId = "owner" | "manager" | "admin" | "storekeeper" | "receptionist" | "operator";
+export type { WorkspaceId };
 export type WorkspacePlacement = "primary" | "secondary" | "footer";
 
 export type WorkspaceModule = {

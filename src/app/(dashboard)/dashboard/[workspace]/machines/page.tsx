@@ -10,7 +10,7 @@ import { MachineModal, type NewMachineInput } from "@/components/dashboard/modal
 import { MachineEditModal, type MachineEditInput } from "@/components/dashboard/modals/machine-edit-modal";
 import { MachineSettingsModal } from "@/components/dashboard/modals/machine-settings-modal";
 import { useSafeMutation } from "@/components/dashboard/pending-store";
-import type { JobCard, Machine, MachineStatus, Material } from "@/lib/operations-types";
+import type { JobCard, Machine } from "@/lib/operations-types";
 
 type WithId<T extends { _id: string }> = Omit<T, "_id"> & { id: T["_id"] };
 
@@ -18,9 +18,11 @@ function withIds<T extends { _id: string }>(docs: T[]): WithId<T>[] {
   return docs.map(({ _id, ...rest }) => ({ ...rest, id: _id }));
 }
 
-export default function OwnerMachinesPage() {
+export default function WorkspaceMachinesPage() {
   const profile = useQuery(api.users.getCurrentProfile);
-  const state = useQuery(api.dashboard.getState, profile?.active ? {} : "skip");
+  const machinesQuery = useQuery(api.machines.list, profile?.active ? {} : "skip");
+  const jobsQuery = useQuery(api.jobs.list, profile?.active ? {} : "skip");
+
   const createMachine = useMutation(api.machines.create);
   const updateMachineStatus = useMutation(api.machines.updateStatus);
   const updateMachine = useMutation(api.machines.update);
@@ -32,12 +34,12 @@ export default function OwnerMachinesPage() {
   const [settingsMachine, setSettingsMachine] = useState<Machine | null>(null);
   const [editMachine, setEditMachine] = useState<Machine | null>(null);
 
-  if (!profile || !state) {
+  if (!profile || machinesQuery === undefined || jobsQuery === undefined) {
     return <div className="flex min-h-[400px] items-center justify-center"><InventoryLoader label="Loading Machines…" /></div>;
   }
 
-  const machines = withIds(state.machines) as Machine[];
-  const jobs = withIds(state.jobs) as JobCard[];
+  const machines = withIds(machinesQuery) as Machine[];
+  const jobs = withIds(jobsQuery) as JobCard[];
 
   return (
     <>

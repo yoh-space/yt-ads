@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import {
-  getRoleHomeRoute,
+  getLegacyRouteRedirect,
   isPublicRoute,
+  isRedirectLoop,
   isRouteAllowedForRole,
   isValidRole,
 } from "./lib/role-routing";
@@ -96,42 +97,13 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(signInUrl);
   }
 
-  const roleHome = getRoleHomeRoute(role);
-
-  // 4. Root /dashboard dispatch: route to specific role landing page
-  if (pathname === "/dashboard" || pathname === "/dashboard/") {
-    const redirectUrl = new URL(roleHome, request.url);
-    const response = NextResponse.redirect(redirectUrl);
-    response.cookies.set(COOKIE_ROLE_NAME, role, {
-      path: "/",
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 7,
-    });
-    return response;
-  }
-
-  // 5. Root /inventory dispatch: route storekeeper to parent, operators to substock
-  if (pathname === "/inventory" || pathname === "/inventory/") {
-    const target =
-      role === "storekeeper"
-        ? "/inventory/parent"
-        : ["laser_operator", "cnc_operator", "plotter_operator", "printer_operator"].includes(role)
-          ? "/inventory/substock"
-          : "/inventory/parent";
-    const redirectUrl = new URL(target, request.url);
-    const response = NextResponse.redirect(redirectUrl);
-    response.cookies.set(COOKIE_ROLE_NAME, role, {
-      path: "/",
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 7,
-    });
-    return response;
-  }
-
-  // 6. Access Authorization Guard: block unauthorized route attempts
-  if (!isRouteAllowedForRole(role, pathname)) {
-    const redirectUrl = new URL(roleHome, request.url);
-    redirectUrl.searchParams.set("unauthorized", "1");
+  // 4. Resolve route redirects (root /dashboard, /inventory, unauthorized paths) via unified contract
+  const redirectTarget = getLegacyRouteRedirect(pathname, role);
+  if (redirectTarget && !isRedirectLoop(pathname, redirectTarget)) {
+    const redirectUrl = new URL(redirectTarget, request.url);
+    if (!isRouteAllowedForRole(role, pathname)) {
+      redirectUrl.searchParams.set("unauthorized", "1");
+    }
     const response = NextResponse.redirect(redirectUrl);
     response.cookies.set(COOKIE_ROLE_NAME, role, {
       path: "/",

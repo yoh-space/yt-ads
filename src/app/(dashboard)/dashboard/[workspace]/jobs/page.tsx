@@ -14,13 +14,16 @@ function withIds<T extends { _id: string }>(docs: T[]): WithId<T>[] {
   return docs.map(({ _id, ...rest }) => ({ ...rest, id: _id }));
 }
 
-export default function OwnerJobsPage() {
+export default function WorkspaceJobsPage() {
   const profile = useQuery(api.users.getCurrentProfile);
-  const state = useQuery(api.dashboard.getState, profile?.active ? {} : "skip");
+  const jobsQuery = useQuery(api.jobs.list, profile?.active ? {} : "skip");
+  const machinesQuery = useQuery(api.machines.list, profile?.active ? {} : "skip");
+  const materialsQuery = useQuery(api.materials.list, profile?.active ? {} : "skip");
+
   const completeJob = useMutation(api.jobs.complete);
   const { safeMutation } = useSafeMutation();
 
-  if (!profile || !state) {
+  if (!profile || jobsQuery === undefined || machinesQuery === undefined || materialsQuery === undefined) {
     return (
       <div className="flex min-h-[400px] items-center justify-center">
         <InventoryLoader label="Loading Job Cards…" />
@@ -28,9 +31,9 @@ export default function OwnerJobsPage() {
     );
   }
 
-  const jobs = withIds(state.jobs) as JobCard[];
-  const machines = withIds(state.machines) as Machine[];
-  const materials = withIds(state.materials) as Material[];
+  const jobs = withIds(jobsQuery) as JobCard[];
+  const machines = withIds(machinesQuery) as Machine[];
+  const materials = withIds(materialsQuery) as Material[];
 
   return (
     <JobsView

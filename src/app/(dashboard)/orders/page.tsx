@@ -1,87 +1,37 @@
 "use client";
 
-import { useMutation, useQuery } from "convex/react";
-import { toast } from "sonner";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import type { Id } from "@/convex/_generated/dataModel";
-import { OrdersView } from "@/components/dashboard/views/orders";
 import { InventoryLoader } from "@/components/dashboard/inventory-loader";
-import { useSafeMutation } from "@/components/dashboard/pending-store";
-import { useDashboardModal } from "@/components/dashboard/modal-context";
+import { getRoleHomeRoute, getWorkspaceForRole } from "@/lib/role-routing";
 import { hasPermission } from "@/lib/permissions";
-import type { CustomerOrder, CustomerOrderStatus, Machine, Material, Role } from "@/lib/operations-types";
 
-type WithId<T extends { _id: string }> = Omit<T, "_id"> & { id: T["_id"] };
-
-function withIds<T extends { _id: string }>(docs: T[]): WithId<T>[] {
-  return docs.map((doc) => {
-    const { _id, ...rest } = doc;
-    return { ...rest, id: _id };
-  });
-}
-
-export default function OrdersPage() {
+export default function LegacyOrdersRedirectPage() {
+  const router = useRouter();
   const profile = useQuery(api.users.getCurrentProfile);
-  const state = useQuery(api.dashboard.getState, profile?.active ? {} : "skip");
-  const ordersQuery = useQuery(api.orders.list, profile?.active ? {} : "skip");
 
-  const { isPending, safeMutation } = useSafeMutation();
-  const { openModal, setConvertOrderTarget } = useDashboardModal();
+  useEffect(() => {
+    if (profile === undefined) return;
+    if (!profile || !profile.active) {
+      router.replace("/sign-in?redirect=/orders");
+      return;
+    }
 
-  const updateOrderStatus = useMutation(api.orders.setStatus);
+    const canViewOrders = hasPermission(profile.role, "order.view");
+    if (!canViewOrders) {
+      router.replace(getRoleHomeRoute(profile.role));
+      return;
+    }
 
-  if (!profile || !state || ordersQuery === undefined) {
-    return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <InventoryLoader label="Loading Customer Orders Queue…" />
-      </div>
-    );
-  }
-
-  const role: Role = profile.role;
-  const orders = withIds(ordersQuery) as CustomerOrder[];
-  const machines = withIds(state.machines) as Machine[];
-  const materials = withIds(state.materials) as Material[];
-
-  const canManage = hasPermission(role, "order.manage");
-  const canCreateOrder = hasPermission(role, "order.create");
+    const workspace = getWorkspaceForRole(profile.role);
+    router.replace(`/dashboard/${workspace}/orders`);
+  }, [profile, router]);
 
   return (
-    <div className="space-y-6">
-      <div className="border-b border-[#1E293B] pb-5">
-        <span className="font-mono text-xs uppercase tracking-widest text-[#00B4D8]">
-          Customer Intake & Fulfillment
-        </span>
-        <h1 className="text-2xl font-bold tracking-tight text-white mt-0.5">
-          Customer Orders Queue
-        </h1>
-        <p className="text-xs text-slate-400 mt-1">
-          {role === "receptionist"
-            ? "Reception order desk. Telegram credentials (TIN, Company, PIN) and artwork intake. Billing handled externally via POS."
-            : "Review client specifications, price orders, confirm payments, and issue job cards."}
-        </p>
-      </div>
-
-      <OrdersView
-        orders={orders}
-        machines={machines}
-        materials={materials}
-        canManage={canManage}
-        canCreateOrder={canCreateOrder}
-        onConvert={(order) => setConvertOrderTarget(order)}
-        onStatus={(orderId, status) => {
-          void safeMutation(
-            `order-status-${orderId}`,
-            updateOrderStatus({
-              orderId: orderId as Id<"customerOrders">,
-              status: status as CustomerOrderStatus,
-            }),
-            () => toast.success(`Order status changed to ${status}`)
-          );
-        }}
-        onCreateOrder={() => openModal("order")}
-        isPending={isPending}
-      />
+    <div className="flex min-h-[400px] items-center justify-center">
+      <InventoryLoader label="Redirecting to Workspace Orders Queue…" />
     </div>
   );
 }

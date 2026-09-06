@@ -28,18 +28,18 @@ export default function OperatorReconciliationPage({
 }) {
   const { machine: machineParam } = use(params);
   const profile = useQuery(api.users.getCurrentProfile);
-  const state = useQuery(api.dashboard.getState, profile?.active ? {} : "skip");
+  const machinesQuery = useQuery(api.machines.list, profile?.active ? {} : "skip");
   const stock = useQuery(api.inventory.listOperatorMachineStock, profile?.active ? {} : "skip");
   const reconcile = useMutation(api.inventory.performWeeklyReconciliation);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
 
-  if (!profile || !state || stock === undefined) {
+  if (!profile || machinesQuery === undefined || stock === undefined) {
     return <div className="flex min-h-[400px] items-center justify-center"><InventoryLoader label="Loading Stock Reconciliation…" /></div>;
   }
 
-  const machines = withIds(state.machines) as Machine[];
+  const machines = withIds(machinesQuery) as Machine[];
   const machine = machines.find((entry) => entry.type.toLowerCase().includes(machineParam.toLowerCase()) || entry.code.toLowerCase().includes(machineParam.toLowerCase()));
   const machineStock = stock.filter((entry) => entry.machineId === machine?.id && entry.status === "ACTIVE");
   const accessContext: AccessContext = {

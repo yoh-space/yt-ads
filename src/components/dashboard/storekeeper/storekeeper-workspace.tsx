@@ -53,7 +53,7 @@ function csvCell(value: string | number) {
   return `"${String(value).replaceAll('"', '""')}"`;
 }
 
-export default function StorekeeperDashboardPage() {
+export default function StorekeeperWorkspace() {
   const router = useRouter();
   const profile = useQuery(api.users.getCurrentProfile);
   const isActive = profile?.active === true;

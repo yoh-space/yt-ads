@@ -6,8 +6,7 @@ import { DashboardAccessDenied } from "@/components/dashboard/access-denied";
 import { InventoryLoader } from "@/components/dashboard/inventory-loader";
 import { OperationalConfigView } from "@/components/dashboard/views/operational-config";
 
-/** Owner / admin-only operational configuration workspace. */
-export default function OperationalConfigPage() {
+export default function WorkspaceOperationalConfigPage() {
   const profile = useQuery(api.users.getCurrentProfile);
 
   if (!profile) {
