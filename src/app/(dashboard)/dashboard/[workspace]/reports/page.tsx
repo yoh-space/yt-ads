@@ -12,7 +12,7 @@ export default function WorkspaceReportsPage() {
   if (!profile) {
     return (
       <div className="flex min-h-[400px] items-center justify-center">
-        <InventoryLoader label="የፖርቶች መረጃ በመጫን ላይ…" />
+        <InventoryLoader label="Loading Executive Reports…" />
       </div>
     );
   }
@@ -27,7 +27,7 @@ export default function WorkspaceReportsPage() {
           የስራ ትንታኔ እና መረጃ
         </span>
         <h1 className="text-2xl font-bold tracking-tight text-white mt-0.5">
-          የፖርቶች ሪፖርቶች እና የምርት መጠን
+          Executive ሪፖርቶች እና የምርት መጠን
         </h1>
         <p className="text-xs text-slate-400 mt-1">
           የጊዜ ሰንጠረዥ፣ የእቃ ተጠቀም፣ የማሽን ተግባርነት እና የቅሪት መጠን።
