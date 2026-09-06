@@ -18,24 +18,43 @@ import { cn } from "@/lib/utils";
  * Determines if a navigation view is active based on the current pathname.
  * Handles nested routes and workspace-prefixed paths correctly.
  */
-function isViewActiveForPathname(pathname: string, href: string): boolean {
-  // Exact match
-  if (pathname === href) return true;
+export function isViewActiveForPathname(pathname: string, href: string): boolean {
+  const p = pathname.replace(/\/+$/, "");
+  const h = href.replace(/\/+$/, "");
 
-  // If href is just a view path (no workspace prefix), check if pathname contains it as a segment
-  // e.g., href="/reconciliation", pathname="/dashboard/owner/reconciliation" -> true
-  if (!href.startsWith("/dashboard/") && href !== "/dashboard") {
-    const viewSegment = href.startsWith("/") ? href.slice(1) : href;
-    const segments = pathname.split("/").filter(Boolean);
-    return segments.includes(viewSegment);
+  if (p === h) return true;
+
+  if (h.startsWith("/dashboard/")) {
+    const hSegments = h.split("/").filter(Boolean);
+    const isRoot =
+      hSegments.length === 2 ||
+      (hSegments.length === 3 && hSegments[1] === "operator");
+
+    if (isRoot) return false;
+    return p.startsWith(h + "/");
   }
 
-  // For dashboard-prefixed hrefs (workspace routes), only match if:
-  // 1. pathname is exactly the href, OR
-  // 2. pathname starts with href/ (i.e., href is a prefix followed by more segments)
-  // This prevents matching nested pages under a workspace as the workspace root
-  if (href.startsWith("/dashboard/")) {
-    return pathname === href || pathname.startsWith(href + "/");
+  if (h !== "/dashboard") {
+    const hSegments = h.split("/").filter(Boolean);
+
+    if (hSegments.length === 1) {
+      const segments = p.split("/").filter(Boolean);
+      return segments.includes(hSegments[0]);
+    }
+
+    const pSegments = p.split("/").filter(Boolean);
+    if (pSegments[0] !== "dashboard" || pSegments.length < 2) return false;
+
+    const workspaceId = pSegments[1];
+    const bases = ["/dashboard/" + workspaceId];
+    if (workspaceId === "operator" && pSegments.length >= 3) {
+      bases.push("/dashboard/operator/" + pSegments[2]);
+    }
+
+    for (const base of bases) {
+      const scopedHref = base + h;
+      if (p === scopedHref || p.startsWith(scopedHref + "/")) return true;
+    }
   }
 
   return false;

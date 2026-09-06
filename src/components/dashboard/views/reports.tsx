@@ -44,7 +44,7 @@ const periods: PeriodOption[] = [
   { id: "weekly", label: "ሳምንታዊ", english: "Weekly" },
   { id: "biweekly", label: "የሁለት ሳምንት", english: "Bi-Weekly" },
   { id: "monthly", label: "ወርሃዊ", english: "Monthly" },
-  { id: "custom", label: "ብጁ ጊዜ", english: "Custom Range" },
+  { id: "custom", label: "ጊዜ ይምረጡ", english: "Custom Range" },
 ];
 
 function formatCurrency(n: number) {
