@@ -227,8 +227,8 @@ function OperatorClearanceCard({
       {/* 4 Metric Blocks */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono">
         <div className="bg-[#0B1222] border border-[#1C2A47] p-2.5 rounded-lg">
-          <span className="text-[9px] uppercase tracking-wider text-slate-400 block">
-            የተረከበው (ISSUED)
+          <span className="text-[10px] uppercase tracking-wider text-slate-400 block">
+            የተረከበው
           </span>
           <strong className="text-xs font-bold text-white block mt-0.5">
             {formatQuantity(batch.issuedQuantity, batch.baseUnit as Unit)}
@@ -239,8 +239,8 @@ function OperatorClearanceCard({
         </div>
 
         <div className="bg-[#0B1222] border border-[#1C2A47] p-2.5 rounded-lg">
-          <span className="text-[9px] uppercase tracking-wider text-slate-400 block">
-            ያመረተው (OUTPUT)
+          <span className="text-[10px] uppercase tracking-wider text-slate-400 block">
+            ያመረተው
           </span>
           <strong className="text-xs font-bold text-emerald-400 block mt-0.5">
             {formatQuantity(batch.producedOutput, batch.baseUnit as Unit)}
@@ -251,8 +251,8 @@ function OperatorClearanceCard({
         </div>
 
         <div className="bg-[#0B1222] border border-[#1C2A47] p-2.5 rounded-lg">
-          <span className="text-[9px] uppercase tracking-wider text-slate-400 block">
-            ስክራፕ (SCRAP LOG / OFFCUTS)
+          <span className="text-[10px] uppercase tracking-wider text-slate-400 block">
+            የማያገለግል ቁራጭ
           </span>
           <strong className="text-xs font-bold text-slate-200 block mt-0.5">
             {formatQuantity(batch.scrapQuantity, batch.baseUnit as Unit)} ({batch.wastePercent}%)
@@ -285,7 +285,7 @@ function OperatorClearanceCard({
       {/* Metadata Badges */}
       <div className="flex flex-wrap items-center gap-2 pt-0.5 text-[11px] font-mono">
         <span className="inline-flex items-center gap-1 text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-800/40">
-          <CheckCircle2 size={11} /> ስክራፕ ተፈትሿል (Scrap Inspected)
+          <CheckCircle2 size={11} /> ስክራፕ ተፈትሿል
         </span>
         {hasDiscrepancy ? (
           <span className="inline-flex items-center gap-1 text-amber-400 bg-amber-950/40 px-2 py-0.5 rounded border border-amber-800/40">
@@ -333,7 +333,7 @@ function OperatorClearanceCard({
             <CheckCircle2 size={13} /> Cleared by Owner · Authorization Confirmed
           </span>
           <span className="text-cyan-300 font-bold uppercase tracking-wider text-[10px]">
-            NEW JOBS UNLOCKED
+            አዲስ እቃ ጥየቃ ተፈቅዶለታል
           </span>
         </div>
       ) : null}
@@ -566,7 +566,7 @@ export function ReconciliationView({
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {/* KPI 1: Shortage Loss */}
         <KpiCard
-          label="የእቃ ጉድለት ኪሳራ (SHORTAGE LOSS)"
+          label="የእቃ ጉድለት ኪሳራ"
           tone="text-[#F43F5E]"
           valueClassName="font-black"
           value={canSeeFinancial ? etb(summary.totalMonetaryLoss) : `${summary.shortageCounts} Shortages`}
@@ -585,7 +585,7 @@ export function ReconciliationView({
 
         {/* KPI 2: Floor Hold */}
         <KpiCard
-          label="ማረጋገጫ የሚጠብቁ (FLOOR HOLD)"
+          label="ማረጋገጫ የሚጠብቁ"
           tone="text-white"
           value={`${pendingBatches.length} Pending`}
           badge={<span className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_6px_#f59e0b] inline-block" />}
@@ -594,7 +594,7 @@ export function ReconciliationView({
 
         {/* KPI 3: Stock Assets */}
         <KpiCard
-          label="የዋና ስቶር ክምችት (STOCK ASSETS)"
+          label="የዋና ስቶር ክምችት"
           tone="text-white"
           value={`${stockAssets.total} Units`}
           icon={<Package size={14} className="text-[#00B4D8]" />}
@@ -607,7 +607,7 @@ export function ReconciliationView({
 
         {/* KPI 4: Material Yield */}
         <KpiCard
-          label="የጥሬ ዕቃ ምርታማነት (MATERIAL YIELD)"
+          label="የጥሬ ዕቃ ምርታማነት"
           tone="text-white"
           value={`${materialYield.totalOutput} / ${materialYield.totalIssued} m²`}
           badge={<span className="font-mono text-xs font-bold text-emerald-400">{materialYield.yieldPct}%</span>}
@@ -743,23 +743,6 @@ export function ReconciliationView({
               )}
             </div>
 
-            {/* Reconciliation Chain of Custody Timeline */}
-            <div className="pt-2 border-t border-[#1C2A47] space-y-2">
-              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block">
-                RECONCILIATION CHAIN OF CUSTODY
-              </span>
-              <div className="space-y-1.5 font-mono text-[11px] text-slate-300">
-                <div className="flex items-start gap-2">
-                  <span className="text-[#00B4D8] font-bold">15:30</span>
-                  <p className="m-0 text-slate-300">Shift handover count verified by Storekeeper Zewuditu.</p>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="text-[#00B4D8] font-bold">14:10</span>
-                  <p className="m-0 text-slate-300">High-density vinyl discrepancy auto-flagged by telemetry.</p>
-                </div>
-              </div>
-            </div>
-          </div>
 
           {/* Bottom Actions */}
           <div className="pt-4 border-t border-[#1C2A47] space-y-2 font-mono">
