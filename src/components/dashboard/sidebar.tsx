@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
  * Determines if a navigation view is active based on the current pathname.
  * Handles nested routes and workspace-prefixed paths correctly.
  */
-function isViewActiveForPathname(view: View, pathname: string, href: string): boolean {
+function isViewActiveForPathname(pathname: string, href: string): boolean {
   // Exact match
   if (pathname === href) return true;
 
@@ -183,7 +183,7 @@ export function Sidebar({
                 const href = getNavItemHref(item.id, role);
                 const isActive = activeView
                   ? activeView === item.id
-                  : isViewActiveForPathname(item.id, pathname, href);
+                  : isViewActiveForPathname(pathname, href);
 
                 return (
                   <Link
