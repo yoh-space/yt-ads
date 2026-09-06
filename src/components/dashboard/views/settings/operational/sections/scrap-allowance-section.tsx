@@ -69,8 +69,8 @@ export function ScrapAllowanceSection({
     <FormSection
       icon={<Recycle size={17} />}
       tone="violet"
-      title="Scrap Allowances"
-      note="Override accepted scrap levels per material source."
+      title="የብክነት ህግ"
+      note="በእያንዳንዱ ዕቃ ምንጭ የሚቀበሉ የብክነት መጠን ማስተካከያ።"
     >
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <NumericField

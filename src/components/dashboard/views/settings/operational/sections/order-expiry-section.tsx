@@ -16,8 +16,8 @@ export function OrderExpirySection({
     <FormSection
       icon={<Clock3 size={17} />}
       tone="navy"
-      title="Order Management Settings"
-      note="Configure automated order expiration and customer notifications."
+      title="የደንበኞች ትዕዛዝ አስተዳደር"
+      note="የትዕዛዝ ጊዜ ማለቂያ እና የማዘጋጃ ደንቦች።"
     >
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <NumericField

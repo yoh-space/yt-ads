@@ -66,8 +66,8 @@ export function OverrideSection({
     <FormSection
       icon={<Cog size={17} />}
       tone="cyan"
-      title="Individual Material Custom Price Overrides"
-      note="Override the unit rate for high-value materials."
+      title="የእቃ ዋጋ ማስተካከያ"
+      note="ለከፍተኛ ዋጋ ያላቸው ዕቃዎች የክፍል ዋጋ ማስተካከያ።"
     >
       {overrides.length > 0 ? (
         <div className="space-y-2">

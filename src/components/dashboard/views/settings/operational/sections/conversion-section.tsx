@@ -28,8 +28,8 @@ export function ConversionSection({
     <FormSection
       icon={<Scale size={17} />}
       tone="cyan"
-      title="Unit Conversion Defaults"
-      note="Owner-governed rates apply to new stock handovers; historical ledger events keep their original rate."
+      title="base unit conversion ደንቦች"
+      note="በባለቤት ትእዛዝ ደንቦች አዲስ ስቶክ ማስተካከያ ይፈጸማል"
     >
       <div className="space-y-3">
         {rules.map((rule, index) => (

@@ -33,8 +33,8 @@ export function ValuationSection({
     <FormSection
       icon={<CircleDollarSign size={17} />}
       tone="gold"
-      title="ETB Valuation Rates"
-      note="Used by reconciliation & loss calculations when a material has no explicit price."
+      title="የዕቃዎች ዋጋ ተመን"
+      note="የጥሬ ዕቃዎች ነባሪ የመሸጫ እና የግዢ ዋጋ ማስተካከያ።"
     >
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <NumericField

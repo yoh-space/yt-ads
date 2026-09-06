@@ -20,8 +20,8 @@ export function RiskSection({
     <FormSection
       icon={<ShieldAlert size={17} />}
       tone="coral"
-      title="Risk & Theft Prevention Controls"
-      note="Direct exception stock-outs are the largest leakage vector — tighten as needed."
+      title="የደህንነት እና ቁጥጥር ህጎች"
+      note="የዕቃ መጥፋት እና የስቶክ ልዩነት መከላከያ ደንቦች።"
     >
       <div className="space-y-4">
         <label className="flex items-center justify-between gap-4 rounded-lg border border-border bg-navy/20 px-4 py-3.5">

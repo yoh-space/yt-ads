@@ -24,8 +24,8 @@ export function ProductionSection({
     <FormSection
       icon={<Settings2 size={17} />}
       tone="blue"
-      title="Production Engine Rules"
-      note="Drives automatic ink deduction and waste/offcut thresholds."
+      title="የምርት ማሽኖች አጠቃቀም ህጎች"
+      note="በምርት ጊዜ ውስጥ የሚፈቀዱ የብክነት እና የማሽን ህጎች።"
     >
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <NumericField

@@ -5,6 +5,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Save } from "lucide-react";
 import { Button } from "@/components/ui";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { FormMessage } from "../chrome/form";
 import { ConversionSection } from "./sections/conversion-section";
 import { OrderExpirySection } from "./sections/order-expiry-section";
@@ -17,8 +18,8 @@ import { useOperationalConfigState } from "./state";
 
 /**
  * Owner-only Operational Configuration view:
- * composes the six per-domain sections and persists changes to the
- * `systemConfigs.updateSystemConfig` mutation.
+ * composes the seven per-domain sections into four categorized tabs
+ * and persists changes to the `systemConfigs.updateSystemConfig` mutation.
  */
 export function OperationalPanel() {
   const config = useQuery(api.systemConfigs.getSystemConfig);
@@ -71,14 +72,12 @@ export function OperationalPanel() {
         defaultScrapAllowancePercent: form.defaultScrapAllowancePercent,
         materialScrapAllowances: form.materialScrapAllowances,
       });
-      setMessage(
-        "Operational configuration saved. Production & valuation will use the new rates on the next record.",
-      );
+      setMessage("ቅኑ ተስርሷል። በቀጣዩ የምርት መዝገብ ላይ ይተገበራል።");
     } catch (error) {
       setMessage(
         error instanceof Error
           ? error.message
-          : "Unable to save operational configuration.",
+          : "ማስቀመጥ አልተቻለም።",
       );
     } finally {
       setBusy(false);
@@ -86,79 +85,108 @@ export function OperationalPanel() {
   }
 
   return (
-    <form
-      onSubmit={save}
-      className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card"
-    >
-      <ValuationSection
-        etbPerSquareMetre={form.etbPerSquareMetre}
-        setEtbPerSquareMetre={form.setEtbPerSquareMetre}
-        etbPerLitre={form.etbPerLitre}
-        setEtbPerLitre={form.setEtbPerLitre}
-        etbPerPiece={form.etbPerPiece}
-        setEtbPerPiece={form.setEtbPerPiece}
-        etbPerMetre={form.etbPerMetre}
-        setEtbPerMetre={form.setEtbPerMetre}
-        etbPerSheet={form.etbPerSheet}
-        setEtbPerSheet={form.setEtbPerSheet}
-      />
+    <Tabs defaultValue="pricing" className="space-y-4">
+      <TabsList>
+        <TabsTrigger value="pricing">
+          <span className="text-sm font-semibold">የዋጋ እና ሂሳብ ተመኖች</span>
+        </TabsTrigger>
+        <TabsTrigger value="production">
+          <span className="text-sm font-semibold">የምርት እና ብክነት ህጎች</span>
+        </TabsTrigger>
+        <TabsTrigger value="orders">
+          <span className="text-sm font-semibold">የትዕዛዝ አስተዳደር</span>
+        </TabsTrigger>
+        <TabsTrigger value="security">
+          <span className="text-sm font-semibold">የደህንነት እና ቁጥጥር ህጎች</span>
+        </TabsTrigger>
+      </TabsList>
 
-      <ConversionSection
-        rules={form.unitConversionDefaults}
-        setRules={form.setUnitConversionDefaults}
-      />
+      <form
+        onSubmit={save}
+        className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card"
+      >
+        {/* Tab 1: Pricing & Valuation */}
+        <TabsContent value="pricing">
+          <ValuationSection
+            etbPerSquareMetre={form.etbPerSquareMetre}
+            setEtbPerSquareMetre={form.setEtbPerSquareMetre}
+            etbPerLitre={form.etbPerLitre}
+            setEtbPerLitre={form.setEtbPerLitre}
+            etbPerPiece={form.etbPerPiece}
+            setEtbPerPiece={form.setEtbPerPiece}
+            etbPerMetre={form.etbPerMetre}
+            setEtbPerMetre={form.setEtbPerMetre}
+            etbPerSheet={form.etbPerSheet}
+            setEtbPerSheet={form.setEtbPerSheet}
+          />
 
-      <OverrideSection
-        overrides={form.overrides}
-        setOverrides={form.setOverrides}
-        materials={materials}
-        onMessage={setMessage}
-      />
+          <OverrideSection
+            overrides={form.overrides}
+            setOverrides={form.setOverrides}
+            materials={materials}
+            onMessage={setMessage}
+          />
 
-      <ProductionSection
-        inkMlPerSquareMetre={form.inkMlPerSquareMetre}
-        setInkMlPerSquareMetre={form.setInkMlPerSquareMetre}
-        maxAllowedWastePercent={form.maxAllowedWastePercent}
-        setMaxAllowedWastePercent={form.setMaxAllowedWastePercent}
-        minOffcutAreaSquareMetre={form.minOffcutAreaSquareMetre}
-        setMinOffcutAreaSquareMetre={form.setMinOffcutAreaSquareMetre}
-      />
+          <ConversionSection
+            rules={form.unitConversionDefaults}
+            setRules={form.setUnitConversionDefaults}
+          />
+        </TabsContent>
 
-      <ScrapAllowanceSection
-        defaultScrapAllowancePercent={form.defaultScrapAllowancePercent}
-        setDefaultScrapAllowancePercent={form.setDefaultScrapAllowancePercent}
-        scrapAllowances={form.materialScrapAllowances}
-        setScrapAllowances={form.setMaterialScrapAllowances}
-        materials={materials}
-        onMessage={setMessage}
-      />
+        {/* Tab 2: Production & Waste Rules */}
+        <TabsContent value="production">
+          <ProductionSection
+            inkMlPerSquareMetre={form.inkMlPerSquareMetre}
+            setInkMlPerSquareMetre={form.setInkMlPerSquareMetre}
+            maxAllowedWastePercent={form.maxAllowedWastePercent}
+            setMaxAllowedWastePercent={form.setMaxAllowedWastePercent}
+            minOffcutAreaSquareMetre={form.minOffcutAreaSquareMetre}
+            setMinOffcutAreaSquareMetre={form.setMinOffcutAreaSquareMetre}
+          />
 
-      <OrderExpirySection
-        orderExpirationHours={form.orderExpirationHours}
-        setOrderExpirationHours={form.setOrderExpirationHours}
-      />
+          <ScrapAllowanceSection
+            defaultScrapAllowancePercent={form.defaultScrapAllowancePercent}
+            setDefaultScrapAllowancePercent={form.setDefaultScrapAllowancePercent}
+            scrapAllowances={form.materialScrapAllowances}
+            setScrapAllowances={form.setMaterialScrapAllowances}
+            materials={materials}
+            onMessage={setMessage}
+          />
+        </TabsContent>
 
-      <RiskSection
-        requireAdminPinForExceptions={form.requireAdminPinForExceptions}
-        setRequireAdminPinForExceptions={form.setRequireAdminPinForExceptions}
-        maxDirectStockOutEtb={form.maxDirectStockOutEtb}
-        setMaxDirectStockOutEtb={form.setMaxDirectStockOutEtb}
-      />
+        {/* Tab 3: Order Management */}
+        <TabsContent value="orders">
+          <OrderExpirySection
+            orderExpirationHours={form.orderExpirationHours}
+            setOrderExpirationHours={form.setOrderExpirationHours}
+          />
+        </TabsContent>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-secondary/40 px-5 py-4 sm:px-6">
-        <p className="text-[11px] text-muted-foreground">
-          Owner-only configuration · applied transactionally on the next production record.
-        </p>
-        <div className="flex flex-wrap items-center gap-3">
-          {message ? (
-            <FormMessage tone={message.includes("Unable") ? "error" : "success"}>{message}</FormMessage>
-          ) : null}
-          <Button variant="primary" type="submit" disabled={busy}>
-            <Save size={15} />
-            {busy ? "Saving…" : "Save operational configuration"}
-          </Button>
+        {/* Tab 4: Security & Audit */}
+        <TabsContent value="security">
+          <RiskSection
+            requireAdminPinForExceptions={form.requireAdminPinForExceptions}
+            setRequireAdminPinForExceptions={form.setRequireAdminPinForExceptions}
+            maxDirectStockOutEtb={form.maxDirectStockOutEtb}
+            setMaxDirectStockOutEtb={form.setMaxDirectStockOutEtb}
+          />
+        </TabsContent>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-secondary/40 px-5 py-4 sm:px-6">
+          <p className="text-[11px] text-muted-foreground">
+            የባለቤት ብቻ ማስተካከያ · በቀጣዩ የምርት መዝገብ ላይ ይተገበራል።
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            {message ? (
+              <FormMessage tone={message.includes("Unable") || message.includes("አልተቻለም") ? "error" : "success"}>{message}</FormMessage>
+            ) : null}
+            <Button variant="primary" type="submit" disabled={busy}>
+              <Save size={15} />
+              {busy ? "በመቀመጥ ላይ…" : "ማስቀመጥ"}
+            </Button>
+          </div>
         </div>
-      </div>
-    </form>
+      </form>
+    </Tabs>
   );
 }
