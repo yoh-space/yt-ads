@@ -183,10 +183,6 @@ export function hasPermission(role: Role, permission: Permission): boolean {
   return ROLE_PERMISSIONS[role].includes(permission);
 }
 
-export function hasAnyPermission(role: Role, permissions: Permission[]): boolean {
-  return permissions.some((permission) => hasPermission(role, permission));
-}
-
 /** UI convenience: check a permission against a possibly-null profile. */
 export function can(profile: Profile | null, permission: Permission): boolean {
   if (!profile) return false;
@@ -207,17 +203,3 @@ export function canAccessJob(role: Role, machine: { operatorRole: Role } | undef
   if (!machine) return false;
   return machine.operatorRole === role;
 }
-
-export function canAccessMaterialRequest(
-  role: Role,
-  identityId: string,
-  request: { requestedBy: string },
-  machine?: { operatorRole: Role },
-): boolean {
-  if (isManagementOrStore(role)) return true;
-  if (request.requestedBy === identityId) return true;
-  if (machine && machine.operatorRole === role) return true;
-  return false;
-}
-
-export type { Machine, JobCard, MaterialRequest };

@@ -259,31 +259,3 @@ export const roleLabels: Record<Role, { am: string; en: string; initial: string 
   plotter_operator: { am: "Plotter ኦፕሬተር", en: "Vinyl Cutter", initial: "PL" },
   printer_operator: { am: "Printer ኦፕሬተር", en: "Large Format Print", initial: "PR" },
 };
-
-export const initialMaterials: Material[] = [
-  { id: "mat-banner", name: "Banner", category: "Banner", unit: "m²", baseUnit: "m²", purchaseUnit: "roll", conversionRatio: 160, specification: "Roll Weight & Size", specificationValue: "3 Meter Roll Weight", specificationOptions: ["2 Meter Roll Weight", "3 Meter Roll Weight"], quantity: 286, reorderAt: 160, rollEquivalent: 160, displayUnit: "ሮል", accent: "cyan" },
-  { id: "mat-acrylic", name: "Acrylic", category: "Rigid sheet", unit: "m²", baseUnit: "m²", purchaseUnit: "sheet", conversionRatio: 2.977, specification: "Thickness (in millimeters)", specificationValue: "3mm", specificationOptions: ["18mm", "10mm", "8mm", "5mm", "3mm"], quantity: 54.8, reorderAt: 65, sheetEquivalent: 2.977, displayUnit: "ቁጥር", accent: "violet" },
-  { id: "mat-vinyl", name: "Normal Sticker", category: "Sticker roll", unit: "m²", baseUnit: "m²", purchaseUnit: "roll", conversionRatio: 63.5, specification: "Roll Width / Type", specificationValue: "1.27 Meter × 50 Meter Roll", specificationOptions: ["1.27 Meter × 50 Meter Roll"], quantity: 417, reorderAt: 240, rollEquivalent: 63.5, displayUnit: "ሮል", accent: "gold" },
-  { id: "mat-led", name: "LED Module / Strip", category: "Electrical", unit: "pcs", baseUnit: "pcs", purchaseUnit: "pack", conversionRatio: 20, specification: "Color Type", specificationValue: "Cool White (6000K-6500K)", specificationOptions: ["Cool White (6000K-6500K)", "Warm White (3000K)", "Red", "Green", "Blue", "Yellow", "Amber", "RGB (Multi-Color)", "RGBW"], quantity: 1260, reorderAt: 800, displayUnit: "ቁጥር", accent: "blue" },
-  { id: "mat-ink", name: "DTF Ink", category: "Ink", unit: "L", baseUnit: "L", purchaseUnit: "liter", conversionRatio: 1, specification: "Ink Type & Color Config", specificationValue: "CMYK (Cyan, Magenta, Yellow, Key/Black)", specificationOptions: ["CMYK (Cyan, Magenta, Yellow, Key/Black)", "Expanded Gamut / Light Inks (Light Cyan, Light Magenta, Light Black)", "Specialty Inks (White Ink, Spot Gloss / Clear UV Varnish, Primer)", "Ink Formulations: Eco-Solvent, Solvent, UV-Curing Ink, Sublimation Ink"], quantity: 18.2, reorderAt: 12, displayUnit: "ሊትር", accent: "green" },
-  { id: "mat-mdf", name: "Foam", category: "Foam board", unit: "m²", baseUnit: "m²", purchaseUnit: "sheet", conversionRatio: 2.977, specification: "Thickness / Size (in millimeters)", specificationValue: "18mm", specificationOptions: ["18mm", "10mm", "8mm", "5mm", "3mm"], quantity: 91.4, reorderAt: 45, sheetEquivalent: 2.977, displayUnit: "ቁጥር", accent: "gold" },
-];
-
-export const initialMachines: Machine[] = [
-  { id: "m-laser", name: "Laser Cutter 1325", code: "LAS-01", type: "Laser cutter", operatorRole: "laser_operator", materialUnit: "m²", status: "Running", activeJob: "JC-0421" },
-  { id: "m-cnc", name: "CNC Router 2030", code: "CNC-02", type: "CNC router", operatorRole: "cnc_operator", materialUnit: "m²", status: "Running", activeJob: "JC-0424" },
-  { id: "m-plotter", name: "Graphtec FC9000", code: "PLT-01", type: "Plotter & vinyl cutter", operatorRole: "plotter_operator", materialUnit: "m", status: "Available" },
-  { id: "m-printer", name: "Eco-solvent 3.2m", code: "PRT-01", type: "Large format printer", operatorRole: "printer_operator", materialUnit: "m²", status: "Running", activeJob: "JC-0420" },
-];
-
-export const initialJobs: JobCard[] = [
-  { id: "job-0420", code: "JC-0420", client: "Abyssinia Bank", title: "Branch fascia banners", machineId: "m-printer", materialId: "mat-banner", quantity: 86.4, unit: "m²", status: "In production", due: "Today, 16:30", priority: "High" },
-  { id: "job-0421", code: "JC-0421", client: "Bole Medical", title: "Acrylic wayfinding signs", machineId: "m-laser", materialId: "mat-acrylic", quantity: 14.8, unit: "m²", status: "In production", due: "Today, 18:00", priority: "Medium" },
-  { id: "job-0424", code: "JC-0424", client: "Ethio Logistics", title: "Reception desk logo", machineId: "m-cnc", materialId: "mat-mdf", quantity: 8.2, unit: "m²", status: "In production", due: "Tomorrow, 10:00", priority: "Low" },
-  { id: "job-0426", code: "JC-0426", client: "Hibret Insurance", title: "Fleet sticker set", machineId: "m-plotter", materialId: "mat-vinyl", quantity: 96, unit: "m", status: "Queued", due: "Tomorrow, 15:00", priority: "Medium" },
-];
-
-export const initialOffcuts: Offcut[] = [
-  { id: "off-01", materialId: "mat-acrylic", label: "Acrylic Clear 3mm", width: 1.2, length: 0.8, area: 0.96, location: "Rack B · Slot 04", createdAt: "08:25" },
-  { id: "off-02", materialId: "mat-mdf", label: "Foam · 18mm", width: 0.9, length: 0.6, area: 0.54, location: "Rack C · Slot 02", createdAt: "Yesterday" },
-];

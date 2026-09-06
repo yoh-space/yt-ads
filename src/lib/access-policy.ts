@@ -95,15 +95,6 @@ export function canAccess(context: AccessContext, capability: Capability): boole
   return permission === null || hasPermission(context.profile.role, permission);
 }
 
-export function canAccessMachine(
-  context: AccessContext,
-  machine: { id: string },
-) {
-  if (!context.profile?.active) return false;
-  if (["owner", "manager", "admin", "storekeeper"].includes(context.profile.role)) return true;
-  return context.attributes?.machineId === machine.id;
-}
-
 export function capabilitiesFor(context: AccessContext): Capability[] {
   return (Object.keys(CAPABILITY_PERMISSIONS) as Capability[]).filter((capability) =>
     canAccess(context, capability),
