@@ -21,7 +21,7 @@ import { cn } from "@/lib/utils";
 function isViewActiveForPathname(view: View, pathname: string, href: string): boolean {
   // Exact match
   if (pathname === href) return true;
-  
+
   // If href is just a view path (no workspace prefix), check if pathname contains it as a segment
   // e.g., href="/reconciliation", pathname="/dashboard/owner/reconciliation" -> true
   if (!href.startsWith("/dashboard/") && href !== "/dashboard") {
@@ -29,9 +29,16 @@ function isViewActiveForPathname(view: View, pathname: string, href: string): bo
     const segments = pathname.split("/").filter(Boolean);
     return segments.includes(viewSegment);
   }
-  
-  // For dashboard-prefixed hrefs, check if pathname starts with href
-  return pathname.startsWith(href);
+
+  // For dashboard-prefixed hrefs (workspace routes), only match if:
+  // 1. pathname is exactly the href, OR
+  // 2. pathname starts with href/ (i.e., href is a prefix followed by more segments)
+  // This prevents matching nested pages under a workspace as the workspace root
+  if (href.startsWith("/dashboard/")) {
+    return pathname === href || pathname.startsWith(href + "/");
+  }
+
+  return false;
 }
 
 export function Sidebar({
