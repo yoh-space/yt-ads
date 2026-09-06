@@ -97,6 +97,138 @@ export function isOperatorMachineAllowed(role: Role, machine: string): boolean {
   return assigned === machine;
 }
 
+/**
+ * Route type classification for each path.
+ * - "canonical": The primary business implementation lives here.
+ * - "redirect": Minimal redirect-only compatibility route.
+ * - "operator-stable": Operator machine route that owns the stable URL contract.
+ */
+export type RouteType = "canonical" | "redirect" | "operator-stable";
+
+/**
+ * Canonical route descriptor — single source of truth for navigation hrefs.
+ * Each view maps to a function that produces the correct href for the given role.
+ * Operators use flat legacy routes for workspace-level features (inventory, settings)
+ * because /dashboard/operator/[machine] conflicts with /dashboard/[workspace]/[feature].
+ */
+export type RouteDescriptor = {
+  view: string;
+  href: (role: Role) => string;
+  type: RouteType;
+};
+
+function isOperatorRole(role: Role): boolean {
+  return (
+    role === "laser_operator" ||
+    role === "cnc_operator" ||
+    role === "plotter_operator" ||
+    role === "printer_operator"
+  );
+}
+
+function operatorMachineForRole(role: Role): OperatorMachine | null {
+  return ROLE_TO_MACHINE_MAP[role] ?? null;
+}
+
+/**
+ * Canonical route descriptors for each navigation view.
+ * Operators use /inventory/substock and /settings (flat legacy routes) because
+ * /dashboard/operator/[machine]/inventory would conflict with the workspace route tree.
+ */
+export const ROUTE_DESCRIPTORS: Record<string, RouteDescriptor> = {
+  overview: {
+    view: "overview",
+    href: (role) => {
+      if (role === "owner" || role === "admin") return "/dashboard/owner";
+      if (role === "manager") return "/dashboard/manager";
+      if (role === "storekeeper") return "/dashboard/storekeeper";
+      if (role === "receptionist") return "/dashboard/reception";
+      const machine = operatorMachineForRole(role);
+      if (machine) return `/dashboard/operator/${machine}`;
+      return "/dashboard/owner";
+    },
+    type: "canonical",
+  },
+  orders: {
+    view: "orders",
+    href: (role) => {
+      if (isOperatorRole(role)) return "/dashboard"; // operators don't access orders
+      return "/orders";
+    },
+    type: "canonical",
+  },
+  inventory: {
+    view: "inventory",
+    href: (role) => {
+      if (role === "storekeeper") return "/inventory/parent";
+      if (isOperatorRole(role)) return "/inventory/substock";
+      return "/inventory/parent";
+    },
+    type: "canonical",
+  },
+  jobs: {
+    view: "jobs",
+    href: (role) => {
+      const machine = operatorMachineForRole(role);
+      if (machine) return `/dashboard/operator/${machine}`;
+      if (role === "owner" || role === "admin") return "/dashboard/owner/jobs";
+      return "/dashboard/manager";
+    },
+    type: "canonical",
+  },
+  machines: {
+    view: "machines",
+    href: (role) => {
+      if (role === "owner" || role === "admin") return "/dashboard/owner/machines";
+      return "/dashboard/manager";
+    },
+    type: "canonical",
+  },
+  offcuts: {
+    view: "offcuts",
+    href: () => "/inventory/substock",
+    type: "canonical",
+  },
+  reports: {
+    view: "reports",
+    href: () => "/reports",
+    type: "canonical",
+  },
+  reconciliation: {
+    view: "reconciliation",
+    href: (role) => {
+      if (role === "storekeeper") return "/dashboard/storekeeper/reconciliation";
+      const machine = operatorMachineForRole(role);
+      if (machine) return `/dashboard/operator/${machine}/reconciliation`;
+      return "/reconciliation";
+    },
+    type: "canonical",
+  },
+  financial: {
+    view: "financial",
+    href: () => "/reports",
+    type: "canonical",
+  },
+  audit: {
+    view: "audit",
+    href: () => "/settings",
+    type: "canonical",
+  },
+  settings: {
+    view: "settings",
+    href: () => "/settings",
+    type: "canonical",
+  },
+  config: {
+    view: "config",
+    href: (role) => {
+      if (role === "owner" || role === "admin") return "/dashboard/owner/config";
+      return "/settings";
+    },
+    type: "canonical",
+  },
+};
+
 export type RouteContract = {
   workspace: WorkspaceId;
   roles: readonly Role[];
@@ -238,6 +370,11 @@ export function getLegacyRouteRedirect(pathname: string, role: Role): string | n
     }
   }
   if (cleanPath === "/settings") {
+    // Operators use the flat legacy route directly — /dashboard/operator/[machine]
+    // conflicts with /dashboard/[workspace]/[feature], so operators keep /settings.
+    if (isOperatorRole(role)) {
+      return null;
+    }
     const target = `/dashboard/${workspace}/settings`;
     return isRedirectLoop(cleanPath, target) ? null : target;
   }
@@ -255,6 +392,11 @@ export function getLegacyRouteRedirect(pathname: string, role: Role): string | n
     return isRedirectLoop(cleanPath, target) ? null : target;
   }
   if (cleanPath === "/inventory/substock") {
+    // Operators use the flat legacy route directly — /dashboard/operator/[machine]
+    // conflicts with /dashboard/[workspace]/[feature], so operators keep /inventory/substock.
+    if (isOperatorRole(role)) {
+      return null;
+    }
     const target = `/dashboard/${workspace}/inventory/substock`;
     return isRedirectLoop(cleanPath, target) ? null : target;
   }
@@ -303,48 +445,71 @@ export function isRouteAllowedForRole(role: Role, pathname: string): boolean {
 
   // Canonical workspace routing: /dashboard/[workspace]/...
   if (cleanPath.startsWith("/dashboard/")) {
-    const segments = cleanPath.split("/").filter(Boolean); // ["dashboard", workspace, ...]
+    const segments = cleanPath.split("/").filter(Boolean);
     const ws = segments[1];
+    // Only handle canonical workspace routes here; legacy dashboard routes fall through
     if (isValidWorkspaceId(ws)) {
-      if (!canAccessWorkspace(role, ws)) return false;
-      const feature = segments[2];
-
-      if (ws === "operator") {
-        if (feature === "inventory") {
-          return segments[3] === "substock";
-        }
-        if (feature === "settings") {
-          return true;
-        }
-        if (feature) {
-          return isOperatorMachineAllowed(role, feature);
-        }
-        return true;
-      }
-
-      if (feature === "orders") {
-        return ["owner", "admin", "manager", "receptionist"].includes(role);
-      }
-      if (feature === "reports" || feature === "reconciliation") {
-        return ["owner", "admin"].includes(role);
-      }
-      if (feature === "jobs" || feature === "machines" || feature === "config") {
-        return ["owner", "admin", "manager"].includes(role);
-      }
-      if (feature === "settings") {
-        return true;
-      }
-      if (feature === "inventory") {
-        const sub = segments[3];
-        if (sub === "substock") {
-          return ["owner", "admin", "manager", "laser_operator", "cnc_operator", "plotter_operator", "printer_operator"].includes(role);
-        }
-        return ["owner", "admin", "manager", "storekeeper"].includes(role);
-      }
-      return true;
+      return canAccessCanonicalRoute(role, cleanPath);
     }
+    // Legacy dashboard routes (e.g., /dashboard/reception) — handle via legacy check
+    return canAccessLegacyRoute(role, cleanPath);
   }
 
+  // Legacy flat routes — these are compatibility paths that redirect to canonical routes
+  return canAccessLegacyRoute(role, cleanPath);
+}
+
+/**
+ * Checks access to canonical workspace routes under /dashboard/[workspace]/...
+ * This is the single source of truth for workspace-based authorization.
+ */
+function canAccessCanonicalRoute(role: Role, pathname: string): boolean {
+  const segments = pathname.split("/").filter(Boolean); // ["dashboard", workspace, ...]
+  const ws = segments[1];
+
+  if (!isValidWorkspaceId(ws)) return false;
+  if (!canAccessWorkspace(role, ws)) return false;
+
+  const feature = segments[2];
+
+  // Operators use /dashboard/operator/[machine] for machine-specific routes.
+  // Inventory and settings are accessed via flat legacy routes (/inventory/substock, /settings)
+  // because /dashboard/operator/[machine]/inventory conflicts with the workspace route tree.
+  if (ws === "operator") {
+    if (feature) {
+      return isOperatorMachineAllowed(role, feature);
+    }
+    return true;
+  }
+
+  // Feature-based access for non-operator workspaces
+  if (feature === "orders") {
+    return ["owner", "admin", "manager", "receptionist"].includes(role);
+  }
+  if (feature === "reports" || feature === "reconciliation") {
+    return ["owner", "admin"].includes(role);
+  }
+  if (feature === "jobs" || feature === "machines" || feature === "config") {
+    return ["owner", "admin", "manager"].includes(role);
+  }
+  if (feature === "settings") {
+    return true;
+  }
+  if (feature === "inventory") {
+    const sub = segments[3];
+    if (sub === "substock") {
+      return ["owner", "admin", "manager", "laser_operator", "cnc_operator", "plotter_operator", "printer_operator"].includes(role);
+    }
+    return ["owner", "admin", "manager", "storekeeper"].includes(role);
+  }
+  return true;
+}
+
+/**
+ * Checks access to legacy flat routes (e.g., /orders, /inventory, /settings).
+ * These routes exist for backward compatibility and redirect to canonical workspace routes.
+ */
+function canAccessLegacyRoute(role: Role, pathname: string): boolean {
   // Owner and Admin have full access across all operational workspaces
   if (role === "owner" || role === "admin") {
     return true;
@@ -352,52 +517,47 @@ export function isRouteAllowedForRole(role: Role, pathname: string): boolean {
 
   // Manager has operational access only; reports and reconciliation are owner/admin domains.
   if (role === "manager") {
-    if (cleanPath.startsWith("/dashboard/owner")) return false;
+    if (pathname.startsWith("/dashboard/owner")) return false;
     return (
-      cleanPath.startsWith("/dashboard/manager") ||
-      cleanPath.startsWith("/dashboard/operator") ||
-      cleanPath.startsWith("/inventory") ||
-      cleanPath.startsWith("/orders") ||
-      cleanPath.startsWith("/settings")
+      pathname.startsWith("/dashboard/manager") ||
+      pathname.startsWith("/dashboard/operator") ||
+      pathname.startsWith("/inventory") ||
+      pathname.startsWith("/orders") ||
+      pathname.startsWith("/settings")
     );
   }
 
   // Storekeeper: Central packaging inventory (/dashboard/storekeeper, /inventory/parent), stock movements, settings
   if (role === "storekeeper") {
     return (
-      cleanPath.startsWith("/dashboard/storekeeper") ||
-      cleanPath === "/inventory" ||
-      cleanPath.startsWith("/inventory/parent") ||
-      cleanPath.startsWith("/settings")
+      pathname.startsWith("/dashboard/storekeeper") ||
+      pathname === "/inventory" ||
+      pathname.startsWith("/inventory/parent") ||
+      pathname.startsWith("/settings")
     );
   }
 
   // Receptionist: Reception desk (/dashboard/reception), orders queue (/orders), settings
   if (role === "receptionist") {
     return (
-      cleanPath.startsWith("/dashboard/reception") ||
-      cleanPath.startsWith("/orders") ||
-      cleanPath.startsWith("/settings")
+      pathname.startsWith("/dashboard/reception") ||
+      pathname.startsWith("/orders") ||
+      pathname.startsWith("/settings")
     );
   }
 
   // Operators: Operator workspace for their machine (/dashboard/operator/[machine]), floor sub-stock (/inventory/substock), settings
-  if (
-    role === "laser_operator" ||
-    role === "cnc_operator" ||
-    role === "plotter_operator" ||
-    role === "printer_operator"
-  ) {
+  if (isOperatorRole(role)) {
     const assignedMachine = ROLE_TO_MACHINE_MAP[role];
     const isAssignedMachineRoute = assignedMachine
-      ? cleanPath.startsWith(`/dashboard/operator/${assignedMachine}`)
-      : cleanPath.startsWith("/dashboard/operator");
+      ? pathname.startsWith(`/dashboard/operator/${assignedMachine}`)
+      : pathname.startsWith("/dashboard/operator");
 
     return (
       isAssignedMachineRoute ||
-      cleanPath === "/inventory" ||
-      cleanPath.startsWith("/inventory/substock") ||
-      cleanPath.startsWith("/settings")
+      pathname === "/inventory" ||
+      pathname.startsWith("/inventory/substock") ||
+      pathname.startsWith("/settings")
     );
   }
 

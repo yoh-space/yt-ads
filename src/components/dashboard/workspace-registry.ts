@@ -2,7 +2,7 @@ import type { Role } from "@/lib/operations-types";
 import type { AccessContext, Capability } from "@/lib/access-policy";
 import { canAccess } from "@/lib/access-policy";
 import type { WorkspaceId } from "@/lib/role-routing";
-import type { View } from "./nav-config";
+import type { View } from "@/types/dashboard-types";
 
 export type { WorkspaceId };
 export type WorkspacePlacement = "primary" | "secondary" | "footer";

@@ -13,6 +13,13 @@ const COOKIE_SESSION_NAME = "better-auth.session_token";
 const COOKIE_SECURE_SESSION_NAME = "__Secure-better-auth.session_token";
 const COOKIE_ROLE_NAME = "user_role";
 
+/**
+ * Role cookie max-age in seconds. Set to 1 hour to limit staleness window.
+ * The cookie is a routing hint only — Convex enforces the actual authorization.
+ * A shorter lifetime ensures role changes propagate within a reasonable window.
+ */
+const ROLE_COOKIE_MAX_AGE = 60 * 60; // 1 hour
+
 async function resolveRoleFromConvex(sessionToken: string, cookieName: string): Promise<Role | null> {
   const siteUrl = process.env.NEXT_PUBLIC_CONVEX_SITE_URL;
   const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
@@ -60,6 +67,11 @@ async function resolveRoleFromConvex(sessionToken: string, cookieName: string): 
  * Next.js 16 Edge Access & Request Interceptor Guard (replacing deprecated middleware.ts).
  * Handles primary request interception, session token verification, role landing dispatch,
  * and unauthorized route redirects.
+ *
+ * Staleness note: The user_role cookie is a routing hint with a short TTL (1 hour).
+ * Convex backend enforces the actual authorization on every business operation.
+ * If a role changes, the worst case is a temporary wrong route shell until the cookie
+ * expires or is refreshed by a successful Convex query.
  */
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -82,6 +94,8 @@ export async function proxy(request: NextRequest) {
   }
 
   // 3. Resolve role: check fast cookie cache first, fallback to Convex API query
+  // The cookie is treated as a routing hint, not the final security boundary.
+  // Convex backend enforces the actual authorization on every business operation.
   let role: Role | null = null;
   const cachedRole = request.cookies.get(COOKIE_ROLE_NAME)?.value;
   if (isValidRole(cachedRole)) {
@@ -108,7 +122,7 @@ export async function proxy(request: NextRequest) {
     response.cookies.set(COOKIE_ROLE_NAME, role, {
       path: "/",
       sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 7,
+      maxAge: ROLE_COOKIE_MAX_AGE,
     });
     return response;
   }
@@ -119,7 +133,7 @@ export async function proxy(request: NextRequest) {
     response.cookies.set(COOKIE_ROLE_NAME, role, {
       path: "/",
       sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 7,
+      maxAge: ROLE_COOKIE_MAX_AGE,
     });
   }
   return response;

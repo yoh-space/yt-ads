@@ -208,11 +208,13 @@ describe("role-routing", () => {
     expect(getLegacyRouteRedirect("/orders", "manager")).toBe("/dashboard/manager/orders");
     expect(getLegacyRouteRedirect("/reports", "owner")).toBe("/dashboard/owner/reports");
     expect(getLegacyRouteRedirect("/settings", "owner")).toBe("/dashboard/owner/settings");
-    expect(getLegacyRouteRedirect("/settings", "laser_operator")).toBe("/dashboard/operator/settings");
+    // Operators use flat legacy routes directly — /dashboard/operator/[machine] conflicts with workspace routes
+    expect(getLegacyRouteRedirect("/settings", "laser_operator")).toBe(null);
     expect(getLegacyRouteRedirect("/reconciliation", "owner")).toBe("/dashboard/owner/reconciliation");
     expect(getLegacyRouteRedirect("/reconciliation", "storekeeper")).toBe("/dashboard/storekeeper/reconciliation");
     expect(getLegacyRouteRedirect("/inventory/parent", "storekeeper")).toBe("/dashboard/storekeeper/inventory/parent");
-    expect(getLegacyRouteRedirect("/inventory/substock", "laser_operator")).toBe("/dashboard/operator/inventory/substock");
+    // Operators use flat legacy routes directly — /dashboard/operator/[machine] conflicts with workspace routes
+    expect(getLegacyRouteRedirect("/inventory/substock", "laser_operator")).toBe(null);
 
     // Unauthorized legacy routes redirected to role home
     expect(getLegacyRouteRedirect("/reports", "storekeeper")).toBe("/dashboard/storekeeper");

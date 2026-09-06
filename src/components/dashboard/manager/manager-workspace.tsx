@@ -6,7 +6,7 @@ import { Overview, type Kpis } from "@/components/dashboard/views/overview";
 import type { CustomerOrder, JobCard, Machine, Material, ScrapLog } from "@/lib/operations-types";
 import type { AccessContext } from "@/lib/access-policy";
 import { WorkspaceModuleGate } from "@/components/dashboard/workspace-renderer";
-import type { View } from "@/components/dashboard/nav-config";
+import type { View } from "@/types/dashboard-types";
 
 type WithId<T extends { _id: string }> = Omit<T, "_id"> & { id: T["_id"] };
 

@@ -3,24 +3,12 @@
 import { AlertTriangle, RefreshCw, Trash2, Scale } from "lucide-react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import type { Id } from "@/convex/_generated/dataModel";
 import { cn } from "@/lib/utils";
 import { Button, Panel, PanelHeader, StatusPill } from "@/components/ui";
 import { ModalShell } from "../modals/modal-shell";
 import { useState } from "react";
 import { WeeklyReconciliationModal } from "./weekly-reconciliation-modal";
-
-export type OperatorStockEntry = {
-  _id: Id<"operatorSubStock">;
-  machineId: string;
-  machineName?: string;
-  materialName: string;
-  baseUnit: string;
-  issuedQuantity: number;
-  currentRemaining: number;
-  usagePercent: number;
-  status: string;
-};
+import type { OperatorStockEntry } from "@/types/dashboard-types";
 
 function formatQuantity(n: number, unit: string) {
   return `${n.toFixed(2)} ${unit}`;

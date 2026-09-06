@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { Button, StatusPill } from "@/components/ui";
 import { ModalShell } from "../modals/modal-shell";
 import { useState } from "react";
-import type { OperatorStockEntry } from "./operator-stock";
+import type { OperatorStockEntry } from "@/types/dashboard-types";
 
 function formatNumber(n: number) {
   return n.toLocaleString("en-US", { maximumFractionDigits: 3 });

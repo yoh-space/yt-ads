@@ -8,7 +8,8 @@ import {
   ChevronRight,
   X,
 } from "lucide-react";
-import { canAccessView, getNavItemHref, navItems, type View } from "./nav-config";
+import { canAccessView, getNavItemHref, navItems } from "./nav-config";
+import type { View } from "@/types/dashboard-types";
 import type { Role } from "@/lib/operations-types";
 import type { WorkspaceDefinition } from "./workspace-registry";
 import { cn } from "@/lib/utils";

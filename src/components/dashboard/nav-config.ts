@@ -1,6 +1,8 @@
 import { MATERIAL_SPECIFICATIONS } from "@/shared/material-specifications";
 import type { Role } from "@/lib/operations-types";
 import { WORKSPACE_REGISTRY } from "./workspace-registry";
+import { ROUTE_DESCRIPTORS } from "@/lib/role-routing";
+import type { View } from "@/types/dashboard-types";
 import {
   Boxes,
   ClipboardList,
@@ -16,8 +18,6 @@ import {
   SlidersHorizontal,
   type LucideIcon,
 } from "lucide-react";
-
-export type View = "overview" | "orders" | "inventory" | "jobs" | "machines" | "offcuts" | "reports" | "reconciliation" | "audit" | "financial" | "config" | "settings";
 export type Modal =
   | "stock"
   | "job"
@@ -48,57 +48,11 @@ export function defaultViewForRole(role: Role): View {
 }
 
 export function getNavItemHref(view: View, role: Role): string {
-  switch (view) {
-    case "overview":
-      if (role === "owner" || role === "admin") return "/dashboard/owner";
-      if (role === "manager") return "/dashboard/manager";
-      if (role === "storekeeper") return "/dashboard/storekeeper";
-      if (role === "receptionist") return "/dashboard/reception";
-      if (role === "laser_operator") return "/dashboard/operator/laser";
-      if (role === "cnc_operator") return "/dashboard/operator/cnc";
-      if (role === "plotter_operator") return "/dashboard/operator/plotter";
-      if (role === "printer_operator") return "/dashboard/operator/printer";
-      return "/dashboard/owner";
-    case "orders":
-      return "/orders";
-    case "inventory":
-      if (role === "storekeeper") return "/inventory/parent";
-      if (["laser_operator", "cnc_operator", "plotter_operator", "printer_operator"].includes(role)) {
-        return "/inventory/substock";
-      }
-      return "/inventory/parent";
-    case "jobs":
-      if (role === "laser_operator") return "/dashboard/operator/laser";
-      if (role === "cnc_operator") return "/dashboard/operator/cnc";
-      if (role === "plotter_operator") return "/dashboard/operator/plotter";
-      if (role === "printer_operator") return "/dashboard/operator/printer";
-      if (role === "owner" || role === "admin") return "/dashboard/owner/jobs";
-      return "/dashboard/manager";
-    case "machines":
-      if (role === "owner" || role === "admin") return "/dashboard/owner/machines";
-      return "/dashboard/manager";
-    case "offcuts":
-      return "/inventory/substock";
-    case "reports":
-      return "/reports";
-    case "reconciliation":
-      if (role === "storekeeper") return "/dashboard/storekeeper/reconciliation";
-      if (role === "laser_operator") return "/dashboard/operator/laser/reconciliation";
-      if (role === "cnc_operator") return "/dashboard/operator/cnc/reconciliation";
-      if (role === "plotter_operator") return "/dashboard/operator/plotter/reconciliation";
-      if (role === "printer_operator") return "/dashboard/operator/printer/reconciliation";
-      return "/reconciliation";
-    case "financial":
-      return "/reports";
-    case "audit":
-    case "settings":
-      return "/settings";
-    case "config":
-      if (role === "owner" || role === "admin") return "/dashboard/owner/config";
-      return "/settings";
-    default:
-      return "/dashboard";
+  const descriptor = ROUTE_DESCRIPTORS[view];
+  if (descriptor) {
+    return descriptor.href(role);
   }
+  return "/dashboard";
 }
 
 /**

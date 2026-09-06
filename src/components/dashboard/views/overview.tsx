@@ -20,7 +20,7 @@ import {
 import type { CustomerOrder, JobCard, Machine, Material, Role } from "@/lib/operations-types";
 import { formatQuantity } from "@/lib/units";
 import { statusTone } from "../helpers";
-import type { View } from "../nav-config";
+import type { View } from "@/types/dashboard-types";
 import { StockoutAlertWidget } from "./stockout-alert-widget";
 import {
   Button,

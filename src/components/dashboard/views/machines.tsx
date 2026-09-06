@@ -6,7 +6,7 @@ import type { JobCard, Machine, MachineStatus, Role } from "@/lib/operations-typ
 import { formatQuantity } from "@/lib/units";
 import { roleLabels } from "@/lib/operations-types";
 import { statusTone } from "../helpers";
-import type { View } from "../nav-config";
+import type { View } from "@/types/dashboard-types";
 import { LaserOperatorWorkspace } from "../operator/laser";
 import { CncOperatorWorkspace } from "../operator/cnc";
 import { PlotterOperatorWorkspace } from "../operator/plotter";

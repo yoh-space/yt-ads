@@ -3,7 +3,7 @@
 export function InventoryLoader({ label }: { label?: string } = {}) {
   return (
     <div
-      className="flex min-h-screen flex-col items-center justify-center overflow-hidden bg-black/40 px-6 text-slate-50"
+      className="flex min-h-screen flex-col items-center justify-center overflow-hidden bg-transparent px-6 text-slate-50"
       role="status"
       aria-live="polite"
       aria-label={label ?? "Loading YT Advertisement printing workspace"}
