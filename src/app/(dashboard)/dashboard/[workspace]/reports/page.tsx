@@ -12,7 +12,7 @@ export default function WorkspaceReportsPage() {
   if (!profile) {
     return (
       <div className="flex min-h-[400px] items-center justify-center">
-        <InventoryLoader label="Loading Executive Reports…" />
+        <InventoryLoader label="የፖርቶች መረጃ በመጫን ላይ…" />
       </div>
     );
   }
@@ -24,13 +24,13 @@ export default function WorkspaceReportsPage() {
     <div className="space-y-6">
       <div className="border-b border-[#1E293B] pb-5">
         <span className="font-mono text-xs uppercase tracking-widest text-[#00B4D8]">
-          Operations Analytics & Intelligence
+          የስራ ትንታኔ እና መረጃ
         </span>
         <h1 className="text-2xl font-bold tracking-tight text-white mt-0.5">
-          Executive Reports & Production Metrics
+          የፖርቶች ሪፖርቶች እና የምርት መጠን
         </h1>
         <p className="text-xs text-slate-400 mt-1">
-          Periodic throughput, material consumption, machine productivity, and scrap telemetry.
+          የጊዜ ሰንጠረዥ፣ የእቃ ተጠቀም፣ የማሽን ተግባርነት እና የቅሪት መጠን።
           {!isOwner ? " (Financial ETB figures strictly restricted to Owner)" : ""}
         </p>
       </div>

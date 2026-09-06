@@ -19,7 +19,7 @@ export default function WorkspaceParentInventoryPage() {
   if (!profile || parentInventory === undefined) {
     return (
       <div className="flex min-h-[400px] items-center justify-center">
-        <InventoryLoader label="Loading Central Packaging Inventory…" />
+        <InventoryLoader label="የግምጃ ቤት ክምችት በመጫን ላይ…" />
       </div>
     );
   }
@@ -71,57 +71,57 @@ export default function WorkspaceParentInventoryPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#1E293B] pb-5">
         <div>
           <span className="font-mono text-xs uppercase tracking-widest text-[#00B4D8]">
-            Tier 1 Central Store
+            ዋና እቃ ግምጃ ቤት
           </span>
           <h1 className="text-2xl font-bold tracking-tight text-white mt-0.5">
-            Parent Packaging Stock Register
+            የጥሬ እቃ መዝገብ
           </h1>
           <p className="text-xs text-slate-400 mt-1">
-            Raw materials stored and counted exclusively by physical package unit (Rolls, Sheets, Canisters). Zero square meter (m²) metrics displayed.
+            በግምጃ ቤት ውስጥ የሚገኙ የጥሬ እቃዎች መጠን እና ስቶክ።
           </p>
         </div>
         <button
           onClick={() => openModal("stock")}
           className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-sm bg-[#00B4D8] text-xs font-semibold text-[#0B132B] hover:bg-[#90E0EF] transition-colors"
         >
-          <Plus size={14} /> Intake Packaging Stock
+          <Plus size={14} /> አዲስ እቃ አስገባ
         </button>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="p-4 rounded-sm border border-[#1E293B] bg-[#14161D]">
           <span className="font-mono text-[10px] uppercase tracking-wider text-slate-400">
-            Total Rolls in Central Store
+            ጠቅላላ የሮል ብዛት
           </span>
           <div className="mt-2 flex items-baseline justify-between">
             <span className="font-mono text-2xl font-bold text-white tabular-nums">
               {Number(totalRolls.toFixed(1))}
             </span>
-            <span className="font-mono text-xs font-semibold text-[#00B4D8]">ROLLS</span>
+            <span className="font-mono text-xs font-semibold text-[#00B4D8]">ሮል</span>
           </div>
         </div>
 
         <div className="p-4 rounded-sm border border-[#1E293B] bg-[#14161D]">
           <span className="font-mono text-[10px] uppercase tracking-wider text-slate-400">
-            Total Sheets in Central Store
+            ጠቅላላ የሺት ብዛት
           </span>
           <div className="mt-2 flex items-baseline justify-between">
             <span className="font-mono text-2xl font-bold text-white tabular-nums">
               {Number(totalSheets.toFixed(1))}
             </span>
-            <span className="font-mono text-xs font-semibold text-[#38B000]">SHEETS</span>
+            <span className="font-mono text-xs font-semibold text-[#38B000]">ሺት</span>
           </div>
         </div>
 
         <div className="p-4 rounded-sm border border-[#1E293B] bg-[#14161D]">
           <span className="font-mono text-[10px] uppercase tracking-wider text-slate-400">
-            Total Canisters in Central Store
+            ጠቅላላ የቀለም ብዛት
           </span>
           <div className="mt-2 flex items-baseline justify-between">
             <span className="font-mono text-2xl font-bold text-white tabular-nums">
               {Number(totalCanisters.toFixed(1))}
             </span>
-            <span className="font-mono text-xs font-semibold text-[#FFB703]">1L CANISTERS</span>
+            <span className="font-mono text-xs font-semibold text-[#FFB703]">ቀለም</span>
           </div>
         </div>
       </div>
@@ -160,11 +160,11 @@ export default function WorkspaceParentInventoryPage() {
           <table className="w-full text-left text-xs">
             <thead className="border-b border-[#1E293B] bg-[#0C0D10]/50 font-mono text-[10px] uppercase text-slate-400">
               <tr>
-                <th className="px-4 py-3">Material Name</th>
-                <th className="px-4 py-3">Category</th>
-                <th className="px-4 py-3">Unit Packaging Form</th>
-                <th className="px-4 py-3 text-right">Central Stock Quantity</th>
-                <th className="px-4 py-3 text-center">Status</th>
+                <th className="px-4 py-3">የእቃው ስም</th>
+                <th className="px-4 py-3">ምድብ</th>
+                <th className="px-4 py-3">የመያዣ አይነት</th>
+                <th className="px-4 py-3 text-right">ያለው መጠን</th>
+                <th className="px-4 py-3 text-center">ሁኔታ</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#1E293B] text-slate-300 font-mono">

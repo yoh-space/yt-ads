@@ -133,7 +133,7 @@ export default function StorekeeperWorkspace() {
     <div className="space-y-6">
       <header className="flex flex-col gap-4 border-b border-border pb-5 xl:flex-row xl:items-end xl:justify-between">
         <div>
-          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-primary">CENTRAL STORE / LIVE LEDGER</p>
+          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-primary">ዋና እቃ ግምጃ ቤት / ትክክለኛ መዝገብ</p>
           <h1 className="mt-1 text-2xl font-bold tracking-tight text-foreground">የዋና ዕቃ ግምጃ ቤት ቁጥጥር</h1>
           <p className="mt-1 text-xs text-muted-foreground">Main raw stock management</p>
         </div>
@@ -176,7 +176,7 @@ export default function StorekeeperWorkspace() {
           <div className="flex flex-col gap-4 border-b border-border p-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary">PARENT PHYSICAL STOCK</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary">የግምጃ ቤት እቃዎች</p>
                 <h2 className="mt-1 text-lg font-bold text-foreground">የዋና ግምጃ ቤት ዕቃዎች ዝርዝር</h2>
                 <p className="mt-1 text-xs text-muted-foreground">Showing {filteredItems.length} of {items.length} Items</p>
               </div>
@@ -227,7 +227,7 @@ export default function StorekeeperWorkspace() {
         <WorkspaceModuleGate context={accessContext} moduleId="inventory.requisitions">
         <section className="min-w-0">
           <div className="mb-3 flex items-center justify-between">
-            <div><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary">FLOOR MATERIAL REQUISITIONS</p><h2 className="mt-1 text-lg font-bold text-foreground">የኦፕሬተሮች የዕቃ ጥያቄ መከታተያ</h2></div>
+            <div><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary">የእቃ ጥያቄዎች</p><h2 className="mt-1 text-lg font-bold text-foreground">የኦፕሬተሮች የዕቃ ጥያቄ መከታተያ</h2></div>
             <StatusPill variant="warning">PENDING</StatusPill>
           </div>
           <MaterialRequestsPanel requests={requests} role="storekeeper" onRequest={() => {}} onIssue={(requestId, quantity) => void safeMutation(`issue-${requestId}`, issueMaterialRequest({ requestId: requestId as Id<"materialRequests">, issuedQuantity: quantity }), () => toast.success("Material handed over to operator"))} onShortStock={(requestId) => void safeMutation(`short-${requestId}`, markShortStockRequest({ requestId: requestId as Id<"materialRequests"> }), () => toast.success("Request marked short stock"))} onAcknowledge={(requestId) => void safeMutation(`ack-${requestId}`, acknowledgeMaterialRequest({ requestId: requestId as Id<"materialRequests"> }), () => toast.success("Material receipt acknowledged"))} isPending={isPending} />

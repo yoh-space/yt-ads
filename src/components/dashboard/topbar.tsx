@@ -114,11 +114,10 @@ export function Topbar({
 
       <TelemetryBar
         items={[
-          { label: "Bed Vac", value: "-48.2 kPa", tone: "green" },
-          { label: "Ambient", value: "71.4°F / 44% RH", tone: "cyan" },
-          { label: "Node", value: "#3-EST", tone: "green" },
-          { label: "Station", value: "#4", tone: "cyan" },
-          { label: "Local", value: clock, tone: "amber" },
+          { label: "ማሽን ሁኔታ", value: "Running", tone: "green" },
+          { label: "የሙቀት መጠን", value: "22°C / 44%", tone: "cyan" },
+          { label: "ስቴሽን", value: "#4", tone: "green" },
+          { label: "የወቅቱ ሰዓት", value: clock, tone: "amber" },
         ]}
       />
 

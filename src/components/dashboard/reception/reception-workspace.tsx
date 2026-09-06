@@ -90,13 +90,13 @@ export default function ReceptionWorkspace({
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#1E293B] pb-5">
         <div>
           <span className="font-mono text-xs uppercase tracking-widest text-[#00B4D8]">
-            Reception Desk
+            ስለሰጥ ቦታ
           </span>
           <h1 className="text-2xl font-bold tracking-tight text-white mt-0.5">
-            Telegram & Walk-in Order Intake
+            ቴሌግራም እና በመግቢያ ቦታ ትዕዛዝ መቀበያ
           </h1>
           <p className="text-xs text-slate-400 mt-1">
-            Capture TIN, Company Names, Order PINs, and attached graphic files. Billing is handled externally via POS.
+            TIN፣ የኩንፓኒ ስም፣ የትዕዛዝ PIN፣ እና የተያያዙ ፋይሎች ያስገቡ። ክፍያ በPOS በመሳሰሉ መንገዶች ይከሰተዋል።
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -151,7 +151,7 @@ export default function ReceptionWorkspace({
             <span className="font-mono text-2xl font-bold text-[#00B4D8] tabular-nums">
               {inProgressCount}
             </span>
-            <span className="font-mono text-xs text-slate-400">On Press Floor</span>
+            <span className="font-mono text-xs text-slate-400">በምርት ላይ</span>
           </div>
         </div>
 

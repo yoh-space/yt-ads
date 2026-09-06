@@ -262,10 +262,10 @@ export function Overview({
         </section>
       ) : null}
 
-      {/* Press Floor Telemetry Widgets */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-[14px] mb-[14px]" aria-label="Press floor telemetry widgets">
+      {/* የማሽኖች ወቅታዊ መጠንCEEDURES */}
+      <section className="grid grid-cols-1 md:grid-cols-3 gap-[14px] mb-[14px]" aria-label="የማሽኖች ወቅታዊ መጠን">
         <MetricChart
-          label="ACTIVE PRODUCTION QUEUE"
+          label="የምርት ተጠያቂ ሰንጠረዥ"
           live
           footer={`${queuedCount + inPrintCount} cards in flow · ${completedTodayCount} cleared today`}
         >
@@ -273,9 +273,9 @@ export function Overview({
         </MetricChart>
 
         <MetricChart
-          label="OUTPUT VOLUME"
+          label="የምርት መጠን"
           value={`${quotaPace.toFixed(1)}%`}
-          sublabel="Daily Quota Pace"
+          sublabel="ዕለታዊ ተግባር ፍጥነት"
           accent="emerald"
           footer={`${completedTodayCount}/${quotaDenominator} units against quota`}
         >
@@ -289,9 +289,9 @@ export function Overview({
         </MetricChart>
 
         <MetricChart
-          label="MACHINE FLEET UPTIME"
+          label="የማሽን መንቀሳቀስ"
           value={`${fleetUptime.toFixed(0)}%`}
-          sublabel="Fleet average"
+          sublabel="የሲስትም መጠን"
           accent="cyan"
           footer={`${machines.filter((m) => m.status === "Running").length}/${machines.length} machines running`}
         >
@@ -348,10 +348,10 @@ export function Overview({
           />
           <div className="overflow-x-auto">
             <div className="grid grid-cols-[minmax(190px,1.8fr)_0.7fr_1.25fr_0.85fr_30px] gap-[9px] items-center px-[17px] py-2 text-muted-foreground bg-[#0b1220] font-mono text-[9px] font-semibold uppercase tracking-[0.16em]">
-              <span>JOB / CLIENT</span>
-              <span>MACHINE</span>
-              <span>MATERIAL</span>
-              <span>STATUS</span>
+              <span>የሥራ ካርድ</span>
+              <span>ማሽን</span>
+              <span>እቃ</span>
+              <span>ሁኔታ</span>
               <span />
             </div>
             {jobs
