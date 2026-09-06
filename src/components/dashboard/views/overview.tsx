@@ -158,49 +158,58 @@ export function Overview({
 
   return (
     <>
-      {/* Financial Status Overview (owner only) */}
-      {financialMetrics ? (
-        <section className="grid grid-cols-4 gap-[14px] mb-[18px]" aria-label="Financial oversight executive cards">
-          <StatCard
-            variant="sales"
-            icon={<Wallet size={20} />}
-            label="የዛሬ ጠቅላላ ሽያጭ · TODAY'S TOTAL SALES"
-            value={formatEtb(todaysSales)}
-            description="የዛሬ የተመዘገቡ የደንበኛ ትዕዛዞች አጠቃላይ የገንዘብ እሴት (ETB)"
-            metadata={`${todaysOrderCount} order${todaysOrderCount === 1 ? "" : "s"} created today · live revenue feed`}
-          />
+      {/* Executive Dashboard — Amharic-first metric cards */}
+      <section className="grid grid-cols-3 gap-3 p-3.5 mb-[18px] rounded-xl bg-card border border-border/60" aria-label="ዋና መለያዎች">
+        <StatCard
+          variant="sales"
+          icon={<Wallet size={20} />}
+          label="የዛሬ ጠቅላላ ሽያጭ"
+          subtitle="Today's Total Sales"
+          value={formatEtb(todaysSales)}
+          metadata={`${todaysOrderCount} order${todaysOrderCount === 1 ? "" : "s"} created today`}
+        />
 
-          <StatCard
-            variant="cost"
-            icon={<Coins size={20} />}
-            label="የወጣ ጥሬ ዕቃ ወጪ · PRODUCTION MATERIAL COST"
-            value={formatEtb(todaysMaterialCost)}
-            description="ዛሬ ለሥራ ካርዶች የተሰጠ ጥሬ ዕቃ ወጪ (በመሠረታዊ ዋጋ)"
-            metadata={`${todaysJobCount} job card${todaysJobCount === 1 ? "" : "s"} processed today · ETB per base unit`}
-          />
+        <StatCard
+          variant="profit"
+          icon={<TrendingUp size={20} />}
+          label="የተጣራ የትርፍ ግምት"
+          subtitle="Net Estimated Profit"
+          value={profitNegative ? `-${formatEtb(Math.abs(todaysNetProfit))}` : formatEtb(todaysNetProfit)}
+          isNegative={profitNegative}
+        />
 
-          <StatCard
-            variant="profit"
-            icon={<TrendingUp size={20} />}
-            label="የተጣራ የትርፍ ግምት · ESTIMATED NET PROFIT"
-            value={profitNegative ? `-${formatEtb(Math.abs(todaysNetProfit))}` : formatEtb(todaysNetProfit)}
-            description="ሽያጭ − የጥሬ ዕቃ ወጪ · የቀን ዋና የፋይናንስ አፈጻጸም አመልካች"
-            metadata={`Sales ${formatEtb(todaysSales)} − Material ${formatEtb(todaysMaterialCost)}`}
-            isNegative={profitNegative}
-          />
+        <StatCard
+          variant="alert"
+          icon={<AlertTriangle size={20} />}
+          label="የስቶክ ጉድለት እና ጉዳት"
+          subtitle="Audited Stock Loss"
+          value={lossPositive ? `-${formatEtb(auditedStockLoss)}` : "0 ETB"}
+          isAlert={lossPositive}
+          isNegative={lossPositive}
+        />
 
-          <StatCard
-            variant="alert"
-            icon={<AlertTriangle size={20} />}
-            label="በብክነት የጎደለ ሀብት · AUDITED STOCK LOSS"
-            value={lossPositive ? `-${formatEtb(auditedStockLoss)}` : "0 ETB"}
-            description="ከቅርብ ጊዜ የክምችት ኦዲት (ሪኮንሲሌሽን) የተገኘ አጠቃላይ የገንዘብ ኪሣራ"
-            metadata={`${auditedShortageCount} material${auditedShortageCount === 1 ? "" : "s"} with negative count variance`}
-            isAlert={lossPositive}
-            isNegative={lossPositive}
-          />
-        </section>
-      ) : null}
+        <StatCard
+          interactive
+          onClick={() => onView("orders")}
+          icon={<ShoppingBag size={20} />}
+          label="የዛሬ ጠቅላላ ትዕዛዛት"
+          subtitle="Total Orders Today"
+          value={String(kpis?.todaysOrdersCount ?? todaysOrderCount)}
+          metadata={kpis ? trendLabel(kpis.todaysOrdersCount, kpis.yesterdayOrdersCount) : undefined}
+        />
+
+        <StatCard
+          interactive
+          onClick={() => onView("inventory")}
+          variant="alert"
+          icon={<AlertTriangle size={20} />}
+          label="የአነስተኛ ስቶክ ማስጠንቀቂያ"
+          subtitle="Low Stock Alert"
+          value={String(kpis?.lowStockAlertCount ?? lowStock.length)}
+          metadata={`${lowStock.length} materials at reorder level`}
+          isAlert={(kpis?.lowStockAlertCount ?? lowStock.length) > 0}
+        />
+      </section>
 
       {/* Operational KPI Grid (real-time insights) */}
       {kpis ? (
@@ -208,21 +217,11 @@ export function Overview({
           <StatCard
             interactive
             onClick={() => onView("orders")}
-            icon={<ShoppingBag size={20} />}
-            label="TODAY'S NEW ORDERS"
-            value={String(kpis.todaysOrdersCount)}
-            description="ንቁ የትዕዛዝ ፍሰት እየተመዘገበ"
-            metadata={trendLabel(kpis.todaysOrdersCount, kpis.yesterdayOrdersCount)}
-          />
-
-          <StatCard
-            interactive
-            onClick={() => onView("orders")}
             variant="cost"
             icon={<Printer size={20} />}
-            label="IN PRODUCTION"
+            label="በሂደት ላይ"
+            subtitle="In Production"
             value={String(kpis.inProductionCount)}
-            description="በኦፕሬተር ማሽኖች ላይ በመስራት ላይ ያሉ ትዕዛዞች"
             metadata={`${orderStats.activeProductionOrders} active on machines now`}
           />
 
@@ -232,9 +231,9 @@ export function Overview({
               onClick={() => onView("orders")}
               variant="cost"
               icon={<CreditCard size={20} />}
-              label="PENDING PAYMENT / CREDIT"
+              label="ክፍያ በመጠበቅ ላይ"
+              subtitle="Pending Payment / Credit"
               value={String(kpis.pendingPaymentCount)}
-              description="ክፍያ የሚጠብቁ ወይም የጸደቀ ብዕር ያላቸው ትዕዛዞች"
               metadata={`${formatEtb(kpis.pendingPaymentTotal)} outstanding`}
             />
           ) : null}
@@ -244,22 +243,10 @@ export function Overview({
             onClick={() => onView("orders")}
             variant="profit"
             icon={<CheckCircle2 size={20} />}
-            label="TODAY'S COMPLETED"
+            label="የተጠናቀቁ"
+            subtitle="Today's Completed"
             value={String(kpis.todaysCompletedCount)}
-            description="ዛሬ የተጠናቀቁ ትዕዛዞች"
             metadata={trendLabel(kpis.todaysCompletedCount, kpis.yesterdayCompletedCount)}
-          />
-
-          <StatCard
-            interactive
-            onClick={() => onView("inventory")}
-            variant="alert"
-            icon={<AlertTriangle size={20} />}
-            label="LOW STOCK ALERT"
-            value={String(kpis.lowStockAlertCount)}
-            description="ከደረጃ በታች ያሉ የክምችት ዕቃዎች (parent & operator stock)"
-            metadata={`${lowStock.length} materials at reorder level`}
-            isAlert={kpis.lowStockAlertCount > 0}
           />
 
           <StatCard
@@ -267,10 +254,9 @@ export function Overview({
             onClick={() => onView("orders")}
             variant="alert"
             icon={<Clock size={20} />}
-            label="EXPIRING SOON"
+            label="ፈጣን ጊዜ ያለፈ"
+            subtitle="Expiring Soon"
             value={String(kpis.expiringSoonCount)}
-            description="የክፍያ ጊዜያቸው እየተቃረበ ያሉ ትዕዛዞች"
-            metadata="Within the next 24 hours"
             isAlert={kpis.expiringSoonCount > 0}
           />
         </section>
