@@ -20,6 +20,7 @@ export const unit = v.union(
   v.literal("piece"),
   v.literal("pcs"),
   v.literal("L"),
+  v.literal("mL"),
 );
 
 export const jobStatus = v.union(
@@ -671,6 +672,8 @@ export default defineSchema({
   /**
    * Current operator custody projection. Each row represents a packaging-unit
    * handover converted to the machine's production unit.
+   * For ink materials, quantities are tracked in millilitres (mL) internally
+   * to prevent rounding errors during small print runs (1L = 1000mL).
    */
   operatorSubStock: defineTable({
     parentInventoryId: v.optional(v.id("parentInventory")),
@@ -693,6 +696,14 @@ export default defineSchema({
     issuedBaseQuantity: v.optional(v.number()),
     consumedBaseQuantity: v.optional(v.number()),
     remainingBaseQuantity: v.optional(v.number()),
+    /**
+     * Precision tracking for ink materials in millilitres (mL).
+     * When baseUnit is "L", these fields store the mL equivalent
+     * (1L = 1000mL) to prevent rounding errors on small print runs.
+     */
+    issuedMillilitres: v.optional(v.number()),
+    consumedMillilitres: v.optional(v.number()),
+    remainingMillilitres: v.optional(v.number()),
     usageAllowanceStatus: v.optional(v.union(
       v.literal("NORMAL"),
       v.literal("WATCH"),
@@ -723,6 +734,38 @@ export default defineSchema({
     quantity: v.number(),
     wasteAllowancePercent: v.optional(v.number()),
     required: v.boolean(),
+    active: v.boolean(),
+    updatedAt: v.number(),
+    updatedBy: v.string(),
+  })
+    .index("by_service", ["serviceType"])
+    .index("by_material", ["materialId"])
+    .index("by_active_service", ["active", "serviceType"]),
+
+  /**
+   * Composite Bill of Materials (BOM) for multi-material services.
+   * Links a service type to multiple raw materials with per-material
+   * consumption rules (area m², linear m, piece count, or fixed quantity).
+   * Example: Light Box = Flex Banner (area) + Aluminum Frame (linear) + LED Module (piece).
+   */
+  serviceBOM: defineTable({
+    serviceType,
+    materialId: v.id("materials"),
+    /** How this material is consumed: area_rate (m²), linear_rate (m), quantity_rate (pcs), or fixed. */
+    consumptionMode: v.union(
+      v.literal("area_rate"),
+      v.literal("linear_rate"),
+      v.literal("quantity_rate"),
+      v.literal("fixed"),
+    ),
+    /** Consumption quantity per unit of the service (e.g., 1.1 m² per m² of Light Box). */
+    quantityPerUnit: v.number(),
+    /** Waste allowance as percentage (0-100). Added on top of the base consumption. */
+    wasteAllowancePercent: v.optional(v.number()),
+    /** Whether this material is mandatory for the service. */
+    required: v.boolean(),
+    /** Human-readable note for the storekeeper. */
+    note: v.optional(v.string()),
     active: v.boolean(),
     updatedAt: v.number(),
     updatedBy: v.string(),

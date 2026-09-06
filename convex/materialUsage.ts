@@ -183,6 +183,54 @@ const FALLBACK_ETB_BY_UNIT: Record<string, number> = {
  */
 export const DEFAULT_INK_ML_PER_M2 = DEFAULT_SYSTEM_CONFIG.inkMlPerSquareMetre;
 
+/**
+ * Industry-standard ink consumption rates for common printer types.
+ * All rates are derived from 1L = 1000mL for precision tracking.
+ * Used as defaults when no per-material override is configured.
+ */
+export const SYSTEM_INK_STANDARDS = {
+  /** Eco-Solvent / Large Format Banner Printers (1L = 110 m² → ~9.09 mL/m²) */
+  SOLVENT_BANNER: {
+    sqmPerLitre: 110,
+    mlPerSqm: 9.09,
+    label: "Solvent / Banner Ink Coverage",
+  },
+  /** DTF (Direct to Film) Printers (1L = 50 m² with white base → 20.0 mL/m²) */
+  DTF_PRINT: {
+    sqmPerLitre: 50,
+    mlPerSqm: 20.0,
+    label: "DTF Film Ink Coverage",
+  },
+  /** UV Flatbed Printers (1L = 80 m² → 12.5 mL/m²) */
+  UV_FLATBED: {
+    sqmPerLitre: 80,
+    mlPerSqm: 12.5,
+    label: "UV Flatbed Ink Coverage",
+  },
+} as const;
+
+/**
+ * Resolves the appropriate ink consumption rate for a material based on its
+ * name or category matching against the industry standards.
+ */
+export function resolveInkStandardForMaterial(
+  material: Pick<MaterialLike, "name" | "category">,
+): (typeof SYSTEM_INK_STANDARDS)[keyof typeof SYSTEM_INK_STANDARDS] | null {
+  const name = material.name?.toLowerCase() ?? "";
+  const category = material.category?.toLowerCase() ?? "";
+
+  if (name.includes("banner ink") || name.includes("solvent") || category === "banner ink") {
+    return SYSTEM_INK_STANDARDS.SOLVENT_BANNER;
+  }
+  if (name.includes("dtf") || name.includes("film ink") || category === "dtf ink") {
+    return SYSTEM_INK_STANDARDS.DTF_PRINT;
+  }
+  if (name.includes("uv") || name.includes("flatbed") || category === "uv flat bed ink") {
+    return SYSTEM_INK_STANDARDS.UV_FLATBED;
+  }
+  return null;
+}
+
 const AREA_ROLL_CATEGORIES = new Set(["Banner", "Sticker roll", "Film", "Fabric roll"]);
 const AREA_SHEET_CATEGORIES = new Set(["Rigid sheet", "Foam board"]);
 

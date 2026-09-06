@@ -9,7 +9,7 @@ export type Role =
   | "plotter_operator"
   | "printer_operator";
 
-export type Unit = "m²" | "m" | "sheet" | "piece" | "pcs" | "L";
+export type Unit = "m²" | "m" | "sheet" | "piece" | "pcs" | "L" | "mL";
 
 export type PurchaseUnit = "roll" | "sheet" | "pack" | "canister" | "liter" | "piece";
 export type MaterialSpecification =

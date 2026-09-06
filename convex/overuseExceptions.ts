@@ -18,7 +18,7 @@ const exception = v.object({
   plannedUsage: v.number(),
   approvedScrapQuantity: v.number(),
   excessQuantity: v.number(),
-  unit: v.union(v.literal("m²"), v.literal("m"), v.literal("sheet"), v.literal("piece"), v.literal("pcs"), v.literal("L")),
+  unit: v.union(v.literal("m²"), v.literal("m"), v.literal("sheet"), v.literal("piece"), v.literal("pcs"), v.literal("L"), v.literal("mL")),
   status: exceptionStatus,
   createdBy: v.string(),
   createdAt: v.number(),
