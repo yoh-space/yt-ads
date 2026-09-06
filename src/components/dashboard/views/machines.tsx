@@ -106,77 +106,43 @@ export function MachinesView({
 
   return (
     <div className="space-y-6">
-      {/* Operator/Management Banner */}
-      <div className="bg-white border border-line rounded-lg p-6 shadow-sm">
-        <div className="flex items-start justify-between">
-          <div>
-            <span className="text-xs font-mono font-bold tracking-wider text-cyan-dark uppercase">
-              {isManagement ? "MACHINE WORKFLOW" : "OPERATOR CONSOLE"}
-            </span>
-            <h2 className="text-lg font-bold text-navy mt-1">
-              {roleLabels[role].en}
-            </h2>
-            <p className="text-sm text-gray-600 mt-1">{focus.detail}</p>
-          </div>
-          <div className="flex items-center gap-3">
-            {canCreateScrap && (
-              <button 
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg border border-line bg-white text-navy transition-colors hover:border-cyan hover:bg-cyan/5 focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2"
-                onClick={() => onScrap()}
-              >
-                <Trash2 size={16} />
-                Log scrap
-              </button>
-            )}
-            {canCreateOffcut && (
-              <button 
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-navy text-white shadow-sm transition-colors hover:bg-navy-2 focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2"
-                onClick={() => onOffcut()}
-              >
-                <Scissors size={16} />
-                Log offcut
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
       {/* Status Overview */}
       {isManagement ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
           <div className="bg-white border border-line rounded-lg p-4 text-center shadow-sm">
             <div className="text-2xl font-bold text-navy mb-1">{machines.length}</div>
-            <div className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Total</div>
+            <div className="text-xs font-semibold text-gray-600 uppercase tracking-wider">ጠቅላላ</div>
           </div>
           <div className="bg-green/5 border border-green/20 rounded-lg p-4 text-center shadow-sm">
             <div className="text-2xl font-bold text-green mb-1">
               {machines.filter((m) => m.status === "Running").length}
             </div>
-            <div className="text-xs font-semibold text-green uppercase tracking-wider">Running</div>
+            <div className="text-xs font-semibold text-green uppercase tracking-wider">በስራ ላይ</div>
           </div>
           <div className="bg-cyan/5 border border-cyan/20 rounded-lg p-4 text-center shadow-sm">
             <div className="text-2xl font-bold text-cyan-dark mb-1">
               {machines.filter((m) => m.status === "Available").length}
             </div>
-            <div className="text-xs font-semibold text-cyan-dark uppercase tracking-wider">Available</div>
+            <div className="text-xs font-semibold text-cyan-dark uppercase tracking-wider">ዝግጁ</div>
           </div>
           <div className="bg-gold/5 border border-gold/20 rounded-lg p-4 text-center shadow-sm">
             <div className="text-2xl font-bold text-gold mb-1">
               {machines.filter((m) => m.status === "Maintenance").length}
             </div>
-            <div className="text-xs font-semibold text-gold uppercase tracking-wider">Maintenance</div>
+            <div className="text-xs font-semibold text-gold uppercase tracking-wider">በጥገና ላይ</div>
           </div>
           <div className="bg-coral/5 border border-coral/20 rounded-lg p-4 text-center shadow-sm">
             <div className="text-2xl font-bold text-coral mb-1">
               {machines.filter((m) => m.status === "Unavailable").length}
             </div>
-            <div className="text-xs font-semibold text-coral uppercase tracking-wider">Unavailable</div>
+            <div className="text-xs font-semibold text-coral uppercase tracking-wider">የማይሰራ/የሌለ</div>
           </div>
         </div>
       ) : (
         <div className="bg-white border border-line rounded-lg p-6 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <span className="text-xs font-mono font-bold tracking-wider text-cyan-dark uppercase">UNIT MODE</span>
+              <span className="text-xs font-mono font-bold tracking-wider text-cyan-dark uppercase">የአሠራር ሁኔታ</span>
               <div className="text-lg font-bold text-navy mt-1">{focus.unit}</div>
               <p className="text-sm text-gray-600 mt-1">{focus.action}</p>
             </div>
@@ -185,7 +151,7 @@ export function MachinesView({
                 className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-md border border-line bg-white text-navy transition-colors hover:border-cyan hover:bg-cyan/5"
                 onClick={() => onOffcut(primaryMachine.id)}
               >
-                {role === "plotter_operator" ? "Log vinyl remainder" : "Log usable offcut"}
+                {role === "plotter_operator" ? "የቪኒል ቀሪ ይመዝግቡ" : "የሚጠቅም ቀሪ ይመዝግቡ"}
               </button>
             )}
           </div>
@@ -231,7 +197,7 @@ export function MachinesView({
                   <div>
                     <h3 className="truncate text-sm font-semibold text-slate-100">{machine.name}</h3>
                     <p className="truncate text-xs text-slate-400">
-                      {machine.code} · {machine.manufacturer || "Manufacturer not set"}
+                      {machine.code} · {machine.manufacturer || "ሞዴል አልተመደበም"}
                     </p>
                   </div>
                 </div>
@@ -284,7 +250,7 @@ export function MachinesView({
                 {job ? (
                   <div className="space-y-1.5">
                     <span className="text-xs font-mono font-bold tracking-wider text-cyan-dark uppercase">
-                      ACTIVE JOB CARD
+                      ንቁ የሥራ ካርድ
                     </span>
                     <div className="font-mono font-bold text-slate-100">{job.code}</div>
                     <div className="text-sm text-slate-300">{job.title}</div>
@@ -292,19 +258,19 @@ export function MachinesView({
                       <span className="font-semibold text-slate-100">
                         {formatQuantity(job.quantity, job.unit)}
                       </span>
-                      <span className="text-xs text-slate-400">Due {job.due}</span>
+                      <span className="text-xs text-slate-400">በቀን {job.due}</span>
                     </div>
                     {job.orderOverdue && (
                       <div className="flex items-center gap-1.5 text-xs text-coral font-medium">
                         <div className="w-1.5 h-1.5 rounded-full bg-coral"></div>
-                        Customer order overdue
+                        የደንበኛ ትዕዛዝ ጊዜ ያለፈበት
                       </div>
                     )}
                   </div>
                 ) : nextJob ? (
                   <div className="space-y-1.5">
                     <span className="text-xs font-mono font-bold tracking-wider text-gold uppercase">
-                      NEXT IN QUEUE
+                      ቀጣይ ተረኛ
                     </span>
                     <div className="font-mono font-bold text-slate-100">{nextJob.code}</div>
                     <div className="text-sm text-slate-300">{nextJob.client} · {nextJob.title}</div>
@@ -312,17 +278,17 @@ export function MachinesView({
                       <span className="font-semibold text-slate-100">
                         {formatQuantity(nextJob.quantity, nextJob.unit)}
                       </span>
-                      <span className="text-xs text-slate-400">Due {nextJob.due}</span>
+                      <span className="text-xs text-slate-400">በቀን {nextJob.due}</span>
                     </div>
                   </div>
                 ) : (
                   <div className="space-y-1.5">
                     <span className="text-xs font-mono font-bold tracking-wider text-gray-500 uppercase">
-                      READY FOR ASSIGNMENT
+                      ስራ ለመቀበል ዝግጁ
                     </span>
-                    <div className="font-semibold text-slate-100">No active job</div>
+                    <div className="font-semibold text-slate-100">ስራ የለውም</div>
                     <div className="text-sm text-slate-300">
-                      Machine is available for the next card.
+                      አዲስ ጆብ ካርድ ለመቀበል ዝግጁ ነው።
                     </div>
                   </div>
                 )}
@@ -341,7 +307,7 @@ export function MachinesView({
                     disabled={isPending(`complete-job-${job.id}`)}
                     onClick={() => onComplete(job.id)}
                   >
-                    {isPending(`complete-job-${job.id}`) ? "Completing..." : "Complete job"}
+                    {isPending(`complete-job-${job.id}`) ? "በመጨረስ ላይ…" : "ስራ ጨርስ"}
                   </button>
                 ) : !job && isManagement && nextJob ? (
                   <button 
@@ -355,14 +321,14 @@ export function MachinesView({
                     onClick={() => onAssignNextJob(machine.id)}
                   >
                     <Wrench size={13} />
-                    {isPending(`assign-job-${machine.id}`) ? "Assigning…" : `Assign ${nextJob.code}`}
+                    {isPending(`assign-job-${machine.id}`) ? "በመመደብ ላይ…" : `${nextJob.code} ይምከር`}
                   </button>
                 ) : !job && isManagement ? (
                   <button 
                     className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-lg border border-line bg-white text-navy transition-colors hover:border-cyan hover:bg-cyan/5"
                     onClick={() => onView("orders")}
                   >
-                    View orders
+                    ትዕዛዞችን እይ
                   </button>
                 ) : !job && !isManagement ? (
                   <button className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-lg border border-line bg-white text-navy transition-colors hover:border-cyan hover:bg-cyan/5">
@@ -375,7 +341,7 @@ export function MachinesView({
                     className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-lg border border-line bg-white text-gray-600 transition-colors hover:border-gray-300 hover:bg-gray-50"
                      onClick={() => onOffcut(machine.id)}
                   >
-                    Log offcut
+                    ቀሪ ይመዝግቡ
                   </button>
                 )}
               </div>

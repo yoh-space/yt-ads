@@ -35,7 +35,7 @@ export default function WorkspaceMachinesPage() {
   const [editMachine, setEditMachine] = useState<Machine | null>(null);
 
   if (!profile || machinesQuery === undefined || jobsQuery === undefined) {
-    return <div className="flex min-h-[400px] items-center justify-center"><InventoryLoader label="Loading Machines…" /></div>;
+    return <div className="flex min-h-[400px] items-center justify-center"><InventoryLoader label="የማሽኖች መረጃ በመጫን ላይ…" /></div>;
   }
 
   const machines = withIds(machinesQuery) as Machine[];
@@ -45,12 +45,12 @@ export default function WorkspaceMachinesPage() {
     <>
       <div className="mb-6 flex items-center justify-between border-b border-line pb-5">
         <div>
-          <p className="m-0 font-mono text-xs uppercase tracking-widest text-cyan-dark">Enterprise machine control</p>
-          <h1 className="m-0 mt-1 text-2xl font-bold text-navy">Machines & Production Lanes</h1>
-          <p className="m-0 mt-2 text-sm text-gray-600">Monitor availability, active job cards, and machine status in real time.</p>
+          <p className="m-0 font-mono text-xs uppercase tracking-widest text-cyan-dark">የማሽኖች ሁኔታ</p>
+          <h1 className="m-0 mt-1 text-2xl font-bold text-navy">የማሽኖች ወቅታዊ የስራ ሁኔታ እና ቁጥጥር።</h1>
+          <p className="m-0 mt-2 text-sm text-gray-600">በቀጥታ የስራ ሁኔታ፣ Active የስራ ካርዶች እና የማሽን ሁኔታ ይከታተሉ።</p>
         </div>
         <button type="button" onClick={() => setShowCreate(true)} className="rounded-lg bg-navy px-4 py-2 text-sm font-semibold text-white hover:bg-navy-2">
-          Add machine
+          + አዲስ ማሽን ጨምር
         </button>
       </div>
       <MachinesView
