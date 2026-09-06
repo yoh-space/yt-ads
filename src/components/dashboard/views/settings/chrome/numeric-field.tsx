@@ -28,9 +28,9 @@ export function NumericField({
   return (
     <label className="block">
       <span className="mb-1.5 flex items-center justify-between gap-2">
-        <span className="text-xs font-semibold text-navy">{label}</span>
+        <span className="text-xs font-semibold text-muted-foreground">{label}</span>
         {suffix ? (
-          <span className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-muted">
+          <span className="rounded border border-border bg-white/5 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-cyan-dark">
             {suffix}
           </span>
         ) : null}
@@ -48,7 +48,7 @@ export function NumericField({
         }}
         className="[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
       />
-      {hint ? <small className="mt-1.5 block text-[11px] text-gray-500">{hint}</small> : null}
+      {hint ? <small className="mt-1.5 block text-[11px] text-muted-foreground">{hint}</small> : null}
     </label>
   );
 }

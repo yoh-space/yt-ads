@@ -41,7 +41,7 @@ export function CompanyPanel() {
   }
 
   return (
-    <div className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-white shadow-sm">
+    <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
       <FormSection icon={<Building2 size={17} />} tone="blue" title="Company branding" note="Owner-only workspace settings.">
         <form onSubmit={saveCompany} className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
@@ -63,13 +63,13 @@ export function CompanyPanel() {
             </div>
           </div>
           {logoUrl.trim() ? (
-            <div className="flex items-center gap-3 rounded-lg border border-line bg-gray-50/60 px-4 py-3">
-              <span className="grid h-11 w-11 flex-none place-items-center overflow-hidden rounded-lg bg-white ring-1 ring-line">
+            <div className="flex items-center gap-3 rounded-lg border border-border bg-navy/20 px-4 py-3">
+              <span className="grid h-11 w-11 flex-none place-items-center overflow-hidden rounded-lg bg-white ring-1 ring-border">
                 <img src={logoUrl} alt="Company logo preview" className="h-full w-full object-cover" />
               </span>
               <div>
-                <strong className="block text-sm font-semibold text-navy">Logo preview</strong>
-                <small className="block text-xs text-gray-500">
+                <strong className="block text-sm font-semibold text-foreground">Logo preview</strong>
+                <small className="block text-xs text-muted-foreground">
                   Applied to the dashboard sidebar and header.
                 </small>
               </div>

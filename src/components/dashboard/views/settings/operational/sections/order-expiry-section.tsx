@@ -31,7 +31,7 @@ export function OrderExpirySection({
           hint="Unpaid/unconfirmed orders auto-expire after this period."
         />
       </div>
-      <p className="mt-3 text-[11px] text-gray-500">
+      <p className="mt-3 text-[11px] text-muted-foreground">
         Orders submitted via Telegram Mini App will automatically expire if not confirmed within this
         window. Customers receive an Amharic notification when their order expires.
       </p>

@@ -39,7 +39,7 @@ export function TeamPanel({ profile }: { profile: Profile }) {
   }
 
   return (
-    <div className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-gray-700 shadow-sm">
+    <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
       <FormSection
         icon={<Users size={17} />}
         tone="navy"
@@ -59,7 +59,7 @@ export function TeamPanel({ profile }: { profile: Profile }) {
             />
           ))}
           {users?.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-line bg-gray-50/50 px-4 py-8 text-center text-xs text-gray-500">
+            <div className="rounded-lg border border-dashed border-border bg-white/[0.02] px-4 py-8 text-center text-xs text-muted-foreground">
               No team profiles yet.
             </div>
           ) : null}

@@ -67,7 +67,7 @@ export function SettingsView({ profile }: { profile: Profile }) {
   const selected = categories.find((entry) => entry.id === activeCategory) ?? categories[0];
 
   return (
-    <div className="min-h-screen bg-canvas">
+    <div className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6">
           <SettingsSidebar

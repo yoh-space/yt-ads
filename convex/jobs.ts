@@ -79,9 +79,10 @@ async function recordProductionInternal(ctx: any, args: ProductionInput, operato
     });
   }
   const config = await ensureSystemConfig(ctx, operatorId);
+  // Per-material allowance wins; a default of 0 (or unset) inherits the global
+  // max allowed waste rate so the production-engine threshold stays the baseline.
   const allowancePercent = config.materialScrapAllowances?.find((entry) => entry.materialId === job.materialId)?.allowancePercent
-    ?? config.defaultScrapAllowancePercent
-    ?? config.maxAllowedWastePercent;
+    ?? (config.defaultScrapAllowancePercent ? config.defaultScrapAllowancePercent : config.maxAllowedWastePercent);
   const usageAllowanceStatus = getUsageAllowanceStatus(
     previousInput + args.inputQuantity + args.wasteQuantity,
     job.quantity,

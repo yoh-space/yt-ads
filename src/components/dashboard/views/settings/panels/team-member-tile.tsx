@@ -43,17 +43,17 @@ export function TeamMemberTile({
     .toUpperCase();
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-gray-800 px-4 py-3">
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-navy/20 px-4 py-3">
       <div className="flex min-w-0 items-center gap-3">
         <span className="grid h-10 w-10 flex-none place-items-center rounded-full bg-gradient-to-br from-navy to-navy-2 text-xs font-bold text-white">
           {initials}
         </span>
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <strong className="truncate text-sm font-semibold text-navy">{member.name}</strong>
+            <strong className="truncate text-sm font-semibold text-foreground">{member.name}</strong>
             {isSelf ? <StatusPill variant="success">You</StatusPill> : null}
           </div>
-          <small className="block truncate text-xs text-gray-500">{member.email}</small>
+          <small className="block truncate text-xs text-muted-foreground">{member.email}</small>
         </div>
       </div>
       <div className="flex flex-none items-center gap-2">

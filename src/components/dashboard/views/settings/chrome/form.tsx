@@ -4,12 +4,12 @@ import { cn } from "@/lib/utils";
 export type FormTone = "cyan" | "gold" | "blue" | "coral" | "navy" | "violet";
 
 const toneTile: Record<FormTone, string> = {
-  cyan: "bg-cyan/10 text-cyan-dark",
-  gold: "bg-gold/10 text-gold",
-  blue: "bg-blue/10 text-blue",
-  coral: "bg-coral/10 text-coral",
-  navy: "bg-navy/10 text-navy",
-  violet: "bg-violet/10 text-violet",
+  cyan: "bg-cyan/15 text-cyan-dark",
+  gold: "bg-gold/15 text-gold",
+  blue: "bg-blue/15 text-blue",
+  coral: "bg-coral/15 text-coral",
+  navy: "bg-white/10 text-foreground",
+  violet: "bg-violet/15 text-violet",
 };
 
 /**
@@ -38,8 +38,8 @@ export function FormSection({
           {icon}
         </span>
         <div className="min-w-0">
-          <strong className="block text-sm font-bold text-navy">{title}</strong>
-          <span className="mt-0.5 block text-xs text-gray-500">{note}</span>
+          <strong className="block text-sm font-bold text-foreground">{title}</strong>
+          <span className="mt-0.5 block text-xs text-muted-foreground">{note}</span>
         </div>
       </div>
       {children}
@@ -49,7 +49,7 @@ export function FormSection({
 
 /** Standardised label used above each form control in the settings forms. */
 export function FieldLabel({ children }: { children: ReactNode }) {
-  return <span className="mb-1.5 block text-xs font-semibold text-navy">{children}</span>;
+  return <span className="mb-1.5 block text-xs font-semibold text-muted-foreground">{children}</span>;
 }
 
 /** Inline banner used to surface success or error feedback next to save buttons. */

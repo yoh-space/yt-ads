@@ -27,7 +27,7 @@ export const WORKSPACE_REGISTRY: Record<WorkspaceId, WorkspaceDefinition> = {
     route: "/dashboard/owner",
     roles: ["owner"],
     primaryCapability: "finance.view",
-    navViews: ["overview", "orders", "inventory", "jobs", "machines", "reports", "reconciliation", "financial", "settings"],
+    navViews: ["overview", "orders", "inventory", "jobs", "machines", "reports", "reconciliation", "financial", "config", "settings"],
     modules: [
       { id: "dashboard.kpis", capability: "dashboard.view", placement: "primary" },
       { id: "orders.queue", capability: "orders.view", placement: "primary" },
@@ -50,7 +50,7 @@ export const WORKSPACE_REGISTRY: Record<WorkspaceId, WorkspaceDefinition> = {
     route: "/dashboard/owner",
     roles: ["admin"],
     primaryCapability: "dashboard.view",
-    navViews: ["overview", "orders", "inventory", "jobs", "machines", "reports", "reconciliation", "financial", "settings"],
+    navViews: ["overview", "orders", "inventory", "jobs", "machines", "reports", "reconciliation", "financial", "config", "settings"],
     modules: [
       { id: "dashboard.kpis", capability: "dashboard.view", placement: "primary" },
       { id: "orders.queue", capability: "orders.view", placement: "primary" },

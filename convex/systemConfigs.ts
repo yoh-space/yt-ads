@@ -78,6 +78,11 @@ export const updateSystemConfig = mutation({
     requireAdminPinForExceptions: v.boolean(),
     maxDirectStockOutEtb: v.number(),
     orderExpirationHours: v.number(),
+    defaultScrapAllowancePercent: v.number(),
+    materialScrapAllowances: v.array(v.object({
+      materialId: v.id("materials"),
+      allowancePercent: v.number(),
+    })),
   },
   handler: async (ctx, args) => {
     const { identity, profile } = await requirePermission(ctx, "company_settings.update");
@@ -91,6 +96,20 @@ export const updateSystemConfig = mutation({
     validateNumber(args.minOffcutAreaSquareMetre, "Minimum offcut registration size", { min: 0 });
     validateNumber(args.maxDirectStockOutEtb, "Maximum ETB for direct stock-outs", { min: 0 });
     validateNumber(args.orderExpirationHours, "Order expiration hours", { min: 1, max: 168 });
+    validateNumber(args.defaultScrapAllowancePercent, "Default scrap allowance", { min: 0, max: 100 });
+
+    const seenScrap = new Set<string>();
+    const scrapAllowances = args.materialScrapAllowances
+      .map((entry) => ({
+        materialId: entry.materialId,
+        allowancePercent: Number(entry.allowancePercent),
+      }))
+      .filter((entry) => {
+        validateNumber(entry.allowancePercent, `Scrap allowance for material ${entry.materialId}`, { min: 0, max: 100 });
+        if (seenScrap.has(entry.materialId)) return false;
+        seenScrap.add(entry.materialId);
+        return true;
+      });
 
     const conversionRules = args.unitConversionDefaults.map((rule) => ({
       materialName: rule.materialName.trim(),
@@ -142,6 +161,8 @@ export const updateSystemConfig = mutation({
       requireAdminPinForExceptions: args.requireAdminPinForExceptions,
       maxDirectStockOutEtb: args.maxDirectStockOutEtb,
       orderExpirationHours: args.orderExpirationHours,
+      defaultScrapAllowancePercent: args.defaultScrapAllowancePercent,
+      materialScrapAllowances: scrapAllowances,
       updatedAt: Date.now(),
       updatedBy: profile._id,
     };

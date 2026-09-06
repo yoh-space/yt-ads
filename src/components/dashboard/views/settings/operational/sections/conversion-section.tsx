@@ -35,7 +35,7 @@ export function ConversionSection({
         {rules.map((rule, index) => (
           <div
             key={`${rule.materialName}-${index}`}
-            className="grid gap-3 rounded-lg border border-line bg-gray-50/60 p-3 sm:grid-cols-[1.5fr_1fr_1fr_1fr_auto]"
+            className="grid gap-3 rounded-lg border border-border bg-navy/20 p-3 sm:grid-cols-[1.5fr_1fr_1fr_1fr_auto]"
           >
             <Input
               value={rule.materialName}
@@ -95,7 +95,7 @@ export function ConversionSection({
           <Plus size={15} />
           Add conversion rate
         </Button>
-        <p className="text-[11px] text-gray-500">
+        <p className="text-[11px] text-muted-foreground">
           For example, configure 1.0 m Roll to 53.3 m² or 1.5 m Roll to 75.0 m². Existing ledger
           events retain their original conversion snapshot.
         </p>

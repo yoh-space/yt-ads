@@ -11,6 +11,7 @@ import { OrderExpirySection } from "./sections/order-expiry-section";
 import { OverrideSection, type MaterialOption } from "./sections/override-section";
 import { ProductionSection } from "./sections/production-section";
 import { RiskSection } from "./sections/risk-section";
+import { ScrapAllowanceSection } from "./sections/scrap-allowance-section";
 import { ValuationSection } from "./sections/valuation-section";
 import { useOperationalConfigState } from "./state";
 
@@ -42,8 +43,8 @@ export function OperationalPanel() {
 
   if (config === undefined || state === undefined) {
     return (
-      <div className="rounded-xl border border-line bg-white p-10 text-center shadow-sm">
-        <p className="text-xs text-gray-500">Loading configuration…</p>
+      <div className="rounded-xl border border-border bg-card p-10 text-center">
+        <p className="text-xs text-muted-foreground">Loading configuration…</p>
       </div>
     );
   }
@@ -67,6 +68,8 @@ export function OperationalPanel() {
         requireAdminPinForExceptions: form.requireAdminPinForExceptions,
         maxDirectStockOutEtb: form.maxDirectStockOutEtb,
         orderExpirationHours: form.orderExpirationHours,
+        defaultScrapAllowancePercent: form.defaultScrapAllowancePercent,
+        materialScrapAllowances: form.materialScrapAllowances,
       });
       setMessage(
         "Operational configuration saved. Production & valuation will use the new rates on the next record.",
@@ -85,7 +88,7 @@ export function OperationalPanel() {
   return (
     <form
       onSubmit={save}
-      className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-white shadow-sm"
+      className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card"
     >
       <ValuationSection
         etbPerSquareMetre={form.etbPerSquareMetre}
@@ -121,6 +124,15 @@ export function OperationalPanel() {
         setMinOffcutAreaSquareMetre={form.setMinOffcutAreaSquareMetre}
       />
 
+      <ScrapAllowanceSection
+        defaultScrapAllowancePercent={form.defaultScrapAllowancePercent}
+        setDefaultScrapAllowancePercent={form.setDefaultScrapAllowancePercent}
+        scrapAllowances={form.materialScrapAllowances}
+        setScrapAllowances={form.setMaterialScrapAllowances}
+        materials={materials}
+        onMessage={setMessage}
+      />
+
       <OrderExpirySection
         orderExpirationHours={form.orderExpirationHours}
         setOrderExpirationHours={form.setOrderExpirationHours}
@@ -133,8 +145,8 @@ export function OperationalPanel() {
         setMaxDirectStockOutEtb={form.setMaxDirectStockOutEtb}
       />
 
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-gray-50/70 px-5 py-4 sm:px-6">
-        <p className="text-[11px] text-gray-500">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-secondary/40 px-5 py-4 sm:px-6">
+        <p className="text-[11px] text-muted-foreground">
           Owner-only configuration · applied transactionally on the next production record.
         </p>
         <div className="flex flex-wrap items-center gap-3">

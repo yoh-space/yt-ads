@@ -91,8 +91,10 @@ export function getNavItemHref(view: View, role: Role): string {
     case "financial":
       return "/reports";
     case "audit":
-    case "config":
     case "settings":
+      return "/settings";
+    case "config":
+      if (role === "owner" || role === "admin") return "/dashboard/owner/config";
       return "/settings";
     default:
       return "/dashboard";

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { Id } from "@/convex/_generated/dataModel";
 import type { PurchaseUnit, Unit } from "@/lib/operations-types";
 
 export interface OverrideRow {
@@ -14,6 +15,11 @@ export interface ConversionRuleRow {
   baseUnit: Unit;
   inputDimension?: number;
   conversionRatio: number;
+}
+
+export interface ScrapAllowanceRow {
+  materialId: Id<"materials">;
+  allowancePercent: number;
 }
 
 /** Shape of the editable system config — matches the fields persisted via
@@ -31,6 +37,8 @@ export interface OperationalConfigState {
   requireAdminPinForExceptions: boolean;
   maxDirectStockOutEtb: number;
   orderExpirationHours: number;
+  defaultScrapAllowancePercent: number;
+  materialScrapAllowances: ScrapAllowanceRow[];
   overrides: OverrideRow[];
 }
 
@@ -47,6 +55,8 @@ export interface OperationalConfigActions {
   setRequireAdminPinForExceptions: (v: boolean) => void;
   setMaxDirectStockOutEtb: (n: number) => void;
   setOrderExpirationHours: (n: number) => void;
+  setDefaultScrapAllowancePercent: (n: number) => void;
+  setMaterialScrapAllowances: React.Dispatch<React.SetStateAction<ScrapAllowanceRow[]>>;
   setOverrides: React.Dispatch<React.SetStateAction<OverrideRow[]>>;
   hydrated: boolean;
 }
@@ -64,6 +74,8 @@ interface SystemConfigResponse {
   requireAdminPinForExceptions: boolean;
   maxDirectStockOutEtb: number;
   orderExpirationHours?: number;
+  defaultScrapAllowancePercent?: number;
+  materialScrapAllowances?: ScrapAllowanceRow[];
   materialOverrides: { materialName: string; etbValue: number }[];
 }
 
@@ -87,6 +99,8 @@ export function useOperationalConfigState(
   const [requireAdminPinForExceptions, setRequireAdminPinForExceptions] = useState(true);
   const [maxDirectStockOutEtb, setMaxDirectStockOutEtb] = useState(0);
   const [orderExpirationHours, setOrderExpirationHours] = useState(12);
+  const [defaultScrapAllowancePercent, setDefaultScrapAllowancePercent] = useState(0);
+  const [materialScrapAllowances, setMaterialScrapAllowances] = useState<ScrapAllowanceRow[]>([]);
   const [overrides, setOverrides] = useState<OverrideRow[]>([]);
   const [hydrated, setHydrated] = useState(false);
 
@@ -104,6 +118,8 @@ export function useOperationalConfigState(
     setRequireAdminPinForExceptions(config.requireAdminPinForExceptions);
     setMaxDirectStockOutEtb(config.maxDirectStockOutEtb);
     setOrderExpirationHours(config.orderExpirationHours ?? 12);
+    setDefaultScrapAllowancePercent(config.defaultScrapAllowancePercent ?? 0);
+    setMaterialScrapAllowances((config.materialScrapAllowances ?? []).map((row) => ({ materialId: row.materialId, allowancePercent: row.allowancePercent })));
     setOverrides(config.materialOverrides.map((row) => ({ materialName: row.materialName, etbValue: row.etbValue })));
     setHydrated(true);
   }, [config, hydrated]);
@@ -121,6 +137,8 @@ export function useOperationalConfigState(
     requireAdminPinForExceptions,
     maxDirectStockOutEtb,
     orderExpirationHours,
+    defaultScrapAllowancePercent,
+    materialScrapAllowances,
     overrides,
     setEtbPerSquareMetre,
     setEtbPerLitre,
@@ -134,6 +152,8 @@ export function useOperationalConfigState(
     setRequireAdminPinForExceptions,
     setMaxDirectStockOutEtb,
     setOrderExpirationHours,
+    setDefaultScrapAllowancePercent,
+    setMaterialScrapAllowances,
     setOverrides,
     hydrated,
   };
