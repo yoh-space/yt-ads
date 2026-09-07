@@ -219,12 +219,12 @@ export function ReportsView({ canSeeFinancial = false }: { canSeeFinancial?: boo
       const yieldPct = issued > 0 ? (output / issued) * 100 : 100;
       const status: { label: string; tone: ExecutiveTone } =
         yieldPct >= 97
-          ? { label: "BALANCED", tone: "emerald" }
+          ? { label: "ሚዛናዊ", tone: "emerald" }
           : yieldPct >= 95
-          ? { label: "OPTIMAL", tone: "sky" }
+          ? { label: "ተመራጭ", tone: "sky" }
           : yieldPct >= 90
-          ? { label: "LOW YIELD", tone: "amber" }
-          : { label: "SCRAP ALERT", tone: "red" };
+          ? { label: "ዝቅተኛ ምርት", tone: "amber" }
+          : { label: "የብክነት ማስጠንቀቂያ", tone: "red" };
       return {
         key: m.materialName,
         sku: `SKU-${String(4000 + index)}`,
@@ -256,7 +256,7 @@ export function ReportsView({ canSeeFinancial = false }: { canSeeFinancial?: boo
       <div className="flex items-center justify-center min-h-[280px] rounded-lg border border-[#1E293B] bg-[#0B0F17]">
         <div className="flex items-center gap-2.5 font-mono text-xs text-sky-400">
           <span className="h-4 w-4 animate-spin rounded-full border-2 border-sky-400 border-t-transparent" />
-          የአመራር ሪፖርት እየተዘጋጀ ነው… (LOADING EXECUTIVE REPORT)
+          የአመራር ሪፖርት እየተዘጋጀ ነው…
         </div>
       </div>
     );
@@ -276,7 +276,7 @@ export function ReportsView({ canSeeFinancial = false }: { canSeeFinancial?: boo
   ]);
 
   const handleExport = (format: "csv" | "pdf" | "xls") => {
-    const header = "Material,SKU,Issued,Output,Scrap,Variance,Status";
+     const header = "ቁሳቁስ,መለያ,የተረከበ,የተመረተ,ብክነት,ልዩነት,ሁኔታ";
     const body = exportRows.map((row) => row.map((cell) => `"${cell}"`).join(",")).join("\n");
     const content = `${header}\n${body}`;
     const stamp = `EXEC-YT-${report.period.toUpperCase()}-${report.startAt}`;
@@ -299,17 +299,17 @@ export function ReportsView({ canSeeFinancial = false }: { canSeeFinancial?: boo
           <div className="mb-1.5 flex flex-wrap items-center gap-2 font-mono">
             <span className="inline-flex items-center gap-1.5 rounded border border-sky-500/40 bg-sky-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.16em] text-sky-300">
               <ShieldCheck size={11} className="text-emerald-400" />
-              AUDIT STAMP · {report.period.toUpperCase()}
+              የሪፖርት ማህተም · {periodLabel?.label}
             </span>
             <span className="font-mono text-[10px] text-slate-500">
-              {formatDate(report.startAt)} — {formatDate(report.endAt)} · {report.days} days
+              {formatDate(report.startAt)} — {formatDate(report.endAt)} · {report.days} ቀናት
             </span>
           </div>
           <h1 className="text-2xl font-black tracking-tight text-white">
             የአመራር እና የፋይናንስ ሪፖርት ማዕከል
           </h1>
           <p className="mt-0.5 font-mono text-[11px] text-slate-400">
-            Owner Financial Oversight &amp; Material Yield Reports • YoTech Industrial Hub
+            የባለቤት የፋይናንስ ቁጥጥር እና የቁሳቁስ ምርታማነት ሪፖርቶች
           </p>
         </div>
 
@@ -350,23 +350,22 @@ export function ReportsView({ canSeeFinancial = false }: { canSeeFinancial?: boo
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <ExecutiveKPICard
           tone="sky"
-          kicker="የተጣራ ገቢ እና ወጪ"
-          label="Unbilled / Net Production Yield"
-          value={canSeeFinancial ? formatCurrency(Math.max(0, d.netYieldETB)) : `${d.output.toFixed(0)} ${report.production.inputQuantity > 0 ? "units" : "—"} output`}
+          label="ያልተሰበሰበ የህትመት ገቢ"
+          value={canSeeFinancial ? formatCurrency(Math.max(0, d.netYieldETB)) : `${d.output.toFixed(0)} ${report.production.inputQuantity > 0 ? "ክፍሎች" : "—"}`}
           indicator={
             report.financial.pendingOrders > 0 ? (
               <KpiDelta tone="good">+{Math.round((report.financial.completedOrders / (report.financial.totalOrders || 1)) * 100)}%</KpiDelta>
             ) : undefined
           }
-          badge={<StatusTag tone="sky">{report.financial.totalOrders} ORDERS</StatusTag>}
+          badge={<StatusTag tone="sky">{report.financial.totalOrders} ትዕዛዞች</StatusTag>}
           footers={[
             {
-              label: "Gross ETB",
+              label: "ጠቅላላ ዋጋ",
               value: canSeeFinancial ? formatCurrency(d.grossETB) : "—",
               tone: "good",
             },
             {
-              label: "OpEx / Material",
+              label: "የስራ እና የቁሳቁስ ወጪ",
               value: canSeeFinancial ? formatCurrency(d.opexETB) : "—",
               tone: "neutral",
             },
@@ -375,20 +374,19 @@ export function ReportsView({ canSeeFinancial = false }: { canSeeFinancial?: boo
 
         <ExecutiveKPICard
           tone="red"
-          kicker="የብክነት እና የኪሳራ መጠን"
-          label="Scrap & Ledger Discrepancy Loss"
-          value={canSeeFinancial ? `-${formatCurrency(d.varianceLoss)}` : `${d.shortageCounts} Shortages`}
-          indicator={<StatusTag tone="red">{d.scrapRate}% INTAKE</StatusTag>}
-          badge={<StatusTag tone="amber">Requires reconciliation sign-off</StatusTag>}
+          label="የብክነት እና የስቶክ ልዩነት"
+          value={canSeeFinancial ? `-${formatCurrency(d.varianceLoss)}` : `${d.shortageCounts} እጥረቶች`}
+          indicator={<StatusTag tone="red">{d.scrapRate}% የግብዓት ብክነት</StatusTag>}
+          badge={<StatusTag tone="amber">ማረጋገጫ ይፈልጋል</StatusTag>}
           footers={[
             {
-              label: "Floor Scrap",
-              value: `${d.scrapQty.toLocaleString("en-US", { maximumFractionDigits: 0 })} ${report.recovery.scrapByUnit[0]?.unit ?? "units"}`,
+              label: "የወደቀ ብክነት",
+              value: `${d.scrapQty.toLocaleString("en-US", { maximumFractionDigits: 0 })} ${report.recovery.scrapByUnit[0]?.unit ?? "ክፍሎች"}`,
               tone: "bad",
             },
             {
-              label: "Unaccounted",
-              value: `${d.shortageCounts} Alerts`,
+              label: "ያልተመዘገበ",
+              value: `${d.shortageCounts} ማስጠንቀቂያዎች`,
               tone: "neutral",
             },
           ]}
@@ -396,36 +394,34 @@ export function ReportsView({ canSeeFinancial = false }: { canSeeFinancial?: boo
 
         <ExecutiveKPICard
           tone="emerald"
-          kicker="የጥሬ እቃ ምርታማነት"
-          label="Factory Aggregate Material Yield"
-          value={`${d.yieldPct.toFixed(1)}% OVERALL`}
+          label="የአጠቃላይ ምርት ውጤታማነት"
+          value={`${d.yieldPct.toFixed(1)}% አጠቃላይ`}
           indicator={
             <KpiDelta tone="good">
               <TrendingUp size={11} /> +{(d.yieldPct - 95).toFixed(1)}%
             </KpiDelta>
           }
-          badge={<StatusTag tone="emerald">Yield Factor 1.04x</StatusTag>}
+          badge={<StatusTag tone="emerald">የምርት መጠን 1.04x</StatusTag>}
           footers={[
-            { label: "Net Output", value: `${d.output.toLocaleString("en-US", { maximumFractionDigits: 0 })} output`, tone: "good" },
-            { label: "Consumed", value: `${d.input.toLocaleString("en-US", { maximumFractionDigits: 0 })} input`, tone: "neutral" },
+            { label: "የተመረተ", value: `${d.output.toLocaleString("en-US", { maximumFractionDigits: 0 })} ክፍሎች`, tone: "good" },
+            { label: "የገባ ጥሬ እቃ", value: `${d.input.toLocaleString("en-US", { maximumFractionDigits: 0 })} ክፍሎች`, tone: "neutral" },
           ]}
         />
 
         <ExecutiveKPICard
           tone="amber"
-          kicker="ያልተወራረደ ስቶክ ስጋት"
-          label="Uncleared Production Sub-Stock Risk"
-          value={canSeeFinancial ? formatCurrency(d.pendingMonetary) : `${d.pending.length} Batches`}
-          indicator={<StatusTag tone="amber">{d.pending.length} SHIFTS</StatusTag>}
-          badge={<StatusTag tone="amber">Floor Reconciliation Pending Sign-off</StatusTag>}
+          label="ያልፀደቀ የስቶክ ሂሳብ"
+          value={canSeeFinancial ? formatCurrency(d.pendingMonetary) : `${d.pending.length} የስቶክ ቡድኖች`}
+          indicator={<StatusTag tone="amber">{d.pending.length} የስቶክ ቡድኖች</StatusTag>}
+          badge={<StatusTag tone="amber">ማረጋገጫ ይጠብቃል</StatusTag>}
           footers={[
             {
-              label: "Pending qty",
-              value: `${d.pendingQty.toLocaleString("en-US", { maximumFractionDigits: 0 })} units`,
+              label: "የሚጠበቅ መጠን",
+              value: `${d.pendingQty.toLocaleString("en-US", { maximumFractionDigits: 0 })} ክፍሎች`,
               tone: "bad",
             },
             {
-              label: "Movements",
+              label: "የእንቅስቃሴ ብዛት",
               value: `${d.movementCount}`,
               tone: "neutral",
             },
@@ -436,7 +432,7 @@ export function ReportsView({ canSeeFinancial = false }: { canSeeFinancial?: boo
                 type="button"
                 className="inline-flex items-center gap-1.5 rounded font-mono text-[11px] font-bold text-sky-300 transition-colors hover:text-sky-200 cursor-pointer"
               >
-                ACTION REQUIRED: Authorize Ledger <ArrowRight size={12} />
+                ሂሳብ አፅድቅ →
               </button>
             ) : undefined
           }
@@ -451,14 +447,13 @@ export function ReportsView({ canSeeFinancial = false }: { canSeeFinancial?: boo
           <section className="rounded-lg border border-[#1E293B] bg-[#121824] p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h2 className="text-base font-bold text-white">የምርት ወጪ እና የተጣራ ትርፍ ግራፍ</h2>
-                <p className="font-mono text-[10px] text-slate-500">Production Cost Structure, Margin &amp; Leakage per Production Cycle</p>
+                <h2 className="text-base font-bold text-white">የምርት ገቢ እና ወጪ ግራፍ</h2>
               </div>
               <div className="flex flex-wrap items-center gap-1.5">
-                <StatusTag tone="sky">የተጣራ ገቢ Gross Revenue</StatusTag>
-                <StatusTag tone="emerald">የጥሬ እቃ ወጪ Raw Material</StatusTag>
-                <StatusTag tone="amber">ስራ ማስሄጃ OpEx</StatusTag>
-                <StatusTag tone="red">የብክነት ኪሳራ Scrap Deficit</StatusTag>
+                <StatusTag tone="sky">ጠቅላላ ገቢ</StatusTag>
+                <StatusTag tone="emerald">የጥሬ እቃ ወጪ</StatusTag>
+                <StatusTag tone="amber">ተጨማሪ ወጪ</StatusTag>
+                <StatusTag tone="red">የብክነት ኪሳራ</StatusTag>
               </div>
             </div>
 
@@ -489,33 +484,33 @@ export function ReportsView({ canSeeFinancial = false }: { canSeeFinancial?: boo
                     formatter={(value, name) => [formatCurrency(Number(value ?? 0)), String(name)]}
                   />
                   <Legend wrapperStyle={{ fontSize: 10, fontFamily: "monospace" }} />
-                  <Area type="monotone" dataKey="gross" name="Gross Revenue" stroke="#38BDF8" fill="url(#gross)" strokeWidth={2} />
-                  <Area type="monotone" dataKey="material" name="Raw Material" stroke="#10B981" fill="url(#material)" strokeWidth={2} />
-                  <Area type="monotone" dataKey="opex" name="OpEx & Labor" stroke="#F59E0B" fill="transparent" strokeWidth={1.5} />
-                  <Area type="monotone" dataKey="scrap" name="Scrap Deficit" stroke="#EF4444" fill="transparent" strokeWidth={1.5} strokeDasharray="4 3" />
+                  <Area type="monotone" dataKey="gross" name="ጠቅላላ ገቢ" stroke="#38BDF8" fill="url(#gross)" strokeWidth={2} />
+                  <Area type="monotone" dataKey="material" name="የጥሬ እቃ ወጪ" stroke="#10B981" fill="url(#material)" strokeWidth={2} />
+                  <Area type="monotone" dataKey="opex" name="ተጨማሪ ወጪ" stroke="#F59E0B" fill="transparent" strokeWidth={1.5} />
+                  <Area type="monotone" dataKey="scrap" name="የብክነት ኪሳራ" stroke="#EF4444" fill="transparent" strokeWidth={1.5} strokeDasharray="4 3" />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
 
             <div className="mt-3 grid grid-cols-1 gap-px overflow-hidden rounded-md border border-[#1E293B] bg-[#1E293B] sm:grid-cols-3">
               <div className="bg-[#0F1622] px-3 py-2.5">
-                <span className="block font-mono text-[9px] uppercase tracking-wider text-slate-500">Cumulative Gross Billed</span>
+                <span className="block font-mono text-[9px] tracking-wider text-slate-500">ጠቅላላ የተከፈለ ገቢ</span>
                 <span className="mt-0.5 block font-mono text-sm font-black text-sky-300">
                   {canSeeFinancial ? formatCurrency(d.grossETB) : "—"}
                 </span>
               </div>
               <div className="bg-[#0F1622] px-3 py-2.5">
-                <span className="block font-mono text-[9px] uppercase tracking-wider text-slate-500">Total Direct Production OpEx</span>
+                <span className="block font-mono text-[9px] tracking-wider text-slate-500">ጠቅላላ የምርት ቀጥተኛ ወጪ</span>
                 <span className="mt-0.5 block font-mono text-sm font-black text-amber-300">
                   {canSeeFinancial ? formatCurrency(d.opexETB) : "—"}
                 </span>
               </div>
               <div className="bg-[#0F1622] px-3 py-2.5">
-                <span className="block font-mono text-[9px] uppercase tracking-wider text-slate-500">Net Yield Efficiency Ratio</span>
+                <span className="block font-mono text-[9px] tracking-wider text-slate-500">የተጣራ ውጤታማነት መጠን</span>
                 <span className="mt-0.5 flex items-center gap-2 font-mono text-sm font-black text-emerald-300">
-                  {d.yieldPct.toFixed(1)}% Clean
+                  {d.yieldPct.toFixed(1)}% ንጹህ
                   <span className="font-mono text-[10px] font-bold text-red-400">
-                    -{formatCurrency(d.varianceLoss)} Drag
+                    -{formatCurrency(d.varianceLoss)} ቅናሽ
                   </span>
                 </span>
               </div>
@@ -527,7 +522,6 @@ export function ReportsView({ canSeeFinancial = false }: { canSeeFinancial?: boo
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#1E293B] p-4">
               <div>
                 <h2 className="text-base font-bold text-white">የጥሬ እቃ አጠቃቀም እና የብክነት ማጠቃለያ</h2>
-                <p className="font-mono text-[10px] text-slate-500">Material Usage, Scrap Audits, and Unaccounted Balance by SKU</p>
               </div>
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1.5 rounded-md border border-[#1E293B] bg-[#0B0F17] px-2.5 py-1.5">
@@ -538,7 +532,7 @@ export function ReportsView({ canSeeFinancial = false }: { canSeeFinancial?: boo
                       setSearch(e.target.value);
                       setPage(0);
                     }}
-                    placeholder="Search SKU or substrate..."
+                    placeholder="ቁሳቁስ ወይም መለያ ይፈልጉ..."
                     className="w-44 bg-transparent text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none"
                   />
                 </div>
@@ -546,17 +540,17 @@ export function ReportsView({ canSeeFinancial = false }: { canSeeFinancial?: boo
                   type="button"
                   className="rounded-md border border-[#1E293B] bg-[#0B0F17] px-3 py-1.5 font-mono text-[11px] font-bold text-slate-300 transition-colors hover:bg-[#1B2433] cursor-pointer"
                 >
-                  Filter
+                  ማጣሪያ
                 </button>
               </div>
             </div>
 
             {/* Table header */}
             <div className="grid grid-cols-12 items-center gap-2 border-b border-[#1E293B] bg-[#0F1622] px-3 py-2 font-mono text-[9px] font-bold uppercase tracking-wider text-slate-500">
-              <span className="col-span-3">ቁሳቁስ እና SKU</span>
-              <span className="col-span-2 text-right">የተረከቡት (Issued)</span>
-              <span className="col-span-2 text-right">ጥቅም ላይ የዋለ (Output)</span>
-              <span className="col-span-2 text-right">የተበላሸ (Scrap)</span>
+              <span className="col-span-3">ቁሳቁስ እና መለያ</span>
+              <span className="col-span-2 text-right">የተረከቡት</span>
+              <span className="col-span-2 text-right">ጥቅም ላይ የዋለ</span>
+              <span className="col-span-2 text-right">የተበላሸ</span>
               <span className="col-span-1 text-right">ልዩነት</span>
               <span className="col-span-2 text-right">ሁኔታ</span>
             </div>
@@ -564,7 +558,7 @@ export function ReportsView({ canSeeFinancial = false }: { canSeeFinancial?: boo
             <div>
               {pagedRows.length === 0 ? (
                 <div className="p-8 text-center font-mono text-xs text-slate-500">
-                  ምንም ሪፖርት የለም — no substrate data for this period.
+                  ለዚህ ጊዜ ምንም የቁሳቁስ መረጃ የለም።
                 </div>
               ) : (
                 pagedRows.map((row) => (
@@ -586,7 +580,7 @@ export function ReportsView({ canSeeFinancial = false }: { canSeeFinancial?: boo
             {/* Pagination */}
             <div className="flex items-center justify-between border-t border-[#1E293B] px-4 py-2.5">
               <span className="font-mono text-[10px] text-slate-500">
-                Showing {pagedRows.length === 0 ? 0 : page * pageSize + 1}–{Math.min(page * pageSize + pagedRows.length, materialRows.length)} of {materialRows.length} SKUs
+                {materialRows.length} ቁሳቁሶች ከ {pagedRows.length === 0 ? 0 : page * pageSize + 1}–{Math.min(page * pageSize + pagedRows.length, materialRows.length)}
               </span>
               <div className="flex items-center gap-1.5">
                 <button
@@ -595,16 +589,16 @@ export function ReportsView({ canSeeFinancial = false }: { canSeeFinancial?: boo
                   onClick={() => setPage((p) => Math.max(0, p - 1))}
                   className="rounded border border-[#1E293B] bg-[#0B0F17] px-3 py-1 font-mono text-[11px] text-slate-300 transition-colors hover:bg-[#1B2433] disabled:opacity-40 cursor-pointer"
                 >
-                  Previous
+                  ቀዳሚ
                 </button>
-                <span className="font-mono text-[10px] text-slate-500">Page {page + 1}/{totalPages}</span>
+                <span className="font-mono text-[10px] text-slate-500">ገጽ {page + 1}/{totalPages}</span>
                 <button
                   type="button"
                   disabled={page + 1 >= totalPages}
                   onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
                   className="rounded border border-[#1E293B] bg-[#0B0F17] px-3 py-1 font-mono text-[11px] text-slate-300 transition-colors hover:bg-[#1B2433] disabled:opacity-40 cursor-pointer"
                 >
-                  Next
+                  ቀጣይ
                 </button>
               </div>
             </div>
@@ -617,16 +611,15 @@ export function ReportsView({ canSeeFinancial = false }: { canSeeFinancial?: boo
           <section className="rounded-lg border border-[#1E293B] bg-[#121824]">
             <div className="flex items-center justify-between gap-3 border-b border-[#1E293B] p-4">
               <div>
-                <h2 className="text-base font-bold text-white">የኦፕሬተሮች ውጤታማነት ደረጃ</h2>
-                <p className="font-mono text-[10px] text-slate-500">Ranked by Material Efficiency &amp; Yield Metric</p>
+                <h2 className="text-base font-bold text-white">የኦፕሬተሮች የስራ ውጤት</h2>
               </div>
-              <StatusTag tone="sky">SHIFT CYCLE {report.period === "weekly" ? 88 : report.days}</StatusTag>
+              <StatusTag tone="sky">የስራ ዑደት {report.period === "weekly" ? 88 : report.days}</StatusTag>
             </div>
 
             {d.operatorRank.length === 0 ? (
               <div className="flex flex-col items-center gap-2 p-8 text-center font-mono text-xs text-slate-500">
                 <Factory size={18} className="text-slate-600" />
-                No operator floor batches yet for ranking.
+                ለደረጃ ማውጣት የኦፕሬተር የስራ ቡድን የለም።
               </div>
             ) : (
               <div>
@@ -635,10 +628,10 @@ export function ReportsView({ canSeeFinancial = false }: { canSeeFinancial?: boo
                   const overScrap = op.scrap > budget;
                   const badge =
                     index === 0
-                      ? { tone: "emerald" as const, label: "MOST EFFICIENT" }
+                      ? { tone: "emerald" as const, label: "ከፍተኛ ውጤት" }
                       : op.scrap / Math.max(1, op.issued) > 0.35
-                      ? { tone: "red" as const, label: "HIGH SCRAP" }
-                      : { tone: "emerald" as const, label: "CLEARED" };
+                        ? { tone: "red" as const, label: "ከፍተኛ ብክነት" }
+                        : { tone: "emerald" as const, label: "ፀድቋል" };
                   return (
                     <OperatorRankItem
                       key={`${op.name}-${index}`}
@@ -646,10 +639,10 @@ export function ReportsView({ canSeeFinancial = false }: { canSeeFinancial?: boo
                       name={op.name}
                       machine={op.machine}
                       yieldPct={op.yield}
-                      metricLabel={`${op.produced.toFixed(0)} out · ${op.scrap.toFixed(0)} scrap`}
+                      metricLabel={`${op.produced.toFixed(0)} የተመረተ · ${op.scrap.toFixed(0)} ብክነት`}
                       badgeTone={badge.tone}
                       badgeLabel={badge.label}
-                      loss={overScrap ? `-${formatCurrency(op.scrap * 85)} Loss` : undefined}
+                      loss={overScrap ? `-${formatCurrency(op.scrap * 85)} ኪሳራ` : undefined}
                     />
                   );
                 })}
@@ -660,29 +653,29 @@ export function ReportsView({ canSeeFinancial = false }: { canSeeFinancial?: boo
           {/* High-value discrepancy & audit ledger */}
           <section className="rounded-lg border border-[#1E293B] bg-[#121824]">
             <div className="border-b border-[#1E293B] p-4">
-              <h2 className="text-base font-bold text-white">የከፍተኛ ልዩነት መዝገብ</h2>
-              <p className="font-mono text-[10px] text-slate-500">High-Value Material Clearance &amp; Signed Floor Audits</p>
+              <h2 className="text-base font-bold text-white">የቀን ሪፖርት ማውረጃ</h2>
+              <p className="font-mono text-[10px] text-slate-500">የቁሳቁስ ልዩነት እና የስቶክ ማረጋገጫ መዝገብ</p>
               <div className="mt-2 flex flex-wrap items-center gap-1.5">
                 <button
                   type="button"
                   onClick={() => handleExport("csv")}
                   className="rounded border border-[#1E293B] bg-[#0B0F17] px-2 py-1 font-mono text-[9px] font-bold text-slate-300 transition-colors hover:bg-[#1B2433] cursor-pointer"
                 >
-                  የቅርብ ጊዜ ኤክስፖርት CSV
+                  በ CSV አውርድ
                 </button>
                 <button
                   type="button"
                   onClick={() => handleExport("pdf")}
                   className="rounded border border-[#1E293B] bg-[#0B0F17] px-2 py-1 font-mono text-[9px] font-bold text-slate-300 transition-colors hover:bg-[#1B2433] cursor-pointer"
                 >
-                  የቅርብ ጊዜ ኤክስፖርት PDF
+                  በ PDF አውርድ
                 </button>
                 <button
                   type="button"
                   onClick={() => handleExport("xls")}
                   className="rounded border border-[#1E293B] bg-[#0B0F17] px-2 py-1 font-mono text-[9px] font-bold text-slate-300 transition-colors hover:bg-[#1B2433] cursor-pointer"
                 >
-                  የቅርብ ጊዜ ኤክስፖርት XLS
+                  በ EXCEL አውርድ
                 </button>
               </div>
             </div>
@@ -691,7 +684,7 @@ export function ReportsView({ canSeeFinancial = false }: { canSeeFinancial?: boo
               {d.pending.length === 0 ? (
                 <div className="flex flex-col items-center gap-2 p-6 text-center font-mono text-xs text-slate-500">
                   <FileWarning size={18} className="text-slate-600" />
-                  No open floor discrepancies in this period.
+                  በዚህ ጊዜ ምንም የስቶክ ልዩነት የለም።
                 </div>
               ) : (
                 d.pending.slice(0, 3).map((row, index) => {
@@ -702,16 +695,16 @@ export function ReportsView({ canSeeFinancial = false }: { canSeeFinancial?: boo
                     <AuditLedgerCard
                       key={row.id}
                       icon={isScrap ? <Scissors size={14} /> : <Boxes size={14} />}
-                      time={index === 0 ? "Now" : `${index * 2}h ago`}
+                      time={index === 0 ? "አሁን" : `${index * 2} ሰዓት በፊት`}
                       title={row.materialName}
-                      subtitle={`${row.operatorName} · ${row.machineName} · ${row.producedOutput.toFixed(1)} out / ${row.scrapQuantity.toFixed(1)} scrap ${row.baseUnit}`}
+                      subtitle={`${row.operatorName} · ${row.machineName} · ${row.producedOutput.toFixed(1)} የተመረተ / ${row.scrapQuantity.toFixed(1)} ብክነት ${row.baseUnit}`}
                       badgeTone={isScrap ? "red" : "amber"}
-                      badgeLabel={isScrap ? "Approved Scrap" : "Penalized & Deducted"}
+                      badgeLabel={isScrap ? "የተፈቀደ ብክነት" : "ተቀንሷል"}
                       impact={{
                         tone: "bad",
                         label: isScrap
-                          ? `-${formatCurrency(row.scrapQuantity * perUnit)} Authorized`
-                          : `-${formatCurrency((row.lastDiscrepancy ?? 0) * perUnit)} Deducted`,
+                          ? `-${formatCurrency(row.scrapQuantity * perUnit)} የተፈቀደ`
+                          : `-${formatCurrency((row.lastDiscrepancy ?? 0) * perUnit)} የተቀነሰ`,
                       }}
                     />
                   );
@@ -724,7 +717,7 @@ export function ReportsView({ canSeeFinancial = false }: { canSeeFinancial?: boo
                 type="button"
                 className="flex w-full items-center justify-center gap-2 rounded-md border border-sky-500/40 bg-sky-500/10 py-2 font-mono text-[11px] font-bold text-sky-300 transition-colors hover:bg-sky-500/20 cursor-pointer"
               >
-                ሙሉውን አደራ እና ተጠያቂነት ተመልከት (VIEW FULL CUSTODY LEDGER) <ArrowRight size={12} />
+                ሙሉውን የስቶክ መዝገብ ተመልከት <ArrowRight size={12} />
               </button>
             </div>
           </section>
@@ -734,19 +727,19 @@ export function ReportsView({ canSeeFinancial = false }: { canSeeFinancial?: boo
             <section className="rounded-lg border border-[#1E293B] bg-[#121824] p-4">
               <div className="flex items-center gap-2">
                 <Wallet size={15} className="text-sky-400" />
-                <h3 className="text-sm font-bold text-white">Executive Financial Snapshot</h3>
+                <h3 className="text-sm font-bold text-white">የፋይናንስ አጠቃላይ ምስል</h3>
               </div>
               <div className="mt-3 space-y-2 font-mono text-xs">
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Gross Billed</span>
+                  <span className="text-slate-400">ጠቅላላ የተከፈለ ገቢ</span>
                   <span className="font-bold text-sky-300">{formatCurrency(d.grossETB)}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Direct Material + OpEx</span>
+                  <span className="text-slate-400">ቀጥተኛ ቁሳቁስ እና ተጨማሪ ወጪ</span>
                   <span className="font-bold text-amber-300">{formatCurrency(d.opexETB + d.scrapETB)}</span>
                 </div>
                 <div className="flex items-center justify-between border-t border-[#1E293B] pt-2">
-                  <span className="text-slate-400">Net Yield</span>
+                  <span className="text-slate-400">የተጣራ ምርት</span>
                   <span className="font-black text-emerald-400">{formatCurrency(Math.max(0, d.netYieldETB))}</span>
                 </div>
               </div>

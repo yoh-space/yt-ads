@@ -179,9 +179,6 @@ export function HeaderTabs({
             )}
           >
             <span className="font-bold">{option.label}</span>
-            <span className="ml-1 hidden text-[9px] uppercase tracking-wider text-slate-500 sm:inline">
-              {option.english}
-            </span>
           </button>
         );
       })}
@@ -206,9 +203,9 @@ export function ExportMenu({
   }, []);
 
   const items: Array<{ id: "csv" | "pdf" | "xls"; label: string; icon: ReactNode }> = [
-    { id: "csv", label: ".CSV", icon: <Table2 size={13} className="text-emerald-400" /> },
-    { id: "pdf", label: ".PDF", icon: <FileText size={13} className="text-red-400" /> },
-    { id: "xls", label: ".XLS", icon: <FileSpreadsheet size={13} className="text-sky-400" /> },
+    { id: "csv", label: "CSV", icon: <Table2 size={13} className="text-emerald-400" /> },
+    { id: "pdf", label: "PDF", icon: <FileText size={13} className="text-red-400" /> },
+    { id: "xls", label: "EXCEL", icon: <FileSpreadsheet size={13} className="text-sky-400" /> },
   ];
 
   return (
@@ -219,7 +216,7 @@ export function ExportMenu({
         className="inline-flex items-center gap-2 rounded-lg border border-sky-500/40 bg-sky-500/10 px-3 py-1.5 font-mono text-[11px] font-bold text-sky-300 transition-colors hover:bg-sky-500/20 cursor-pointer"
       >
         <Download size={13} />
-        <span>ሪፖርት አውርድ (EXPORT)</span>
+        <span>ሪፖርት አውርድ</span>
         <ChevronDown size={12} className={cn("transition-transform", open && "rotate-180")} />
       </button>
       {open ? (
@@ -235,7 +232,7 @@ export function ExportMenu({
               className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-xs text-slate-300 transition-colors hover:bg-[#1B2433] cursor-pointer"
             >
               {item.icon}
-              <span className="font-semibold">EXPORT {item.label}</span>
+               <span className="font-semibold">በ {item.label} አውርድ</span>
             </button>
           ))}
         </div>
@@ -256,7 +253,7 @@ export function ExecutiveKPICard({
 }: {
   tone: ExecutiveTone;
   label: string;
-  kicker: string;
+  kicker?: string;
   value: ReactNode;
   indicator?: ReactNode;
   badge?: ReactNode;
@@ -266,18 +263,20 @@ export function ExecutiveKPICard({
   return (
     <article
       className={cn(
-        "flex flex-col rounded-lg border bg-[#121824] p-4 shadow-lg shadow-black/30",
+        "flex min-h-[140px] flex-col rounded-lg border bg-[#121824] p-4 shadow-lg shadow-black/30",
         toneRing[tone],
       )}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <span className={cn("block font-mono text-[9px] font-bold uppercase tracking-[0.16em]", toneText[tone])}>
-            {kicker}
-          </span>
-          <span className="mt-0.5 block text-[11px] text-slate-400">{label}</span>
+      <div className="flex items-start justify-between gap-2 overflow-hidden">
+        <div className="min-w-0 leading-relaxed">
+          {kicker ? (
+            <span className={cn("block font-mono text-[9px] font-bold leading-relaxed tracking-[0.16em]", toneText[tone])}>
+              {kicker}
+            </span>
+          ) : null}
+          <span className="mt-0.5 block text-sm font-semibold leading-relaxed text-slate-200">{label}</span>
         </div>
-        {badge ? <div className="flex-none">{badge}</div> : null}
+        {badge ? <div className="min-w-0 max-w-[52%] flex-none text-right">{badge}</div> : null}
       </div>
 
       <div className="mt-3 flex items-end justify-between gap-2">
@@ -286,9 +285,9 @@ export function ExecutiveKPICard({
       </div>
 
       {footers && footers.length > 0 ? (
-        <div className="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-md border border-[#1E293B] bg-[#1E293B]">
+        <div className="mt-4 grid grid-cols-2 gap-4 border-t border-[#1E293B] pt-3">
           {footers.map((footer) => (
-            <div key={footer.label} className="bg-[#0F1622] px-2.5 py-2">
+            <div key={footer.label} className="min-w-0">
               <span className="block text-[9px] uppercase tracking-wider text-slate-500">{footer.label}</span>
               <span
                 className={cn(
@@ -329,7 +328,7 @@ export function StatusTag({ tone, children }: { tone: ExecutiveTone; children: R
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded px-2 py-0.5 font-mono text-[10px] font-bold ring-1",
+        "inline-flex max-w-full items-center gap-1 rounded px-2 py-0.5 text-center font-mono text-[10px] font-bold leading-relaxed ring-1",
         toneGlow[tone],
       )}
     >
@@ -461,7 +460,7 @@ export function AuditLedgerCard({
         <span className="font-mono text-[9px] text-slate-500">{time}</span>
       </div>
       <div className="mt-2 flex items-center justify-between border-t border-[#1E293B] pt-2">
-        <span className="font-mono text-[10px] text-slate-400">Audit Ref: YA-{Math.abs(title.length * 37) % 9000 + 1000}</span>
+        <span className="font-mono text-[10px] text-slate-400">የመዝገብ መለያ: YA-{Math.abs(title.length * 37) % 9000 + 1000}</span>
         <span
           className={cn(
             "font-mono text-[11px] font-bold",
