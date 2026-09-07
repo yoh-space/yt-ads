@@ -216,11 +216,7 @@ export function InventoryManagementInterface({ initialView }: { initialView: Inv
     <div className="min-h-[calc(100vh-8rem)] space-y-8 bg-main pb-10 font-jakarta text-text-primary">
       <header className="flex flex-col gap-6 border-b border-border-token pb-7 xl:flex-row xl:items-end xl:justify-between">
         <div className="max-w-4xl">
-          <div className="inline-flex items-center gap-2 rounded-full border border-brand-primary/30 bg-brand-primary-bg px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-brand-primary-light">
-            <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-status-success opacity-70" /><span className="relative inline-flex h-2 w-2 rounded-full bg-status-success" /></span>
-            Enterprise Printing ERP
-          </div>
-          <h1 className="mt-5 text-balance text-3xl font-extrabold tracking-tight text-text-primary md:text-4xl">
+          <h1 className="mt-5 text-balance text-xl font-extrabold tracking-tight text-text-primary md:text-xl">
             የስቶክ እና ጥሬ እቃ ቁጥጥር <span className="text-brand-primary-light">(Inventory Management)</span>
           </h1>
           <p className="mt-3 text-sm leading-6 text-text-secondary">የዋና ስቶክ እና የማሽን ኦፕሬተሮች Sub-Stock ሙሉ ሁኔታ</p>
