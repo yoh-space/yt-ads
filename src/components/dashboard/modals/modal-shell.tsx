@@ -2,6 +2,7 @@
 
 import { useEffect, type ReactNode } from "react";
 import { X } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export function ModalShell({
   title,
@@ -11,6 +12,8 @@ export function ModalShell({
   children,
   footer,
   onClose,
+  className,
+  bodyClassName,
 }: {
   title: string;
   subtitle: string;
@@ -19,6 +22,8 @@ export function ModalShell({
   children: ReactNode;
   footer?: ReactNode;
   onClose: () => void;
+  className?: string;
+  bodyClassName?: string;
 }) {
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -37,7 +42,7 @@ export function ModalShell({
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <div className="flex w-full max-w-lg max-h-[85vh] flex-col overflow-hidden rounded-xl bg-card text-card-foreground shadow-custom border border-border">
+      <div className={cn("flex w-full max-w-lg max-h-[85vh] flex-col overflow-hidden rounded-xl bg-card text-card-foreground shadow-custom border border-border", className)}>
         {/* Sticky header */}
         <div className="flex-shrink-0 flex items-start justify-between px-4 py-2">
           <div className="flex-1">
@@ -73,7 +78,7 @@ export function ModalShell({
         ) : null}
 
         {/* Scrollable body */}
-        <div className="flex-1 overflow-y-auto p-6 [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-navy [&::-webkit-scrollbar-thumb]:hover:bg-blue-900 [&::-webkit-scrollbar-track]:bg-transparent">
+        <div className={cn("min-h-0 flex-1 overflow-y-auto p-6 [scrollbar-width:thin] [scrollbar-color:hsl(var(--navy-2))_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-navy-2 [&::-webkit-scrollbar-thumb]:hover:bg-cyan [&::-webkit-scrollbar-track]:bg-transparent", bodyClassName)}>
           {children}
         </div>
 

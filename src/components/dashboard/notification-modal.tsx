@@ -5,10 +5,12 @@ import {
   Bell,
   Boxes,
   Check,
+  CheckCircle2,
   ClipboardList,
   Cog,
   LayoutList,
   ShoppingCart,
+  TriangleAlert,
   UserRound,
   type LucideIcon,
 } from "lucide-react";
@@ -37,6 +39,7 @@ type NotificationItem = {
   title: string;
   message: string;
   type: NotificationType;
+  relatedLabel?: string;
   actorName?: string;
   createdAt: number;
   readAt?: number;
@@ -82,6 +85,18 @@ const CATEGORY_FILTERS: CategoryFilter[] = [
   { value: "account", label: "Account", icon: UserRound, types: ["account_update"] },
 ];
 
+const ATTENTION_TYPES: NotificationType[] = ["short_stock", "material_overuse", "discrepancy", "overdue_order", "exception_stock_out", "clearance_rejected"];
+const SUCCESS_TYPES: NotificationType[] = ["material_received", "clearance_granted"];
+
+function formatNotificationTime(createdAt: number) {
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(createdAt));
+}
+
 export function NotificationModal({
   notifications,
   onMarkRead,
@@ -101,8 +116,14 @@ export function NotificationModal({
     : notifications;
 
   return (
-    <ModalShell title="Notifications" subtitle="Updates relevant to your work and responsibilities." onClose={onClose}>
-      <div className="space-y-5">
+    <ModalShell
+      title="Notifications"
+      subtitle="Updates relevant to your work and responsibilities."
+      onClose={onClose}
+      className="h-[min(720px,85vh)] max-w-2xl"
+      bodyClassName="[scrollbar-width:thin] [scrollbar-color:hsl(var(--navy-2))_transparent] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-navy-2 [&::-webkit-scrollbar-thumb]:hover:bg-cyan"
+    >
+      <div className="flex min-h-full flex-col space-y-5">
         <div className="flex items-center justify-between gap-3">
           <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-cyan/30 bg-cyan/10 text-cyan-dark">
@@ -123,7 +144,7 @@ export function NotificationModal({
         </div>
 
         <div className="rounded-xl border border-border bg-secondary/70 p-1" role="tablist" aria-label="Notification categories">
-          <div className="flex gap-1 overflow-x-auto">
+          <div className="grid grid-cols-2 gap-1 sm:grid-cols-5">
             {CATEGORY_FILTERS.map((category) => {
               const Icon = category.icon;
               const count = category.types
@@ -137,6 +158,7 @@ export function NotificationModal({
                   type="button"
                   role="tab"
                   aria-selected={isActive}
+                  aria-controls="notification-list"
                   onClick={() => setActiveCategory(category.value)}
                   className={cn(
                     "inline-flex min-w-max flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -161,9 +183,11 @@ export function NotificationModal({
           </div>
         </div>
 
-        <div className="space-y-3">
+        <div id="notification-list" className="space-y-3" role="tabpanel" aria-label={`${selectedCategory?.label} notifications`}>
           {filteredNotifications.map((notification) => {
             const read = Boolean(notification.readAt);
+            const needsAttention = ATTENTION_TYPES.includes(notification.type);
+            const isSuccess = SUCCESS_TYPES.includes(notification.type);
             return (
               <article
                 key={notification._id}
@@ -181,11 +205,32 @@ export function NotificationModal({
                   <Bell size={15} />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <strong className="block text-sm font-semibold text-foreground">{notification.title}</strong>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <strong className="block text-sm font-semibold text-foreground">{notification.title}</strong>
+                    <span
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+                        needsAttention
+                          ? "border-amber-500/40 bg-amber-500/10 text-amber-500"
+                          : isSuccess
+                            ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-500"
+                            : "border-cyan/40 bg-cyan/10 text-cyan-dark",
+                      )}
+                    >
+                      {needsAttention ? <TriangleAlert size={11} aria-hidden="true" /> : null}
+                      {isSuccess ? <CheckCircle2 size={11} aria-hidden="true" /> : null}
+                      {needsAttention ? "Attention" : isSuccess ? "Complete" : read ? "Read" : "New"}
+                      </span>
+                  </div>
                   <p className="mt-1 text-sm leading-6 text-muted-foreground">{notification.message}</p>
+                  {notification.relatedLabel ? (
+                    <span className="mt-2 inline-flex max-w-full truncate rounded-md border border-border bg-card px-2 py-1 text-[10px] font-semibold text-muted-foreground">
+                      {notification.relatedLabel}
+                    </span>
+                  ) : null}
                   <small className="mt-2 block text-xs text-muted-foreground">
                     {notification.actorName ? `${notification.actorName} · ` : ""}
-                    {new Date(notification.createdAt).toLocaleString()}
+                    {formatNotificationTime(notification.createdAt)}
                   </small>
                 </div>
                 {!read ? (

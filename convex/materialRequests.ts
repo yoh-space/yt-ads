@@ -301,7 +301,7 @@ export const issue = mutation({
     }
     await notifyUser(ctx, request.requestedBy, {
       title: nextStatus === "Partially Issued" ? "Short stock: request partially issued" : "Material issued",
-      message: `${material.name} for ${request.jobCardId} was issued at ${totalIssued} ${request.unit}.`,
+      message: `${material.name} for ${job.code} was issued at ${totalIssued} ${request.unit}.`,
       type: nextStatus === "Partially Issued" ? "short_stock" : "material_issue",
       actorAuthUserId: identity._id,
       relatedTable: "materialRequests",
@@ -322,6 +322,7 @@ export const acknowledge = mutation({
     }
     const job = await ctx.db.get(request.jobCardId);
     const machine = job ? await ctx.db.get(job.machineId) : undefined;
+    const material = await ctx.db.get(request.materialId);
     if (!canAccessMaterialRequest(profile.role, identity._id, request, machine ?? undefined)) {
       throw new Error("You cannot acknowledge this material request.");
     }
@@ -332,7 +333,7 @@ export const acknowledge = mutation({
     });
     await notifyUser(ctx, request.issuedBy ?? request.requestedBy, {
       title: "Material received",
-      message: `Material request ${args.requestId} was marked received.`,
+      message: `${material?.name ?? "Material request"} for ${job?.code ?? "the production job"} was marked received.`,
       type: "material_received",
       actorAuthUserId: identity._id,
       relatedTable: "materialRequests",

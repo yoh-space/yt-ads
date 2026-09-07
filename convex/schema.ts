@@ -274,6 +274,8 @@ export default defineSchema({
     email: v.string(),
     image: v.optional(v.string()),
     role,
+    /** Optional machine scope for operators; empty means all machines for their role. */
+    assignedMachineIds: v.optional(v.array(v.id("machines"))),
     active: v.boolean(),
   })
     .index("by_auth_user", ["authUserId"])

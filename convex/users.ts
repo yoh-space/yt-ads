@@ -8,6 +8,7 @@ import { notifyUser } from "./notificationHelpers";
 import { verifyTelegramInitData } from "./telegramAuth";
 
 const MANAGEMENT_ROLES: Role[] = ["owner", "manager", "admin"];
+const OPERATOR_ROLES: Role[] = ["laser_operator", "cnc_operator", "plotter_operator", "printer_operator"];
 
 type AuthIdentity = NonNullable<Awaited<ReturnType<typeof authComponent.safeGetAuthUser>>>;
 
@@ -301,7 +302,12 @@ export const setRole = mutation({
     if (actor.role === "manager" && args.role === "owner") {
       throw new Error("Managers cannot assign the owner role.");
     }
-    await ctx.db.patch(args.userId, { role: args.role });
+    await ctx.db.patch(args.userId, {
+      role: args.role,
+      assignedMachineIds: args.role === target.role && OPERATOR_ROLES.includes(args.role)
+        ? target.assignedMachineIds
+        : undefined,
+    });
     await notifyUser(ctx, target.authUserId, {
       title: "Role updated",
       message: `Your workspace role is now ${args.role}.`,
@@ -336,6 +342,51 @@ export const setActive = mutation({
         relatedId: args.userId,
       });
     }
+  },
+});
+
+/** Assigns an operator to one or more production machines for scoped visibility. */
+export const setMachineScope = mutation({
+  args: {
+    userId: v.id("users"),
+    machineIds: v.array(v.id("machines")),
+  },
+  returns: v.object({ updated: v.boolean() }),
+  handler: async (ctx, args) => {
+    const { profile: actor } = await requirePermission(ctx, "team.manage");
+    const target = await ctx.db.get(args.userId);
+    if (!target) throw new Error("User profile not found.");
+    if (!OPERATOR_ROLES.includes(target.role)) {
+      if (args.machineIds.length > 0) throw new Error("Only operator profiles can have machine scope.");
+      await ctx.db.patch(args.userId, { assignedMachineIds: undefined });
+      return { updated: true };
+    }
+
+    const uniqueMachineIds = [...new Set(args.machineIds)];
+    const machines = await Promise.all(uniqueMachineIds.map((machineId) => ctx.db.get(machineId)));
+    if (machines.some((machine) => !machine || !machine.active)) {
+      throw new Error("Machine scope can only include active machines.");
+    }
+    if (machines.some((machine) => machine!.operatorRole !== target.role)) {
+      throw new Error("Each selected machine must match the operator role.");
+    }
+
+    await ctx.db.patch(args.userId, {
+      assignedMachineIds: uniqueMachineIds.length > 0 ? uniqueMachineIds : undefined,
+    });
+    if (target.authUserId !== actor.authUserId) {
+      await notifyUser(ctx, target.authUserId, {
+        title: "Machine scope updated",
+        message: uniqueMachineIds.length > 0
+          ? "Your notification and operator workspace scope was updated."
+          : "Your notifications now include all active machines assigned to your role.",
+        type: "account_update",
+        actorAuthUserId: actor.authUserId,
+        relatedTable: "users",
+        relatedId: args.userId,
+      });
+    }
+    return { updated: true };
   },
 });
 
