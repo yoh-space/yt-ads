@@ -8,6 +8,7 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { InventoryLoader } from "@/components/dashboard/inventory-loader";
 import { WorkspaceModuleGate } from "@/components/dashboard/workspace-renderer";
+import { NumericInput } from "@/components/ui";
 import type { AccessContext } from "@/lib/access-policy";
 import type { Machine } from "@/lib/operations-types";
 
@@ -31,7 +32,8 @@ export default function OperatorReconciliationPage({
   const machinesQuery = useQuery(api.machines.list, profile?.active ? {} : "skip");
   const stock = useQuery(api.inventory.listOperatorMachineStock, profile?.active ? {} : "skip");
   const reconcile = useMutation(api.inventory.performWeeklyReconciliation);
-  const [counts, setCounts] = useState<Record<string, number>>({});
+  const [counts, setCounts] = useState<Record<string, string>>({});
+  const [countValidity, setCountValidity] = useState<Record<string, boolean>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
 
@@ -48,8 +50,8 @@ export default function OperatorReconciliationPage({
   };
 
   async function submitCount(stockId: Id<"operatorSubStock">, systemRemaining: number, unit: string) {
-    const physical = counts[stockId];
-    if (physical === undefined || !Number.isFinite(physical) || physical < 0) {
+    const physical = Number(counts[stockId]);
+    if (!Number.isFinite(physical) || physical < 0 || countValidity[stockId] === false) {
       toast.error("Enter a valid physical remaining count.");
       return;
     }
@@ -102,7 +104,8 @@ export default function OperatorReconciliationPage({
               <span>እነዚህ ዕቃዎች ተቆጥረው እስኪጸድቁ ድረስ አዲስ ዕቃ መጠየቅ ተቆልፏል።</span>
             </div>
             {machineStock.map((batch) => {
-              const physical = counts[batch._id] ?? batch.currentRemaining;
+              const physicalDraft = counts[batch._id] ?? String(batch.currentRemaining);
+              const physical = Number(physicalDraft);
               const discrepancy = physical - batch.currentRemaining;
               return (
                 <section key={batch._id} className="rounded-lg border border-border bg-card p-5">
@@ -115,11 +118,11 @@ export default function OperatorReconciliationPage({
                   </div>
                   <div className="mt-4 grid gap-3 sm:grid-cols-3">
                     <div className="rounded border border-border bg-background p-3"><p className="text-xs text-muted-foreground">በሲስተም የቀረ</p><strong className="font-mono text-lg text-foreground">{formatNumber(batch.currentRemaining)} {batch.baseUnit}</strong></div>
-                    <label className="rounded border border-border bg-background p-3"><span className="block text-xs text-muted-foreground">በእጅ የቆጠሩት</span><input type="number" min="0" step="0.001" value={physical} onChange={(event) => setCounts((current) => ({ ...current, [batch._id]: Number(event.target.value) }))} className="mt-1 w-full bg-transparent font-mono text-lg text-foreground outline-none" /></label>
+                    <label className="rounded border border-border bg-background p-3"><span className="block text-xs text-muted-foreground">በእጅ የቆጠሩት</span><NumericInput min={0} step="0.001" value={physicalDraft} emptyValue={0} onChange={(value) => setCounts((current) => ({ ...current, [batch._id]: value }))} onValidityChange={(isValid) => setCountValidity((current) => ({ ...current, [batch._id]: isValid }))} className="mt-1 w-full bg-transparent font-mono text-lg text-foreground outline-none" /></label>
                     <div className="rounded border border-border bg-background p-3"><p className="text-xs text-muted-foreground">ልዩነት</p><strong className={discrepancy < 0 ? "font-mono text-lg text-destructive" : "font-mono text-lg text-emerald-500"}>{discrepancy > 0 ? "+" : ""}{formatNumber(discrepancy)} {batch.baseUnit}</strong></div>
                   </div>
                   <textarea value={notes[batch._id] ?? ""} onChange={(event) => setNotes((current) => ({ ...current, [batch._id]: event.target.value }))} rows={2} placeholder="ስለ ብክነት፣ ጉድለት ወይም የቆጠራው ምክንያት ማስታወሻ ይጻፉ (ካለ)" className="mt-3 w-full rounded border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary" />
-                  <button type="button" disabled={savingId === batch._id} onClick={() => void submitCount(batch._id, batch.currentRemaining, batch.baseUnit)} className="mt-3 inline-flex items-center gap-2 rounded bg-primary px-3 py-2 text-xs font-bold text-primary-foreground disabled:opacity-50"><ClipboardCheck size={14} />{savingId === batch._id ? "በመላክ ላይ…" : "ለማረጋገጫ ላክ"}</button>
+                   <button type="button" disabled={savingId === batch._id || !physicalDraft.trim() || countValidity[batch._id] === false || !Number.isFinite(physical)} onClick={() => void submitCount(batch._id, batch.currentRemaining, batch.baseUnit)} className="mt-3 inline-flex items-center gap-2 rounded bg-primary px-3 py-2 text-xs font-bold text-primary-foreground disabled:opacity-50"><ClipboardCheck size={14} />{savingId === batch._id ? "በመላክ ላይ…" : "ለማረጋገጫ ላክ"}</button>
                 </section>
               );
             })}

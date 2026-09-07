@@ -3,6 +3,7 @@
 import { Minus, Plus, Ruler } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { OrderFormState } from "./types";
+import { NumericInput } from "@/components/ui";
 
 const presets = [
   { label: "1m × 1m", width: "1", height: "1" },
@@ -18,5 +19,5 @@ export function DimensionsInput({ form, setForm, estimatedArea }: { form: OrderF
 }
 
 function NumericField({ label, value, placeholder, onChange }: { label: string; value: string; placeholder: string; onChange: (value: string) => void }) {
-  return <div className="space-y-1"><span className="font-mono text-[10px] text-neutral-400 block">{label}</span><input required type="number" min="0.01" max="10000" step="0.01" value={value} onChange={(event) => onChange(event.target.value.replace(/[^\d.]/g, "").replace(/^(\d*\.\d{0,2}).*$/, "$1"))} placeholder={placeholder} className="w-full h-10 px-3 text-xs font-mono bg-[#0C0D10] text-neutral-100 border border-white/[0.12] rounded-sm outline-none focus:border-[#E5C07B]" /></div>;
+  return <div className="space-y-1"><span className="font-mono text-[10px] text-neutral-400 block">{label}</span><NumericInput required min={0.01} max={10000} step="0.01" value={value} emptyValue={0.01} onChange={onChange} placeholder={placeholder} className="w-full h-10 px-3 text-xs font-mono bg-[#0C0D10] text-neutral-100 border border-white/[0.12] rounded-sm outline-none focus:border-[#E5C07B]" /></div>;
 }

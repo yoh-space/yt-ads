@@ -8,6 +8,7 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { InventoryLoader } from "@/components/dashboard/inventory-loader";
 import { WorkspaceModuleGate } from "@/components/dashboard/workspace-renderer";
+import { NumericInput } from "@/components/ui";
 import type { AccessContext } from "@/lib/access-policy";
 
 function unitLabel(unitType: "ROLL" | "SHEET" | "LITER") {
@@ -21,6 +22,7 @@ export default function StorekeeperReconciliationPage() {
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string>("");
   const [count, setCount] = useState("");
+  const [countValid, setCountValid] = useState(true);
   const [note, setNote] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
@@ -104,9 +106,9 @@ export default function StorekeeperReconciliationPage() {
             <div className="mb-5 flex items-center gap-3"><ClipboardCheck className="text-primary" size={20} /><div><h2 className="font-semibold">Record physical count</h2><p className="text-xs text-muted-foreground">Whole packaging units only</p></div></div>
             <div className="space-y-4">
               <label className="block text-sm"><span className="mb-1 block text-muted-foreground">Material</span><select value={selectedId} onChange={(event) => setSelectedId(event.target.value)} className="w-full rounded-md border border-border bg-background px-3 py-2"><option value="">Select parent item</option>{overview.items.map((item) => <option key={item.id} value={item.id}>{item.materialName} · {unitLabel(item.unitType)}</option>)}</select></label>
-              <label className="block text-sm"><span className="mb-1 block text-muted-foreground">Physical count {selected ? `(${unitLabel(selected.unitType)})` : ""}</span><input type="number" min="0" step="1" value={count} onChange={(event) => setCount(event.target.value)} className="w-full rounded-md border border-border bg-background px-3 py-2" /></label>
+               <label className="block text-sm"><span className="mb-1 block text-muted-foreground">Physical count {selected ? `(${unitLabel(selected.unitType)})` : ""}</span><NumericInput min={0} step="1" value={count} emptyValue={0} onChange={setCount} onValidityChange={setCountValid} className="w-full rounded-md border border-border bg-background px-3 py-2" /></label>
               <label className="block text-sm"><span className="mb-1 block text-muted-foreground">Note</span><textarea value={note} onChange={(event) => setNote(event.target.value)} rows={3} className="w-full rounded-md border border-border bg-background px-3 py-2" placeholder="Bay, seal, or count notes" /></label>
-              <button type="button" disabled={isSaving} onClick={() => void submitCount()} className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 font-semibold text-primary-foreground disabled:opacity-50">{isSaving ? "Saving…" : <><CheckCircle2 size={16} /> Record count</>}</button>
+               <button type="button" disabled={isSaving || !count.trim() || !countValid} onClick={() => void submitCount()} className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 font-semibold text-primary-foreground disabled:opacity-50">{isSaving ? "Saving…" : <><CheckCircle2 size={16} /> Record count</>}</button>
             </div>
           </div>
         </section>

@@ -17,7 +17,7 @@ import {
 import { InventoryLoader } from "@/components/dashboard/inventory-loader";
 import { useSafeMutation } from "@/components/dashboard/pending-store";
 import { useDashboardModal } from "@/components/dashboard/modal-context";
-import { StatusPill } from "@/components/ui/status-pill";
+import { NumericInput, StatusPill } from "@/components/ui";
 import { formatQuantity } from "@/lib/units";
 import { OperatorStockWidget } from "@/components/dashboard/views/operator-stock";
 import type { OperatorStockEntry } from "@/types/dashboard-types";
@@ -55,9 +55,10 @@ export default function OperatorMachinePage({
   const completeJobMutation = useMutation(api.jobs.complete);
   const recordProductionMutation = useMutation(api.jobs.recordProduction);
 
-  const [inputQuantity, setInputQuantity] = useState<number>(0);
-  const [outputQuantity, setOutputQuantity] = useState<number>(0);
-  const [wasteQuantity, setWasteQuantity] = useState<number>(0);
+  const [inputQuantity, setInputQuantity] = useState("");
+  const [outputQuantity, setOutputQuantity] = useState("");
+  const [wasteQuantity, setWasteQuantity] = useState("");
+  const [productionInputsValid, setProductionInputsValid] = useState({ input: true, output: true, waste: true });
 
   if (!profile || machinesQuery === undefined || jobsQuery === undefined) {
     return (
@@ -93,6 +94,10 @@ export default function OperatorMachinePage({
   const hasPendingClearance = (unclearedStockQuery ?? []).some(
     (batch) => batch.status === "PENDING_CLEARANCE"
   );
+  const hasProductionValidationError =
+    !productionInputsValid.input ||
+    !productionInputsValid.output ||
+    !productionInputsValid.waste;
 
   return (
     <WorkspaceModuleGate context={accessContext} moduleId="jobs.queue">
@@ -214,36 +219,39 @@ export default function OperatorMachinePage({
                   <div className="grid grid-cols-3 gap-3">
                     <div>
                       <label className="block text-[11px] text-slate-400 mb-1">የገባ ዕቃ</label>
-                      <input
-                        type="number"
-                        min="0"
+                      <NumericInput
+                        required
+                        min={0}
                         step="0.1"
-                        value={inputQuantity || ""}
-                        onChange={(e) => setInputQuantity(Number(e.target.value))}
+                        value={inputQuantity}
+                        onChange={setInputQuantity}
+                        onValidityChange={(isValid) => setProductionInputsValid((current) => ({ ...current, input: isValid }))}
                         placeholder={String(activeJob.quantity)}
                         className="w-full px-3 py-1.5 rounded-sm border border-[#1E293B] bg-[#14161D] text-xs font-mono text-white focus:outline-none focus:border-[#00B4D8]"
                       />
                     </div>
                     <div>
                       <label className="block text-[11px] text-slate-400 mb-1">ጥሩ ውጤት</label>
-                      <input
-                        type="number"
-                        min="0"
+                      <NumericInput
+                        required
+                        min={0}
                         step="0.1"
-                        value={outputQuantity || ""}
-                        onChange={(e) => setOutputQuantity(Number(e.target.value))}
+                        value={outputQuantity}
+                        onChange={setOutputQuantity}
+                        onValidityChange={(isValid) => setProductionInputsValid((current) => ({ ...current, output: isValid }))}
                         placeholder={String(activeJob.quantity)}
                         className="w-full px-3 py-1.5 rounded-sm border border-[#1E293B] bg-[#14161D] text-xs font-mono text-white focus:outline-none focus:border-[#00B4D8]"
                       />
                     </div>
                     <div>
                       <label className="block text-[11px] text-slate-400 mb-1">ብክነት / ተጥሎ የቀረ</label>
-                      <input
-                        type="number"
-                        min="0"
+                      <NumericInput
+                        required
+                        min={0}
                         step="0.1"
-                        value={wasteQuantity || ""}
-                        onChange={(e) => setWasteQuantity(Number(e.target.value))}
+                        value={wasteQuantity}
+                        onChange={setWasteQuantity}
+                        onValidityChange={(isValid) => setProductionInputsValid((current) => ({ ...current, waste: isValid }))}
                         placeholder="0.0"
                         className="w-full px-3 py-1.5 rounded-sm border border-[#1E293B] bg-[#14161D] text-xs font-mono text-white focus:outline-none focus:border-[#00B4D8]"
                       />
@@ -253,15 +261,15 @@ export default function OperatorMachinePage({
                   <div className="flex items-center justify-end gap-3 pt-2">
                     <button
                       type="button"
-                      disabled={isPending(`prod-${activeJob.id}`)}
+                      disabled={isPending(`prod-${activeJob.id}`) || hasProductionValidationError}
                       onClick={() => {
                         void safeMutation(
                           `prod-${activeJob.id}`,
                           recordProductionMutation({
                             jobCardId: activeJob.id as Id<"jobCards">,
-                            inputQuantity: inputQuantity || activeJob.quantity,
-                            outputQuantity: outputQuantity || activeJob.quantity,
-                            wasteQuantity: wasteQuantity || 0,
+                            inputQuantity: Number(inputQuantity) || activeJob.quantity,
+                            outputQuantity: Number(outputQuantity) || activeJob.quantity,
+                            wasteQuantity: Number(wasteQuantity) || 0,
                           }),
                           () => toast.success("የምርት መረጃ ተመዝግቧል")
                         );

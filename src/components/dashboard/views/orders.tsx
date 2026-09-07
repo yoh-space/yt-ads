@@ -5,7 +5,7 @@ import { ArrowUpRight, CalendarDays, Clock3, Plus, Search, Wrench, X, Copy, Chec
 import type { CustomerOrder, Machine, Material, OrderPriority, CustomerOrderStatus } from "@/lib/operations-types";
 import { formatQuantity } from "@/lib/units";
 import { getServiceLabel } from "@/constants/services";
-import { Button, Panel, PanelHeader, StatusPill } from "@/components/ui";
+import { Button, NumericInput, Panel, PanelHeader, StatusPill } from "@/components/ui";
 import { ModalShell } from "../modals/modal-shell";
 import { OrderDetailsSheet } from "./order-details-sheet";
 import { cn } from "@/lib/utils";
@@ -342,8 +342,11 @@ export function OrdersView({
 }
 
 export function OrderPriceModal({ order, onClose, onSave }: { order: CustomerOrder; onClose: () => void; onSave: (amount: number) => void }) {
-  const [amount, setAmount] = useState(order.amount || 0);
+  const [amount, setAmount] = useState(String(order.amount || ""));
+  const [amountValid, setAmountValid] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const parsedAmount = Number(amount);
+  const hasValidationError = !amount.trim() || !amountValid || !Number.isFinite(parsedAmount) || parsedAmount <= 0;
 
   return (
     <ModalShell
@@ -357,11 +360,11 @@ export function OrderPriceModal({ order, onClose, onSave }: { order: CustomerOrd
           <Button 
             type="submit" 
             variant="primary" 
-            disabled={submitting || amount <= 0}
-            onClick={() => {
-              if (submitting || amount <= 0) return;
-              setSubmitting(true);
-              onSave(amount);
+             disabled={submitting || hasValidationError}
+             onClick={() => {
+               if (submitting || hasValidationError) return;
+               setSubmitting(true);
+               onSave(parsedAmount);
             }}
           >
             {submitting ? "Saving…" : "Set Price & Request Payment"}
@@ -385,14 +388,15 @@ export function OrderPriceModal({ order, onClose, onSave }: { order: CustomerOrd
 
         <label className="block">
           <span className="block text-sm font-semibold text-navy mb-2">Final Total Price (ETB)</span>
-          <input 
-            type="number" 
-            min="0" 
-            step="0.01" 
-            value={amount} 
-            onChange={(event) => setAmount(Number(event.target.value))}
-            className="w-full px-3 py-2 bg-white border border-line rounded-lg text-sm text-ink outline-none focus:border-cyan"
-          />
+           <NumericInput
+             min={0}
+             step="0.01"
+             value={amount}
+             emptyValue={0}
+             onChange={setAmount}
+             onValidityChange={setAmountValid}
+             className="w-full px-3 py-2 bg-white border border-line rounded-lg text-sm text-ink outline-none focus:border-cyan"
+           />
         </label>
       </div>
     </ModalShell>
@@ -402,12 +406,15 @@ export function OrderPriceModal({ order, onClose, onSave }: { order: CustomerOrd
 export function OrderConfirmModal({ order, machines, materials, onClose, onSave }: { order: CustomerOrder; machines: Machine[]; materials: Material[]; onClose: () => void; onSave: (input: { paymentDecision: "PAID" | "APPROVED_CREDIT"; paymentMethod?: string; machineId: string; materialId: string; quantity: number; unit: Material["unit"]; priority?: OrderPriority }) => void }) {
   const [machineId, setMachineId] = useState(machines[0]?.id ?? "");
   const [materialId, setMaterialId] = useState(materials[0]?.id ?? "");
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState("1");
+  const [quantityValid, setQuantityValid] = useState(true);
   const [paymentDecision, setPaymentDecision] = useState<"PAID" | "APPROVED_CREDIT">("PAID");
   const [paymentMethod, setPaymentMethod] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const material = materials.find((entry) => entry.id === materialId);
   const machine = machines.find((entry) => entry.id === machineId);
+  const parsedQuantity = Number(quantity);
+  const hasQuantityError = !quantity.trim() || !quantityValid || !Number.isFinite(parsedQuantity) || parsedQuantity <= 0;
 
   return (
     <ModalShell
@@ -421,9 +428,9 @@ export function OrderConfirmModal({ order, machines, materials, onClose, onSave 
           <Button 
             type="submit" 
             variant="primary" 
-            disabled={submitting || !machineId || !materialId || quantity <= 0 || (paymentDecision === "PAID" && !paymentMethod.trim())}
+             disabled={submitting || !machineId || !materialId || hasQuantityError || (paymentDecision === "PAID" && !paymentMethod.trim())}
             onClick={() => {
-              if (submitting || !machineId || !materialId || quantity <= 0) return;
+               if (submitting || !machineId || !materialId || hasQuantityError) return;
               if (paymentDecision === "PAID" && !paymentMethod.trim()) return;
               setSubmitting(true);
               onSave({ 
@@ -431,7 +438,7 @@ export function OrderConfirmModal({ order, machines, materials, onClose, onSave 
                 paymentMethod: paymentDecision === "PAID" ? paymentMethod.trim() : undefined,
                 machineId, 
                 materialId, 
-                quantity, 
+                 quantity: parsedQuantity,
                 unit: material?.baseUnit ?? material?.unit ?? "m²", 
                 priority: order.priority 
               });
@@ -531,29 +538,30 @@ export function OrderConfirmModal({ order, machines, materials, onClose, onSave 
               ))}
             </select>
           </label>
-          {material && quantity > material.quantity ? (
-            <p className="text-sm text-danger">
-              Stock shortfall — {material.name} has {formatQuantity(material.quantity, material.unit)} available but {quantity} {material?.baseUnit ?? material?.unit} is required.
+           {material && parsedQuantity > material.quantity ? (
+             <p className="text-sm text-danger">
+               Stock shortfall — {material.name} has {formatQuantity(material.quantity, material.unit)} available but {parsedQuantity} {material?.baseUnit ?? material?.unit} is required.
             </p>
           ) : null}
 
           <label className="block">
             <span className="block text-sm font-semibold text-navy mb-2">Planned material usage ({material?.baseUnit ?? material?.unit})</span>
-            <input 
-              type="number" 
-              min="0.1" 
-              step="0.1" 
-              value={quantity} 
-              onChange={(event) => setQuantity(Number(event.target.value))}
-              className="w-full px-3 py-2 bg-white border border-line rounded-lg text-sm text-ink outline-none focus:border-cyan"
-            />
+           <NumericInput
+             min={0.1}
+             step="0.1"
+             value={quantity}
+             emptyValue={0.1}
+             onChange={setQuantity}
+             onValidityChange={setQuantityValid}
+             className="w-full px-3 py-2 bg-white border border-line rounded-lg text-sm text-ink outline-none focus:border-cyan"
+           />
           </label>
 
           {/* Stock After Production */}
           <div className="flex items-center gap-3 p-3 bg-green/10 rounded-lg border border-green/20">
             <ArrowUpRight size={17} className="text-green flex-none" />
             <span className="text-sm text-gray-600">Available after production</span>
-            <strong className="text-sm text-navy">{material ? formatQuantity(Math.max(0, material.quantity - quantity), material.unit) : "—"}</strong>
+             <strong className="text-sm text-navy">{material ? formatQuantity(Math.max(0, material.quantity - parsedQuantity), material.unit) : "—"}</strong>
           </div>
         </div>
       </div>

@@ -5,7 +5,7 @@ import { AlertTriangle, BriefcaseBusiness, CheckCircle2, ClipboardPlus, FileText
 import type { JobCard, Material, PackageUnit, Unit } from "@/lib/operations-types";
 import { formatQuantity } from "@/lib/units";
 import { ModalShell } from "./modal-shell";
-import { Button } from "@/components/ui";
+import { Button, NumericInput } from "@/components/ui";
 
 export type NewMaterialRequestInput = {
   jobCardId: string;
@@ -53,10 +53,11 @@ export function MaterialRequestModal({
   const defaultMaterial = materials.find((material) => material.id === selectedJob?.materialId) ?? materials[0];
   const packageUnitFor = (material?: Material): PackageUnit => material?.packageUnit
     ?? (material?.purchaseUnit === "roll" ? "ROLL" : material?.purchaseUnit === "sheet" ? "SHEET" : material?.purchaseUnit === "canister" || material?.purchaseUnit === "liter" ? "CANISTER" : material?.purchaseUnit === "piece" ? "PIECE" : "PACKAGE");
-  const [lines, setLines] = useState(() => defaultMaterial ? [{ materialId: defaultMaterial.id, packages: 1 }] : []);
+  const [lines, setLines] = useState(() => defaultMaterial ? [{ materialId: defaultMaterial.id, packages: "1" }] : []);
   const [note, setNote] = useState("");
   const materialOptions = useMemo(() => materials, [materials]);
   const lineFor = (materialId: string) => materials.find((material) => material.id === materialId);
+  const linesHaveError = lines.some((line) => !line.packages.trim() || !Number.isFinite(Number(line.packages)) || Number(line.packages) < 1);
 
   return (
     <ModalShell
@@ -68,7 +69,7 @@ export function MaterialRequestModal({
         <div className="flex w-full items-center justify-end gap-2">
           <Button variant="tertiary" type="button" onClick={onClose}>Cancel</Button>
           {activeJobs.length > 0 ? (
-            <Button type="submit" form="material-request-form" disabled={blocked}>
+             <Button type="submit" form="material-request-form" disabled={blocked || linesHaveError}>
               {blocked ? "Clearance required" : "Send request"} <ClipboardPlus size={16} />
             </Button>
           ) : null}
@@ -144,7 +145,7 @@ export function MaterialRequestModal({
             <select value={jobCardId} onChange={(event) => {
               const nextJob = activeJobs.find((job) => job.id === event.target.value);
               setJobCardId(event.target.value);
-              if (nextJob) setLines([{ materialId: nextJob.materialId, packages: 1 }]);
+               if (nextJob) setLines([{ materialId: nextJob.materialId, packages: "1" }]);
             }} className="h-11 w-full rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none transition focus:border-cyan focus:ring-2 focus:ring-cyan/20">
               {activeJobs.map((job) => <option key={job.id} value={job.id}>{job.code} · {job.client} · {job.title}</option>)}
             </select>
@@ -152,7 +153,7 @@ export function MaterialRequestModal({
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-2 text-xs font-semibold text-foreground"><Package size={14} className="text-cyan" /> Physical packages requested</span>
-              <button type="button" onClick={() => setLines((current) => [...current, { materialId: materialOptions[0]?.id ?? "", packages: 1 }])} className="inline-flex items-center gap-1 rounded-md border border-cyan/30 px-2 py-1 text-xs font-semibold text-cyan"><Plus size={13} /> Add material</button>
+              <button type="button" onClick={() => setLines((current) => [...current, { materialId: materialOptions[0]?.id ?? "", packages: "1" }])} className="inline-flex items-center gap-1 rounded-md border border-cyan/30 px-2 py-1 text-xs font-semibold text-cyan"><Plus size={13} /> Add material</button>
             </div>
             {lines.map((line, index) => {
               const material = lineFor(line.materialId);
@@ -162,9 +163,9 @@ export function MaterialRequestModal({
                 <select value={line.materialId} onChange={(event) => setLines((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, materialId: event.target.value } : item))} className="h-10 rounded-md border border-border bg-background px-2 text-sm text-foreground">
                   {materialOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
                 </select>
-                <label className="relative"><span className="sr-only">Package quantity</span><input type="number" min="1" step="1" value={line.packages} onChange={(event) => setLines((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, packages: Number(event.target.value) } : item))} className="h-10 w-full rounded-md border border-border bg-background px-2 font-mono text-sm text-foreground" /></label>
+                <label className="relative"><span className="sr-only">Package quantity</span><NumericInput min={1} step="1" value={line.packages} emptyValue={1} onChange={(value) => setLines((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, packages: value } : item))} className="h-10 w-full rounded-md border border-border bg-background px-2 font-mono text-sm text-foreground" /></label>
                 <button type="button" disabled={lines.length === 1} onClick={() => setLines((current) => current.filter((_, itemIndex) => itemIndex !== index))} className="rounded-md p-2 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-300 disabled:opacity-30" aria-label="Remove material"><Trash2 size={16} /></button>
-                <p className="col-span-full m-0 text-xs text-muted-foreground"><Ruler size={12} className="mr-1 inline text-cyan" /> {packageUnit} · approximately {formatQuantity(Math.max(0, line.packages * ratio), material?.baseUnit ?? material?.unit ?? "m²")} per line</p>
+                <p className="col-span-full m-0 text-xs text-muted-foreground"><Ruler size={12} className="mr-1 inline text-cyan" /> {packageUnit} · approximately {formatQuantity(Math.max(0, Number(line.packages) * ratio), material?.baseUnit ?? material?.unit ?? "m²")} per line</p>
               </div>;
             })}
           </div>

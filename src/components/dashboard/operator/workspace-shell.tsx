@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import { ArrowUpRight, Scissors, Trash2, Wrench } from "lucide-react";
 import type { JobCard, Machine } from "@/lib/operations-types";
 import { formatQuantity } from "@/lib/units";
+import { NumericInput } from "@/components/ui";
 import { statusTone } from "../helpers";
 
 export type WorkspaceProps = {
@@ -32,9 +33,11 @@ export function OperatorWorkspaceShell({
   subtitle: string;
   children: ReactNode;
 }) {
-  const [inputQuantity, setInputQuantity] = useState(job?.quantity ?? 0);
-  const [outputQuantity, setOutputQuantity] = useState(job?.quantity ?? 0);
-  const [wasteQuantity, setWasteQuantity] = useState(0);
+  const [inputQuantity, setInputQuantity] = useState(String(job?.quantity ?? ""));
+  const [outputQuantity, setOutputQuantity] = useState(String(job?.quantity ?? ""));
+  const [wasteQuantity, setWasteQuantity] = useState("");
+  const [productionInputsValid, setProductionInputsValid] = useState({ input: true, output: true, waste: true });
+  const hasProductionValidationError = !productionInputsValid.input || !productionInputsValid.output || !productionInputsValid.waste;
 
   return (
     <section className={`operator-workspace ${mode}`}>
@@ -69,13 +72,14 @@ export function OperatorWorkspaceShell({
                 <span>planned material usage</span>
               </div>
               <div className="operator-form-grid">
-                <label>Material input ({job.unit})<input type="number" min="0.1" step="0.1" value={inputQuantity} onChange={(event) => setInputQuantity(Number(event.target.value))} /></label>
-                <label>Good output ({job.unit})<input type="number" min="0" step="0.1" value={outputQuantity} onChange={(event) => setOutputQuantity(Number(event.target.value))} /></label>
+                <label>Material input ({job.unit})<NumericInput required min={0.1} step="0.1" value={inputQuantity} onChange={setInputQuantity} onValidityChange={(isValid) => setProductionInputsValid((current) => ({ ...current, input: isValid }))} /></label>
+                <label>Good output ({job.unit})<NumericInput required min={0} step="0.1" value={outputQuantity} onChange={setOutputQuantity} onValidityChange={(isValid) => setProductionInputsValid((current) => ({ ...current, output: isValid }))} /></label>
               </div>
-              <label>Waste ({job.unit})<input type="number" min="0" step="0.1" value={wasteQuantity} onChange={(event) => setWasteQuantity(Number(event.target.value))} /></label>
+              <label>Waste ({job.unit})<NumericInput required min={0} step="0.1" value={wasteQuantity} onChange={setWasteQuantity} onValidityChange={(isValid) => setProductionInputsValid((current) => ({ ...current, waste: isValid }))} /></label>
               <button
                 className="button secondary full"
-                onClick={() => onRecordProduction(job.id, inputQuantity, outputQuantity, wasteQuantity)}
+                disabled={hasProductionValidationError || !inputQuantity.trim() || !outputQuantity.trim() || !wasteQuantity.trim()}
+                onClick={() => onRecordProduction(job.id, Number(inputQuantity), Number(outputQuantity), Number(wasteQuantity))}
               >
                 Save production log <ArrowUpRight size={16} />
               </button>

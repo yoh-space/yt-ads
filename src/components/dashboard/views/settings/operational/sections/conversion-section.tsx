@@ -2,7 +2,7 @@
 
 import { Plus, Scale, Trash2 } from "lucide-react";
 import type { PurchaseUnit, Unit } from "@/lib/operations-types";
-import { Button, Input, Select } from "@/components/ui";
+import { Button, Input, NumericInput, Select } from "@/components/ui";
 import { FormSection } from "../../chrome/form";
 import type { ConversionRuleRow } from "../state";
 
@@ -62,12 +62,16 @@ export function ConversionSection({
                 </option>
               ))}
             </Select>
-            <Input
-              type="number"
+            <NumericInput
               min={0}
               step="0.001"
               value={rule.conversionRatio}
-              onChange={(event) => updateRule(index, { conversionRatio: Number(event.target.value) })}
+              emptyValue={0}
+              onChange={(value) => {
+                if (value.trim() === "") return;
+                const parsed = Number(value);
+                if (Number.isFinite(parsed)) updateRule(index, { conversionRatio: parsed });
+              }}
               placeholder="Base units"
             />
             <Button

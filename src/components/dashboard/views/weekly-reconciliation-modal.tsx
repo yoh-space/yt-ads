@@ -4,7 +4,7 @@ import { AlertTriangle, CheckCircle2, ClipboardCheck, Scale } from "lucide-react
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { cn } from "@/lib/utils";
-import { Button, StatusPill } from "@/components/ui";
+import { Button, NumericInput, StatusPill } from "@/components/ui";
 import { ModalShell } from "../modals/modal-shell";
 import { useState } from "react";
 import type { OperatorStockEntry } from "@/types/dashboard-types";
@@ -22,14 +22,15 @@ export function WeeklyReconciliationModal({
 }) {
   const reconcile = useMutation(api.inventory.performWeeklyReconciliation);
   const [submittingId, setSubmittingId] = useState<string | null>(null);
-  const [physicalCounts, setPhysicalCounts] = useState<Record<string, number>>({});
+  const [physicalCounts, setPhysicalCounts] = useState<Record<string, string>>({});
+  const [countValidity, setCountValidity] = useState<Record<string, boolean>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
 
   const activeStock = stock?.filter((s) => s.status === "ACTIVE") || [];
 
   const handleSubmit = async (stockId: string) => {
-    const physical = physicalCounts[stockId];
-    if (physical === undefined) return;
+    const physical = Number(physicalCounts[stockId]);
+    if (!Number.isFinite(physical) || physical < 0 || countValidity[stockId] === false) return;
     
     setSubmittingId(stockId);
     try {
@@ -72,7 +73,8 @@ export function WeeklyReconciliationModal({
           </div>
         ) : (
           activeStock.map((batch) => {
-            const physical = physicalCounts[batch._id] ?? batch.currentRemaining;
+            const physicalDraft = physicalCounts[batch._id] ?? String(batch.currentRemaining);
+            const physical = Number(physicalDraft);
             const discrepancy = Number((physical - batch.currentRemaining).toFixed(3));
             const hasDiscrepancy = Math.abs(discrepancy) > 0.001;
             const isShortage = discrepancy < 0;
@@ -103,11 +105,13 @@ export function WeeklyReconciliationModal({
                   </div>
                   <div>
                     <span className="block text-xs text-gray-500 mb-1">በእጅ የቆጠሩት</span>
-                    <input
-                      type="number"
+                    <NumericInput
+                      min={0}
                       step="0.001"
-                      value={physical}
-                      onChange={(e) => setPhysicalCounts((prev) => ({ ...prev, [batch._id]: Number(e.target.value) }))}
+                      value={physicalDraft}
+                      emptyValue={0}
+                      onChange={(value) => setPhysicalCounts((prev) => ({ ...prev, [batch._id]: value }))}
+                      onValidityChange={(isValid) => setCountValidity((prev) => ({ ...prev, [batch._id]: isValid }))}
                       className={cn(
                         "w-full px-2 py-1 border border-line rounded text-sm text-ink outline-none focus:border-cyan",
                         hasDiscrepancy && "border-coral/50 bg-coral/5"
@@ -146,7 +150,7 @@ export function WeeklyReconciliationModal({
                   <Button
                     size="small"
                     variant="primary"
-                    disabled={submittingId === batch._id || physical === batch.currentRemaining}
+                    disabled={submittingId === batch._id || !physicalDraft.trim() || countValidity[batch._id] === false || !Number.isFinite(physical) || physical === batch.currentRemaining}
                     onClick={() => handleSubmit(batch._id)}
                   >
                     {submittingId === batch._id ? "በመላክ ላይ…" : "ቆጠራውን ላክ"}

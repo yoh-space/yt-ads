@@ -4,9 +4,10 @@ import { useState } from "react";
 import { Scissors } from "lucide-react";
 import type { WorkspaceProps } from "./workspace-shell";
 import { OperatorWorkspaceShell as OperatorWorkspaceShellInner } from "./workspace-shell";
+import { NumericInput } from "@/components/ui";
 
 export function LaserOperatorWorkspace({ machine, job, onComplete, onRecordProduction, onOffcut, onScrap }: WorkspaceProps) {
-  const [area, setArea] = useState(job?.quantity ?? 0);
+  const [area, setArea] = useState(String(job?.quantity ?? ""));
   const [kerf, setKerf] = useState("0.20");
   const [safeStart, setSafeStart] = useState(false);
   return (
@@ -24,7 +25,7 @@ export function LaserOperatorWorkspace({ machine, job, onComplete, onRecordProdu
       <span className="panel-kicker">LASER RUN SETUP</span>
       <h3>Sheet cut confirmation</h3>
       <div className="operator-form-grid">
-        <label>Sheet area (m²)<input type="number" value={area} onChange={(event) => setArea(Number(event.target.value))} /></label>
+        <label>Sheet area (m²)<NumericInput min={0} step="0.1" value={area} onChange={setArea} /></label>
         <label>Kerf width (mm)<input value={kerf} onChange={(event) => setKerf(event.target.value)} /></label>
       </div>
       <label className="control-check">
@@ -33,7 +34,7 @@ export function LaserOperatorWorkspace({ machine, job, onComplete, onRecordProdu
       <div className="control-readout">
         <Scissors size={17} />
         <span>Expected reusable remainder</span>
-        <b>{Math.max(0, area * 0.12).toFixed(2)} m²</b>
+        <b>{Math.max(0, Number(area) * 0.12).toFixed(2)} m²</b>
       </div>
     </OperatorWorkspaceShellInner>
   );

@@ -1,4 +1,4 @@
-import { Input } from "@/components/ui";
+import { NumericInput } from "@/components/ui";
 
 export interface NumericFieldProps {
   label: string;
@@ -35,20 +35,20 @@ export function NumericField({
           </span>
         ) : null}
       </span>
-      <Input
-        type="number"
-        value={Number.isFinite(value) ? value : 0}
+      <NumericInput
+        value={Number.isFinite(value) ? value : ""}
         min={min}
         max={max}
         step={step ?? "any"}
-        onChange={(event) => {
-          const raw = event.target.value;
-          const parsed = raw === "" ? 0 : Number(raw);
-          onChange(Number.isFinite(parsed) ? parsed : 0);
+        emptyValue={min ?? 0}
+        onChange={(raw) => {
+          if (raw.trim() === "") return;
+          const parsed = Number(raw);
+          if (Number.isFinite(parsed)) onChange(parsed);
         }}
+        helperText={hint}
         className="[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
       />
-      {hint ? <small className="mt-1.5 block text-[11px] text-muted-foreground">{hint}</small> : null}
     </label>
   );
 }

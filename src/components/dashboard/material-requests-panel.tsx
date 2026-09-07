@@ -12,7 +12,7 @@ import {
 import type { MaterialRequest, MaterialRequestStatus, Role } from "@/lib/operations-types";
 import { hasPermission } from "@/lib/permissions";
 import { formatQuantity } from "@/lib/units";
-import { Panel, PanelHeader, Button, StatusPill, Input } from "@/components/ui";
+import { Panel, PanelHeader, Button, StatusPill, NumericInput } from "@/components/ui";
 
 const STATUS_TONE: Record<MaterialRequestStatus, "success" | "warning" | "info" | "neutral" | "danger"> = {
   Requested: "warning",
@@ -66,7 +66,8 @@ export function MaterialRequestsPanel({
   onShortStock?: (requestId: string) => void;
   isPending: (key: string) => boolean;
 }) {
-  const [issueQuantities, setIssueQuantities] = useState<Record<string, number>>({});
+  const [issueQuantities, setIssueQuantities] = useState<Record<string, string>>({});
+  const [issueValidity, setIssueValidity] = useState<Record<string, boolean>>({});
   const canRequest = role !== "storekeeper" && hasPermission(role, "request.create");
   const canIssue = hasPermission(role, "request.issue");
   const canAcknowledge = hasPermission(role, "request.acknowledge");
@@ -111,7 +112,9 @@ export function MaterialRequestsPanel({
       ) : (
         <div className="space-y-2 border-t border-border/60 p-3">
           {visible.map((request) => {
-            const issueQuantity = issueQuantities[request.id] ?? request.requestedQuantity;
+            const issueQuantity = issueQuantities[request.id] ?? String(request.requestedQuantity);
+            const parsedIssueQuantity = Number(issueQuantity);
+            const issueHasError = !issueQuantity.trim() || issueValidity[request.id] === false || !Number.isFinite(parsedIssueQuantity) || parsedIssueQuantity <= 0;
             const tone = STATUS_TONE[request.status];
             const showIssue =
               canIssue && (request.status === "Requested" || request.status === "Partially Issued");
@@ -145,30 +148,26 @@ export function MaterialRequestsPanel({
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   {showIssue ? (
                     <>
-                      <Input
-                        aria-label={`Issue quantity for ${request.jobCode}`}
-                        type="number"
-                        min="0.01"
-                        max={request.requestedQuantity}
-                        step="0.01"
-                        value={issueQuantity}
-                        onChange={(event) =>
-                          setIssueQuantities((current) => ({
-                            ...current,
-                            [request.id]: Number(event.target.value),
-                          }))
-                        }
-                        className="w-24"
-                      />
+                       <NumericInput
+                         aria-label={`Issue quantity for ${request.jobCode}`}
+                         min={0.01}
+                         max={request.requestedQuantity}
+                         step="0.01"
+                         value={issueQuantity}
+                         emptyValue={0.01}
+                         onChange={(value) => setIssueQuantities((current) => ({ ...current, [request.id]: value }))}
+                         onValidityChange={(isValid) => setIssueValidity((current) => ({ ...current, [request.id]: isValid }))}
+                         className="w-24"
+                       />
                       <Button
                         size="small"
                         variant="secondary"
                         pending={isPending(`issue-${request.id}`)}
-                        disabled={isPending(`issue-${request.id}`)}
-                        onClick={() => onIssue(request.id, issueQuantity)}
+                         disabled={isPending(`issue-${request.id}`) || issueHasError}
+                         onClick={() => onIssue(request.id, parsedIssueQuantity)}
                       >
                         <PackageCheck size={13} />
-                        {isPending(`issue-${request.id}`) ? "Handing over..." : role === "storekeeper" ? `Approve & Hand Over ${formatQuantity(issueQuantity, request.unit)}` : "Issue"}
+                         {isPending(`issue-${request.id}`) ? "Handing over..." : role === "storekeeper" ? `Approve & Hand Over ${formatQuantity(parsedIssueQuantity, request.unit)}` : "Issue"}
                       </Button>
                       {onShortStock ? <Button
                         size="small"
