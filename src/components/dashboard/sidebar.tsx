@@ -47,8 +47,13 @@ export function isViewActiveForPathname(pathname: string, href: string): boolean
 
     const workspaceId = pSegments[1];
     const bases = ["/dashboard/" + workspaceId];
-    if (workspaceId === "operator" && pSegments.length >= 3) {
-      bases.push("/dashboard/operator/" + pSegments[2]);
+    if (workspaceId === "operator") {
+      // Operators may land on the shared workspace inventory route or a
+      // machine-specific route, depending on the feature being viewed.
+      bases.push("/dashboard/operator");
+      if (pSegments.length >= 3 && pSegments[2] !== "inventory" && pSegments[2] !== "settings") {
+        bases.push("/dashboard/operator/" + pSegments[2]);
+      }
     }
 
     for (const base of bases) {

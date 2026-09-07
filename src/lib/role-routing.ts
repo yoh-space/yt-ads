@@ -132,8 +132,8 @@ function operatorMachineForRole(role: Role): OperatorMachine | null {
 
 /**
  * Canonical route descriptors for each navigation view.
- * Operators use /inventory/substock and /settings (flat legacy routes) because
- * /dashboard/operator/[machine]/inventory would conflict with the workspace route tree.
+ * Operators use /inventory/substock and /settings as stable sidebar entry points;
+ * the legacy inventory link redirects to the assigned machine workspace.
  */
 export const ROUTE_DESCRIPTORS: Record<string, RouteDescriptor> = {
   overview: {
@@ -479,9 +479,20 @@ function canAccessCanonicalRoute(role: Role, pathname: string): boolean {
   const feature = segments[2];
 
   // Operators use /dashboard/operator/[machine] for machine-specific routes.
-  // Inventory and settings are accessed via flat legacy routes (/inventory/substock, /settings)
-  // because /dashboard/operator/[machine]/inventory conflicts with the workspace route tree.
+  // Inventory and settings have stable flat sidebar entry points, with sub-stock
+  // redirected to the assigned machine workspace.
   if (ws === "operator") {
+    if (feature === "inventory" && segments[3] === "substock") {
+      return [
+        "owner",
+        "admin",
+        "manager",
+        "laser_operator",
+        "cnc_operator",
+        "plotter_operator",
+        "printer_operator",
+      ].includes(role);
+    }
     if (feature) {
       return isOperatorMachineAllowed(role, feature);
     }
