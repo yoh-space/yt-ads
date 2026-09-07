@@ -203,17 +203,6 @@ export function MachinesView({
                 </div>
                 
                 <div className="flex flex-none items-center gap-1.5">
-                  <span className={cn(
-                    "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium",
-                    {
-                      "bg-green/10 text-green": machine.status === "Running",
-                      "bg-cyan/10 text-cyan": machine.status === "Available", 
-                      "bg-gold/10 text-gold": machine.status === "Maintenance",
-                      "bg-coral/10 text-coral": machine.status === "Unavailable"
-                    }
-                  )}>
-                    {machine.status}
-                  </span>
                   {onStatusChange ? (
                     <select
                       value={machine.status}
@@ -344,6 +333,18 @@ export function MachinesView({
                     ቀሪ ይመዝግቡ
                   </button>
                 )}
+
+                <span className={cn(
+                  "ml-auto inline-flex flex-none items-center rounded-full px-2 py-0.5 text-[10px] font-medium",
+                  {
+                    "bg-green/10 text-green": machine.status === "Running",
+                    "bg-cyan/10 text-cyan": machine.status === "Available",
+                    "bg-gold/10 text-gold": machine.status === "Maintenance",
+                    "bg-coral/10 text-coral": machine.status === "Unavailable",
+                  }
+                )}>
+                  {machine.status}
+                </span>
               </div>
             </div>
           );
