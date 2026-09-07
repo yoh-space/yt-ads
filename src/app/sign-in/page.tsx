@@ -19,6 +19,8 @@ const DEMO_ACCOUNTS = [
   { role: "Printer Operator (ኦፕሬተር)", email: "ytadvert+printer@gmail.com", desc: "Banner / DTF / UV job cards and floor stock" },
 ];
 
+const IS_DEVELOPMENT = process.env.NODE_ENV === "development";
+
 export default function SignInPage() {
   const router = useRouter();
   const ensureProfile = useMutation(api.users.ensureProfile);
@@ -142,56 +144,58 @@ export default function SignInPage() {
             </div>
           </form>
 
-          {/* Role Test Credentials Helper */}
-          <div className="mt-5 pt-4 border-t border-white/[0.08]">
-            <button
-              type="button"
-              onClick={() => setShowDemoCredentials(!showDemoCredentials)}
-              className="w-full flex items-center justify-between text-left font-mono text-[11px] text-neutral-400 hover:text-[#E5C07B] transition-colors py-1"
-            >
-              <span className="flex items-center gap-1.5 font-semibold">
-                <KeyRound size={12} className="text-[#E5C07B]" />
-                <span>Test Role Accounts (የሙከራ መለያዎች)</span>
-              </span>
-              <span className="text-[10px] text-neutral-400 font-mono">
-                {showDemoCredentials ? "Hide ▲" : "Show ▼"}
-              </span>
-            </button>
+          {IS_DEVELOPMENT ? (
+            /* Role Test Credentials Helper: never expose demo accounts in production. */
+            <div className="mt-5 pt-4 border-t border-white/[0.08]">
+              <button
+                type="button"
+                onClick={() => setShowDemoCredentials(!showDemoCredentials)}
+                className="w-full flex items-center justify-between text-left font-mono text-[11px] text-neutral-400 hover:text-[#E5C07B] transition-colors py-1"
+              >
+                <span className="flex items-center gap-1.5 font-semibold">
+                  <KeyRound size={12} className="text-[#E5C07B]" />
+                  <span>Test Role Accounts (የሙከራ መለያዎች)</span>
+                </span>
+                <span className="text-[10px] text-neutral-400 font-mono">
+                  {showDemoCredentials ? "Hide ▲" : "Show ▼"}
+                </span>
+              </button>
 
-            {showDemoCredentials ? (
-              <div className="mt-3 space-y-2 max-h-56 overflow-y-auto pr-1">
-                <p className="font-mono text-[10px] text-neutral-400 leading-relaxed">
-                  Default password for all demo accounts is <code className="bg-[#17181D] text-[#E5C07B] px-1 py-0.5 rounded border border-white/[0.1]">password123</code>. Click any role to auto-fill:
-                </p>
-                {DEMO_ACCOUNTS.map((acc) => (
-                  <button
-                    key={acc.email}
-                    type="button"
-                    onClick={() => fillCredentials(acc.email)}
-                    className="w-full text-left p-2 rounded-sm bg-[#17181D] hover:bg-[#1E2026] border border-white/[0.06] hover:border-[#E5C07B]/40 transition-colors group"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono text-[11px] font-semibold text-neutral-200 group-hover:text-[#E5C07B]">
-                        {acc.role}
-                      </span>
-                      <span className="font-mono text-[9px] text-neutral-400 bg-white/[0.05] px-1.5 py-0.5 rounded">
-                        Click to Fill
-                      </span>
-                    </div>
-                    <div className="font-mono text-[10px] text-neutral-400 truncate mt-0.5">
-                      {acc.email}
-                    </div>
-                    <div className="font-sans text-[10px] text-neutral-400 mt-0.5 line-clamp-1">
-                      {acc.desc}
-                    </div>
-                  </button>
-                ))}
-                <p className="font-mono text-[10px] text-neutral-500 leading-relaxed pt-1">
-                  The owner (<span className="text-neutral-300">ytadvert@admin.org</span>) is a real account with its own password — it is not part of the demo set.
-                </p>
-              </div>
-            ) : null}
-          </div>
+              {showDemoCredentials ? (
+                <div className="mt-3 space-y-2 max-h-56 overflow-y-auto pr-1">
+                  <p className="font-mono text-[10px] text-neutral-400 leading-relaxed">
+                    Default password for all demo accounts is <code className="bg-[#17181D] text-[#E5C07B] px-1 py-0.5 rounded border border-white/[0.1]">password123</code>. Click any role to auto-fill:
+                  </p>
+                  {DEMO_ACCOUNTS.map((acc) => (
+                    <button
+                      key={acc.email}
+                      type="button"
+                      onClick={() => fillCredentials(acc.email)}
+                      className="w-full text-left p-2 rounded-sm bg-[#17181D] hover:bg-[#1E2026] border border-white/[0.06] hover:border-[#E5C07B]/40 transition-colors group"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono text-[11px] font-semibold text-neutral-200 group-hover:text-[#E5C07B]">
+                          {acc.role}
+                        </span>
+                        <span className="font-mono text-[9px] text-neutral-400 bg-white/[0.05] px-1.5 py-0.5 rounded">
+                          Click to Fill
+                        </span>
+                      </div>
+                      <div className="font-mono text-[10px] text-neutral-400 truncate mt-0.5">
+                        {acc.email}
+                      </div>
+                      <div className="font-sans text-[10px] text-neutral-400 mt-0.5 line-clamp-1">
+                        {acc.desc}
+                      </div>
+                    </button>
+                  ))}
+                  <p className="font-mono text-[10px] text-neutral-500 leading-relaxed pt-1">
+                    The owner (<span className="text-neutral-300">ytadvert@admin.org</span>) is a real account with its own password — it is not part of the demo set.
+                  </p>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
 
           {/* Account footer */}
           <div className="mt-5 text-center font-mono text-[11px] text-neutral-400 border-t border-white/[0.06] pt-3">
