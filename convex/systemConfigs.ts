@@ -79,6 +79,7 @@ export const updateSystemConfig = mutation({
     maxDirectStockOutEtb: v.number(),
     orderExpirationHours: v.number(),
     defaultScrapAllowancePercent: v.number(),
+    defaultMarginSquareMetres: v.number(),
     materialScrapAllowances: v.array(v.object({
       materialId: v.id("materials"),
       allowancePercent: v.number(),
@@ -97,6 +98,7 @@ export const updateSystemConfig = mutation({
     validateNumber(args.maxDirectStockOutEtb, "Maximum ETB for direct stock-outs", { min: 0 });
     validateNumber(args.orderExpirationHours, "Order expiration hours", { min: 1, max: 168 });
     validateNumber(args.defaultScrapAllowancePercent, "Default scrap allowance", { min: 0, max: 100 });
+    validateNumber(args.defaultMarginSquareMetres, "Default margin allowance", { min: 0 });
 
     const seenScrap = new Set<string>();
     const scrapAllowances = args.materialScrapAllowances
@@ -162,6 +164,7 @@ export const updateSystemConfig = mutation({
       maxDirectStockOutEtb: args.maxDirectStockOutEtb,
       orderExpirationHours: args.orderExpirationHours,
       defaultScrapAllowancePercent: args.defaultScrapAllowancePercent,
+      defaultMarginSquareMetres: args.defaultMarginSquareMetres,
       materialScrapAllowances: scrapAllowances,
       updatedAt: Date.now(),
       updatedBy: profile._id,
@@ -191,6 +194,7 @@ export async function ensureSystemConfig(ctx: MutationCtx, actorAuthUserId?: str
     // the full typed config without null guards.
     const patch = {} as Record<string, unknown>;
     if (existing.orderExpirationHours === undefined) patch.orderExpirationHours = DEFAULT_SYSTEM_CONFIG.orderExpirationHours;
+    if (existing.defaultMarginSquareMetres === undefined) patch.defaultMarginSquareMetres = DEFAULT_SYSTEM_CONFIG.defaultMarginSquareMetres;
     if (existing.unitConversionDefaults === undefined) patch.unitConversionDefaults = DEFAULT_SYSTEM_CONFIG.unitConversionDefaults;
     if (Object.keys(patch).length > 0) {
       await ctx.db.patch(existing._id, { ...patch, updatedAt: Date.now() });

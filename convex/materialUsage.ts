@@ -54,6 +54,7 @@ export type SystemConfig = {
   maxDirectStockOutEtb: number;
   orderExpirationHours: number;
   defaultScrapAllowancePercent?: number;
+  defaultMarginSquareMetres?: number;
   materialScrapAllowances?: Array<{ materialId: Id<"materials">; allowancePercent: number }>;
   updatedAt: number;
   updatedBy?: string;
@@ -132,6 +133,7 @@ export const DEFAULT_SYSTEM_CONFIG: Omit<SystemConfig, "updatedAt" | "updatedBy"
   requireAdminPinForExceptions: true,
   maxDirectStockOutEtb: 2000,
   orderExpirationHours: 24,
+  defaultMarginSquareMetres: 0,
 };
 
 /** Resolves the currently governed purchase-to-base conversion for a material. */
@@ -377,19 +379,24 @@ export function computeJobConsumption(material: MaterialLike, input: {
   width?: number;
   quantity: number;
   fallbackArea?: number;
-}): { productionType: ProductionType; baseQuantity: number; unit: string; areaM2: number; inkMl: number } {
+  marginSquareMetres?: number;
+  allowancePercent?: number;
+}): { productionType: ProductionType; baseQuantity: number; unit: string; areaM2: number; allocatedAreaM2: number; inkMl: number } {
   const productionType = classifyMaterialProductionType(material);
   const area = computeJobArea(input);
+  const margin = Math.max(0, input.marginSquareMetres ?? 0);
+  const allowance = Math.max(0, input.allowancePercent ?? 0);
+  const allocatedArea = Number(((area + margin) * (1 + allowance / 100)).toFixed(3));
   const baseUnit = material.baseUnit ?? material.unit ?? "m²";
 
   if (productionType === "ink") {
     const ml = area * resolveInkConsumptionRate(material);
     const litres = Number((ml / 1000).toFixed(3));
-    return { productionType, baseQuantity: litres, unit: "L", areaM2: Number(area.toFixed(3)), inkMl: Number(ml.toFixed(1)) };
+    return { productionType, baseQuantity: litres, unit: "L", areaM2: Number(area.toFixed(3)), allocatedAreaM2: allocatedArea, inkMl: Number(ml.toFixed(1)) };
   }
 
   if (productionType === "area") {
-    return { productionType, baseQuantity: Number(area.toFixed(3)), unit: "m²", areaM2: Number(area.toFixed(3)), inkMl: 0 };
+    return { productionType, baseQuantity: allocatedArea, unit: "m²", areaM2: Number(area.toFixed(3)), allocatedAreaM2: allocatedArea, inkMl: 0 };
   }
 
   if (productionType === "linear") {
@@ -397,8 +404,8 @@ export function computeJobConsumption(material: MaterialLike, input: {
     const areaM2 = typeof input.width === "number" && input.width > 0 && typeof input.length === "number" && input.length > 0
       ? Number((input.length * input.width * input.quantity).toFixed(3))
       : 0;
-    return { productionType, baseQuantity: linearQuantity, unit: baseUnit, areaM2, inkMl: 0 };
+    return { productionType, baseQuantity: Number((linearQuantity * (1 + allowance / 100)).toFixed(3)), unit: baseUnit, areaM2, allocatedAreaM2: allocatedArea, inkMl: 0 };
   }
 
-  return { productionType, baseQuantity: Number(input.quantity.toFixed(3)), unit: baseUnit, areaM2: Number(area.toFixed(3)), inkMl: 0 };
+  return { productionType, baseQuantity: Number((input.quantity * (1 + allowance / 100)).toFixed(3)), unit: baseUnit, areaM2: Number(area.toFixed(3)), allocatedAreaM2: allocatedArea, inkMl: 0 };
 }

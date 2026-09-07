@@ -17,6 +17,8 @@ export type NewOrderInput = {
   phone: string;
   serviceType: ServiceId;
   dimensions: string;
+  length?: number;
+  width?: number;
   quantity: string;
   amount?: number;
   preferredDueDate: number;
@@ -32,6 +34,12 @@ function daysFromNow(days: number) {
   d.setDate(d.getDate() + days);
   d.setHours(17, 0, 0, 0);
   return d.getTime();
+}
+
+function parseDimensions(value: string) {
+  const match = value.trim().match(/^([0-9]+(?:\.[0-9]+)?)\s*m?\s*[x×]\s*([0-9]+(?:\.[0-9]+)?)\s*m?$/i);
+  if (!match) return {};
+  return { length: Number(match[1]), width: Number(match[2]) };
 }
 
 export function OrderCreateModal({
@@ -112,6 +120,7 @@ export function OrderCreateModal({
     setSubmitting(true);
     try {
       const fileStorageId = await uploadFile();
+      const parsedDimensions = parseDimensions(dimensions);
       onSave({
         clientName,
         companyLegalName,
@@ -119,6 +128,7 @@ export function OrderCreateModal({
         phone,
         serviceType: serviceType as ServiceId,
         dimensions,
+        ...parsedDimensions,
         quantity,
         amount: Number(amount) > 0 ? Number(amount) : undefined,
         preferredDueDate: dueDate,

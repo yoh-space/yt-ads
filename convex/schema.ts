@@ -379,6 +379,9 @@ export default defineSchema({
     phone: v.string(),
     serviceType: serviceType,
     dimensions: v.string(),
+    /** Parsed order dimensions in metres for deterministic job allocation. */
+    length: v.optional(v.number()),
+    width: v.optional(v.number()),
     quantity: v.string(),
     /** Final total price confirmed by reception during checkout. */
     amount: v.optional(v.number()),
@@ -640,6 +643,8 @@ export default defineSchema({
     updatedBy: v.optional(v.string()),
     /** Owner/admin-controlled usage leakage threshold, expressed as a percentage. */
     defaultScrapAllowancePercent: v.optional(v.number()),
+    /** Default additive bleed/trim allowance in square metres. */
+    defaultMarginSquareMetres: v.optional(v.number()),
     materialScrapAllowances: v.optional(v.array(v.object({
       materialId: v.id("materials"),
       allowancePercent: v.number(),

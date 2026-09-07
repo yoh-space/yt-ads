@@ -50,6 +50,8 @@ type OrderDoc = {
   phone: string;
   serviceType: string;
   dimensions: string;
+  length?: number;
+  width?: number;
   quantity: string;
   amount?: number;
   paymentStatus?: "UNPAID" | "PAID" | "APPROVED_CREDIT";
@@ -78,6 +80,14 @@ type OrderDoc = {
 
 function normalizePhone(phone: string) {
   return phone.replace(/[^+\d]/g, "").trim();
+}
+
+function parseDimensions(dimensions: string): { length: number; width: number } | undefined {
+  const match = dimensions.trim().match(/^([0-9]+(?:\.[0-9]{1,3})?)\s*m?\s*[x×]\s*([0-9]+(?:\.[0-9]{1,3})?)\s*m?$/i);
+  if (!match) return undefined;
+  const length = Number(match[1]);
+  const width = Number(match[2]);
+  return Number.isFinite(length) && length > 0 && Number.isFinite(width) && width > 0 ? { length, width } : undefined;
 }
 
 function publicOrder(order: OrderDoc) {
@@ -200,6 +210,8 @@ export const submit = mutation({
     serviceType: serviceType,
     dimensions: v.string(),
     quantity: v.string(),
+    length: v.optional(v.number()),
+    width: v.optional(v.number()),
     preferredDueDate: v.number(),
     priority: v.optional(orderPriority),
     notes: v.optional(v.string()),
@@ -213,6 +225,7 @@ export const submit = mutation({
     const serviceTypeRaw = (args.serviceType as string).trim();
     const serviceType = serviceTypeRaw as typeof args.serviceType;
     const dimensions = args.dimensions.trim();
+    const parsedDimensions = parseDimensions(dimensions);
     const quantity = args.quantity.trim();
     if (!clientName || clientName.length > 160 || !serviceType || !dimensions || !quantity) {
       throw new Error("Client, service, dimensions, and quantity are required.");
@@ -274,6 +287,8 @@ export const submit = mutation({
       phone,
       serviceType,
       dimensions,
+      length: args.length ?? parsedDimensions?.length,
+      width: args.width ?? parsedDimensions?.width,
       quantity,
       preferredDueDate: args.preferredDueDate,
       status: "PENDING_REVIEW",
@@ -315,6 +330,8 @@ export const createWalkIn = mutation({
     serviceType: serviceType,
     dimensions: v.string(),
     quantity: v.string(),
+    length: v.optional(v.number()),
+    width: v.optional(v.number()),
     amount: v.optional(v.number()),
     preferredDueDate: v.number(),
     priority: v.optional(orderPriority),
@@ -331,6 +348,7 @@ export const createWalkIn = mutation({
     const serviceTypeRaw = (args.serviceType as string).trim();
     const serviceType = serviceTypeRaw as typeof args.serviceType;
     const dimensions = args.dimensions.trim();
+    const parsedDimensions = parseDimensions(dimensions);
     const quantity = args.quantity.trim();
     if (!clientName || !phone || !serviceType || !dimensions || !quantity) {
       throw new Error("Client, phone, service, dimensions, and quantity are required.");
@@ -353,6 +371,8 @@ export const createWalkIn = mutation({
       phone,
       serviceType,
       dimensions,
+       length: args.length ?? parsedDimensions?.length,
+       width: args.width ?? parsedDimensions?.width,
       quantity,
       amount: args.amount === undefined ? undefined : Number(args.amount.toFixed(2)),
       preferredDueDate: args.preferredDueDate,
@@ -616,7 +636,57 @@ export const confirmOrderAndIssueJobCard = mutation({
       createdAt: now,
       orderId: args.orderId,
       deductOnComplete: args.deductOnComplete,
+      length: order.length,
+      width: order.width,
+      serviceType: order.serviceType,
     });
+    const config = await ensureSystemConfig(ctx, identity._id);
+    const bomRows = await ctx.db
+      .query("serviceBOM")
+      .withIndex("by_active_service", (q) => q.eq("active", true).eq("serviceType", order.serviceType))
+      .collect();
+    const serviceUnitsMatch = order.quantity.match(/[0-9]+(?:\.[0-9]+)?/);
+    const serviceUnits = serviceUnitsMatch ? Math.max(1, Number(serviceUnitsMatch[0])) : 1;
+    const parsedArea = order.length && order.width ? order.length * order.width : args.quantity;
+    for (const bom of bomRows) {
+      const bomMaterial = await ctx.db.get(bom.materialId);
+      if (!bomMaterial || !bomMaterial.active) {
+        if (bom.required) throw new Error("A required BOM material is no longer active.");
+        continue;
+      }
+      const margin = config.defaultMarginSquareMetres ?? 0;
+      const driver = bom.consumptionMode === "fixed"
+        ? 1
+        : bom.consumptionMode === "area_rate"
+          ? (parsedArea + margin) * serviceUnits
+          : bom.consumptionMode === "linear_rate"
+            ? (order.length ?? args.quantity) * serviceUnits
+            : serviceUnits;
+      const plannedBaseQuantity = Number((bom.quantityPerUnit * driver).toFixed(3));
+      const allowancePercent = bom.wasteAllowancePercent ?? config.defaultScrapAllowancePercent ?? config.maxAllowedWastePercent;
+      const approvedScrapQuantity = Number((plannedBaseQuantity * allowancePercent / 100).toFixed(3));
+      const ratio = bomMaterial.conversionRatio && bomMaterial.conversionRatio > 0 ? bomMaterial.conversionRatio : 1;
+      const packageUnit = bomMaterial.purchaseUnit === "sheet"
+        ? "SHEET"
+        : bomMaterial.purchaseUnit === "roll"
+          ? "ROLL"
+          : bomMaterial.purchaseUnit === "canister" || bomMaterial.purchaseUnit === "liter"
+            ? "CANISTER"
+            : bomMaterial.purchaseUnit === "piece" ? "PIECE" : "PACKAGE";
+      await ctx.db.insert("jobMaterialRequirements", {
+        jobCardId: jobId,
+        materialId: bom.materialId,
+        packageUnit,
+        suggestedPackages: Math.ceil((plannedBaseQuantity + approvedScrapQuantity) / ratio),
+        baseUnit: bomMaterial.baseUnit ?? bomMaterial.unit,
+        plannedBaseQuantity,
+        approvedScrapQuantity,
+        conversionRatioSnapshot: ratio,
+        status: "PLANNED",
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
     await ctx.db.patch(args.orderId, {
       amount: roundedAmount,
       paymentStatus: args.paymentDecision,

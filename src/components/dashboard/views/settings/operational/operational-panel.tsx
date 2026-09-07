@@ -70,6 +70,7 @@ export function OperationalPanel() {
         maxDirectStockOutEtb: form.maxDirectStockOutEtb,
         orderExpirationHours: form.orderExpirationHours,
         defaultScrapAllowancePercent: form.defaultScrapAllowancePercent,
+        defaultMarginSquareMetres: form.defaultMarginSquareMetres,
         materialScrapAllowances: form.materialScrapAllowances,
       });
       setMessage("ቅኑ ተስርሷል። በቀጣዩ የምርት መዝገብ ላይ ይተገበራል።");
@@ -147,6 +148,8 @@ export function OperationalPanel() {
           <ScrapAllowanceSection
             defaultScrapAllowancePercent={form.defaultScrapAllowancePercent}
             setDefaultScrapAllowancePercent={form.setDefaultScrapAllowancePercent}
+            defaultMarginSquareMetres={form.defaultMarginSquareMetres}
+            setDefaultMarginSquareMetres={form.setDefaultMarginSquareMetres}
             scrapAllowances={form.materialScrapAllowances}
             setScrapAllowances={form.setMaterialScrapAllowances}
             materials={materials}

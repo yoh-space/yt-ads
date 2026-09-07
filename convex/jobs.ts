@@ -376,11 +376,17 @@ async function consumeFromOffcuts(ctx: any, jobId: any, materialId: any, baseQua
 async function recordAutomaticDeduction(ctx: any, job: any, material: any, actorId: string) {
   if (job.deductOnComplete === false) return { deducted: false, reason: "Automatic deduction disabled for this job." };
 
+  const config = await ensureSystemConfig(ctx, actorId);
+  const allowancePercent = config.materialScrapAllowances?.find((entry) => entry.materialId === job.materialId)?.allowancePercent
+    ?? (config.defaultScrapAllowancePercent ? config.defaultScrapAllowancePercent : config.maxAllowedWastePercent);
+
   const bom = computeJobConsumption(material, {
     length: job.length,
     width: job.width,
     quantity: job.quantity,
     fallbackArea: job.quantity,
+    marginSquareMetres: config.defaultMarginSquareMetres ?? 0,
+    allowancePercent,
   });
 
   const previousInput = await getProductionTotals(ctx, job._id);
@@ -392,7 +398,8 @@ async function recordAutomaticDeduction(ctx: any, job: any, material: any, actor
       productionType: bom.productionType,
       baseQuantity: bom.baseQuantity,
       rawToDeduct: 0,
-      areaM2: bom.areaM2,
+       areaM2: bom.areaM2,
+       allocatedAreaM2: bom.allocatedAreaM2,
       inkMl: bom.inkMl,
       unit: bom.unit,
       etbValue: resolveEtbValue(material),
@@ -448,12 +455,62 @@ async function recordAutomaticDeduction(ctx: any, job: any, material: any, actor
     productionType: bom.productionType,
     baseQuantity: bom.baseQuantity,
     rawToDeduct: materialToDeduct,
-    areaM2: bom.areaM2,
+       areaM2: bom.areaM2,
+       allocatedAreaM2: bom.allocatedAreaM2,
     inkMl: bom.inkMl,
     unit: bom.unit,
     etbValue: etb,
     floorDeducted,
   };
+}
+
+async function recordAutomaticBomDeductions(ctx: any, job: any, actorId: string) {
+  const requirements = await ctx.db
+    .query("jobMaterialRequirements")
+    .withIndex("by_job_card", (q: any) => q.eq("jobCardId", job._id))
+    .collect();
+  const openRequirements = requirements.filter((requirement: any) => requirement.status !== "COMPLETED");
+  if (openRequirements.length === 0) return null;
+
+  const coveredMaterialIds = new Set<string>();
+  const deductions: Array<{ materialId: string; baseQuantity: number; floorDeducted: number; centralRemainder: number }> = [];
+  for (const requirement of openRequirements) {
+    const material = await ctx.db.get(requirement.materialId);
+    if (!material || !material.active) throw new Error("A required job BOM material is unavailable.");
+    const baseQuantity = Number((requirement.plannedBaseQuantity + requirement.approvedScrapQuantity).toFixed(3));
+    if (baseQuantity <= 0) continue;
+    const floorDeducted = await deductOperatorStock(ctx, job.machineId, requirement.materialId, baseQuantity, actorId, job._id);
+    const centralRemainder = Number((baseQuantity - floorDeducted).toFixed(3));
+    if (centralRemainder > 0) {
+      await recordInventoryEvent(ctx, {
+        materialId: requirement.materialId,
+        eventType: "PRODUCTION_CONSUMPTION",
+        custody: "parent",
+        balanceEffect: "out",
+        quantity: centralRemainder,
+        unit: material.baseUnit ?? material.unit,
+        baseUnit: material.baseUnit ?? material.unit,
+        baseQuantity: centralRemainder,
+        machineId: job.machineId,
+        jobCardId: job._id,
+        note: `Automatic BOM consumption ${job.code}`,
+        createdBy: actorId,
+      });
+    }
+    await ctx.db.patch(requirement._id, { status: "COMPLETED", updatedAt: Date.now() });
+    coveredMaterialIds.add(String(requirement.materialId));
+    deductions.push({ materialId: requirement.materialId, baseQuantity, floorDeducted, centralRemainder });
+  }
+
+  // A recipe may describe secondary materials only; retain the primary job
+  // material fallback so every completed job still consumes its main input.
+  if (!coveredMaterialIds.has(String(job.materialId))) {
+    const material = await ctx.db.get(job.materialId);
+    if (!material) throw new Error("Job material not found.");
+    const fallback = await recordAutomaticDeduction(ctx, job, material, actorId);
+    return { bom: deductions, fallback };
+  }
+  return { bom: deductions };
 }
 
 export const complete = mutation({
@@ -472,7 +529,8 @@ export const complete = mutation({
     const material = await ctx.db.get(job.materialId);
     if (!material) throw new Error("Job material not found.");
 
-    const deduction = await recordAutomaticDeduction(ctx, job, material, identity._id);
+    const deduction = await recordAutomaticBomDeductions(ctx, job, identity._id)
+      ?? await recordAutomaticDeduction(ctx, job, material, identity._id);
 
     await ctx.db.patch(args.jobId, { status: "Completed" });
     if (job.orderId) {

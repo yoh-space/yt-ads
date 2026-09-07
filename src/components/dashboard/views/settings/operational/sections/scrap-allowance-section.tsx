@@ -18,6 +18,8 @@ export { type MaterialOption } from "./override-section";
 export function ScrapAllowanceSection({
   defaultScrapAllowancePercent,
   setDefaultScrapAllowancePercent,
+  defaultMarginSquareMetres,
+  setDefaultMarginSquareMetres,
   scrapAllowances,
   setScrapAllowances,
   materials,
@@ -25,6 +27,8 @@ export function ScrapAllowanceSection({
 }: {
   defaultScrapAllowancePercent: number;
   setDefaultScrapAllowancePercent: (n: number) => void;
+  defaultMarginSquareMetres: number;
+  setDefaultMarginSquareMetres: (n: number) => void;
   scrapAllowances: ScrapAllowanceRow[];
   setScrapAllowances: React.Dispatch<React.SetStateAction<ScrapAllowanceRow[]>>;
   materials: { id: string; name: string; baseUnit?: string; unit: string }[];
@@ -82,6 +86,15 @@ export function ScrapAllowanceSection({
           max={100}
           step="0.1"
           hint="0 inherits the global Max Allowed Waste Rate."
+        />
+        <NumericField
+          label="Default Bleed / Margin"
+          value={defaultMarginSquareMetres}
+          onChange={setDefaultMarginSquareMetres}
+          suffix="m²"
+          min={0}
+          step="0.01"
+          hint="Added before scrap percentage during automatic deduction."
         />
       </div>
 

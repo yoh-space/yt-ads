@@ -80,7 +80,10 @@ export default function OperatorMachinePage({
   const machineJobs = jobs.filter(
     (j) => currentMachine && j.machineId === currentMachine.id
   );
-  const activeJob = machineJobs.find((j) => j.status === "In production") ?? machineJobs[0];
+  const activeJob = machineJobs.find((j) => j.status === "In production") ?? machineJobs.find((j) => j.status === "Queued");
+  const completedJob = machineJobs.find((j) => j.status === "Completed");
+  const displayedJob = activeJob ?? completedJob;
+  const isCompletedJob = displayedJob?.status === "Completed";
   const accessContext: AccessContext = {
     profile: { role: profile.role, active: profile.active },
     attributes: {
@@ -94,10 +97,12 @@ export default function OperatorMachinePage({
   const hasPendingClearance = (unclearedStockQuery ?? []).some(
     (batch) => batch.status === "PENDING_CLEARANCE"
   );
-  const hasProductionValidationError =
+  const hasManualProductionDraft = Boolean(inputQuantity.trim() || outputQuantity.trim() || wasteQuantity.trim());
+  const hasProductionValidationError = hasManualProductionDraft && (
     !productionInputsValid.input ||
     !productionInputsValid.output ||
-    !productionInputsValid.waste;
+    !productionInputsValid.waste
+  );
 
   return (
     <WorkspaceModuleGate context={accessContext} moduleId="jobs.queue">
@@ -188,65 +193,72 @@ export default function OperatorMachinePage({
               <span className="font-mono text-xs uppercase tracking-wider text-[#00B4D8]">
                 አሁን ያለ የስራ ትእዛዝ የምርት መረጃ
               </span>
-              {activeJob ? (
-                <StatusPill variant={activeJob.status === "In production" ? "info" : "neutral"}>
-                  {activeJob.status}
+              {displayedJob ? (
+                <StatusPill variant={displayedJob.status === "In production" ? "info" : "neutral"}>
+                  {displayedJob.status}
                 </StatusPill>
               ) : null}
             </div>
 
-            {activeJob ? (
+            {displayedJob ? (
               <div className="space-y-4">
                 <div className="flex items-start justify-between">
                   <div>
-                    <span className="font-mono text-xs font-bold text-[#00B4D8]">{activeJob.code}</span>
-                    <h2 className="text-lg font-bold text-white mt-0.5">{activeJob.title}</h2>
-                    <p className="text-xs text-slate-400">ደንበኛ: {activeJob.client}</p>
+                    <span className="font-mono text-xs font-bold text-[#00B4D8]">{displayedJob.code}</span>
+                    <h2 className="text-lg font-bold text-white mt-0.5">{displayedJob.title}</h2>
+                    <p className="text-xs text-slate-400">ደንበኛ: {displayedJob.client}</p>
                   </div>
                   <div className="text-right">
                     <span className="text-[10px] text-slate-400 font-mono block">የሚመረተው መጠን</span>
                     <span className="font-mono text-lg font-bold text-white">
-                      {formatQuantity(activeJob.quantity, activeJob.unit)}
+                      {formatQuantity(displayedJob.quantity, displayedJob.unit)}
                     </span>
                   </div>
                 </div>
 
+                {isCompletedJob ? (
+                  <div className="rounded-sm border border-emerald-500/30 bg-emerald-950/20 p-4 text-sm text-emerald-200">
+                    <div className="flex items-center gap-2 font-semibold">
+                      <CheckCircle2 size={16} />
+                      ይህ የስራ ካርድ ተጠናቅቋል። የምርት መረጃ ማስተካከያ ተቆልፏል።
+                    </div>
+                    <p className="mt-2 text-xs text-emerald-200/80">የተጠናቀቀ ስራ እንደገና ሊመዘገብ ወይም ሊጠናቀቅ አይችልም።</p>
+                  </div>
+                ) : (
+                <>
                 {/* Production Input / Output Logging */}
                 <div className="p-4 rounded-sm border border-[#1E293B] bg-[#0C0D10]/60 space-y-4">
                   <span className="font-mono text-[10px] uppercase tracking-wider text-slate-400 block">
-                    የምርት መረጃ መዝግብ ({activeJob.unit})
+                    የምርት መረጃ መዝግብ ({displayedJob.unit})
                   </span>
                   <div className="grid grid-cols-3 gap-3">
                     <div>
                       <label className="block text-[11px] text-slate-400 mb-1">የገባ ዕቃ</label>
                       <NumericInput
-                        required
                         min={0}
                         step="0.1"
                         value={inputQuantity}
                         onChange={setInputQuantity}
                         onValidityChange={(isValid) => setProductionInputsValid((current) => ({ ...current, input: isValid }))}
-                        placeholder={String(activeJob.quantity)}
+                        placeholder={String(displayedJob.quantity)}
                         className="w-full px-3 py-1.5 rounded-sm border border-[#1E293B] bg-[#14161D] text-xs font-mono text-white focus:outline-none focus:border-[#00B4D8]"
                       />
                     </div>
                     <div>
                       <label className="block text-[11px] text-slate-400 mb-1">ጥሩ ውጤት</label>
                       <NumericInput
-                        required
                         min={0}
                         step="0.1"
                         value={outputQuantity}
                         onChange={setOutputQuantity}
                         onValidityChange={(isValid) => setProductionInputsValid((current) => ({ ...current, output: isValid }))}
-                        placeholder={String(activeJob.quantity)}
+                        placeholder={String(displayedJob.quantity)}
                         className="w-full px-3 py-1.5 rounded-sm border border-[#1E293B] bg-[#14161D] text-xs font-mono text-white focus:outline-none focus:border-[#00B4D8]"
                       />
                     </div>
                     <div>
                       <label className="block text-[11px] text-slate-400 mb-1">ብክነት / ተጥሎ የቀረ</label>
                       <NumericInput
-                        required
                         min={0}
                         step="0.1"
                         value={wasteQuantity}
@@ -261,14 +273,14 @@ export default function OperatorMachinePage({
                   <div className="flex items-center justify-end gap-3 pt-2">
                     <button
                       type="button"
-                      disabled={isPending(`prod-${activeJob.id}`) || hasProductionValidationError}
+                      disabled={isPending(`prod-${displayedJob.id}`) || !hasManualProductionDraft || hasProductionValidationError}
                       onClick={() => {
                         void safeMutation(
-                          `prod-${activeJob.id}`,
+                          `prod-${displayedJob.id}`,
                           recordProductionMutation({
-                            jobCardId: activeJob.id as Id<"jobCards">,
-                            inputQuantity: Number(inputQuantity) || activeJob.quantity,
-                            outputQuantity: Number(outputQuantity) || activeJob.quantity,
+                            jobCardId: displayedJob.id as Id<"jobCards">,
+                            inputQuantity: Number(inputQuantity) || displayedJob.quantity,
+                            outputQuantity: Number(outputQuantity) || displayedJob.quantity,
                             wasteQuantity: Number(wasteQuantity) || 0,
                           }),
                           () => toast.success("የምርት መረጃ ተመዝግቧል")
@@ -280,11 +292,11 @@ export default function OperatorMachinePage({
                     </button>
                     <button
                       type="button"
-                      disabled={isPending(`complete-${activeJob.id}`)}
+                      disabled={isPending(`complete-${displayedJob.id}`) || hasProductionValidationError}
                       onClick={() => {
                         void safeMutation(
-                          `complete-${activeJob.id}`,
-                          completeJobMutation({ jobId: activeJob.id as Id<"jobCards"> }),
+                          `complete-${displayedJob.id}`,
+                          completeJobMutation({ jobId: displayedJob.id as Id<"jobCards"> }),
                           () => toast.success("ሥራው በተሳካ ሁኔታ ተጠናቋል")
                         );
                       }}
@@ -310,6 +322,8 @@ export default function OperatorMachinePage({
                     <Trash2 size={13} /> የማይጠቅም ብክነት መዝግብ
                   </button>
                 </div>
+                </>
+                )}
               </div>
             ) : (
               <div className="py-12 text-center text-slate-500 text-xs">

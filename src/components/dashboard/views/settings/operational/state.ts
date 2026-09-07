@@ -38,6 +38,7 @@ export interface OperationalConfigState {
   maxDirectStockOutEtb: number;
   orderExpirationHours: number;
   defaultScrapAllowancePercent: number;
+  defaultMarginSquareMetres: number;
   materialScrapAllowances: ScrapAllowanceRow[];
   overrides: OverrideRow[];
 }
@@ -56,6 +57,7 @@ export interface OperationalConfigActions {
   setMaxDirectStockOutEtb: (n: number) => void;
   setOrderExpirationHours: (n: number) => void;
   setDefaultScrapAllowancePercent: (n: number) => void;
+  setDefaultMarginSquareMetres: (n: number) => void;
   setMaterialScrapAllowances: React.Dispatch<React.SetStateAction<ScrapAllowanceRow[]>>;
   setOverrides: React.Dispatch<React.SetStateAction<OverrideRow[]>>;
   hydrated: boolean;
@@ -75,6 +77,7 @@ interface SystemConfigResponse {
   maxDirectStockOutEtb: number;
   orderExpirationHours?: number;
   defaultScrapAllowancePercent?: number;
+  defaultMarginSquareMetres?: number;
   materialScrapAllowances?: ScrapAllowanceRow[];
   materialOverrides: { materialName: string; etbValue: number }[];
 }
@@ -100,6 +103,7 @@ export function useOperationalConfigState(
   const [maxDirectStockOutEtb, setMaxDirectStockOutEtb] = useState(0);
   const [orderExpirationHours, setOrderExpirationHours] = useState(12);
   const [defaultScrapAllowancePercent, setDefaultScrapAllowancePercent] = useState(0);
+  const [defaultMarginSquareMetres, setDefaultMarginSquareMetres] = useState(0);
   const [materialScrapAllowances, setMaterialScrapAllowances] = useState<ScrapAllowanceRow[]>([]);
   const [overrides, setOverrides] = useState<OverrideRow[]>([]);
   const [hydrated, setHydrated] = useState(false);
@@ -119,6 +123,7 @@ export function useOperationalConfigState(
     setMaxDirectStockOutEtb(config.maxDirectStockOutEtb);
     setOrderExpirationHours(config.orderExpirationHours ?? 12);
     setDefaultScrapAllowancePercent(config.defaultScrapAllowancePercent ?? 0);
+    setDefaultMarginSquareMetres(config.defaultMarginSquareMetres ?? 0);
     setMaterialScrapAllowances((config.materialScrapAllowances ?? []).map((row) => ({ materialId: row.materialId, allowancePercent: row.allowancePercent })));
     setOverrides(config.materialOverrides.map((row) => ({ materialName: row.materialName, etbValue: row.etbValue })));
     setHydrated(true);
@@ -138,6 +143,7 @@ export function useOperationalConfigState(
     maxDirectStockOutEtb,
     orderExpirationHours,
     defaultScrapAllowancePercent,
+    defaultMarginSquareMetres,
     materialScrapAllowances,
     overrides,
     setEtbPerSquareMetre,
@@ -153,6 +159,7 @@ export function useOperationalConfigState(
     setMaxDirectStockOutEtb,
     setOrderExpirationHours,
     setDefaultScrapAllowancePercent,
+    setDefaultMarginSquareMetres,
     setMaterialScrapAllowances,
     setOverrides,
     hydrated,

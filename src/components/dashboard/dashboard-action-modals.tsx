@@ -79,8 +79,16 @@ export function DashboardActionModals({ profile }: { profile: Profile | null }) 
   const machines = withIds((state?.machines ?? []) as StateDoc[]) as Machine[];
   const jobs = withIds((state?.jobs ?? []) as StateDoc[]) as JobCard[];
   const can = (permission: Parameters<typeof hasPermission>[1]) => Boolean(profile && hasPermission(role, permission));
-  const finish = <T,>(key: string, promise: Promise<T>, message: string) => {
-    safeMutation(key, promise, () => toast.success(message), () => toast.error("Action failed. Please try again."));
+  const finish = <T,>(key: string, promise: Promise<T>, message: string): Promise<boolean> => {
+    return safeMutation(
+      key,
+      promise,
+      () => {
+        toast.success(message);
+        closeModal();
+      },
+      () => toast.error("Action failed. Please try again."),
+    );
   };
 
   return (

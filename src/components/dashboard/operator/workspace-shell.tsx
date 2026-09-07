@@ -37,7 +37,8 @@ export function OperatorWorkspaceShell({
   const [outputQuantity, setOutputQuantity] = useState(String(job?.quantity ?? ""));
   const [wasteQuantity, setWasteQuantity] = useState("");
   const [productionInputsValid, setProductionInputsValid] = useState({ input: true, output: true, waste: true });
-  const hasProductionValidationError = !productionInputsValid.input || !productionInputsValid.output || !productionInputsValid.waste;
+  const hasManualProductionDraft = Boolean(inputQuantity.trim() || outputQuantity.trim() || wasteQuantity.trim());
+  const hasProductionValidationError = hasManualProductionDraft && (!productionInputsValid.input || !productionInputsValid.output || !productionInputsValid.waste);
 
   return (
     <section className={`operator-workspace ${mode}`}>
@@ -72,18 +73,18 @@ export function OperatorWorkspaceShell({
                 <span>planned material usage</span>
               </div>
               <div className="operator-form-grid">
-                <label>Material input ({job.unit})<NumericInput required min={0.1} step="0.1" value={inputQuantity} onChange={setInputQuantity} onValidityChange={(isValid) => setProductionInputsValid((current) => ({ ...current, input: isValid }))} /></label>
-                <label>Good output ({job.unit})<NumericInput required min={0} step="0.1" value={outputQuantity} onChange={setOutputQuantity} onValidityChange={(isValid) => setProductionInputsValid((current) => ({ ...current, output: isValid }))} /></label>
+                <label>Material input ({job.unit})<NumericInput min={0.1} step="0.1" value={inputQuantity} onChange={setInputQuantity} onValidityChange={(isValid) => setProductionInputsValid((current) => ({ ...current, input: isValid }))} /></label>
+                <label>Good output ({job.unit})<NumericInput min={0} step="0.1" value={outputQuantity} onChange={setOutputQuantity} onValidityChange={(isValid) => setProductionInputsValid((current) => ({ ...current, output: isValid }))} /></label>
               </div>
-              <label>Waste ({job.unit})<NumericInput required min={0} step="0.1" value={wasteQuantity} onChange={setWasteQuantity} onValidityChange={(isValid) => setProductionInputsValid((current) => ({ ...current, waste: isValid }))} /></label>
+              <label>Waste ({job.unit})<NumericInput min={0} step="0.1" value={wasteQuantity} onChange={setWasteQuantity} onValidityChange={(isValid) => setProductionInputsValid((current) => ({ ...current, waste: isValid }))} /></label>
               <button
                 className="button secondary full"
-                disabled={hasProductionValidationError || !inputQuantity.trim() || !outputQuantity.trim() || !wasteQuantity.trim()}
+                disabled={hasProductionValidationError || !hasManualProductionDraft}
                 onClick={() => onRecordProduction(job.id, Number(inputQuantity), Number(outputQuantity), Number(wasteQuantity))}
               >
                 Save production log <ArrowUpRight size={16} />
               </button>
-              <button className="button primary full" onClick={() => onComplete(job.id)}>
+              <button className="button primary full" disabled={hasProductionValidationError} onClick={() => onComplete(job.id)}>
                 Complete production run <ArrowUpRight size={16} />
               </button>
             </>
