@@ -57,7 +57,7 @@ export const ROLE_HOME_ROUTE: Record<Role, string> = {
   manager: "/dashboard/manager",
   admin: "/dashboard/owner",
   storekeeper: "/dashboard/storekeeper",
-  receptionist: "/dashboard/reception",
+  receptionist: "/dashboard/receptionist",
   laser_operator: "/dashboard/operator/laser",
   cnc_operator: "/dashboard/operator/cnc",
   plotter_operator: "/dashboard/operator/plotter",
@@ -142,7 +142,7 @@ export const ROUTE_DESCRIPTORS: Record<string, RouteDescriptor> = {
       if (role === "owner" || role === "admin") return "/dashboard/owner";
       if (role === "manager") return "/dashboard/manager";
       if (role === "storekeeper") return "/dashboard/storekeeper";
-      if (role === "receptionist") return "/dashboard/reception";
+      if (role === "receptionist") return "/dashboard/receptionist";
       const machine = operatorMachineForRole(role);
       if (machine) return `/dashboard/operator/${machine}`;
       return "/dashboard/owner";
@@ -289,9 +289,10 @@ export const ROUTE_CONTRACTS: Record<WorkspaceId, RouteContract> = {
   receptionist: {
     workspace: "receptionist",
     roles: ["receptionist"],
-    homeRoute: "/dashboard/reception",
+    homeRoute: "/dashboard/receptionist",
     allowedPrefixes: [
       "/dashboard/reception",
+      "/dashboard/receptionist",
       "/orders",
       "/settings",
     ],
@@ -342,6 +343,11 @@ export function getLegacyRouteRedirect(pathname: string, role: Role): string | n
   if (cleanPath === "/dashboard") {
     const home = getRoleHomeRoute(role);
     return isRedirectLoop(cleanPath, home) ? null : home;
+  }
+
+  // Keep the old receptionist landing path compatible with the canonical workspace route.
+  if (cleanPath === "/dashboard/reception" && role === "receptionist") {
+    return "/dashboard/receptionist";
   }
 
   // Root /inventory -> parent or substock based on role
@@ -486,8 +492,11 @@ function canAccessCanonicalRoute(role: Role, pathname: string): boolean {
   if (feature === "orders") {
     return ["owner", "admin", "manager", "receptionist"].includes(role);
   }
-  if (feature === "reports" || feature === "reconciliation") {
+  if (feature === "reports") {
     return ["owner", "admin"].includes(role);
+  }
+  if (feature === "reconciliation") {
+    return ["owner", "admin", "storekeeper"].includes(role);
   }
   if (feature === "jobs" || feature === "machines" || feature === "config") {
     return ["owner", "admin", "manager"].includes(role);

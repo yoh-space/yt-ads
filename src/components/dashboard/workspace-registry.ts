@@ -74,7 +74,7 @@ export const WORKSPACE_REGISTRY: Record<WorkspaceId, WorkspaceDefinition> = {
   },
   receptionist: {
     id: "receptionist",
-    route: "/dashboard/reception",
+    route: "/dashboard/receptionist",
     roles: ["receptionist"],
     primaryCapability: "orders.view",
     navViews: ["overview", "orders", "settings"],

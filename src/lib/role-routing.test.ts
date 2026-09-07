@@ -44,7 +44,7 @@ describe("role-routing", () => {
     expect(getRoleHomeRoute("admin")).toBe("/dashboard/owner");
     expect(getRoleHomeRoute("manager")).toBe("/dashboard/manager");
     expect(getRoleHomeRoute("storekeeper")).toBe("/dashboard/storekeeper");
-    expect(getRoleHomeRoute("receptionist")).toBe("/dashboard/reception");
+    expect(getRoleHomeRoute("receptionist")).toBe("/dashboard/receptionist");
     expect(getRoleHomeRoute("laser_operator")).toBe("/dashboard/operator/laser");
     expect(getRoleHomeRoute("cnc_operator")).toBe("/dashboard/operator/cnc");
     expect(getRoleHomeRoute("plotter_operator")).toBe("/dashboard/operator/plotter");
@@ -109,6 +109,7 @@ describe("role-routing", () => {
 
     // Storekeeper
     expect(isRouteAllowedForRole("storekeeper", "/dashboard/storekeeper")).toBe(true);
+    expect(isRouteAllowedForRole("storekeeper", "/dashboard/storekeeper/reconciliation")).toBe(true);
     expect(isRouteAllowedForRole("storekeeper", "/inventory/parent")).toBe(true);
     expect(isRouteAllowedForRole("storekeeper", "/reports")).toBe(false);
     expect(isRouteAllowedForRole("storekeeper", "/orders")).toBe(false);
@@ -116,6 +117,7 @@ describe("role-routing", () => {
 
     // Receptionist
     expect(isRouteAllowedForRole("receptionist", "/dashboard/reception")).toBe(true);
+    expect(isRouteAllowedForRole("receptionist", "/dashboard/receptionist")).toBe(true);
     expect(isRouteAllowedForRole("receptionist", "/orders")).toBe(true);
     expect(isRouteAllowedForRole("receptionist", "/inventory/parent")).toBe(false);
     expect(isRouteAllowedForRole("receptionist", "/reports")).toBe(false);
@@ -193,7 +195,7 @@ describe("role-routing", () => {
     expect(getLegacyRouteRedirect("/dashboard", "admin")).toBe("/dashboard/owner");
     expect(getLegacyRouteRedirect("/dashboard", "manager")).toBe("/dashboard/manager");
     expect(getLegacyRouteRedirect("/dashboard", "storekeeper")).toBe("/dashboard/storekeeper");
-    expect(getLegacyRouteRedirect("/dashboard", "receptionist")).toBe("/dashboard/reception");
+    expect(getLegacyRouteRedirect("/dashboard", "receptionist")).toBe("/dashboard/receptionist");
     expect(getLegacyRouteRedirect("/dashboard", "laser_operator")).toBe("/dashboard/operator/laser");
 
     // /inventory root dispatch
@@ -239,7 +241,7 @@ describe("role-routing", () => {
     // Verify getLegacyRouteRedirect does not produce a redirect when already at target
     expect(getLegacyRouteRedirect("/dashboard/owner", "owner")).toBe(null);
     expect(getLegacyRouteRedirect("/dashboard/storekeeper", "storekeeper")).toBe(null);
-    expect(getLegacyRouteRedirect("/dashboard/reception", "receptionist")).toBe(null);
+    expect(getLegacyRouteRedirect("/dashboard/reception", "receptionist")).toBe("/dashboard/receptionist");
     expect(getLegacyRouteRedirect("/dashboard/operator/laser", "laser_operator")).toBe(null);
     expect(getLegacyRouteRedirect("/dashboard/owner/orders", "owner")).toBe(null);
   });
