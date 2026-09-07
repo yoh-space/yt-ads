@@ -3,10 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { authClient } from "@/lib/auth-client";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { KeyRound, ArrowRight, ShieldCheck } from "lucide-react";
+import { KeyRound, ArrowRight, Eye, EyeOff, ShieldCheck } from "lucide-react";
 
 const DEMO_ACCOUNTS = [
   { role: "Manager (ማኔጀር)", email: "ytadvert+manager@gmail.com", desc: "Staff oversight, team coordination, cross-role visibility" },
@@ -26,6 +27,7 @@ export default function SignInPage() {
   const ensureProfile = useMutation(api.users.ensureProfile);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showDemoCredentials, setShowDemoCredentials] = useState(false);
@@ -74,9 +76,14 @@ export default function SignInPage() {
         <div className="bg-[#121316] border border-white/[0.08] rounded-sm p-7 shadow-2xl relative">
           {/* Header */}
           <div className="text-center mb-6">
-            <div className="w-9 h-9 rounded-sm bg-[#E5C07B] text-[#0C0D10] font-mono font-bold text-sm grid place-items-center tracking-tight mx-auto mb-3 shadow-sm">
-              YT
-            </div>
+            <Image
+              src="/logo.webp"
+              alt="YT Advertisement"
+              width={72}
+              height={72}
+              className="mx-auto mb-3 h-16 w-16 object-contain"
+              priority
+            />
             <h1 className="font-mono text-sm uppercase tracking-[0.16em] text-neutral-100 font-semibold">
               YT ADVERTISEMENT
             </h1>
@@ -107,14 +114,24 @@ export default function SignInPage() {
                   Password / የይለፍ ቃል
                 </label>
               </div>
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••••••"
-                className="w-full bg-[#17181D] border border-white/[0.1] focus:border-[#E5C07B] text-neutral-100 placeholder:text-neutral-600 text-xs px-3 py-2.5 rounded-sm outline-none transition-colors font-mono"
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••••••"
+                  className="w-full bg-[#17181D] border border-white/[0.1] focus:border-[#E5C07B] text-neutral-100 placeholder:text-neutral-600 text-xs pl-3 pr-10 py-2.5 rounded-sm outline-none transition-colors font-mono"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((visible) => !visible)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  className="absolute inset-y-0 right-0 grid w-10 place-items-center text-neutral-500 transition-colors hover:text-[#E5C07B]"
+                >
+                  {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
             </div>
 
             {error ? (
@@ -208,13 +225,7 @@ export default function SignInPage() {
 
         {/* System Support & Return Links - HIGH CONTRAST & VISIBLE */}
         <div className="text-center font-mono text-xs text-neutral-300 bg-[#121316] border border-white/[0.08] p-3 rounded-sm space-y-1">
-          <p className="font-medium text-neutral-200">
-            Need help? Contact your system administrator or{" "}
-            <Link href="/" className="text-[#E5C07B] hover:underline font-semibold transition-colors inline-flex items-center gap-1">
-              <span>return to homepage</span>
-            </Link>
-          </p>
-          <p className="text-[10px] text-neutral-400">
+          <p className="text-md text-neutral-400">
             YT Advertisement Operations v3.0 · Enterprise Security Enforced
           </p>
         </div>

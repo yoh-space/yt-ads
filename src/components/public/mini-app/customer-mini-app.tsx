@@ -32,6 +32,7 @@ import {
   ,ClipboardList
 } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -309,9 +310,13 @@ export function TelegramMiniAppOrder() {
       <header className="sticky top-0 z-40 bg-[#121316] border-b border-white/[0.08] px-4 py-3">
         <div className="max-w-xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-7 h-7 rounded-sm bg-[#E5C07B] text-[#0C0D10] font-mono font-bold text-xs grid place-items-center tracking-tight">
-              YT
-            </div>
+            <Image
+              src="/logo.webp"
+              alt="YT Advertisement"
+              width={42}
+              height={42}
+              className="h-9 w-9 object-contain"
+            />
             <div>
               <h1 className="font-mono text-xs uppercase tracking-[0.14em] text-neutral-100 font-semibold leading-none">
                 {info?.companyName ?? "YT ADVERTISEMENT"}

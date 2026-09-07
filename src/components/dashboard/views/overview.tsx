@@ -4,7 +4,6 @@ import {
   AlertTriangle,
   Box,
   CheckCircle2,
-  CircleAlert,
   Clock,
   Command,
   CreditCard,
@@ -568,45 +567,6 @@ export function Overview({
           </Panel>
         )}
 
-        <Panel>
-          <PanelHeader
-            kicker="ATTENTION"
-            kickerVariant="coral"
-            title="የቁጥጥር ማሳሰቢያዎች"
-            subtitle="Discrepancies & stock alerts"
-            icon={<CircleAlert size={20} />}
-          />
-          <div className="px-[13px] py-[6px_13px_9px]">
-            {lowStock.map(material => (
-              <div
-                key={material.id}
-                className="flex gap-[9px] items-center py-[10px] border-b border-[#16202f] last:border-b-0"
-              >
-                <span className="flex-none grid place-items-center w-[27px] h-[27px] rounded-[7px] bg-coral/15 text-danger border border-rose-800/60">
-                  <AlertTriangle size={16} />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <strong className="block text-foreground text-[10px]">
-                    {material.name}
-                  </strong>
-                  <span className="block mt-[3px] text-muted-foreground text-[9px] leading-[1.3]">
-                    {formatQuantity(material.quantity, material.unit)} remains ·
-                    reorder at{" "}
-                    {formatQuantity(material.reorderAt, material.unit)}
-                  </span>
-                </div>
-                <Button variant="text" onClick={() => onView("inventory")}>
-                  Review
-                </Button>
-              </div>
-            ))}
-            {lowStock.length === 0 && (
-              <div className="text-center py-[23px] text-muted-foreground text-[11px]">
-                አሁን ላይ የተገኘ የክምችት ማስጠንቀቂያ የለም
-              </div>
-            )}
-          </div>
-        </Panel>
       </section>
     </>
   );

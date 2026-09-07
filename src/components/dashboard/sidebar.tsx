@@ -59,7 +59,6 @@ export function isViewActiveForPathname(pathname: string, href: string): boolean
 
   return false;
 }
-
 export function Sidebar({
   activeView,
   onNavigate,
@@ -302,17 +301,17 @@ export function Sidebar({
             )}
           >
             <Image
-              src="./logo.webp"
-              alt="Logo"
-              width={30}
-              height={30}
-              loader={imageLoader}
+              src="/logo.webp"
+              alt="YT Advertisement logo"
+              width={48}
+              height={48}
+              className="h-8 w-8 object-contain"
             />
           </div>
           {!collapsed ? (
             <div className="min-w-0">
               <strong className="block truncate text-[11px] font-semibold text-white">
-                {companyName ?? "YoTech Digitals"}
+                {companyName ?? "YT Advertisement"}
               </strong>
               <span className="block truncate text-[9px] text-gray-400">
                 Enterprise workflow · v1.0
@@ -325,14 +324,3 @@ export function Sidebar({
   );
 }
 
-const imageLoader = ({
-  src,
-  width,
-  quality,
-}: {
-  src: string;
-  width: number;
-  quality?: number;
-}) => {
-  return `${src}?w=${width}&q=${quality || 75}`;
-};
