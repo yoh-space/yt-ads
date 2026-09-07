@@ -10,6 +10,7 @@ import { getNavItemHref, navItems } from "./nav-config";
 import type { View } from "@/types/dashboard-types";
 import { UserMenu } from "./user-menu";
 import { NotificationModal } from "./notification-modal";
+import { SoundControl } from "./sound-control";
 import { TelemetryBar } from "@/components/ui/telemetry-bar";
 import type { Profile } from "@/lib/operations-types";
 import { cn } from "@/lib/utils";
@@ -83,6 +84,10 @@ export function Topbar({
         </div>
         
         <div className="flex items-center gap-5">
+          <div className="hidden md:flex items-center gap-2">
+            <SoundControl />
+          </div>
+
           <div className="w-[245px] h-[34px] flex items-center gap-[7px] px-[7px_7px_7px_10px] border border-line rounded-lg text-gray-500">
             <Search size={17} />
             <input 
