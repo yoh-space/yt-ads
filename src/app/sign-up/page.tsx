@@ -154,7 +154,7 @@ export default function SignUpPage() {
             </Link>
           </p>
           <p className="text-[10px] text-neutral-400">
-            YT Advertisement Operations v3.0 · Enterprise Security Enforced
+            YT Advertisement Operations v3.0 
           </p>
         </div>
       </div>

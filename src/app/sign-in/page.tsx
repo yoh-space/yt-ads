@@ -104,7 +104,7 @@ export default function SignInPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="staff@ytadvert.com"
-                className="w-full bg-[#17181D] border border-white/[0.1] focus:border-[#E5C07B] text-neutral-100 placeholder:text-neutral-600 text-xs px-3 py-2.5 rounded-sm outline-none transition-colors font-mono"
+                className="w-full bg-[#17181D] border border-white/[0.4] focus:border-[#E5C07B] text-neutral-100 placeholder:text-neutral-600 text-xs px-3 py-2.5 rounded-sm outline-none transition-colors font-mono"
               />
             </div>
 
@@ -226,7 +226,7 @@ export default function SignInPage() {
         {/* System Support & Return Links - HIGH CONTRAST & VISIBLE */}
         <div className="text-center font-mono text-xs text-neutral-300 bg-[#121316] border border-white/[0.08] p-3 rounded-sm space-y-1">
           <p className="text-md text-neutral-400">
-            YT Advertisement Operations v3.0 · Enterprise Security Enforced
+            YT Advertisement Operations v3.0
           </p>
         </div>
       </div>
