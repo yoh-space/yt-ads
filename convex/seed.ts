@@ -13,6 +13,7 @@ import { MATERIAL_SPECIFICATIONS, type MaterialSpecificationDefinition } from ".
 import { recordInventoryEvent } from "./inventoryLedger";
 import { classifyMaterialProductionType, effectiveConsumptionRate, resolveEtbValue } from "./materialUsage";
 import { assertServiceIdsMatchSchema } from "./services";
+import { MATERIAL_TYPE_CATALOG } from "./orderAutomation";
 
 /**
  * Full field set for a seeded material, matching what the production
@@ -160,7 +161,32 @@ export async function seedDemoData(ctx: MutationCtx, createdById: string) {
     createdBy: createdById, createdAt: "Yesterday",
   });
 
+  await ensureMaterialTypeCatalog(ctx);
+
   return { seeded: true };
+}
+
+/**
+ * Idempotently seeds the material-type routing catalog from the canonical
+ * source in `convex/orderAutomation.ts`. Missing services are inserted; rows
+ * for services already present are left untouched so owner edits survive.
+ */
+async function ensureMaterialTypeCatalog(ctx: MutationCtx): Promise<number> {
+  const existingServices = new Set((await ctx.db.query("materialTypeCatalog").collect()).map((row) => row.serviceType));
+  let inserted = 0;
+  for (const route of MATERIAL_TYPE_CATALOG) {
+    if (existingServices.has(route.serviceType)) continue;
+    await ctx.db.insert("materialTypeCatalog", {
+      serviceType: route.serviceType,
+      materialType: route.materialType,
+      preferredMaterialName: route.preferredMaterialName,
+      machineCapabilities: [...route.machineCapabilities],
+      operatorRole: route.operatorRole,
+      active: true,
+    });
+    inserted += 1;
+  }
+  return inserted;
 }
 
 /**
@@ -260,6 +286,8 @@ export async function clearWorkspaceData(ctx: MutationCtx) {
   for (const record of machines) await ctx.db.delete(record._id);
   const staff = await ctx.db.query("staff").collect();
   for (const record of staff) await ctx.db.delete(record._id);
+  const materialTypeCatalog = await ctx.db.query("materialTypeCatalog").collect();
+  for (const record of materialTypeCatalog) await ctx.db.delete(record._id);
   const notifications = await ctx.db.query("notifications").collect();
   for (const record of notifications) await ctx.db.delete(record._id);
   const systemConfigs = await ctx.db.query("systemConfigs").collect();
@@ -438,6 +466,7 @@ export const seedYtAdvertisementWorkspace = mutation({
         active: true,
       });
     }
+    const catalogSeedCount = await ensureMaterialTypeCatalog(ctx);
 
     const staffRecords = [
       ["Zewuditu", "Store", "Storekeeper", "እቃ ተቀባይ እና አከፋፋይ", "እቃ ያስረክባል"],
@@ -478,6 +507,7 @@ export const seedYtAdvertisementWorkspace = mutation({
       machines: machineRecords.length,
       materials: materialRecords.length,
       staff: staffRecords.length + 1,
+      materialTypeRoutes: catalogSeedCount,
       operationalRecordsCreated: 0,
     };
   },
@@ -630,12 +660,15 @@ export const migrateYtAdvertisementMasterData = mutation({
       }
     }
 
+    const catalogInserted = await ensureMaterialTypeCatalog(ctx);
+
     return {
       migrated: true,
       machinesPatched,
       machinesInserted,
       materialsPatched,
       materialsInserted,
+      materialTypeRoutesInserted: catalogInserted,
       operationalDataPreserved: true,
       actorRole: actor.role,
     };

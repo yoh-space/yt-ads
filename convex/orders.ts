@@ -1,11 +1,22 @@
 import { internalMutation, internalAction, mutation, query, action } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
+import type { Unit } from "./types";
 import { authComponent } from "./auth";
 import { exceptionReason, orderPriority, orderStatus, paymentStatus, unit, serviceType } from "./schema";
 import { requireAnyPermission, requirePermission } from "./users";
 import { notifyRoles } from "./notificationHelpers";
-import { ensureSystemConfig } from "./systemConfigs";
+import { ensureSystemConfig, CONFIG_KEY } from "./systemConfigs";
+import { DEFAULT_SYSTEM_CONFIG } from "./materialUsage";
+import {
+  compatibleMachines,
+  computeStandardAllocation,
+  resolveRouteForService,
+  selectMachineByLoad,
+  type MaterialTypeRoute,
+  type StandardAllocation,
+} from "./orderAutomation";
 import { recordInventoryEvent } from "./inventoryLedger";
 import { verifyTelegramInitData } from "./telegramAuth";
 
@@ -568,6 +579,98 @@ export const priceOrder = mutation({
 });
 
 /**
+ * Resolves the production assignment for an order without requiring reception
+ * to pick a machine or a material: the material-type catalog decides which raw
+ * material the service consumes, the machine register is filtered by
+ * capability / operator role and load-balanced by unfinished job count, and a
+ * Standard allocation is computed with the configured waste margin.
+ */
+async function resolveAutoRouting(
+  ctx: any,
+  order: OrderDoc,
+  config: { standardWasteMargin?: number; maxAllowedScrapLimit?: number },
+): Promise<{
+  route: MaterialTypeRoute;
+  machineId: string;
+  machineName: string;
+  materialId: string;
+  materialName: string;
+  materialType: string;
+  allocation: StandardAllocation;
+}> {
+  const route = resolveRouteForService(order.serviceType);
+  if (!route) {
+    throw new Error(`No production routing is defined for the ${order.serviceType} service.`);
+  }
+  const materials = await ctx.db.query("materials").withIndex("by_category", (q: any) => q.eq("category", route.materialType)).collect();
+  const preferred = materials.find((m: any) => m.active && m.name === route.preferredMaterialName)
+    ?? materials.find((m: any) => m.active);
+  if (!preferred) {
+    throw new Error(`No active raw material is registered for ${route.materialType}.`);
+  }
+
+  const [machines, jobs] = await Promise.all([
+    ctx.db.query("machines").collect(),
+    ctx.db.query("jobCards").collect(),
+  ]);
+  const loadByMachineId = new Map<string, number>();
+  for (const job of jobs) {
+    if (job.status === "Completed") continue;
+    loadByMachineId.set(job.machineId, (loadByMachineId.get(job.machineId) ?? 0) + 1);
+  }
+  const machine = selectMachineByLoad(compatibleMachines(route, machines), loadByMachineId);
+  if (!machine) {
+    throw new Error(`No available machine can produce ${route.materialType} right now.`);
+  }
+  const allocation = computeStandardAllocation(order, preferred, {
+    standardWasteMargin: config.standardWasteMargin ?? DEFAULT_SYSTEM_CONFIG.standardWasteMargin ?? 0,
+    maxAllowedScrapLimit: config.maxAllowedScrapLimit ?? DEFAULT_SYSTEM_CONFIG.maxAllowedScrapLimit ?? 0,
+  });
+  return {
+    route,
+    machineId: machine._id,
+    machineName: machine.name,
+    materialId: preferred._id,
+    materialName: preferred.name,
+    materialType: route.materialType,
+    allocation,
+  };
+}
+
+/**
+ * Read-only preview of the automatic production assignment used by the confirm
+ * step. Surfaces the machine, raw material, and Standard allocation that
+ * `confirmOrderAndIssueJobCard` will issue so reception can review the routing
+ * without mutating anything.
+ */
+export const previewAutoRouting = query({
+  args: { orderId: v.id("customerOrders") },
+  handler: async (ctx, args) => {
+    await requirePermission(ctx, "order.manage");
+    const order = await ctx.db.get(args.orderId);
+    if (!order) throw new Error("Order not found.");
+    const configRow = await ctx.db
+      .query("systemConfigs")
+      .withIndex("by_key", (q) => q.eq("key", CONFIG_KEY))
+      .unique();
+    const routed = await resolveAutoRouting(ctx, order, configRow ?? {});
+    return {
+      machineId: routed.machineId,
+      machineName: routed.machineName,
+      materialId: routed.materialId,
+      materialName: routed.materialName,
+      materialType: routed.materialType,
+      netBaseQuantity: routed.allocation.netBaseQuantity,
+      plannedBaseQuantity: routed.allocation.plannedBaseQuantity,
+      approvedScrapQuantity: routed.allocation.approvedScrapQuantity,
+      unit: routed.allocation.unit,
+      standardWasteMargin: routed.allocation.wasteMarginPercent,
+      maxAllowedScrapLimit: routed.allocation.maxScrapLimitPercent,
+    };
+  },
+});
+
+/**
  * Reception step 2 of checkout — the single payment-gated entry point to
  * production. Confirms advance payment (PAID) or approved credit
  * (APPROVED_CREDIT), creates the job card, and queues it on the selected
@@ -581,21 +684,17 @@ export const confirmOrderAndIssueJobCard = mutation({
     amount: v.optional(v.number()),
     paymentDecision: v.union(v.literal("PAID"), v.literal("APPROVED_CREDIT")),
     paymentMethod: v.optional(v.string()),
-    machineId: v.id("machines"),
-    materialId: v.id("materials"),
-    quantity: v.number(),
-    unit,
+    machineId: v.optional(v.id("machines")),
+    materialId: v.optional(v.id("materials")),
+    quantity: v.optional(v.number()),
+    unit: v.optional(unit),
     priority: v.optional(orderPriority),
     deductOnComplete: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const { identity } = await requirePermission(ctx, "order.manage");
     const order = await ctx.db.get(args.orderId);
-    const machine = await ctx.db.get(args.machineId);
-    const material = await ctx.db.get(args.materialId);
-    if (!order || !machine || !material || !machine.active || !material.active) {
-      throw new Error("Order, machine, or material is unavailable.");
-    }
+    if (!order) throw new Error("Order not found.");
     if (order.jobCardId) throw new Error("This order already has a job card.");
     if (!["PENDING_REVIEW", "PRICED_AND_PENDING_PAYMENT"].includes(order.status)) {
       throw new Error(`Only orders awaiting review or payment can be confirmed (current status: ${order.status}).`);
@@ -605,17 +704,51 @@ export const confirmOrderAndIssueJobCard = mutation({
     if (amount === undefined || !Number.isFinite(amount) || amount < 0) {
       throw new Error("Confirm the final price before verifying payment.");
     }
-    if (!Number.isFinite(args.quantity) || args.quantity <= 0) {
-      throw new Error("Planned material quantity must be greater than zero.");
-    }
-    if (args.unit !== (material.baseUnit ?? material.unit)) {
-      throw new Error("Job unit must match the selected material base unit.");
-    }
-    if (machine.status === "Maintenance" || machine.status === "Unavailable") {
-      return { success: false as const, error: `${machine.name} is currently ${machine.status.toLowerCase()} and cannot accept new jobs.` };
-    }
-    if (args.quantity > material.quantity) {
-      return { success: false as const, error: `Stock shortfall — ${material.name} has ${material.quantity} ${material.baseUnit ?? material.unit} available but ${args.quantity} ${args.unit} is required.` };
+
+    const config = await ensureSystemConfig(ctx, identity._id);
+
+    // Production assignment. Explicit machine/material/quantity remain
+    // supported for backwards compatibility; otherwise the auto-router picks a
+    // compatible, least-loaded machine and computes the Standard allocation
+    // (Total = W×H×Qty × (1 + standardWasteMargin)).
+    let machine: any;
+    let material: any;
+    let allocation: StandardAllocation;
+    if (args.machineId || args.materialId) {
+      if (!args.machineId || !args.materialId || args.quantity === undefined || args.unit === undefined) {
+        throw new Error("Explicit assignment requires machine, material, quantity, and unit.");
+      }
+      machine = await ctx.db.get(args.machineId);
+      material = await ctx.db.get(args.materialId);
+      if (!machine || !material || !machine.active || !material.active) {
+        throw new Error("Order, machine, or material is unavailable.");
+      }
+      if (!Number.isFinite(args.quantity) || args.quantity <= 0) {
+        throw new Error("Planned material quantity must be greater than zero.");
+      }
+      if (args.unit !== (material.baseUnit ?? material.unit)) {
+        throw new Error("Job unit must match the selected material base unit.");
+      }
+      if (machine.status === "Maintenance" || machine.status === "Unavailable") {
+        return { success: false as const, error: `${machine.name} is currently ${machine.status.toLowerCase()} and cannot accept new jobs.` };
+      }
+      const planned = Number(args.quantity.toFixed(3));
+      allocation = {
+        plannedBaseQuantity: planned,
+        netBaseQuantity: planned,
+        approvedScrapQuantity: Number((planned * (config.maxAllowedScrapLimit ?? DEFAULT_SYSTEM_CONFIG.maxAllowedScrapLimit ?? 0) / 100).toFixed(3)),
+        unit: args.unit,
+        wasteMarginPercent: 0,
+        maxScrapLimitPercent: config.maxAllowedScrapLimit ?? DEFAULT_SYSTEM_CONFIG.maxAllowedScrapLimit ?? 0,
+      };
+    } else {
+      const routed = await resolveAutoRouting(ctx, order, config);
+      machine = await ctx.db.get(routed.machineId as Id<"machines">);
+      material = await ctx.db.get(routed.materialId as Id<"materials">);
+      if (!machine || !material || !machine.active || !material.active) {
+        throw new Error("The auto-routed machine or material is no longer available.");
+      }
+      allocation = routed.allocation;
     }
 
     const now = Date.now();
@@ -625,10 +758,10 @@ export const confirmOrderAndIssueJobCard = mutation({
       code,
       client: order.clientName,
       title: order.serviceType,
-      machineId: args.machineId,
-      materialId: args.materialId,
-      quantity: args.quantity,
-      unit: args.unit,
+      machineId: machine._id,
+      materialId: material._id,
+      quantity: allocation.plannedBaseQuantity,
+      unit: allocation.unit as Unit,
       status: "Queued",
       due: new Date(order.preferredDueDate).toLocaleString("en-ET", { dateStyle: "medium", timeStyle: "short" }),
       priority: args.priority ?? "Medium",
@@ -640,14 +773,14 @@ export const confirmOrderAndIssueJobCard = mutation({
       width: order.width,
       serviceType: order.serviceType,
     });
-    const config = await ensureSystemConfig(ctx, identity._id);
-    const bomRows = await ctx.db
+const bomRows = await ctx.db
       .query("serviceBOM")
       .withIndex("by_active_service", (q) => q.eq("active", true).eq("serviceType", order.serviceType))
       .collect();
     const serviceUnitsMatch = order.quantity.match(/[0-9]+(?:\.[0-9]+)?/);
     const serviceUnits = serviceUnitsMatch ? Math.max(1, Number(serviceUnitsMatch[0])) : 1;
-    const parsedArea = order.length && order.width ? order.length * order.width : args.quantity;
+    const parsedArea = order.length && order.width ? order.length * order.width : allocation.plannedBaseQuantity;
+    const bomCoversPrimary = bomRows.some((bom) => bom.materialId === material._id);
     for (const bom of bomRows) {
       const bomMaterial = await ctx.db.get(bom.materialId);
       if (!bomMaterial || !bomMaterial.active) {
@@ -660,7 +793,7 @@ export const confirmOrderAndIssueJobCard = mutation({
         : bom.consumptionMode === "area_rate"
           ? (parsedArea + margin) * serviceUnits
           : bom.consumptionMode === "linear_rate"
-            ? (order.length ?? args.quantity) * serviceUnits
+            ? (order.length ?? allocation.plannedBaseQuantity) * serviceUnits
             : serviceUnits;
       const plannedBaseQuantity = Number((bom.quantityPerUnit * driver).toFixed(3));
       const allowancePercent = bom.wasteAllowancePercent ?? config.defaultScrapAllowancePercent ?? config.maxAllowedWastePercent;
@@ -687,6 +820,32 @@ export const confirmOrderAndIssueJobCard = mutation({
         updatedAt: now,
       });
     }
+    // Ensure the auto-allocated primary material is always on the job's
+    // material plan so the operator Sub-Stock queue and material requests
+    // resolve it, even when the service has no active BOM rows.
+    if (!bomCoversPrimary) {
+      const primaryRatio = material.conversionRatio && material.conversionRatio > 0 ? material.conversionRatio : 1;
+      const primaryPackageUnit = material.purchaseUnit === "sheet"
+        ? "SHEET"
+        : material.purchaseUnit === "roll"
+          ? "ROLL"
+          : material.purchaseUnit === "canister" || material.purchaseUnit === "liter"
+            ? "CANISTER"
+            : material.purchaseUnit === "piece" ? "PIECE" : "PACKAGE";
+      await ctx.db.insert("jobMaterialRequirements", {
+        jobCardId: jobId,
+        materialId: material._id,
+        packageUnit: primaryPackageUnit,
+        suggestedPackages: Math.ceil((allocation.plannedBaseQuantity + allocation.approvedScrapQuantity) / primaryRatio),
+        baseUnit: material.baseUnit ?? material.unit ?? allocation.unit,
+        plannedBaseQuantity: allocation.plannedBaseQuantity,
+        approvedScrapQuantity: allocation.approvedScrapQuantity,
+        conversionRatioSnapshot: primaryRatio,
+        status: "PLANNED",
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
     await ctx.db.patch(args.orderId, {
       amount: roundedAmount,
       paymentStatus: args.paymentDecision,
@@ -695,7 +854,7 @@ export const confirmOrderAndIssueJobCard = mutation({
       paymentConfirmedBy: identity._id,
       status: "JOB_CARD_CREATED",
       jobCardId: jobId,
-      machineId: args.machineId,
+      machineId: machine._id,
       updatedAt: now,
     });
     if (machine.status !== "Running") await ctx.db.patch(machine._id, { status: "Running", activeJob: code });
@@ -724,7 +883,20 @@ export const confirmOrderAndIssueJobCard = mutation({
       order.status,
     );
 
-    return { success: true as const, jobId, code, paymentStatus: args.paymentDecision };
+    return {
+      success: true as const,
+      jobId,
+      code,
+      paymentStatus: args.paymentDecision,
+      machineId: machine._id,
+      machineName: machine.name,
+      materialId: material._id,
+      materialName: material.name,
+      allocatedBaseQuantity: allocation.plannedBaseQuantity,
+      unit: allocation.unit,
+      approvedScrapQuantity: allocation.approvedScrapQuantity,
+      standardWasteMargin: allocation.wasteMarginPercent,
+    };
   },
 });
 

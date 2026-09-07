@@ -643,12 +643,16 @@ export default defineSchema({
     updatedBy: v.optional(v.string()),
     /** Owner/admin-controlled usage leakage threshold, expressed as a percentage. */
     defaultScrapAllowancePercent: v.optional(v.number()),
-    /** Default additive bleed/trim allowance in square metres. */
+/** Default additive bleed/trim allowance in square metres. */
     defaultMarginSquareMetres: v.optional(v.number()),
     materialScrapAllowances: v.optional(v.array(v.object({
       materialId: v.id("materials"),
       allowancePercent: v.number(),
     }))),
+    /** Standard waste margin (%) applied to every auto-issued Standard Job Card. */
+    standardWasteMargin: v.optional(v.number()),
+    /** Maximum approved scrap ceiling (%) a Standard Job Card may carry. */
+    maxAllowedScrapLimit: v.optional(v.number()),
   })
     .index("by_key", ["key"]),
 
@@ -780,6 +784,25 @@ export default defineSchema({
     .index("by_service", ["serviceType"])
     .index("by_material", ["materialId"])
     .index("by_active_service", ["active", "serviceType"]),
+
+  /**
+   * Material-type routing catalog consumed by the job-card auto-router. Each
+   * row maps a customer service type to the concrete material type it consumes
+   * (Banner Flex, Vinyl Sticker, Acrylic, …), the preferred raw material, and
+   * the machines capable of producing it. Seeded from the canonical catalog in
+   * `convex/orderAutomation.ts`; the auto-router reads it during
+   * `confirmOrderAndIssueJobCard` for compatibility + load balancing.
+   */
+  materialTypeCatalog: defineTable({
+    serviceType,
+    materialType: v.string(),
+    preferredMaterialName: v.string(),
+    machineCapabilities: v.array(v.string()),
+    operatorRole: role,
+    active: v.boolean(),
+  })
+    .index("by_service_active", ["serviceType", "active"])
+    .index("by_material_type", ["materialType"]),
 
   /** Immutable per-job snapshot of the service recipe calculation. */
   jobMaterialRequirements: defineTable({

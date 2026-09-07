@@ -56,6 +56,13 @@ export type SystemConfig = {
   defaultScrapAllowancePercent?: number;
   defaultMarginSquareMetres?: number;
   materialScrapAllowances?: Array<{ materialId: Id<"materials">; allowancePercent: number }>;
+  /**
+   * Standard waste margin (%) applied to every auto-issued Standard Job Card.
+   * Allocation formula: Total = (W × H × Qty) × (1 + standardWasteMargin / 100).
+   */
+  standardWasteMargin?: number;
+  /** Maximum approved scrap ceiling (%) a Standard Job Card may carry. */
+  maxAllowedScrapLimit?: number;
   updatedAt: number;
   updatedBy?: string;
 };
@@ -134,6 +141,8 @@ export const DEFAULT_SYSTEM_CONFIG: Omit<SystemConfig, "updatedAt" | "updatedBy"
   maxDirectStockOutEtb: 2000,
   orderExpirationHours: 24,
   defaultMarginSquareMetres: 0,
+  standardWasteMargin: 3,
+  maxAllowedScrapLimit: 5,
 };
 
 /** Resolves the currently governed purchase-to-base conversion for a material. */

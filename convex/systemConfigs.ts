@@ -80,6 +80,8 @@ export const updateSystemConfig = mutation({
     orderExpirationHours: v.number(),
     defaultScrapAllowancePercent: v.number(),
     defaultMarginSquareMetres: v.number(),
+    standardWasteMargin: v.number(),
+    maxAllowedScrapLimit: v.number(),
     materialScrapAllowances: v.array(v.object({
       materialId: v.id("materials"),
       allowancePercent: v.number(),
@@ -99,6 +101,8 @@ export const updateSystemConfig = mutation({
     validateNumber(args.orderExpirationHours, "Order expiration hours", { min: 1, max: 168 });
     validateNumber(args.defaultScrapAllowancePercent, "Default scrap allowance", { min: 0, max: 100 });
     validateNumber(args.defaultMarginSquareMetres, "Default margin allowance", { min: 0 });
+    validateNumber(args.standardWasteMargin, "Standard job-card waste margin", { min: 0, max: 100 });
+    validateNumber(args.maxAllowedScrapLimit, "Maximum allowed scrap limit", { min: 0, max: 100 });
 
     const seenScrap = new Set<string>();
     const scrapAllowances = args.materialScrapAllowances
@@ -165,6 +169,8 @@ export const updateSystemConfig = mutation({
       orderExpirationHours: args.orderExpirationHours,
       defaultScrapAllowancePercent: args.defaultScrapAllowancePercent,
       defaultMarginSquareMetres: args.defaultMarginSquareMetres,
+      standardWasteMargin: args.standardWasteMargin,
+      maxAllowedScrapLimit: args.maxAllowedScrapLimit,
       materialScrapAllowances: scrapAllowances,
       updatedAt: Date.now(),
       updatedBy: profile._id,
@@ -196,6 +202,8 @@ export async function ensureSystemConfig(ctx: MutationCtx, actorAuthUserId?: str
     if (existing.orderExpirationHours === undefined) patch.orderExpirationHours = DEFAULT_SYSTEM_CONFIG.orderExpirationHours;
     if (existing.defaultMarginSquareMetres === undefined) patch.defaultMarginSquareMetres = DEFAULT_SYSTEM_CONFIG.defaultMarginSquareMetres;
     if (existing.unitConversionDefaults === undefined) patch.unitConversionDefaults = DEFAULT_SYSTEM_CONFIG.unitConversionDefaults;
+    if (existing.standardWasteMargin === undefined) patch.standardWasteMargin = DEFAULT_SYSTEM_CONFIG.standardWasteMargin;
+    if (existing.maxAllowedScrapLimit === undefined) patch.maxAllowedScrapLimit = DEFAULT_SYSTEM_CONFIG.maxAllowedScrapLimit;
     if (Object.keys(patch).length > 0) {
       await ctx.db.patch(existing._id, { ...patch, updatedAt: Date.now() });
       existing = (await ctx.db.get(existing._id))!;
