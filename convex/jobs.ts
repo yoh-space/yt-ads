@@ -387,6 +387,7 @@ async function recordAutomaticDeduction(ctx: any, job: any, material: any, actor
     fallbackArea: job.quantity,
     marginSquareMetres: config.defaultMarginSquareMetres ?? 0,
     allowancePercent,
+    inkMlPerSquareMetre: config.inkMlPerSquareMetre,
   });
 
   const previousInput = await getProductionTotals(ctx, job._id);

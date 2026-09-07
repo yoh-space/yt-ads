@@ -444,12 +444,14 @@ export const listOperatorMachineStock = query({
   handler: async (ctx) => {
     const { profile } = await requireAnyPermission(ctx, ["material.view", "machine.view", "job.view"]);
     const batches = await ctx.db.query("operatorSubStock").collect();
-    const [materials, machines] = await Promise.all([
+    const [materials, machines, users] = await Promise.all([
       ctx.db.query("materials").collect(),
       ctx.db.query("machines").collect(),
+      ctx.db.query("users").collect(),
     ]);
     const materialById = new Map(materials.map((material) => [material._id, material]));
     const machineById = new Map(machines.map((machine) => [machine._id, machine]));
+    const userNames = new Map(users.map((user) => [user.authUserId, user.name]));
     const isFloorRole = !["owner", "manager", "admin", "storekeeper"].includes(profile.role);
     return batches
       .filter((batch) => {
@@ -465,6 +467,7 @@ export const listOperatorMachineStock = query({
           ...batch,
           materialName: material?.name ?? "Unknown material",
           machineName: machine?.name ?? "Unknown machine",
+          operatorName: userNames.get(batch.operatorId) ?? "Assigned operator",
           baseUnit,
           consumed: Number((batch.issuedQuantity - batch.currentRemaining).toFixed(3)),
           usagePercent: batch.issuedQuantity > 0

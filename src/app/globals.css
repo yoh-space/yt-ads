@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Ethiopic:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700;800&family=Noto+Sans+Ethiopic:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -6,6 +6,21 @@
 
 @layer base {
   :root {
+    /* Enterprise inventory tokens. Components consume these aliases, not color literals. */
+    --bg-main: 222 36% 7%;
+    --bg-surface: 218 36% 11%;
+    --bg-surface-elevated: 215 28% 17%;
+    --border-color: 215 28% 17%;
+    --text-primary: 210 40% 98%;
+    --text-secondary: 215 20% 65%;
+    --text-dim: 215 16% 47%;
+    --brand-primary: 187 92% 43%;
+    --brand-primary-light: 187 92% 55%;
+    --brand-primary-bg: 187 92% 43% / 0.15;
+    --status-success: 160 84% 39%;
+    --status-success-bg: 160 84% 39% / 0.15;
+    --status-warning: 38 92% 50%;
+    --status-warning-bg: 38 92% 50% / 0.15;
     --canvas: 222 47% 11%;
     /* Stitch industrial dark palette (kept as HSL so existing shadcn tokens remain compatible). */
     --background: 222 36% 7%;
@@ -43,6 +58,7 @@
     --warning: 38 92% 50%;
     --warning-foreground: 222 47% 11%;
     --danger: 0 84% 60%;
+    --danger-bg: 0 84% 60% / 0.15;
     --danger-foreground: 210 40% 98%;
     --info: 199 89% 48%;
     --info-foreground: 210 40% 98%;

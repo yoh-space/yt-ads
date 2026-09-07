@@ -381,6 +381,7 @@ export function computeJobConsumption(material: MaterialLike, input: {
   fallbackArea?: number;
   marginSquareMetres?: number;
   allowancePercent?: number;
+  inkMlPerSquareMetre?: number;
 }): { productionType: ProductionType; baseQuantity: number; unit: string; areaM2: number; allocatedAreaM2: number; inkMl: number } {
   const productionType = classifyMaterialProductionType(material);
   const area = computeJobArea(input);
@@ -390,7 +391,10 @@ export function computeJobConsumption(material: MaterialLike, input: {
   const baseUnit = material.baseUnit ?? material.unit ?? "m²";
 
   if (productionType === "ink") {
-    const ml = area * resolveInkConsumptionRate(material);
+    const inkRate = input.inkMlPerSquareMetre !== undefined
+      ? resolveInkConsumptionRateFromConfig(material, { inkMlPerSquareMetre: input.inkMlPerSquareMetre })
+      : resolveInkConsumptionRate(material);
+    const ml = area * inkRate;
     const litres = Number((ml / 1000).toFixed(3));
     return { productionType, baseQuantity: litres, unit: "L", areaM2: Number(area.toFixed(3)), allocatedAreaM2: allocatedArea, inkMl: Number(ml.toFixed(1)) };
   }
