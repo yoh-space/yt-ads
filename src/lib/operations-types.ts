@@ -191,6 +191,10 @@ export type MaterialRequest = {
   packageUnit?: PackageUnit;
   requestedPackages?: number;
   issuedPackages?: number;
+  conversionRatioSnapshot?: number;
+  parentInventoryId?: string;
+  operatorSubStockId?: string;
+  machineId?: string;
   jobCode: string;
   client: string;
   jobTitle: string;

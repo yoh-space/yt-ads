@@ -389,6 +389,9 @@ export default defineSchema({
     requestedPackages: v.optional(v.number()),
     issuedPackages: v.optional(v.number()),
     conversionRatioSnapshot: v.optional(v.number()),
+    parentInventoryId: v.optional(v.id("parentInventory")),
+    operatorSubStockId: v.optional(v.id("operatorSubStock")),
+    machineId: v.optional(v.id("machines")),
   })
     .index("by_job_card", ["jobCardId"])
     .index("by_status", ["status"]),

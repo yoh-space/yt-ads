@@ -161,6 +161,7 @@ export const create = mutation({
         requestGroupId,
         packageUnit: line.packageUnit,
         requestedPackages: line.requestedPackages,
+        conversionRatioSnapshot: lineMaterial.conversionRatio ?? 1,
         issuedPackages: 0,
       });
       firstId ??= id;
@@ -212,7 +213,9 @@ export const issue = mutation({
     }
     const request = await ctx.db.get(args.requestId);
     if (!request) throw new Error("Material request not found.");
-    if (request.status === "Received") throw new Error("A received request cannot be issued again.");
+    if (request.status === "Received" || request.status === "Short Stock" || request.status === "Discrepancy") {
+      throw new Error("Only an open material request can be issued.");
+    }
     const remainingRequested = request.requestedQuantity - request.issuedQuantity;
     if (args.issuedQuantity > remainingRequested) {
       throw new Error("Issued quantity cannot exceed the remaining requested quantity.");
@@ -224,16 +227,40 @@ export const issue = mutation({
     const machine = job ? await ctx.db.get(job.machineId) : undefined;
     if (!job || !machine) throw new Error("The request's job machine is unavailable.");
     const operatorId = args.operatorId?.trim() || request.requestedBy;
-    const packageQuantity = args.issuedPackages ?? 0;
-    const conversionRatio = material.conversionRatio ?? 1;
-    const ledgerPackageUnit = (args.packageUnit ?? request.packageUnit) === "ROLL"
+    if (operatorId !== request.requestedBy) throw new Error("Material can only be issued to the requesting operator.");
+    const packageQuantity = args.issuedPackages ?? request.requestedPackages;
+    if (packageQuantity === undefined || !Number.isFinite(packageQuantity) || packageQuantity <= 0) {
+      throw new Error("Issued package quantity is required for central-store transfer.");
+    }
+    const requestedPackageUnit = args.packageUnit ?? request.packageUnit;
+    const parentInventory = await ctx.db
+      .query("parentInventory")
+      .withIndex("by_material", (q) => q.eq("materialId", request.materialId))
+      .unique();
+    if (!parentInventory) throw new Error("Central package inventory is not configured for this material.");
+    if (packageQuantity > parentInventory.totalStockQuantity) {
+      throw new Error("Insufficient central package stock for this request.");
+    }
+    const packageFactor = parentInventory.unitType === "ROLL"
+      ? parentInventory.lengthPerRoll
+      : parentInventory.unitType === "SHEET"
+        ? parentInventory.areaPerSheet
+        : parentInventory.volumePerContainer ?? 1;
+    if (!packageFactor || packageFactor <= 0) throw new Error("Central package conversion factor is not configured.");
+    const expectedBaseQuantity = Number((packageQuantity * packageFactor).toFixed(3));
+    if (Math.abs(expectedBaseQuantity - args.issuedQuantity) > 0.001) {
+      throw new Error(`Issued quantity must equal ${expectedBaseQuantity} ${request.unit} for ${packageQuantity} package(s).`);
+    }
+    const conversionRatio = packageFactor;
+    const ledgerPackageUnit = requestedPackageUnit === "ROLL"
       ? "ROLL"
-      : (args.packageUnit ?? request.packageUnit) === "SHEET"
+      : requestedPackageUnit === "SHEET"
         ? "SHEET"
-        : (args.packageUnit ?? request.packageUnit) === "CANISTER"
+        : requestedPackageUnit === "CANISTER"
           ? "LITER"
           : undefined;
     const subStockId = await ctx.db.insert("operatorSubStock", {
+      parentInventoryId: parentInventory._id,
       materialId: request.materialId,
       operatorId,
       machineId: job.machineId,
@@ -244,14 +271,12 @@ export const issue = mutation({
       issuedBy: identity._id,
       issuedAt: Date.now(),
       updatedAt: Date.now(),
-      packageUnit: args.packageUnit ?? request.packageUnit,
-      issuedPackages: packageQuantity,
-      remainingPackages: packageQuantity,
-      baseUnit: material.baseUnit ?? material.unit,
-      conversionRatioSnapshot: conversionRatio,
-      issuedBaseQuantity: args.issuedQuantity,
-      consumedBaseQuantity: 0,
-      remainingBaseQuantity: args.issuedQuantity,
+       packageUnit: requestedPackageUnit,
+       issuedPackages: 0,
+       remainingPackages: 0,
+       baseUnit: material.baseUnit ?? material.unit,
+       conversionRatioSnapshot: conversionRatio,
+       consumedBaseQuantity: 0,
     });
     await recordInventoryEvent(ctx, {
       materialId: request.materialId,
@@ -265,6 +290,7 @@ export const issue = mutation({
       packageQuantity: packageQuantity || undefined,
       packageUnit: ledgerPackageUnit,
       conversionRatio,
+      parentInventoryId: parentInventory._id,
       operatorSubStockId: subStockId,
       operatorId,
       machineId: machine._id,
@@ -277,8 +303,11 @@ export const issue = mutation({
     const nextStatus = totalIssued < request.requestedQuantity ? "Partially Issued" : "Issued";
     await ctx.db.patch(args.requestId, {
       issuedQuantity: totalIssued,
-      issuedPackages: Number(((request.issuedPackages ?? 0) + (args.issuedPackages ?? 0)).toFixed(3)),
-      packageUnit: args.packageUnit ?? request.packageUnit,
+      issuedPackages: Number(((request.issuedPackages ?? 0) + packageQuantity).toFixed(3)),
+      packageUnit: requestedPackageUnit,
+      parentInventoryId: parentInventory._id,
+      operatorSubStockId: subStockId,
+      machineId: machine._id,
       status: nextStatus,
       issuedBy: identity._id,
       issuedAt: Date.now(),
@@ -291,13 +320,27 @@ export const issue = mutation({
       const matchingLine = lines.find((line) => line.materialId === request.materialId);
       if (matchingLine) {
         await ctx.db.patch(matchingLine._id, {
-          issuedPackages: (matchingLine.issuedPackages ?? 0) + (args.issuedPackages ?? 0),
+          issuedPackages: (matchingLine.issuedPackages ?? 0) + packageQuantity,
           issuedBaseQuantity: (matchingLine.issuedBaseQuantity ?? 0) + args.issuedQuantity,
           status: totalIssued < request.requestedQuantity ? "Partially Issued" : "Issued",
           issuedBy: identity._id,
           issuedAt: Date.now(),
         });
       }
+    }
+    const requirements = await ctx.db
+      .query("jobMaterialRequirements")
+      .withIndex("by_job_card", (q) => q.eq("jobCardId", request.jobCardId))
+      .collect();
+    const requirement = requirements.find((entry) => entry.materialId === request.materialId);
+    if (requirement) {
+      const requiredTotal = requirement.plannedBaseQuantity + requirement.approvedScrapQuantity;
+      await ctx.db.patch(requirement._id, {
+        requestedPackages: Number(((requirement.requestedPackages ?? 0) + packageQuantity).toFixed(3)),
+        issuedPackages: Number(((requirement.issuedPackages ?? 0) + packageQuantity).toFixed(3)),
+        status: totalIssued >= requiredTotal ? "ISSUED" : "PARTIALLY_ISSUED",
+        updatedAt: Date.now(),
+      });
     }
     await notifyUser(ctx, request.requestedBy, {
       title: nextStatus === "Partially Issued" ? "Short stock: request partially issued" : "Material issued",

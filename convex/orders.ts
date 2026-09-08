@@ -12,13 +12,13 @@ import { DEFAULT_SYSTEM_CONFIG } from "./materialUsage";
 import {
   compatibleMachines,
   computeStandardAllocation,
-  resolveRouteForService,
   selectMachineByLoad,
   type MaterialTypeRoute,
   type StandardAllocation,
 } from "./orderAutomation";
 import { recordInventoryEvent } from "./inventoryLedger";
 import { verifyTelegramInitData } from "./telegramAuth";
+import { loadActiveBomForService, resolveServiceRoute } from "./bomResolver";
 import { SERVICE_ROUTING_MAP } from "../src/shared/machine-catalog";
 
 /** Statuses a customer may see through public tracking (EXPIRED stays internal). */
@@ -599,7 +599,7 @@ async function resolveAutoRouting(
   materialType: string;
   allocation: StandardAllocation;
 }> {
-  const route = resolveRouteForService(order.serviceType);
+  const route = await resolveServiceRoute(ctx, order.serviceType);
   if (!route) {
     throw new Error(`No production routing is defined for the ${order.serviceType} service.`);
   }
@@ -862,7 +862,7 @@ export const confirmOrderAndIssueJobCard = mutation({
     }
 
     if (machine && material) {
-      const route = resolveRouteForService(order.serviceType) ?? {
+      const route = await resolveServiceRoute(ctx, order.serviceType) ?? {
         serviceType: order.serviceType,
         materialType: material.category,
         preferredMaterialName: material.name,
@@ -903,10 +903,7 @@ export const confirmOrderAndIssueJobCard = mutation({
       width: order.width,
       serviceType: order.serviceType,
     });
-const bomRows = await ctx.db
-      .query("serviceBOM")
-      .withIndex("by_active_service", (q) => q.eq("active", true).eq("serviceType", order.serviceType))
-      .collect();
+    const bomRows = await loadActiveBomForService(ctx, order.serviceType);
     const serviceUnitsMatch = order.quantity.match(/[0-9]+(?:\.[0-9]+)?/);
     const serviceUnits = serviceUnitsMatch ? Math.max(1, Number(serviceUnitsMatch[0])) : 1;
     const parsedArea = order.length && order.width ? order.length * order.width : allocation.plannedBaseQuantity;

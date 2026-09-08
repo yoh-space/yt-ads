@@ -61,7 +61,7 @@ export function MaterialRequestsPanel({
   requests: MaterialRequest[];
   role: Role;
   onRequest: () => void;
-  onIssue: (requestId: string, issuedQuantity: number) => void;
+  onIssue: (requestId: string, input: { issuedQuantity: number; issuedPackages: number; packageUnit?: MaterialRequest["packageUnit"] }) => void;
   onAcknowledge: (requestId: string) => void;
   onShortStock?: (requestId: string) => void;
   isPending: (key: string) => boolean;
@@ -164,7 +164,11 @@ export function MaterialRequestsPanel({
                         variant="secondary"
                         pending={isPending(`issue-${request.id}`)}
                          disabled={isPending(`issue-${request.id}`) || issueHasError}
-                         onClick={() => onIssue(request.id, parsedIssueQuantity)}
+                         onClick={() => onIssue(request.id, {
+                           issuedQuantity: parsedIssueQuantity,
+                           issuedPackages: Number((parsedIssueQuantity / (request.conversionRatioSnapshot ?? 1)).toFixed(3)),
+                           packageUnit: request.packageUnit,
+                         })}
                       >
                         <PackageCheck size={13} />
                          {isPending(`issue-${request.id}`) ? "Handing over..." : role === "storekeeper" ? `Approve & Hand Over ${formatQuantity(parsedIssueQuantity, request.unit)}` : "Issue"}
