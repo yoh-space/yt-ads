@@ -51,6 +51,22 @@ export function getNavItemHref(view: View, role: Role): string {
   return "/dashboard";
 }
 
+const OVERVIEW_LABEL_OVERRIDE: Partial<Record<Role, { label: string; english: string }>> = {
+  laser_operator: { label: "የሌዘር ማሽን ሥራ", english: "Laser Machine Workspace" },
+  cnc_operator: { label: "የሲኤንሲ ማሽን ሥራ", english: "CNC Machine Workspace" },
+  plotter_operator: { label: "የፕሎተር ማሽን ሥራ", english: "Plotter Machine Workspace" },
+  printer_operator: { label: "የፕሪንተር ማሽን ሥራ", english: "Printer Machine Workspace" },
+};
+
+export function getNavLabel(view: View, role: Role): { label: string; english: string } {
+  const base = navItems.find((item) => item.id === view);
+  if (!base) return { label: view, english: view };
+  if (view === "overview" && OVERVIEW_LABEL_OVERRIDE[role]) {
+    return OVERVIEW_LABEL_OVERRIDE[role]!;
+  }
+  return { label: base.label, english: base.english };
+}
+
 export const navItems: Array<{
   id: View;
   label: string;

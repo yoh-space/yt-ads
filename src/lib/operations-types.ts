@@ -143,6 +143,7 @@ export type JobCard = {
   orderId?: string;
   orderStatus?: CustomerOrderStatus;
   orderOverdue?: boolean;
+  orderDueTimestamp?: number;
   length?: number;
   width?: number;
   deductOnComplete?: boolean;

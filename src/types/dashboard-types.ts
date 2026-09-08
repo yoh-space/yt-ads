@@ -11,6 +11,9 @@ export type OperatorStockEntry = {
   currentRemaining: number;
   usagePercent: number;
   status: string;
+  reorderAt?: number;
+  conversionRatio?: number;
+  lowStockThreshold?: number;
 };
 
 export type View = "overview" | "orders" | "inventory" | "jobs" | "machines" | "offcuts" | "reports" | "reconciliation" | "audit" | "financial" | "config" | "settings";

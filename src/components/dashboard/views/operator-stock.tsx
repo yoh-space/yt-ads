@@ -1,13 +1,12 @@
 "use client";
 
-import { AlertTriangle, RefreshCw, Trash2, Scale } from "lucide-react";
+import { AlertTriangle, RefreshCw, Scale, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { cn } from "@/lib/utils";
-import { Button, Panel, PanelHeader, StatusPill } from "@/components/ui";
-import { ModalShell } from "../modals/modal-shell";
+import { Button, Panel, PanelHeader } from "@/components/ui";
 import { useState } from "react";
-import { WeeklyReconciliationModal } from "./weekly-reconciliation-modal";
 import type { OperatorStockEntry } from "@/types/dashboard-types";
 
 function formatQuantity(n: number, unit: string) {
@@ -18,20 +17,29 @@ function formatPercentage(value: number) {
   return `${Math.round(value)}%`;
 }
 
+function isLowStock(batch: OperatorStockEntry): boolean {
+  const threshold = batch.lowStockThreshold;
+  if (threshold !== undefined && threshold > 0) return batch.currentRemaining <= threshold;
+  return batch.usagePercent >= 85;
+}
+
 export function OperatorStockWidget({
   machineId,
+  machineSlug,
   stock: providedStock,
 }: {
   machineId: string;
+  machineSlug?: string;
   stock?: OperatorStockEntry[];
 }) {
+  const router = useRouter();
   const queriedStock = useQuery(api.inventory.listOperatorMachineStock, providedStock === undefined ? {} : "skip");
   const stock = providedStock ?? queriedStock;
   const [exhaustingId, setExhaustingId] = useState<string | null>(null);
-  const [reconciling, setReconciling] = useState(false);
   const exhaustStock = useMutation(api.inventory.exhaustOperatorStock);
 
   const machineStock = stock?.filter((s) => s.machineId === machineId && s.status === "ACTIVE") || [];
+  const reconciliationHref = machineSlug ? `/dashboard/operator/${machineSlug}/reconciliation` : undefined;
 
   if (!stock) {
     return (
@@ -47,9 +55,15 @@ export function OperatorStockWidget({
     <Panel>
       <PanelHeader
         title="ማሽኑ ላይ ያለ ዕቃ"
-        subtitle="ለዚህ ማሽን የተሰጠ የስራ ዕቃ"
+        subtitle="ለዚህ ማሽን የተሰጠ የስራ ዕቃ (Machine stock)"
         kicker="የማሽን ዕቃ"
-        action={<Button size="small" variant="tertiary" onClick={() => setReconciling(true)}><Scale size={13} />ቆጥር እና አረጋግጥ</Button>}
+        action={
+          reconciliationHref ? (
+            <Button size="small" variant="tertiary" onClick={() => router.push(reconciliationHref)}>
+              <Scale size={13} />ቆጥር እና አረጋግጥ
+            </Button>
+          ) : undefined
+        }
       />
       <div className="p-4 space-y-3">
         {machineStock.length === 0 ? (
@@ -59,7 +73,7 @@ export function OperatorStockWidget({
         ) : (
           machineStock.map((batch) => {
             const usagePercent = batch.usagePercent;
-            const isLow = usagePercent >= 85;
+            const isLow = isLowStock(batch);
             return (
               <div
                 key={batch._id}
@@ -71,14 +85,14 @@ export function OperatorStockWidget({
                       <strong className="text-sm font-semibold text-navy">{batch.materialName}</strong>
                       {isLow && (
                         <span className="flex items-center gap-1 px-2 py-0.5 bg-coral/10 text-coral text-xs font-medium rounded-full">
-                          <AlertTriangle size={11} /> ቀሪው እያነሰ ነው
+                          <AlertTriangle size={11} /> ቀሪው አመላካች ነው (Running low)
                         </span>
                       )}
                     </div>
                     <div className="mt-2 space-y-1">
                       <div className="flex items-center justify-between text-xs text-gray-600">
-                        <span>የተሰጠ: {formatQuantity(batch.issuedQuantity, batch.baseUnit)}</span>
-                        <span>የቀረ: {formatQuantity(batch.currentRemaining, batch.baseUnit)}</span>
+                        <span>የተሰጠ (Issued): {formatQuantity(batch.issuedQuantity, batch.baseUnit)}</span>
+                        <span>የቀረ (Remaining): {formatQuantity(batch.currentRemaining, batch.baseUnit)}</span>
                       </div>
                       <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                         <div
@@ -90,9 +104,9 @@ export function OperatorStockWidget({
                         />
                       </div>
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-gray-500">የተጠቀምነው: {formatPercentage(usagePercent)}</span>
+                        <span className="text-gray-500">የተጠቀምነው (Used): {formatPercentage(usagePercent)}</span>
                         <span className={cn("font-medium", isLow ? "text-coral" : "text-green")}>
-                          {formatPercentage(100 - usagePercent)} ቀሪ
+                          {formatPercentage(100 - usagePercent)} ቀሪ (left)
                         </span>
                       </div>
                     </div>
@@ -107,7 +121,7 @@ export function OperatorStockWidget({
                     }}
                   >
                     <Trash2 size={13} />
-                    {exhaustingId === batch._id ? "በመዝጋት ላይ…" : "ዕቃው አልቋል"}
+                    {exhaustingId === batch._id ? "በመዝጋት ላይ…" : "ዕቃው አልቋል (Used up)"}
                   </Button>
                 </div>
               </div>
@@ -115,7 +129,6 @@ export function OperatorStockWidget({
           })
         )}
       </div>
-      {reconciling ? <WeeklyReconciliationModal stock={stock} onClose={() => setReconciling(false)} /> : null}
     </Panel>
   );
 }

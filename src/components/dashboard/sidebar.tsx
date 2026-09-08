@@ -8,7 +8,7 @@ import {
   ChevronRight,
   X,
 } from "lucide-react";
-import { canAccessView, getNavItemHref, navItems } from "./nav-config";
+import { canAccessView, getNavItemHref, getNavLabel, navItems } from "./nav-config";
 import type { View } from "@/types/dashboard-types";
 import type { Role } from "@/lib/operations-types";
 import type { WorkspaceDefinition } from "./workspace-registry";
@@ -204,6 +204,7 @@ export function Sidebar({
               {sectionItems.map(item => {
                 const Icon = item.icon;
                 const href = getNavItemHref(item.id, role);
+                const navLabel = getNavLabel(item.id, role);
                 const isActive = activeView
                   ? activeView === item.id
                   : isViewActiveForPathname(pathname, href);
@@ -212,8 +213,8 @@ export function Sidebar({
                   <Link
                     key={item.id}
                     href={href}
-                    title={collapsed ? item.english : undefined}
-                    aria-label={item.english}
+                    title={collapsed ? navLabel.english : undefined}
+                    aria-label={navLabel.english}
                     aria-current={isActive ? "page" : undefined}
                     className={cn(
                       "group relative flex w-full items-center gap-3 rounded-[10px] px-2.5 py-2 text-left transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan/50",
@@ -244,7 +245,7 @@ export function Sidebar({
 
                     {!collapsed ? (
                       <span className="flex-1 text-xs font-semibold leading-[1.2]">
-                        {item.label}
+                        {navLabel.label}
                         <small
                           className={cn(
                             "mt-[3px] block text-[9px] font-normal",
@@ -253,7 +254,7 @@ export function Sidebar({
                               : "text-gray-500 group-hover:text-gray-400"
                           )}
                         >
-                          {item.english}
+                          {navLabel.english}
                         </small>
                       </span>
                     ) : null}
@@ -280,7 +281,7 @@ export function Sidebar({
                     ) : null}
                     {collapsed ? (
                       <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 whitespace-nowrap rounded-md border border-slate-700 bg-[#1E293B] px-2.5 py-1.5 font-mono text-xs text-slate-200 opacity-0 shadow-xl transition-opacity group-hover:opacity-100">
-                        {item.english}
+                        {navLabel.english}
                       </span>
                     ) : null}
                   </Link>

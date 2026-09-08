@@ -1,25 +1,11 @@
 "use client";
 
 import { Command, Eye, Printer, Scissors, Settings, Trash2, Wrench } from "lucide-react";
-import type { ComponentType } from "react";
 import type { JobCard, Machine, MachineStatus, Role } from "@/lib/operations-types";
 import { formatQuantity } from "@/lib/units";
 import { roleLabels } from "@/lib/operations-types";
-import { statusTone } from "../helpers";
 import type { View } from "@/types/dashboard-types";
-import { LaserOperatorWorkspace } from "../operator/laser";
-import { CncOperatorWorkspace } from "../operator/cnc";
-import { PlotterOperatorWorkspace } from "../operator/plotter";
-import { PrinterOperatorWorkspace } from "../operator/printer";
 import { cn } from "@/lib/utils";
-import { OperatorStockWidget } from "./operator-stock";
-
-const operatorViews: Partial<Record<Role, ComponentType<any>>> = {
-  laser_operator: LaserOperatorWorkspace,
-  cnc_operator: CncOperatorWorkspace,
-  plotter_operator: PlotterOperatorWorkspace,
-  printer_operator: PrinterOperatorWorkspace,
-};
 
 export function MachinesView({
   machines,
@@ -76,8 +62,6 @@ export function MachinesView({
   };
   const focus = context[role];
   const primaryMachine = machines[0];
-  const primaryJob = primaryMachine ? jobs.find((job) => job.code === primaryMachine.activeJob) : undefined;
-  const OperatorWorkspace = operatorViews[role];
   const isManagement = role === "owner" || role === "manager" || role === "admin" || role === "storekeeper";
   const queuedJobsByMachine = new Map<string, JobCard[]>();
   for (const job of jobs) {
@@ -86,22 +70,6 @@ export function MachinesView({
       list.push(job);
       queuedJobsByMachine.set(job.machineId, list);
     }
-  }
-
-  if (OperatorWorkspace && primaryMachine) {
-    return (
-      <div className="space-y-6">
-        <OperatorWorkspace
-          machine={primaryMachine}
-          job={primaryJob}
-          onComplete={onComplete}
-          onRecordProduction={onRecordProduction}
-          onOffcut={() => onOffcut(primaryMachine.id)}
-          onScrap={() => onScrap(primaryMachine.id)}
-        />
-        <OperatorStockWidget machineId={primaryMachine.id} />
-      </div>
-    );
   }
 
   return (

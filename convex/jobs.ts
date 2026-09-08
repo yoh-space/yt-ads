@@ -132,10 +132,23 @@ export const list = query({
   handler: async (ctx) => {
     const { profile } = await requireActiveProfile(ctx);
     const jobs = await ctx.db.query("jobCards").collect();
-    if (["owner", "manager", "admin", "storekeeper"].includes(profile.role)) return jobs;
-    const machines = await ctx.db.query("machines").collect();
-    const assignedMachineIds = new Set(machines.filter((machine) => machine.operatorRole === profile.role).map((machine) => machine._id));
-    return jobs.filter((job) => assignedMachineIds.has(job.machineId));
+    let visibleJobs = jobs;
+    if (!["owner", "manager", "admin", "storekeeper"].includes(profile.role)) {
+      const machines = await ctx.db.query("machines").collect();
+      const assignedMachineIds = new Set(machines.filter((machine) => machine.operatorRole === profile.role).map((machine) => machine._id));
+      visibleJobs = jobs.filter((job) => assignedMachineIds.has(job.machineId));
+    }
+    const orders = await ctx.db.query("customerOrders").collect();
+    const orderById = new Map(orders.map((order) => [order._id, order]));
+    return visibleJobs.map((job) => {
+      const order = job.orderId ? orderById.get(job.orderId) : undefined;
+      return {
+        ...job,
+        orderStatus: order?.status,
+        orderOverdue: Boolean(order && !["COMPLETED", "READY_FOR_PICKUP", "EXPIRED", "EXPIRED_JUNK"].includes(order.status) && order.preferredDueDate < Date.now()),
+        orderDueTimestamp: order?.preferredDueDate,
+      };
+    });
   },
 });
 

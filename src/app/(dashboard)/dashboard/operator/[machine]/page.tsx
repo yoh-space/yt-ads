@@ -22,7 +22,8 @@ import { NumericInput, StatusPill } from "@/components/ui";
 import { formatQuantity } from "@/lib/units";
 import { OperatorStockWidget } from "@/components/dashboard/views/operator-stock";
 import type { OperatorStockEntry } from "@/types/dashboard-types";
-import type { JobCard, Machine } from "@/lib/operations-types";
+import type { JobCard, Machine, Role } from "@/lib/operations-types";
+import { canAccessMachine } from "@/lib/permissions";
 import type { AccessContext } from "@/lib/access-policy";
 import { WorkspaceModuleGate } from "@/components/dashboard/workspace-renderer";
 
@@ -64,9 +65,14 @@ export default function OperatorMachinePage({
   const machines = machinesQuery !== undefined ? (withIds(machinesQuery) as Machine[]) : [];
   const jobs = jobsQuery !== undefined ? (withIds(jobsQuery) as JobCard[]) : [];
 
+  const accessScope = (profile?.role ?? "owner") as Role;
+  const slugMatch = machines.find(
+    (m) => m.type.toLowerCase().includes(machineParam) || m.code.toLowerCase().includes(machineParam)
+  );
   const currentMachine =
-    machines.find((m) => m.type.toLowerCase().includes(machineParam) || m.code.toLowerCase().includes(machineParam)) ??
-    machines[0];
+    (slugMatch && canAccessMachine(accessScope, slugMatch) ? slugMatch : undefined) ??
+    machines.find((m) => canAccessMachine(accessScope, m)) ??
+    slugMatch;
 
   const machineJobs = jobs.filter(
     (j) => currentMachine && j.machineId === currentMachine.id
@@ -89,6 +95,43 @@ export default function OperatorMachinePage({
   }
 
   const isCompletedJob = displayedJob?.status === "Completed";
+
+  const jobDueTimestamp = displayedJob?.orderDueTimestamp ?? (displayedJob?.due ? Date.parse(displayedJob.due) : NaN);
+  const isJobOverdue =
+    displayedJob &&
+    displayedJob.status !== "Completed" &&
+    Number.isFinite(jobDueTimestamp) &&
+    jobDueTimestamp < Date.now();
+
+  const activeJobRequiredMl =
+    jobRequirements && displayedJob
+      ? jobRequirements
+          .filter((req) => (req as { materialFamily?: string; materialUnit?: string }).materialFamily === "INK")
+          .reduce((sum, req) => {
+            const unit = (req as { materialUnit?: string }).materialUnit ?? "";
+            const base = req.plannedBaseQuantity + req.approvedScrapQuantity;
+            return sum + (unit.toLowerCase().includes("l") ? base * 1000 : base);
+          }, 0)
+      : undefined;
+
+  const inputNum = Number(inputQuantity);
+  const outputNum = Number(outputQuantity);
+  const wasteNum = Number(wasteQuantity);
+  const hasCrossFieldDraft = inputNum > 0 || outputNum > 0 || wasteNum > 0;
+  const outputExceedsInput = hasCrossFieldDraft && outputNum > 0 && inputNum > 0 && outputNum > inputNum;
+  const inputExceedsTotal = hasCrossFieldDraft && inputNum > 0 && outputNum + wasteNum > inputNum;
+
+  const priorityLabel: Record<string, string> = {
+    High: "ከፍተኛ",
+    Medium: "መካከለኛ",
+    Low: "ዝቅተኛ",
+  };
+  const priorityTone: Record<string, string> = {
+    High: "bg-rose-500/20 text-rose-300 border border-rose-500/30",
+    Medium: "bg-gold/20 text-gold border border-gold/30",
+    Low: "bg-slate-700/40 text-slate-300 border border-slate-600/50",
+  };
+
   const accessContext: AccessContext = {
     profile: { role: profile.role, active: profile.active },
     attributes: {
@@ -137,6 +180,28 @@ export default function OperatorMachinePage({
           >
             የዚህ ማሽን እቃ ክምችት ተመልከት
           </button>
+        </div>
+      ) : null}
+
+      {/* Overdue Order Banner */}
+      {isJobOverdue && displayedJob ? (
+        <div className="flex items-center gap-3 p-4 rounded-sm border border-rose-500/50 bg-rose-950/40 text-rose-200">
+          <div className="flex-none p-2 rounded-sm bg-rose-500/20 text-rose-400">
+            <AlertTriangle size={20} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <strong className="text-sm font-bold text-rose-300">
+                {displayedJob.code} ጊዜ ያለፈበት ሥራ
+              </strong>
+              <span className="font-mono text-[10px] px-1.5 py-0.5 rounded-sm bg-rose-500/20 text-rose-300 border border-rose-500/30 uppercase">
+                Overdue
+              </span>
+            </div>
+            <p className="text-xs text-rose-200/80 mt-0.5">
+              የደንበኛ ትዕዛዝ የመጨረሻ ቀን (ቀን {new Date(jobDueTimestamp).toLocaleDateString("en-GB")}) ላይ ነበር። ይህን ሥራ እንዲጠናቀቅ ቅድሚያ ይስጡት።
+            </p>
+          </div>
         </div>
       ) : null}
 
@@ -194,7 +259,7 @@ export default function OperatorMachinePage({
         </div>
 
         {currentMachine ? (
-          <MachineFluidGauge machineId={currentMachine.id as Id<"machines">} />
+          <MachineFluidGauge machineId={currentMachine.id as Id<"machines">} activeJobRequiredMl={activeJobRequiredMl} />
         ) : null}
       </div>
 
@@ -222,6 +287,27 @@ export default function OperatorMachinePage({
                     <span className="font-mono text-xs font-bold text-[#00B4D8]">{displayedJob.code}</span>
                     <h2 className="text-lg font-bold text-white mt-0.5">{displayedJob.title}</h2>
                     <p className="text-xs text-slate-400">ደንበኛ: {displayedJob.client}</p>
+                    <div className="flex flex-wrap items-center gap-2 mt-2">
+                      {displayedJob.priority ? (
+                        <span className={`inline-flex items-center rounded px-2 py-0.5 text-[10px] font-bold ${priorityTone[displayedJob.priority] ?? priorityTone.Medium}`}>
+                          {priorityLabel[displayedJob.priority] ?? displayedJob.priority} ቅድሚያ
+                        </span>
+                      ) : null}
+                      {displayedJob.orderDueTimestamp ? (
+                        <span className={`inline-flex items-center rounded px-2 py-0.5 text-[10px] font-bold font-mono border ${
+                          isJobOverdue
+                            ? "bg-rose-500/20 text-rose-300 border-rose-500/30"
+                            : "bg-slate-700/40 text-slate-300 border-slate-600/50"
+                        }`}>
+                          ጊዜ: {new Date(displayedJob.orderDueTimestamp).toLocaleDateString("en-GB")}
+                          {isJobOverdue ? " · ጊዜ አልፏል" : ""}
+                        </span>
+                      ) : displayedJob.due ? (
+                        <span className="inline-flex items-center rounded px-2 py-0.5 text-[10px] font-bold font-mono bg-slate-700/40 text-slate-300 border border-slate-600/50">
+                          ጊዜ: {displayedJob.due}
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
                   <div className="text-right">
                     <span className="text-[10px] text-slate-400 font-mono block">የሚመረተው መጠን</span>
@@ -324,10 +410,20 @@ export default function OperatorMachinePage({
                     </div>
                   </div>
 
+                  {outputExceedsInput || inputExceedsTotal ? (
+                    <div className="flex items-start gap-2 rounded-sm border border-white/10 bg-gold/10 px-3 py-2 text-xs text-gold">
+                      <AlertTriangle size={14} className="mt-0.5 flex-none" />
+                      <span>
+                        {outputExceedsInput ? "የተመዘገበው ውጤት (output) ከገባው ዕቃ (input) ይበልጣል። እባክዎን ይመልከቱ። " : ""}
+                        {inputExceedsTotal ? "የገባ ዕቃ ከውጤት እና ብክነት ድምር ያነሰ ነው። ብክነት ከግቤት ያልበለጠ መሆኑን ያረጋግጡ።" : ""}
+                      </span>
+                    </div>
+                  ) : null}
+
                   <div className="flex items-center justify-end gap-3 pt-2">
                     <button
                       type="button"
-                      disabled={isPending(`prod-${displayedJob.id}`) || !hasManualProductionDraft || hasProductionValidationError}
+                      disabled={isPending(`prod-${displayedJob.id}`) || !hasManualProductionDraft || hasProductionValidationError || outputExceedsInput || inputExceedsTotal}
                       onClick={() => {
                         void safeMutation(
                           `prod-${displayedJob.id}`,
@@ -346,7 +442,7 @@ export default function OperatorMachinePage({
                     </button>
                     <button
                       type="button"
-                      disabled={isPending(`complete-${displayedJob.id}`) || hasProductionValidationError}
+                      disabled={isPending(`complete-${displayedJob.id}`) || hasProductionValidationError || outputExceedsInput || inputExceedsTotal}
                       onClick={() => {
                         void safeMutation(
                           `complete-${displayedJob.id}`,
@@ -443,7 +539,7 @@ export default function OperatorMachinePage({
         {/* Right 1 Col: Active Floor Sub-Stock Widget */}
         <div className="space-y-6">
           {currentMachine ? (
-            <OperatorStockWidget machineId={currentMachine.id} stock={floorStockQuery as OperatorStockEntry[] | undefined} />
+            <OperatorStockWidget machineId={currentMachine.id} machineSlug={machineParam} stock={floorStockQuery as OperatorStockEntry[] | undefined} />
           ) : null}
         </div>
       </div>

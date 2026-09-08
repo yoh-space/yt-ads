@@ -33,8 +33,8 @@ export function MachineFluidGauge({ machineId, activeJobRequiredMl }: MachineFlu
     return null; // Machine has no fluid/ink requirements or no floor batches issued
   }
 
-  const inks = inkStock.filter((s) => s.materialFamily === "INK" || !s.isSolvent);
-  const solvents = inkStock.filter((s) => s.materialFamily === "SOLVENT" || s.isSolvent);
+  const inks = inkStock.filter((s) => !s.isSolvent);
+  const solvents = inkStock.filter((s) => s.isSolvent);
 
   return (
     <div className="space-y-4 rounded-xl border border-border-token bg-surface p-4">

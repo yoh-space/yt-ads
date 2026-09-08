@@ -473,6 +473,11 @@ export const listOperatorMachineStock = query({
           materialFamily,
           inkColor: material?.inkColor,
           isSolvent: material?.isSolvent ?? false,
+          reorderAt: material?.reorderAt,
+          conversionRatio: material?.conversionRatio,
+          lowStockThreshold: material?.reorderAt !== undefined
+            ? (material?.conversionRatio ? material.reorderAt / material.conversionRatio : material.reorderAt)
+            : undefined,
           consumed: Number((batch.issuedQuantity - batch.currentRemaining).toFixed(3)),
           usagePercent: batch.issuedQuantity > 0
             ? Math.round(((batch.issuedQuantity - batch.currentRemaining) / batch.issuedQuantity) * 100)

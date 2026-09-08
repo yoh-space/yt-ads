@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="am">
+    <html lang="am" suppressHydrationWarning>
       <body>
         <Script src="https://telegram.org/js/telegram-web-app.js?57" strategy="beforeInteractive" />
         <AutoUpdater />
