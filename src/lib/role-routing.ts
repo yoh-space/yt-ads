@@ -55,7 +55,7 @@ export const ROLE_TO_MACHINE_MAP: Partial<Record<Role, OperatorMachine>> = {
 export const ROLE_HOME_ROUTE: Record<Role, string> = {
   owner: "/dashboard/owner",
   manager: "/dashboard/manager",
-  admin: "/dashboard/owner",
+  admin: "/dashboard/admin",
   storekeeper: "/dashboard/storekeeper",
   receptionist: "/dashboard/receptionist",
   laser_operator: "/dashboard/operator/laser",
@@ -139,7 +139,8 @@ export const ROUTE_DESCRIPTORS: Record<string, RouteDescriptor> = {
   overview: {
     view: "overview",
     href: (role) => {
-      if (role === "owner" || role === "admin") return "/dashboard/owner";
+      if (role === "owner") return "/dashboard/owner";
+      if (role === "admin") return "/dashboard/admin";
       if (role === "manager") return "/dashboard/manager";
       if (role === "storekeeper") return "/dashboard/storekeeper";
       if (role === "receptionist") return "/dashboard/receptionist";
@@ -171,7 +172,8 @@ export const ROUTE_DESCRIPTORS: Record<string, RouteDescriptor> = {
     href: (role) => {
       const machine = operatorMachineForRole(role);
       if (machine) return `/dashboard/operator/${machine}`;
-      if (role === "owner" || role === "admin") return "/dashboard/owner/jobs";
+      if (role === "owner") return "/dashboard/owner/jobs";
+      if (role === "admin") return "/dashboard/admin/jobs";
       return "/dashboard/manager";
     },
     type: "canonical",
@@ -179,7 +181,8 @@ export const ROUTE_DESCRIPTORS: Record<string, RouteDescriptor> = {
   machines: {
     view: "machines",
     href: (role) => {
-      if (role === "owner" || role === "admin") return "/dashboard/owner/machines";
+      if (role === "owner") return "/dashboard/owner/machines";
+      if (role === "admin") return "/dashboard/admin/machines";
       return "/dashboard/manager";
     },
     type: "canonical",
@@ -222,7 +225,8 @@ export const ROUTE_DESCRIPTORS: Record<string, RouteDescriptor> = {
   config: {
     view: "config",
     href: (role) => {
-      if (role === "owner" || role === "admin") return "/dashboard/owner/config";
+      if (role === "owner") return "/dashboard/owner/config";
+      if (role === "admin") return "/dashboard/admin/config";
       return "/settings";
     },
     type: "canonical",
@@ -253,7 +257,7 @@ export const ROUTE_CONTRACTS: Record<WorkspaceId, RouteContract> = {
   admin: {
     workspace: "admin",
     roles: ["admin"],
-    homeRoute: "/dashboard/owner",
+    homeRoute: "/dashboard/admin",
     allowedPrefixes: [
       "/dashboard",
       "/orders",
@@ -394,6 +398,10 @@ export function getLegacyRouteRedirect(pathname: string, role: Role): string | n
     }
   }
   if (cleanPath === "/inventory/parent") {
+    if (workspace === "owner" || workspace === "admin") {
+      const target = `/dashboard/${workspace}/inventory`;
+      return isRedirectLoop(cleanPath, target) ? null : target;
+    }
     const target = `/dashboard/${workspace}/inventory/parent`;
     return isRedirectLoop(cleanPath, target) ? null : target;
   }
@@ -402,6 +410,10 @@ export function getLegacyRouteRedirect(pathname: string, role: Role): string | n
     // conflicts with /dashboard/[workspace]/[feature], so operators keep /inventory/substock.
     if (isOperatorRole(role)) {
       return null;
+    }
+    if (workspace === "owner" || workspace === "admin") {
+      const target = `/dashboard/${workspace}/inventory`;
+      return isRedirectLoop(cleanPath, target) ? null : target;
     }
     const target = `/dashboard/${workspace}/inventory/substock`;
     return isRedirectLoop(cleanPath, target) ? null : target;

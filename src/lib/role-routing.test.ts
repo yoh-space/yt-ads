@@ -41,7 +41,7 @@ describe("role-routing", () => {
 
   it("maps roles to their respective landing pages", () => {
     expect(getRoleHomeRoute("owner")).toBe("/dashboard/owner");
-    expect(getRoleHomeRoute("admin")).toBe("/dashboard/owner");
+    expect(getRoleHomeRoute("admin")).toBe("/dashboard/admin");
     expect(getRoleHomeRoute("manager")).toBe("/dashboard/manager");
     expect(getRoleHomeRoute("storekeeper")).toBe("/dashboard/storekeeper");
     expect(getRoleHomeRoute("receptionist")).toBe("/dashboard/receptionist");
@@ -193,7 +193,7 @@ describe("role-routing", () => {
   it("resolves legacy route redirects correctly", () => {
     // /dashboard root dispatch
     expect(getLegacyRouteRedirect("/dashboard", "owner")).toBe("/dashboard/owner");
-    expect(getLegacyRouteRedirect("/dashboard", "admin")).toBe("/dashboard/owner");
+    expect(getLegacyRouteRedirect("/dashboard", "admin")).toBe("/dashboard/admin");
     expect(getLegacyRouteRedirect("/dashboard", "manager")).toBe("/dashboard/manager");
     expect(getLegacyRouteRedirect("/dashboard", "storekeeper")).toBe("/dashboard/storekeeper");
     expect(getLegacyRouteRedirect("/dashboard", "receptionist")).toBe("/dashboard/receptionist");

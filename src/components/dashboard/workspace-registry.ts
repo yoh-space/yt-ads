@@ -48,7 +48,7 @@ export const WORKSPACE_REGISTRY: Record<WorkspaceId, WorkspaceDefinition> = {
   },
   admin: {
     id: "admin",
-    route: "/dashboard/owner",
+    route: "/dashboard/admin",
     roles: ["admin"],
     primaryCapability: "dashboard.view",
     navViews: ["overview", "orders", "inventory", "jobs", "machines", "reports", "reconciliation", "financial", "config", "settings"],

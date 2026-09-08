@@ -484,3 +484,46 @@ export async function requireOwner(ctx: QueryCtx | MutationCtx) {
 export async function requireAdmin(ctx: QueryCtx | MutationCtx) {
   return (await requireRoles(ctx, MANAGEMENT_ROLES)).profile;
 }
+
+export const ADMIN_ROLES: Role[] = ["admin"];
+export const MANAGER_ROLES: Role[] = ["manager"];
+export const STOREKEEPER_ROLES: Role[] = ["storekeeper"];
+export const RECEPTIONIST_ROLES: Role[] = ["receptionist"];
+
+/**
+ * Strict role guard without the management-admin expansion performed by
+ * `requireRoles`. Used by per-role workspace namespaces so that each namespace
+ * is reachable only by its own role. Returns the active profile.
+ */
+export async function requireExactRole(ctx: QueryCtx | MutationCtx, role: Role) {
+  const result = await requireActiveProfile(ctx);
+  if (result.profile.role !== role) {
+    throw new Error(`Role ${result.profile.role} is not permitted for this action.`);
+  }
+  return result;
+}
+
+/** Admin-only guard for the /dashboard/admin workspace namespace. */
+export async function requireAdminRole(ctx: QueryCtx | MutationCtx) {
+  return requireExactRole(ctx, "admin");
+}
+
+/** Manager-only guard for the /dashboard/manager workspace namespace. */
+export async function requireManagerRole(ctx: QueryCtx | MutationCtx) {
+  return requireExactRole(ctx, "manager");
+}
+
+/** Storekeeper-only guard for the /dashboard/storekeeper workspace namespace. */
+export async function requireStorekeeper(ctx: QueryCtx | MutationCtx) {
+  return requireExactRole(ctx, "storekeeper");
+}
+
+/** Receptionist-only guard for the /dashboard/receptionist workspace namespace. */
+export async function requireReceptionist(ctx: QueryCtx | MutationCtx) {
+  return requireExactRole(ctx, "receptionist");
+}
+
+/** Operator guard for the /dashboard/operator workspace namespace (any operator role). */
+export async function requireOperator(ctx: QueryCtx | MutationCtx) {
+  return requireRoles(ctx, OPERATOR_ROLES);
+}
