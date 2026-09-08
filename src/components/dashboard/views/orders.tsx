@@ -1,16 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowUpRight, CalendarDays, Clock3, Plus, Printer, Search, Wrench, X, FileText, Sparkles, Cpu, Layers } from "lucide-react";
+import { ArrowUpRight, CalendarDays, Clock3, Plus, Search, Wrench, X, Copy, Check } from "lucide-react";
 import type { CustomerOrder, Machine, Material, OrderPriority, CustomerOrderStatus } from "@/lib/operations-types";
 import { formatQuantity } from "@/lib/units";
 import { getServiceLabel } from "@/constants/services";
-import { SERVICE_ROUTING_MAP } from "@/shared/machine-catalog";
-import { Button, Panel, PanelHeader, StatusPill } from "@/components/ui";
+import { Button, NumericInput, Panel, PanelHeader, StatusPill } from "@/components/ui";
 import { ModalShell } from "../modals/modal-shell";
 import { OrderDetailsSheet } from "./order-details-sheet";
 import { cn } from "@/lib/utils";
-import { isDesktopShell, printNative } from "@/lib/desktop";
 
 type DateRange = "all" | "today" | "yesterday" | "thisWeek" | "thisMonth";
 
@@ -46,11 +44,19 @@ function inRange(timestamp: number, range: DateRange): boolean {
   return date >= start;
 }
 
-const statuses: Array<CustomerOrderStatus | "all"> = ["all", "PENDING_REVIEW", "PRICED_AND_PENDING_PAYMENT", "CONFIRMED_PAID_OR_CREDIT", "JOB_CARD_CREATED", "IN_PRODUCTION", "COMPLETED", "READY_FOR_PICKUP", "Expired", "EXPIRED_JUNK"];
+const statuses: Array<CustomerOrderStatus | "all"> = ["all", "PENDING_REVIEW", "PRICED_AND_PENDING_PAYMENT", "CONFIRMED_PAID_OR_CREDIT", "JOB_CARD_CREATED", "IN_PRODUCTION", "COMPLETED", "READY_FOR_PICKUP", "EXPIRED", "EXPIRED_JUNK"];
 const priorities: Array<OrderPriority | "all"> = ["all", "High", "Medium", "Low"];
 
 function formatDue(timestamp: number) {
   return new Date(timestamp).toLocaleString("en-ET", { dateStyle: "medium", timeStyle: "short" });
+}
+
+function copyToClipboard(value: string, key: string, setCopiedKey: (key: string | null) => void) {
+  if (!value) return;
+  void navigator.clipboard.writeText(value).then(() => {
+    setCopiedKey(key);
+    window.setTimeout(() => setCopiedKey(null), 1600);
+  });
 }
 
 export function OrdersView({
@@ -59,11 +65,9 @@ export function OrdersView({
   materials,
   canManage,
   canCreateOrder,
-  canInvoice,
   onConvert,
   onStatus,
   onCreateOrder,
-  onInvoice,
   isPending,
 }: {
   orders: CustomerOrder[];
@@ -74,8 +78,6 @@ export function OrdersView({
   onConvert: (order: CustomerOrder) => void;
   onStatus: (orderId: string, status: CustomerOrderStatus) => void;
   onCreateOrder: () => void;
-  onInvoice: (order: CustomerOrder, input?: InvoiceInput) => void;
-  canInvoice: boolean;
   isPending: (key: string) => boolean;
 }) {
   const [search, setSearch] = useState("");
@@ -83,16 +85,15 @@ export function OrdersView({
   const [priority, setPriority] = useState<OrderPriority | "all">("all");
   const [machine, setMachine] = useState("all");
   const [dateRange, setDateRange] = useState<DateRange>("all");
-  const [printOrder, setPrintOrder] = useState<CustomerOrder | null>(null);
-  const [invoiceOrder, setInvoiceOrder] = useState<CustomerOrder | null>(null);
   const [selected, setSelected] = useState<CustomerOrder | null>(null);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   const filteredByRange = useMemo(() => orders.filter((order) => inRange(order.createdAt, dateRange)), [dateRange, orders]);
 
   const filtered = useMemo(() => filteredByRange.filter((order) => {
     const haystack = `${order.code} ${order.clientName} ${order.phone} ${getServiceLabel(order.serviceType) ?? order.serviceType} ${order.dimensions}`.toLowerCase();
     return (!search || haystack.includes(search.toLowerCase()))
-       && (status === "all" ? order.status !== "Expired" && order.status !== "EXPIRED_JUNK" : order.status === status)
+       && (status === "all" ? order.status !== "EXPIRED" && order.status !== "EXPIRED_JUNK" : order.status === status)
       && (priority === "all" || order.priority === priority)
       && (machine === "all" || order.machineId === machine);
   }), [filteredByRange, machine, priority, search, status]);
@@ -225,6 +226,30 @@ export function OrdersView({
                 <b className="block text-sm font-semibold text-navy truncate">{order.code}</b>
                 <span className="block text-xs text-gray-600 truncate">{order.clientName}</span>
                 <small className="text-xs text-gray-400">{order.phone}</small>
+                {order.companyLegalName || order.tinNumber ? (
+                  <span className="mt-1 flex flex-wrap items-center gap-1">
+                    {order.companyLegalName ? (
+                      <button
+                        onClick={(event) => { event.stopPropagation(); copyToClipboard(order.companyLegalName as string, `company-${order.id}`, setCopiedKey); }}
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-gray-100 text-[10px] font-medium text-gray-600 hover:bg-gray-200 hover:text-navy"
+                        title={`Verified company: ${order.companyLegalName}`}
+                      >
+                        {copiedKey === `company-${order.id}` ? <Check size={10} /> : <Copy size={10} />}
+                        {copiedKey === `company-${order.id}` ? "Copied" : "Company"}
+                      </button>
+                    ) : null}
+                    {order.tinNumber ? (
+                      <button
+                        onClick={(event) => { event.stopPropagation(); copyToClipboard(order.tinNumber as string, `tin-${order.id}`, setCopiedKey); }}
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-gray-100 text-[10px] font-medium text-gray-600 hover:bg-gray-200 hover:text-navy"
+                        title={`TIN: ${order.tinNumber}`}
+                      >
+                        {copiedKey === `tin-${order.id}` ? <Check size={10} /> : <Copy size={10} />}
+                        TIN {order.tinNumber}
+                      </button>
+                    ) : null}
+                  </span>
+                ) : null}
               </div>
               
               {/* Service */}
@@ -292,13 +317,6 @@ export function OrdersView({
                     {isPending(`order-status-${order.id}`) ? "Saving..." : "Complete"}
                   </Button>
                 ) : null}
-                {isDesktopShell() ? (
-                  <Button size="small" variant="tertiary" onClick={(event) => { event.stopPropagation(); setPrintOrder(order); }}>
-                    <Printer size={13} />
-                    Receipt
-                  </Button>
-                ) : null}
-                {canInvoice ? <Button size="small" variant="secondary" onClick={(event) => { event.stopPropagation(); setInvoiceOrder(order); }}><FileText size={13} />Invoice</Button> : null}
                 <ArrowUpRight size={14} className="text-gray-300 flex-none" aria-hidden />
               </div>
             </div>
@@ -307,23 +325,6 @@ export function OrdersView({
       </Panel>
 
       <p className="text-xs text-gray-500">Creating a job card from an order carries client details automatically. Material is deducted when production is recorded, not at creation.</p>
-
-      {printOrder ? (
-        <OrderReceiptModal
-          order={printOrder}
-          onClose={() => setPrintOrder(null)}
-          onPrint={() => printNative()}
-        />
-      ) : null}
-
-      {invoiceOrder ? (
-        <OrderInvoiceModal
-          order={invoiceOrder}
-          onClose={() => setInvoiceOrder(null)}
-          onPrint={() => window.print()}
-          onSave={onInvoice}
-        />
-      ) : null}
 
       {selected ? (
         <OrderDetailsSheet
@@ -334,111 +335,18 @@ export function OrdersView({
           onConvert={onConvert}
           onStatus={onStatus}
           onClose={() => setSelected(null)}
-          canInvoice={canInvoice}
-          onInvoice={(order) => setInvoiceOrder(order)}
         />
       ) : null}
     </div>
   );
 }
 
-export function OrderReceiptModal({ order, onClose, onPrint }: { order: CustomerOrder; onClose: () => void; onPrint: () => void }) {
-  return (
-    <ModalShell
-      title={`${order.code} · Customer Receipt`}
-      subtitle="Native print preview for the receptionist handoff sheet."
-      kicker="PRINT RECEIPT"
-      onClose={onClose}
-      footer={
-        <div className="flex gap-3 justify-end">
-          <Button type="button" variant="tertiary" onClick={onClose}>Close</Button>
-          <Button type="button" variant="primary" onClick={onPrint}>
-            <Printer size={15} />Print Receipt
-          </Button>
-        </div>
-      }
-    >
-      <div className="space-y-4 print:block print:shadow-none print:border-0">
-        <div className="border border-line rounded-lg p-5 bg-white">
-          <div className="flex items-center justify-between border-b border-dashed border-line pb-4 mb-4">
-            <div>
-              <strong className="block text-lg font-bold text-navy">YT Advertising</strong>
-              <span className="text-xs text-gray-500">Order Receipt</span>
-            </div>
-            <div className="text-right">
-              <span className="font-mono text-xs font-semibold text-cyan">{order.code}</span>
-              <span className="block text-xs text-gray-500">{formatDue(order.createdAt)}</span>
-            </div>
-          </div>
-
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm print:text-xs">
-            <div><dt className="text-muted-foreground text-xs">Client</dt><dd className="font-semibold text-navy">{order.clientName}</dd></div>
-            <div><dt className="text-muted-foreground text-xs">Phone</dt><dd className="font-semibold text-navy">{order.phone}</dd></div>
-            <div><dt className="text-muted-foreground text-xs">Service</dt><dd className="font-semibold text-navy">{getServiceLabel(order.serviceType) ?? order.serviceType}</dd></div>
-            <div><dt className="text-muted-foreground text-xs">Dimensions</dt><dd className="font-semibold text-navy">{order.dimensions}</dd></div>
-            <div><dt className="text-muted-foreground text-xs">Quantity</dt><dd className="font-semibold text-navy">{order.quantity}</dd></div>
-            <div><dt className="text-muted-foreground text-xs">Due</dt><dd className="font-semibold text-navy">{formatDue(order.preferredDueDate)}</dd></div>
-            <div><dt className="text-muted-foreground text-xs">Priority</dt><dd className="font-semibold text-navy">{order.priority}</dd></div>
-            <div><dt className="text-muted-foreground text-xs">Status</dt><dd className="font-semibold text-navy">{order.status}</dd></div>
-            {order.amount !== undefined ? (
-              <div className="col-span-2 flex items-center justify-between border-t border-dashed border-line pt-3 mt-2">
-                <dt className="text-muted-foreground text-xs">Total</dt>
-                <dd className="font-bold text-navy">ETB {order.amount.toLocaleString()}</dd>
-              </div>
-            ) : null}
-          </dl>
-        </div>
-        <p className="text-[10px] text-gray-400">Handled by YT Advertising reception · {new Date().toLocaleString("en-ET")}</p>
-      </div>
-    </ModalShell>
-  );
-}
-
-export type InvoiceInput = {
-  type: "PROFORMA" | "TAX_INVOICE";
-  companyLegalName?: string;
-  tinNumber?: string;
-  taxRate: number;
-  lineItems: Array<{ description: string; quantity: number; unit: string; unitPrice: number; lineTotal: number }>;
-};
-
-export function OrderInvoiceModal({ order, onClose, onPrint, onSave }: { order: CustomerOrder; onClose: () => void; onPrint: () => void; onSave: (order: CustomerOrder, input: InvoiceInput) => void | Promise<void> }) {
-  const [type, setType] = useState<InvoiceInput["type"]>(order.invoiceType ?? "PROFORMA");
-  const [companyLegalName, setCompanyLegalName] = useState(order.companyLegalName ?? order.clientName);
-  const [tinNumber, setTinNumber] = useState(order.tinNumber ?? "");
-  const [taxRate, setTaxRate] = useState(order.taxRate ?? 0);
-  const [unitPrice, setUnitPrice] = useState(order.amount ?? 0);
-  const subtotal = Number(unitPrice.toFixed(2));
-  const taxAmount = Number((subtotal * taxRate / 100).toFixed(2));
-  const total = Number((subtotal + taxAmount).toFixed(2));
-  async function issueInvoice() {
-    await onSave(order, { type, companyLegalName: companyLegalName.trim() || undefined, tinNumber: tinNumber.trim() || undefined, taxRate, lineItems: [{ description: `${getServiceLabel(order.serviceType) ?? order.serviceType} · ${order.dimensions}`, quantity: 1, unit: order.quantity, unitPrice, lineTotal: subtotal }] });
-    onClose();
-  }
-
-  return (
-    <ModalShell
-      title={`${order.code} · Formal Invoice`}
-      subtitle="Issue a proforma or tax invoice. Billing visibility does not grant owner profitability access."
-      kicker="INVOICE DRAWER"
-      onClose={onClose}
-      footer={<div className="flex gap-3 justify-end"><Button type="button" variant="tertiary" onClick={onClose}>Cancel</Button><Button type="button" variant="secondary" onClick={onPrint}><Printer size={14} />Print preview</Button><Button type="button" variant="primary" onClick={() => void issueInvoice()}>Issue invoice <ArrowUpRight size={15} /></Button></div>}
-    >
-      <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-4 text-sm"><div><small className="text-muted-foreground">Client</small><br /><strong>{order.clientName}</strong></div><div><small className="text-muted-foreground">Order</small><br /><strong>{order.code}</strong></div></div>
-        <div className="grid grid-cols-2 gap-3"><label className="block"><span className="block text-xs font-semibold mb-1">Document type</span><select value={type} onChange={(event) => setType(event.target.value as InvoiceInput["type"])} className="w-full px-3 py-2 border border-line rounded-lg bg-white"><option value="PROFORMA">Proforma</option><option value="TAX_INVOICE">Tax Invoice</option></select></label><label className="block"><span className="block text-xs font-semibold mb-1">TIN number</span><input value={tinNumber} onChange={(event) => setTinNumber(event.target.value)} className="w-full px-3 py-2 border border-line rounded-lg bg-white" /></label></div>
-        <label className="block"><span className="block text-xs font-semibold mb-1">Legal company name</span><input value={companyLegalName} onChange={(event) => setCompanyLegalName(event.target.value)} className="w-full px-3 py-2 border border-line rounded-lg bg-white" /></label>
-        <div className="rounded-lg border border-line overflow-hidden"><div className="grid grid-cols-[2fr_1fr_1fr] gap-3 bg-gray-50 px-4 py-3 text-xs font-semibold"><span>Line item</span><span>Unit price</span><span>Total</span></div><div className="grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-3 text-sm items-center"><span>{getServiceLabel(order.serviceType) ?? order.serviceType} · {order.dimensions}<small className="block text-xs text-muted-foreground">Qty {order.quantity}</small></span><input type="number" min="0" step="0.01" value={unitPrice} onChange={(event) => setUnitPrice(Math.max(0, Number(event.target.value)))} className="w-full px-2 py-1 border border-line rounded" /><strong>ETB {subtotal.toFixed(2)}</strong></div></div>
-        <label className="block max-w-[180px]"><span className="block text-xs font-semibold mb-1">Tax rate (%)</span><input type="number" min="0" max="100" step="0.01" value={taxRate} onChange={(event) => setTaxRate(Math.max(0, Math.min(100, Number(event.target.value))))} className="w-full px-3 py-2 border border-line rounded-lg bg-white" /></label>
-        <div className="ml-auto max-w-xs space-y-2 border-t border-line pt-3 text-sm"><div className="flex justify-between"><span>Subtotal</span><strong>ETB {subtotal.toFixed(2)}</strong></div><div className="flex justify-between"><span>Tax ({taxRate}%)</span><strong>ETB {taxAmount.toFixed(2)}</strong></div><div className="flex justify-between text-base"><span>Total</span><strong>ETB {total.toFixed(2)}</strong></div></div>
-      </div>
-    </ModalShell>
-  );
-}
-
 export function OrderPriceModal({ order, onClose, onSave }: { order: CustomerOrder; onClose: () => void; onSave: (amount: number) => void }) {
-  const [amount, setAmount] = useState(order.amount || 0);
+  const [amount, setAmount] = useState(String(order.amount || ""));
+  const [amountValid, setAmountValid] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const parsedAmount = Number(amount);
+  const hasValidationError = !amount.trim() || !amountValid || !Number.isFinite(parsedAmount) || parsedAmount <= 0;
 
   return (
     <ModalShell
@@ -452,11 +360,11 @@ export function OrderPriceModal({ order, onClose, onSave }: { order: CustomerOrd
           <Button 
             type="submit" 
             variant="primary" 
-            disabled={submitting || amount <= 0}
-            onClick={() => {
-              if (submitting || amount <= 0) return;
-              setSubmitting(true);
-              onSave(amount);
+             disabled={submitting || hasValidationError}
+             onClick={() => {
+               if (submitting || hasValidationError) return;
+               setSubmitting(true);
+               onSave(parsedAmount);
             }}
           >
             {submitting ? "Saving…" : "Set Price & Request Payment"}
@@ -480,14 +388,15 @@ export function OrderPriceModal({ order, onClose, onSave }: { order: CustomerOrd
 
         <label className="block">
           <span className="block text-sm font-semibold text-navy mb-2">Final Total Price (ETB)</span>
-          <input 
-            type="number" 
-            min="0" 
-            step="0.01" 
-            value={amount} 
-            onChange={(event) => setAmount(Number(event.target.value))}
-            className="w-full px-3 py-2 bg-white border border-line rounded-lg text-sm text-ink outline-none focus:border-cyan"
-          />
+           <NumericInput
+             min={0}
+             step="0.01"
+             value={amount}
+             emptyValue={0}
+             onChange={setAmount}
+             onValidityChange={setAmountValid}
+             className="w-full px-3 py-2 bg-white border border-line rounded-lg text-sm text-ink outline-none focus:border-cyan"
+           />
         </label>
       </div>
     </ModalShell>
@@ -495,56 +404,17 @@ export function OrderPriceModal({ order, onClose, onSave }: { order: CustomerOrd
 }
 
 export function OrderConfirmModal({ order, machines, materials, onClose, onSave }: { order: CustomerOrder; machines: Machine[]; materials: Material[]; onClose: () => void; onSave: (input: { paymentDecision: "PAID" | "APPROVED_CREDIT"; paymentMethod?: string; machineId: string; materialId: string; quantity: number; unit: Material["unit"]; priority?: OrderPriority }) => void }) {
+  const [machineId, setMachineId] = useState(machines[0]?.id ?? "");
+  const [materialId, setMaterialId] = useState(materials[0]?.id ?? "");
+  const [quantity, setQuantity] = useState("1");
+  const [quantityValid, setQuantityValid] = useState(true);
   const [paymentDecision, setPaymentDecision] = useState<"PAID" | "APPROVED_CREDIT">("PAID");
   const [paymentMethod, setPaymentMethod] = useState("");
   const [submitting, setSubmitting] = useState(false);
-
-  // Automated Machine Assignment & Job Card Allocation based on service catalog routing
-  const routing = SERVICE_ROUTING_MAP[order.serviceType];
-
-  const autoMachine = useMemo(() => {
-    if (!routing) return machines[0];
-    return (
-      machines.find((m) => m.code === routing.preferredMachineCode && m.status !== "Maintenance" && m.status !== "Unavailable") ||
-      machines.find((m) => m.code === routing.preferredMachineCode) ||
-      machines[0]
-    );
-  }, [machines, routing]);
-
-  const autoMaterial = useMemo(() => {
-    if (!routing) return materials[0];
-    const targetName = routing.primaryMaterialName.toLowerCase();
-    return (
-      materials.find((m) => m.name.toLowerCase() === targetName) ||
-      materials.find((m) => m.name.toLowerCase().includes(targetName)) ||
-      materials[0]
-    );
-  }, [materials, routing]);
-
-  // Automated calculation of planned usage with Owner-Configured Standard Waste Margin
-  const plannedQuantity = useMemo(() => {
-    let baseQty = 1;
-    const dimMatch = order.dimensions?.match(/([\d.]+)\s*(?:[xX*×\s])\s*([\d.]+)/);
-    const parsedQty = parseFloat(order.quantity) || 1;
-    if (dimMatch) {
-      const length = parseFloat(dimMatch[1]);
-      const width = parseFloat(dimMatch[2]);
-      if (!isNaN(length) && !isNaN(width) && length > 0 && width > 0) {
-        baseQty = length * width * parsedQty;
-      } else {
-        baseQty = parsedQty;
-      }
-    } else {
-      baseQty = parsedQty;
-    }
-    const wasteMargin = routing?.defaultWasteMarginPercent ?? 5;
-    return Number((baseQty * (1 + wasteMargin / 100)).toFixed(2));
-  }, [order.dimensions, order.quantity, routing]);
-
-  const machineId = autoMachine?.id ?? "";
-  const materialId = autoMaterial?.id ?? "";
-  const hasShortfall = autoMaterial ? plannedQuantity > autoMaterial.quantity : false;
-  const isMachineUnavailable = autoMachine?.status === "Maintenance" || autoMachine?.status === "Unavailable";
+  const material = materials.find((entry) => entry.id === materialId);
+  const machine = machines.find((entry) => entry.id === machineId);
+  const parsedQuantity = Number(quantity);
+  const hasQuantityError = !quantity.trim() || !quantityValid || !Number.isFinite(parsedQuantity) || parsedQuantity <= 0;
 
   return (
     <ModalShell
@@ -558,9 +428,9 @@ export function OrderConfirmModal({ order, machines, materials, onClose, onSave 
           <Button 
             type="submit" 
             variant="primary" 
-            disabled={submitting || !machineId || !materialId || plannedQuantity <= 0 || isMachineUnavailable || (paymentDecision === "PAID" && !paymentMethod.trim())}
+             disabled={submitting || !machineId || !materialId || hasQuantityError || (paymentDecision === "PAID" && !paymentMethod.trim())}
             onClick={() => {
-              if (submitting || !machineId || !materialId || plannedQuantity <= 0 || isMachineUnavailable) return;
+               if (submitting || !machineId || !materialId || hasQuantityError) return;
               if (paymentDecision === "PAID" && !paymentMethod.trim()) return;
               setSubmitting(true);
               onSave({ 
@@ -568,8 +438,8 @@ export function OrderConfirmModal({ order, machines, materials, onClose, onSave 
                 paymentMethod: paymentDecision === "PAID" ? paymentMethod.trim() : undefined,
                 machineId, 
                 materialId, 
-                quantity: plannedQuantity, 
-                unit: autoMaterial?.baseUnit ?? autoMaterial?.unit ?? "m²", 
+                 quantity: parsedQuantity,
+                unit: material?.baseUnit ?? material?.unit ?? "m²", 
                 priority: order.priority 
               });
             }}
@@ -641,54 +511,60 @@ export function OrderConfirmModal({ order, machines, materials, onClose, onSave 
           )}
         </div>
 
-        {/* Automated Resource Assignment Cards */}
-        <div className="space-y-3 p-4 bg-surface rounded-lg border border-line">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-navy flex items-center gap-2">
-              <Cpu size={16} className="text-cyan" /> Automated Machine & Material Assignment
-            </span>
-            <span className="text-xs text-muted-foreground">Strict ERP Mapping</span>
-          </div>
+        {/* Production Assignment */}
+        <div className="space-y-4">
+          <label className="block">
+            <span className="block text-sm font-semibold text-navy mb-2">Assigned machine</span>
+            <select 
+              value={machineId} 
+              onChange={(event) => setMachineId(event.target.value)}
+              className="w-full px-3 py-2 bg-white border border-line rounded-lg text-sm text-ink outline-none focus:border-cyan"
+            >
+              {machines.map((entry) => (
+                <option key={entry.id} value={entry.id}>{entry.name} · {entry.code} · {entry.status}</option>
+              ))}
+            </select>
+          </label>
+          {machine && (machine.status === "Maintenance" || machine.status === "Unavailable") ? (
+            <p className="text-sm text-danger">{machine.name} is {machine.status.toLowerCase()} and cannot accept new jobs.</p>
+          ) : null}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
-            {/* Machine Assignment */}
-            <div className="p-3 bg-muted/20 rounded-md border border-line/60">
-              <span className="text-xs text-muted-foreground block mb-1">Target Machine</span>
-              <strong className="text-sm text-navy block">{autoMachine?.name ?? "Machine Fleet Unavailable"}</strong>
-              <div className="flex items-center gap-2 mt-1.5">
-                <span className="text-xs text-muted-foreground">{autoMachine?.code}</span>
-                <span className="text-xs text-muted-foreground">·</span>
-                <span className={`text-xs font-medium ${isMachineUnavailable ? "text-danger" : "text-emerald-600"}`}>
-                  {autoMachine?.status ?? "Unknown"}
-                </span>
-              </div>
-              {isMachineUnavailable && (
-                <p className="text-xs text-danger mt-1">Machine under maintenance. Cannot dispatch jobs.</p>
-              )}
-            </div>
-
-            {/* Material & Ink Assignment */}
-            <div className="p-3 bg-muted/20 rounded-md border border-line/60">
-              <span className="text-xs text-muted-foreground block mb-1">Primary Material & Ink</span>
-              <strong className="text-sm text-navy block">{autoMaterial?.name ?? "Raw Material"}</strong>
-              <div className="text-xs text-muted-foreground mt-1.5 flex items-center gap-1.5">
-                <Layers size={12} />
-                <span>{routing?.compatibleInkName ? `Ink: ${routing.compatibleInkName}` : "Zero ink (Dry mechanical cut)"}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Planned Consumption Calculation */}
-          <div className="pt-2 border-t border-line/40">
-            <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-              <span>Calculated Production Input:</span>
-              <strong className="text-sm text-navy">
-                {plannedQuantity} {autoMaterial?.baseUnit ?? autoMaterial?.unit ?? "m²"}
-              </strong>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Includes <strong>{routing?.defaultWasteMarginPercent ?? 5}%</strong> Owner Standard Waste Margin · Max Allowed Scrap Limit: <strong>{routing?.maxScrapLimitPercent ?? 10}%</strong>.
+          <label className="block">
+            <span className="block text-sm font-semibold text-navy mb-2">Raw material</span>
+            <select 
+              value={materialId} 
+              onChange={(event) => setMaterialId(event.target.value)}
+              className="w-full px-3 py-2 bg-white border border-line rounded-lg text-sm text-ink outline-none focus:border-cyan"
+            >
+              {materials.map((entry) => (
+                <option key={entry.id} value={entry.id}>{entry.name} · {formatQuantity(entry.quantity, entry.baseUnit ?? entry.unit)}</option>
+              ))}
+            </select>
+          </label>
+           {material && parsedQuantity > material.quantity ? (
+             <p className="text-sm text-danger">
+               Stock shortfall — {material.name} has {formatQuantity(material.quantity, material.unit)} available but {parsedQuantity} {material?.baseUnit ?? material?.unit} is required.
             </p>
+          ) : null}
+
+          <label className="block">
+            <span className="block text-sm font-semibold text-navy mb-2">Planned material usage ({material?.baseUnit ?? material?.unit})</span>
+           <NumericInput
+             min={0.1}
+             step="0.1"
+             value={quantity}
+             emptyValue={0.1}
+             onChange={setQuantity}
+             onValidityChange={setQuantityValid}
+             className="w-full px-3 py-2 bg-white border border-line rounded-lg text-sm text-ink outline-none focus:border-cyan"
+           />
+          </label>
+
+          {/* Stock After Production */}
+          <div className="flex items-center gap-3 p-3 bg-green/10 rounded-lg border border-green/20">
+            <ArrowUpRight size={17} className="text-green flex-none" />
+            <span className="text-sm text-gray-600">Available after production</span>
+             <strong className="text-sm text-navy">{material ? formatQuantity(Math.max(0, material.quantity - parsedQuantity), material.unit) : "—"}</strong>
           </div>
 
           {/* Stock Alert */}

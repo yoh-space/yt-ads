@@ -8,10 +8,62 @@ import {
   ChevronRight,
   X,
 } from "lucide-react";
-import { canAccessView, getNavItemHref, navItems, type View } from "./nav-config";
+import { canAccessView, getNavItemHref, navItems } from "./nav-config";
+import type { View } from "@/types/dashboard-types";
 import type { Role } from "@/lib/operations-types";
+import type { WorkspaceDefinition } from "./workspace-registry";
 import { cn } from "@/lib/utils";
 
+/**
+ * Determines if a navigation view is active based on the current pathname.
+ * Handles nested routes and workspace-prefixed paths correctly.
+ */
+export function isViewActiveForPathname(pathname: string, href: string): boolean {
+  const p = pathname.replace(/\/+$/, "");
+  const h = href.replace(/\/+$/, "");
+
+  if (p === h) return true;
+
+  if (h.startsWith("/dashboard/")) {
+    const hSegments = h.split("/").filter(Boolean);
+    const isRoot =
+      hSegments.length === 2 ||
+      (hSegments.length === 3 && hSegments[1] === "operator");
+
+    if (isRoot) return false;
+    return p.startsWith(h + "/");
+  }
+
+  if (h !== "/dashboard") {
+    const hSegments = h.split("/").filter(Boolean);
+
+    if (hSegments.length === 1) {
+      const segments = p.split("/").filter(Boolean);
+      return segments.includes(hSegments[0]);
+    }
+
+    const pSegments = p.split("/").filter(Boolean);
+    if (pSegments[0] !== "dashboard" || pSegments.length < 2) return false;
+
+    const workspaceId = pSegments[1];
+    const bases = ["/dashboard/" + workspaceId];
+    if (workspaceId === "operator") {
+      // Operators may land on the shared workspace inventory route or a
+      // machine-specific route, depending on the feature being viewed.
+      bases.push("/dashboard/operator");
+      if (pSegments.length >= 3 && pSegments[2] !== "inventory" && pSegments[2] !== "settings") {
+        bases.push("/dashboard/operator/" + pSegments[2]);
+      }
+    }
+
+    for (const base of bases) {
+      const scopedHref = base + h;
+      if (p === scopedHref || p.startsWith(scopedHref + "/")) return true;
+    }
+  }
+
+  return false;
+}
 export function Sidebar({
   activeView,
   onNavigate,
@@ -24,6 +76,7 @@ export function Sidebar({
   activeMachinesCount,
   companyName,
   role,
+  workspace,
 }: {
   activeView?: View;
   onNavigate?: (view: View) => void;
@@ -31,15 +84,18 @@ export function Sidebar({
   onClose: () => void;
   onToggleSidebar: () => void;
   collapsed: boolean;
-  runningJobsCount: number;
-  ordersCount: number;
-  activeMachinesCount: number;
+  runningJobsCount?: number;
+  ordersCount?: number;
+  activeMachinesCount?: number;
   companyName?: string;
   logoUrl?: string;
   role: Role;
+  workspace?: WorkspaceDefinition;
 }) {
   const pathname = usePathname();
-  const visibleNavItems = navItems.filter(item => canAccessView(role, item.id));
+  const visibleNavItems = navItems.filter(item =>
+    workspace ? workspace.navViews.includes(item.id) : canAccessView(role, item.id),
+  );
 
   return (
     <aside
@@ -150,7 +206,7 @@ export function Sidebar({
                 const href = getNavItemHref(item.id, role);
                 const isActive = activeView
                   ? activeView === item.id
-                  : (pathname === href || (href !== "/dashboard" && pathname.startsWith(href)));
+                  : isViewActiveForPathname(pathname, href);
 
                 return (
                   <Link
@@ -202,17 +258,17 @@ export function Sidebar({
                       </span>
                     ) : null}
 
-                    {!collapsed && item.id === "orders" ? (
+                    {!collapsed && item.id === "orders" && ordersCount !== undefined ? (
                       <b className="ml-auto rounded-full bg-slate-600 px-2 py-0.5 font-mono text-[12px] text-red-400">
                         {ordersCount}
                       </b>
                     ) : null}
-                    {!collapsed && item.id === "machines" ? (
+                    {!collapsed && item.id === "machines" && activeMachinesCount !== undefined ? (
                       <b className="ml-auto rounded-full bg-cyan/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-cyan-dark">
                         {activeMachinesCount} Active
                       </b>
                     ) : null}
-                    {item.id === "jobs" && runningJobsCount > 0 ? (
+                    {item.id === "jobs" && runningJobsCount !== undefined && runningJobsCount > 0 ? (
                       <b
                         className={cn(
                           "grid place-items-center w-5 h-5 flex-none rounded-full bg-coral text-white text-[10px] font-bold font-mono",
@@ -250,17 +306,17 @@ export function Sidebar({
             )}
           >
             <Image
-              src="./logo.webp"
-              alt="Logo"
-              width={30}
-              height={30}
-              loader={imageLoader}
+              src="/logo.webp"
+              alt="YT Advertisement logo"
+              width={48}
+              height={48}
+              className="h-8 w-8 object-contain"
             />
           </div>
           {!collapsed ? (
             <div className="min-w-0">
               <strong className="block truncate text-[11px] font-semibold text-white">
-                {companyName ?? "YoTech Digitals"}
+                {companyName ?? "YT Advertisement"}
               </strong>
               <span className="block truncate text-[9px] text-gray-400">
                 Enterprise workflow · v1.0
@@ -273,14 +329,3 @@ export function Sidebar({
   );
 }
 
-const imageLoader = ({
-  src,
-  width,
-  quality,
-}: {
-  src: string;
-  width: number;
-  quality?: number;
-}) => {
-  return `${src}?w=${width}&q=${quality || 75}`;
-};

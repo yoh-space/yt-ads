@@ -19,7 +19,7 @@ const STATUS_STEP: Record<string, number> = {
   IN_PRODUCTION: 1,
   COMPLETED: 3,
   READY_FOR_PICKUP: 2,
-  Expired: 0,
+  EXPIRED: 0,
   EXPIRED_JUNK: 0,
 };
 

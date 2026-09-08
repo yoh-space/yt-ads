@@ -2,7 +2,7 @@
 
 import { Plus, Scale, Trash2 } from "lucide-react";
 import type { PurchaseUnit, Unit } from "@/lib/operations-types";
-import { Button, Input, Select } from "@/components/ui";
+import { Button, Input, NumericInput, Select } from "@/components/ui";
 import { FormSection } from "../../chrome/form";
 import type { ConversionRuleRow } from "../state";
 
@@ -28,14 +28,14 @@ export function ConversionSection({
     <FormSection
       icon={<Scale size={17} />}
       tone="cyan"
-      title="Unit Conversion Defaults"
-      note="Owner-governed rates apply to new stock handovers; historical ledger events keep their original rate."
+      title="base unit conversion ደንቦች"
+      note="በባለቤት ትእዛዝ ደንቦች አዲስ ስቶክ ማስተካከያ ይፈጸማል"
     >
       <div className="space-y-3">
         {rules.map((rule, index) => (
           <div
             key={`${rule.materialName}-${index}`}
-            className="grid gap-3 rounded-lg border border-line bg-gray-50/60 p-3 sm:grid-cols-[1.5fr_1fr_1fr_1fr_auto]"
+            className="grid gap-3 rounded-lg border border-border bg-navy/20 p-3 sm:grid-cols-[1.5fr_1fr_1fr_1fr_auto]"
           >
             <Input
               value={rule.materialName}
@@ -62,12 +62,16 @@ export function ConversionSection({
                 </option>
               ))}
             </Select>
-            <Input
-              type="number"
+            <NumericInput
               min={0}
               step="0.001"
               value={rule.conversionRatio}
-              onChange={(event) => updateRule(index, { conversionRatio: Number(event.target.value) })}
+              emptyValue={0}
+              onChange={(value) => {
+                if (value.trim() === "") return;
+                const parsed = Number(value);
+                if (Number.isFinite(parsed)) updateRule(index, { conversionRatio: parsed });
+              }}
               placeholder="Base units"
             />
             <Button
@@ -95,7 +99,7 @@ export function ConversionSection({
           <Plus size={15} />
           Add conversion rate
         </Button>
-        <p className="text-[11px] text-gray-500">
+        <p className="text-[11px] text-muted-foreground">
           For example, configure 1.0 m Roll to 53.3 m² or 1.5 m Roll to 75.0 m². Existing ledger
           events retain their original conversion snapshot.
         </p>

@@ -1,29 +1,36 @@
 "use client";
 
 import { AlertTriangle, CheckCircle2, ClipboardCheck, Scale } from "lucide-react";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { cn } from "@/lib/utils";
-import { Button, StatusPill } from "@/components/ui";
+import { Button, NumericInput, StatusPill } from "@/components/ui";
 import { ModalShell } from "../modals/modal-shell";
 import { useState } from "react";
+import type { OperatorStockEntry } from "@/types/dashboard-types";
 
 function formatNumber(n: number) {
   return n.toLocaleString("en-US", { maximumFractionDigits: 3 });
 }
 
-export function WeeklyReconciliationModal({ onClose }: { onClose: () => void }) {
-  const stock = useQuery(api.inventory.listOperatorMachineStock);
+export function WeeklyReconciliationModal({
+  stock,
+  onClose,
+}: {
+  stock: OperatorStockEntry[] | undefined;
+  onClose: () => void;
+}) {
   const reconcile = useMutation(api.inventory.performWeeklyReconciliation);
   const [submittingId, setSubmittingId] = useState<string | null>(null);
-  const [physicalCounts, setPhysicalCounts] = useState<Record<string, number>>({});
+  const [physicalCounts, setPhysicalCounts] = useState<Record<string, string>>({});
+  const [countValidity, setCountValidity] = useState<Record<string, boolean>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
 
   const activeStock = stock?.filter((s) => s.status === "ACTIVE") || [];
 
   const handleSubmit = async (stockId: string) => {
-    const physical = physicalCounts[stockId];
-    if (physical === undefined) return;
+    const physical = Number(physicalCounts[stockId]);
+    if (!Number.isFinite(physical) || physical < 0 || countValidity[stockId] === false) return;
     
     setSubmittingId(stockId);
     try {
@@ -49,24 +56,25 @@ export function WeeklyReconciliationModal({ onClose }: { onClose: () => void }) 
 
   return (
     <ModalShell
-      title="Weekly Floor Stock Reconciliation"
-      subtitle="Compare physical counts against system-calculated remaining stock"
-      kicker="WEEKLY AUDIT"
+      title="የማሽን ዕቃ ቆጠራ"
+      subtitle="በእጅ የቆጠሩትን ዕቃ ከሲስተሙ ቁጥር ጋር ያነጻጽሩ"
+      kicker="የዕቃ ማረጋገጫ"
       onClose={onClose}
       footer={
         <div className="flex gap-3 justify-end">
-          <Button type="button" variant="tertiary" onClick={onClose}>Close</Button>
+          <Button type="button" variant="tertiary" onClick={onClose}>ዝጋ</Button>
         </div>
       }
     >
       <div className="space-y-4">
         {activeStock.length === 0 ? (
           <div className="text-center py-8 text-sm text-gray-500">
-            No active floor stock to reconcile.
+            ለመቆጠር የሚጠበቅ የማሽን ዕቃ የለም።
           </div>
         ) : (
           activeStock.map((batch) => {
-            const physical = physicalCounts[batch._id] ?? batch.currentRemaining;
+            const physicalDraft = physicalCounts[batch._id] ?? String(batch.currentRemaining);
+            const physical = Number(physicalDraft);
             const discrepancy = Number((physical - batch.currentRemaining).toFixed(3));
             const hasDiscrepancy = Math.abs(discrepancy) > 0.001;
             const isShortage = discrepancy < 0;
@@ -92,16 +100,18 @@ export function WeeklyReconciliationModal({ onClose }: { onClose: () => void }) 
 
                 <div className="grid grid-cols-3 gap-4 text-sm">
                   <div>
-                    <span className="block text-xs text-gray-500 mb-1">System Remaining</span>
+                    <span className="block text-xs text-gray-500 mb-1">በሲስተም የቀረ</span>
                     <strong className="text-navy">{formatNumber(batch.currentRemaining)}</strong>
                   </div>
                   <div>
-                    <span className="block text-xs text-gray-500 mb-1">Physical Count</span>
-                    <input
-                      type="number"
+                    <span className="block text-xs text-gray-500 mb-1">በእጅ የቆጠሩት</span>
+                    <NumericInput
+                      min={0}
                       step="0.001"
-                      value={physical}
-                      onChange={(e) => setPhysicalCounts((prev) => ({ ...prev, [batch._id]: Number(e.target.value) }))}
+                      value={physicalDraft}
+                      emptyValue={0}
+                      onChange={(value) => setPhysicalCounts((prev) => ({ ...prev, [batch._id]: value }))}
+                      onValidityChange={(isValid) => setCountValidity((prev) => ({ ...prev, [batch._id]: isValid }))}
                       className={cn(
                         "w-full px-2 py-1 border border-line rounded text-sm text-ink outline-none focus:border-cyan",
                         hasDiscrepancy && "border-coral/50 bg-coral/5"
@@ -109,7 +119,7 @@ export function WeeklyReconciliationModal({ onClose }: { onClose: () => void }) 
                     />
                   </div>
                   <div>
-                    <span className="block text-xs text-gray-500 mb-1">Discrepancy</span>
+                    <span className="block text-xs text-gray-500 mb-1">ልዩነት</span>
                     <span className={cn("font-medium", isShortage ? "text-coral" : hasDiscrepancy ? "text-green" : "text-gray-600")}>
                       {isShortage ? "-" : hasDiscrepancy ? "+" : ""}{formatNumber(Math.abs(discrepancy))}
                     </span>
@@ -120,17 +130,17 @@ export function WeeklyReconciliationModal({ onClose }: { onClose: () => void }) 
                   <div className="flex items-start gap-2 p-2 bg-gold/10 border border-gold/20 rounded">
                     <AlertTriangle size={14} className="text-gold flex-none mt-0.5" />
                     <span className="text-xs text-gray-600">
-                      {isShortage ? "Shortage detected" : "Surplus detected"}: {formatNumber(Math.abs(discrepancy))} {batch.baseUnit}
+                      {isShortage ? "የዕቃ እጥረት ታይቷል" : "ከሚጠበቀው በላይ ተገኝቷል"}: {formatNumber(Math.abs(discrepancy))} {batch.baseUnit}
                     </span>
                   </div>
                 )}
 
                 <label className="block">
-                  <span className="block text-xs text-gray-500 mb-1">Notes (optional)</span>
+                  <span className="block text-xs text-gray-500 mb-1">ማስታወሻ (ካለ)</span>
                   <textarea
                     value={notes[batch._id] ?? ""}
                     onChange={(e) => setNotes((prev) => ({ ...prev, [batch._id]: e.target.value }))}
-                    placeholder="Reason for discrepancy, waste notes, etc."
+                    placeholder="ስለ ልዩነቱ፣ ብክነት ወይም ሌላ ማስታወሻ ይጻፉ"
                     className="w-full px-2 py-1 border border-line rounded text-sm text-ink outline-none focus:border-cyan resize-none"
                     rows={2}
                   />
@@ -140,10 +150,10 @@ export function WeeklyReconciliationModal({ onClose }: { onClose: () => void }) 
                   <Button
                     size="small"
                     variant="primary"
-                    disabled={submittingId === batch._id || physical === batch.currentRemaining}
+                    disabled={submittingId === batch._id || !physicalDraft.trim() || countValidity[batch._id] === false || !Number.isFinite(physical) || physical === batch.currentRemaining}
                     onClick={() => handleSubmit(batch._id)}
                   >
-                    {submittingId === batch._id ? "Submitting…" : "Submit Reconciliation"}
+                    {submittingId === batch._id ? "በመላክ ላይ…" : "ቆጠራውን ላክ"}
                   </Button>
                 </div>
               </div>

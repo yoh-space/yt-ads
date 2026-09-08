@@ -59,15 +59,17 @@ export function useSafeMutation() {
       promise: Promise<Result>,
       onSuccess?: (result: Result) => void,
       onError?: (error: unknown) => void,
-    ) => {
-      if (isPending(key)) return;
+    ): Promise<boolean> => {
+      if (isPending(key)) return Promise.resolve(false);
       startPending(key);
-      void promise
+      return promise
         .then((result) => {
           onSuccess?.(result);
+          return true;
         })
         .catch((error: unknown) => {
           onError?.(error);
+          return false;
         })
         .finally(() => {
           finishPending(key);

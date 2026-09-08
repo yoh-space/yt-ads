@@ -5,7 +5,7 @@ type Vars = Record<string, string | number>;
 export const copy = {
   am: {
     start: "እንኳን ወደ <b>YT Advertisement</b> የቴሌግራም ቦት በደህና መጡ! 🖨️\n\nእኛ ጋር የህትመት፣ የፖስተርና የማስታወቂያ ስራዎችን በዚህ ቴሌግራም ቦት አማካኝነት ማዘዝ ይችላሉ። ትዕዛዝ ለማስመዝገብ መጀመሪያ የስልክ ቁጥርዎ ያስፈልገናል።\n\nከታች <b>« 📱 ስልክ ቁጥርዎን ያጋሩን (Share Contact) »</b> የሚለውን ቁልፍ ተጭነው ቁጥርዎን ያጋሩ።",
-    contactSaved: "✅ ስልክ ቁጥርዎ ተመዝግቧል (<code>{phone}</code>)።\n\nአሁን በ Mini App ውስጥ ዋጋዎችን በምስል አይተው ትዕዛዝ ማዘዝ ይችላሉ — ከታች ያለውን ቁልፍ ይጫኑ።",
+    contactSaved: "✅ ስልክ ቁጥርዎ ተመዝግቧል (<code>{phone}</code>)።\n\nአሁን በ Mini App ትዕዛዝ ማዘዝ ይችላሉ — ከታች ያለውን ቁልፍ ይጫኑ።",
     mainIntro: "ከታች ካለው ምርጫ የሚፈልጉትን ይምረጡ።",
     serviceChoice: "ምን አይነት የህትመት ስራ ማዘዝ ይፈልጋሉ?",
     serviceSpecPrompt: "የሚፈልጉትን ስራ ይጻፉ ለምሳሌ፦ <i>የመኪና ስቲከር</i>፣ <i>UV ህትመት</i> ወይም <i>CNC የአሽከርካሪ ሰሌዳ</i>።",
@@ -122,29 +122,14 @@ export function statusLabel(lang: Language, status: string): string {
 
 import { getServiceLabel } from "@/constants/services";
 
-const LEGACY_SERVICE_LABELS: Record<string, { en: string; am: string }> = {
-  banner: { en: "Banner (Flex)", am: "ባነር (ፍሌክስ)" },
-  sticker: { en: "Sticker", am: "ስቲከር" },
-  acrylic: { en: "Acrylic", am: "አክሪሊክ" },
-};
-
 export function serviceLabel(lang: Language, serviceId: string): string {
   const label = getServiceLabel(serviceId, lang === "am" ? "am" : "en");
-  if (label) return label;
-  if (LEGACY_SERVICE_LABELS[serviceId]) {
-    return lang === "am" ? LEGACY_SERVICE_LABELS[serviceId].am : LEGACY_SERVICE_LABELS[serviceId].en;
-  }
-  return serviceId;
+  return label ?? serviceId;
 }
 
 /** Canonical service type stored on the order for a selected service id. */
 export function serviceTypeFor(serviceId: string): string {
-  const label = getServiceLabel(serviceId, "en");
-  if (label) return label;
-  if (LEGACY_SERVICE_LABELS[serviceId]) {
-    return LEGACY_SERVICE_LABELS[serviceId].en;
-  }
-  return serviceId;
+  return getServiceLabel(serviceId, "en") ?? serviceId;
 }
 
 export function formatOrderSummary(lang: Language, draft: OrderDraft, code: string): string {

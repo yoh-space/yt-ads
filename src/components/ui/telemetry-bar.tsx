@@ -25,7 +25,7 @@ export interface TelemetryBarProps extends HTMLAttributes<HTMLDivElement> {
   scroll?: boolean;
 }
 
-export function TelemetryBar({ className, items, channel = "PRESS FLOOR TELEMETRY LIVE", scroll = true, ...props }: TelemetryBarProps) {
+export function TelemetryBar({ className, items, channel = "የማሽኖች ወቅታዊ ሁኔታ", scroll = true, ...props }: TelemetryBarProps) {
   const group = (keyPrefix: string) => (
     <div key={keyPrefix} className="flex items-center flex-none" aria-hidden={keyPrefix !== "a"}>
       {items.map((item, index) => (

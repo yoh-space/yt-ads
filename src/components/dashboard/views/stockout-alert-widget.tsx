@@ -50,8 +50,8 @@ export function StockoutAlertWidget({ onNavigateToInventory, canViewFinancial = 
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="font-mono text-xs font-semibold uppercase tracking-[0.14em] text-neutral-100 leading-none">
-                የዕቃዎች ክምችት ማስጠንቀቂያ (STOCKOUT RADAR)
+              <h3 className="font-mono text-md font-semibold uppercase tracking-[0.14em] text-neutral-100 leading-none">
+                የዕቃዎች ክምችት ማስጠንቀቂያ
               </h3>
               {totalAtRisk > 0 ? (
                 <span className="px-1.5 py-0.5 rounded-sm bg-rose-950/80 text-rose-300 border border-rose-600/40 text-[10px] font-mono">

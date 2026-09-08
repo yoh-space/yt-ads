@@ -17,10 +17,13 @@ import {
 import { InventoryLoader } from "@/components/dashboard/inventory-loader";
 import { useSafeMutation } from "@/components/dashboard/pending-store";
 import { useDashboardModal } from "@/components/dashboard/modal-context";
-import { StatusPill } from "@/components/ui/status-pill";
+import { NumericInput, StatusPill } from "@/components/ui";
 import { formatQuantity } from "@/lib/units";
 import { OperatorStockWidget } from "@/components/dashboard/views/operator-stock";
+import type { OperatorStockEntry } from "@/types/dashboard-types";
 import type { JobCard, Machine } from "@/lib/operations-types";
+import type { AccessContext } from "@/lib/access-policy";
+import { WorkspaceModuleGate } from "@/components/dashboard/workspace-renderer";
 
 type WithId<T extends { _id: string }> = Omit<T, "_id"> & { id: T["_id"] };
 
@@ -41,7 +44,9 @@ export default function OperatorMachinePage({
   const router = useRouter();
 
   const profile = useQuery(api.users.getCurrentProfile);
-  const state = useQuery(api.dashboard.getState, profile?.active ? {} : "skip");
+  const machinesQuery = useQuery(api.machines.list, profile?.active ? {} : "skip");
+  const jobsQuery = useQuery(api.jobs.list, profile?.active ? {} : "skip");
+  const floorStockQuery = useQuery(api.inventory.listOperatorMachineStock, profile?.active ? {} : "skip");
   const unclearedStockQuery = useQuery(api.inventory.myUnclearedStock, profile?.active ? {} : "skip");
 
   const { openModal } = useDashboardModal();
@@ -50,20 +55,21 @@ export default function OperatorMachinePage({
   const completeJobMutation = useMutation(api.jobs.complete);
   const recordProductionMutation = useMutation(api.jobs.recordProduction);
 
-  const [inputQuantity, setInputQuantity] = useState<number>(0);
-  const [outputQuantity, setOutputQuantity] = useState<number>(0);
-  const [wasteQuantity, setWasteQuantity] = useState<number>(0);
+  const [inputQuantity, setInputQuantity] = useState("");
+  const [outputQuantity, setOutputQuantity] = useState("");
+  const [wasteQuantity, setWasteQuantity] = useState("");
+  const [productionInputsValid, setProductionInputsValid] = useState({ input: true, output: true, waste: true });
 
-  if (!profile || !state) {
+  if (!profile || machinesQuery === undefined || jobsQuery === undefined) {
     return (
       <div className="flex min-h-[400px] items-center justify-center">
-        <InventoryLoader label={`Loading ${machineParam.toUpperCase()} Operator Workspace…`} />
+        <InventoryLoader label={`የ${machineParam.toUpperCase()} ኦፕሬተር ገጽ በመጫን ላይ…`} />
       </div>
     );
   }
 
-  const machines = withIds(state.machines) as Machine[];
-  const jobs = withIds(state.jobs) as JobCard[];
+  const machines = withIds(machinesQuery) as Machine[];
+  const jobs = withIds(jobsQuery) as JobCard[];
 
   // Find machine matching slug (e.g. "laser", "cnc", "plotter", "printer")
   const currentMachine =
@@ -74,15 +80,32 @@ export default function OperatorMachinePage({
   const machineJobs = jobs.filter(
     (j) => currentMachine && j.machineId === currentMachine.id
   );
-  const activeJob = machineJobs.find((j) => j.status === "In production") ?? machineJobs[0];
+  const activeJob = machineJobs.find((j) => j.status === "In production") ?? machineJobs.find((j) => j.status === "Queued");
+  const completedJob = machineJobs.find((j) => j.status === "Completed");
+  const displayedJob = activeJob ?? completedJob;
+  const isCompletedJob = displayedJob?.status === "Completed";
+  const accessContext: AccessContext = {
+    profile: { role: profile.role, active: profile.active },
+    attributes: {
+      machineId: currentMachine?.id,
+      machineType: machineParam as "laser" | "cnc" | "plotter" | "printer",
+    },
+  };
 
   // Clearance Gate Rule: If active sub-stock status is PENDING_CLEARANCE,
   // disable material requests and display the clearance alert banner
   const hasPendingClearance = (unclearedStockQuery ?? []).some(
     (batch) => batch.status === "PENDING_CLEARANCE"
   );
+  const hasManualProductionDraft = Boolean(inputQuantity.trim() || outputQuantity.trim() || wasteQuantity.trim());
+  const hasProductionValidationError = hasManualProductionDraft && (
+    !productionInputsValid.input ||
+    !productionInputsValid.output ||
+    !productionInputsValid.waste
+  );
 
   return (
+    <WorkspaceModuleGate context={accessContext} moduleId="jobs.queue">
     <div className="space-y-6">
       {/* Top Banner if Active Sub-stock is PENDING_CLEARANCE */}
       {hasPendingClearance ? (
@@ -93,21 +116,21 @@ export default function OperatorMachinePage({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <strong className="text-sm font-bold text-amber-300">
-                CLEARANCE GATE: PENDING APPROVAL
+                የቀሪ እቃ ማረጋገጫ ይጠበቃል
               </strong>
               <span className="font-mono text-[10px] px-1.5 py-0.5 rounded-sm bg-amber-500/20 text-amber-300 border border-amber-500/30 uppercase">
-                LOCKED
+                ተቆልፏል
               </span>
             </div>
             <p className="text-xs text-amber-200/80 mt-0.5">
-              Active floor sub-stock has batches pending weekly reconciliation clearance. Material requisition actions are temporarily locked until approved by the owner or manager.
+              በማሽኑ ላይ ያለው ዕቃ መቆጠርና መረጋገጥ አለበት። ባለቤቱ ወይም ሥራ አስኪያጁ እስኪያጸድቁ ድረስ አዲስ ዕቃ መጠየቅ አይቻልም።
             </p>
           </div>
           <button
             onClick={() => router.push("/inventory/substock")}
             className="flex-none px-3 py-1.5 rounded-sm border border-amber-500/40 bg-amber-900/40 text-xs font-semibold text-amber-200 hover:bg-amber-800/60 transition-colors"
           >
-            Review Sub-Stock
+            የዚህ ማሽን እቃ ክምችት ተመልከት
           </button>
         </div>
       ) : null}
@@ -116,7 +139,7 @@ export default function OperatorMachinePage({
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#1E293B] pb-5">
         <div>
           <span className="font-mono text-xs uppercase tracking-widest text-[#00B4D8]">
-            Operator Console · {machineParam.toUpperCase()}
+            የኦፕሬተር መቆጣጠሪያ · {machineParam.toUpperCase()}
           </span>
           <h1 className="text-2xl font-bold tracking-tight text-white mt-0.5 flex items-center gap-2">
             {currentMachine?.name ?? `${machineParam.toUpperCase()} Machine`}
@@ -127,7 +150,7 @@ export default function OperatorMachinePage({
             ) : null}
           </h1>
           <p className="text-xs text-slate-400 mt-1">
-            Machine Code: {currentMachine?.code ?? "—"} · Material Unit: {currentMachine?.materialUnit ?? "m²"} tracking
+            የማሽን መለያ: {currentMachine?.code ?? "—"} · የሚለካበት መለኪያ: {currentMachine?.materialUnit ?? "m²"}
           </p>
         </div>
 
@@ -136,7 +159,7 @@ export default function OperatorMachinePage({
             onClick={() => router.push("/inventory/substock")}
             className="px-3.5 py-1.5 rounded-sm border border-[#1E293B] bg-[#14161D] text-xs font-semibold text-slate-300 hover:text-white hover:border-[#00B4D8] transition-colors"
           >
-            Floor Sub-Stock
+            የማሽን ዕቃ
           </button>
 
           {/* Material Request Action — Locked if hasPendingClearance */}
@@ -146,8 +169,8 @@ export default function OperatorMachinePage({
             onClick={() => openModal("request")}
             title={
               hasPendingClearance
-                ? "Material requests locked: weekly reconciliation clearance pending"
-                : "Request materials from storekeeper"
+                ? "የዕቃ ቆጠራ ማረጋገጫ ስላልተጠናቀቀ አዲስ ዕቃ መጠየቅ አይቻልም"
+                : "ከግምጃ ቤት ዕቃ ይጠይቁ"
             }
             className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-sm text-xs font-semibold transition-colors ${
               hasPendingClearance
@@ -156,7 +179,7 @@ export default function OperatorMachinePage({
             }`}
           >
             {hasPendingClearance ? <Lock size={13} /> : <Plus size={13} />}
-            {hasPendingClearance ? "Requisition Locked" : "Request Material"}
+            {hasPendingClearance ? "የዕቃ ጥያቄ ተቆልፏል" : "ዕቃ ጠይቅ"}
           </button>
         </div>
       </div>
@@ -168,69 +191,79 @@ export default function OperatorMachinePage({
           <div className="border border-[#1E293B] rounded-sm bg-[#14161D] p-5">
             <div className="flex items-center justify-between border-b border-[#1E293B] pb-3 mb-4">
               <span className="font-mono text-xs uppercase tracking-wider text-[#00B4D8]">
-                Current Production Job Card
+                አሁን ያለ የስራ ትእዛዝ የምርት መረጃ
               </span>
-              {activeJob ? (
-                <StatusPill variant={activeJob.status === "In production" ? "info" : "neutral"}>
-                  {activeJob.status}
+              {displayedJob ? (
+                <StatusPill variant={displayedJob.status === "In production" ? "info" : "neutral"}>
+                  {displayedJob.status}
                 </StatusPill>
               ) : null}
             </div>
 
-            {activeJob ? (
+            {displayedJob ? (
               <div className="space-y-4">
                 <div className="flex items-start justify-between">
                   <div>
-                    <span className="font-mono text-xs font-bold text-[#00B4D8]">{activeJob.code}</span>
-                    <h2 className="text-lg font-bold text-white mt-0.5">{activeJob.title}</h2>
-                    <p className="text-xs text-slate-400">Client: {activeJob.client}</p>
+                    <span className="font-mono text-xs font-bold text-[#00B4D8]">{displayedJob.code}</span>
+                    <h2 className="text-lg font-bold text-white mt-0.5">{displayedJob.title}</h2>
+                    <p className="text-xs text-slate-400">ደንበኛ: {displayedJob.client}</p>
                   </div>
                   <div className="text-right">
-                    <span className="text-[10px] uppercase text-slate-400 font-mono block">Target Volume</span>
+                    <span className="text-[10px] text-slate-400 font-mono block">የሚመረተው መጠን</span>
                     <span className="font-mono text-lg font-bold text-white">
-                      {formatQuantity(activeJob.quantity, activeJob.unit)}
+                      {formatQuantity(displayedJob.quantity, displayedJob.unit)}
                     </span>
                   </div>
                 </div>
 
+                {isCompletedJob ? (
+                  <div className="rounded-sm border border-emerald-500/30 bg-emerald-950/20 p-4 text-sm text-emerald-200">
+                    <div className="flex items-center gap-2 font-semibold">
+                      <CheckCircle2 size={16} />
+                      ይህ የስራ ካርድ ተጠናቅቋል። የምርት መረጃ ማስተካከያ ተቆልፏል።
+                    </div>
+                    <p className="mt-2 text-xs text-emerald-200/80">የተጠናቀቀ ስራ እንደገና ሊመዘገብ ወይም ሊጠናቀቅ አይችልም።</p>
+                  </div>
+                ) : (
+                <>
                 {/* Production Input / Output Logging */}
                 <div className="p-4 rounded-sm border border-[#1E293B] bg-[#0C0D10]/60 space-y-4">
                   <span className="font-mono text-[10px] uppercase tracking-wider text-slate-400 block">
-                    Record Run Telemetry ({activeJob.unit})
+                    የምርት መረጃ መዝግብ ({displayedJob.unit})
                   </span>
                   <div className="grid grid-cols-3 gap-3">
                     <div>
-                      <label className="block text-[11px] text-slate-400 mb-1">Material Input</label>
-                      <input
-                        type="number"
-                        min="0"
+                      <label className="block text-[11px] text-slate-400 mb-1">የገባ ዕቃ</label>
+                      <NumericInput
+                        min={0}
                         step="0.1"
-                        value={inputQuantity || ""}
-                        onChange={(e) => setInputQuantity(Number(e.target.value))}
-                        placeholder={String(activeJob.quantity)}
+                        value={inputQuantity}
+                        onChange={setInputQuantity}
+                        onValidityChange={(isValid) => setProductionInputsValid((current) => ({ ...current, input: isValid }))}
+                        placeholder={String(displayedJob.quantity)}
                         className="w-full px-3 py-1.5 rounded-sm border border-[#1E293B] bg-[#14161D] text-xs font-mono text-white focus:outline-none focus:border-[#00B4D8]"
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] text-slate-400 mb-1">Good Output</label>
-                      <input
-                        type="number"
-                        min="0"
+                      <label className="block text-[11px] text-slate-400 mb-1">ጥሩ ውጤት</label>
+                      <NumericInput
+                        min={0}
                         step="0.1"
-                        value={outputQuantity || ""}
-                        onChange={(e) => setOutputQuantity(Number(e.target.value))}
-                        placeholder={String(activeJob.quantity)}
+                        value={outputQuantity}
+                        onChange={setOutputQuantity}
+                        onValidityChange={(isValid) => setProductionInputsValid((current) => ({ ...current, output: isValid }))}
+                        placeholder={String(displayedJob.quantity)}
                         className="w-full px-3 py-1.5 rounded-sm border border-[#1E293B] bg-[#14161D] text-xs font-mono text-white focus:outline-none focus:border-[#00B4D8]"
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] text-slate-400 mb-1">Waste / Scrap</label>
-                      <input
-                        type="number"
-                        min="0"
+                      <label className="block text-[11px] text-slate-400 mb-1">ብክነት / ተጥሎ የቀረ</label>
+                      <NumericInput
+                        min={0}
                         step="0.1"
-                        value={wasteQuantity || ""}
-                        onChange={(e) => setWasteQuantity(Number(e.target.value))}
+                        value={wasteQuantity}
+                        onChange={setWasteQuantity}
+                        onValidityChange={(isValid) => setProductionInputsValid((current) => ({ ...current, waste: isValid }))}
                         placeholder="0.0"
                         className="w-full px-3 py-1.5 rounded-sm border border-[#1E293B] bg-[#14161D] text-xs font-mono text-white focus:outline-none focus:border-[#00B4D8]"
                       />
@@ -240,36 +273,36 @@ export default function OperatorMachinePage({
                   <div className="flex items-center justify-end gap-3 pt-2">
                     <button
                       type="button"
-                      disabled={isPending(`prod-${activeJob.id}`)}
+                      disabled={isPending(`prod-${displayedJob.id}`) || !hasManualProductionDraft || hasProductionValidationError}
                       onClick={() => {
                         void safeMutation(
-                          `prod-${activeJob.id}`,
+                          `prod-${displayedJob.id}`,
                           recordProductionMutation({
-                            jobCardId: activeJob.id as Id<"jobCards">,
-                            inputQuantity: inputQuantity || activeJob.quantity,
-                            outputQuantity: outputQuantity || activeJob.quantity,
-                            wasteQuantity: wasteQuantity || 0,
+                            jobCardId: displayedJob.id as Id<"jobCards">,
+                            inputQuantity: Number(inputQuantity) || displayedJob.quantity,
+                            outputQuantity: Number(outputQuantity) || displayedJob.quantity,
+                            wasteQuantity: Number(wasteQuantity) || 0,
                           }),
-                          () => toast.success("Production telemetry saved")
+                          () => toast.success("የምርት መረጃ ተመዝግቧል")
                         );
                       }}
                       className="px-3.5 py-1.5 rounded-sm border border-[#1E293B] bg-[#14161D] text-xs font-semibold text-slate-200 hover:text-white hover:border-[#00B4D8] transition-colors"
                     >
-                      Save Telemetry
+                      መረጃውን አስቀምጥ
                     </button>
                     <button
                       type="button"
-                      disabled={isPending(`complete-${activeJob.id}`)}
+                      disabled={isPending(`complete-${displayedJob.id}`) || hasProductionValidationError}
                       onClick={() => {
                         void safeMutation(
-                          `complete-${activeJob.id}`,
-                          completeJobMutation({ jobId: activeJob.id as Id<"jobCards"> }),
-                          () => toast.success("Job run completed successfully")
+                          `complete-${displayedJob.id}`,
+                          completeJobMutation({ jobId: displayedJob.id as Id<"jobCards"> }),
+                          () => toast.success("ሥራው በተሳካ ሁኔታ ተጠናቋል")
                         );
                       }}
                       className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-sm bg-[#38B000] text-xs font-semibold text-white hover:bg-[#2D8B00] transition-colors"
                     >
-                      <CheckCircle2 size={13} /> Complete Run
+                      <CheckCircle2 size={13} /> ሥራውን አጠናቅ
                     </button>
                   </div>
                 </div>
@@ -280,19 +313,21 @@ export default function OperatorMachinePage({
                     onClick={() => openModal("offcut")}
                     className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-sm border border-[#1E293B] bg-[#0C0D10] text-xs font-semibold text-slate-300 hover:text-white hover:border-cyan transition-colors"
                   >
-                    <Scissors size={13} /> Log Usable Remainder
+                    <Scissors size={13} /> ጥቅም ላይ የሚውል ቀሪ ዕቃ መዝግብ
                   </button>
                   <button
                     onClick={() => openModal("scrap")}
                     className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-sm border border-[#1E293B] bg-[#0C0D10] text-xs font-semibold text-slate-300 hover:text-white hover:border-rose-500 transition-colors"
                   >
-                    <Trash2 size={13} /> Log Unusable Scrap
+                    <Trash2 size={13} /> የማይጠቅም ብክነት መዝግብ
                   </button>
                 </div>
+                </>
+                )}
               </div>
             ) : (
               <div className="py-12 text-center text-slate-500 text-xs">
-                No active jobs queued for this machine.
+                ለዚህ ማሽን የተመደበ ንቁ ሥራ የለም።
               </div>
             )}
           </div>
@@ -300,24 +335,24 @@ export default function OperatorMachinePage({
           {/* Machine Jobs Queue Table */}
           <div className="border border-[#1E293B] rounded-sm bg-[#14161D]">
             <div className="p-4 border-b border-[#1E293B]">
-              <h3 className="text-sm font-bold text-white">Machine Run Queue</h3>
-              <p className="text-xs text-slate-400">Upcoming production runs for this workstation</p>
+              <h3 className="text-sm font-bold text-white">የማሽን ሥራ ዝርዝር</h3>
+              <p className="text-xs text-slate-400">ቀጥሎ የሚሰሩ ሥራዎች</p>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="border-b border-[#1E293B] bg-[#0C0D10]/50 font-mono text-[10px] uppercase text-slate-400">
                   <tr>
-                    <th className="px-4 py-2.5">Code</th>
-                    <th className="px-4 py-2.5">Title / Client</th>
-                    <th className="px-4 py-2.5 text-right">Target Volume</th>
-                    <th className="px-4 py-2.5 text-center">Status</th>
+                    <th className="px-4 py-2.5">መለያ</th>
+                    <th className="px-4 py-2.5">የሥራ ስም / ደንበኛ</th>
+                    <th className="px-4 py-2.5 text-right">የሚሰራው መጠን</th>
+                    <th className="px-4 py-2.5 text-center">ሁኔታ</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#1E293B] text-slate-300 font-mono">
                   {machineJobs.length === 0 ? (
                     <tr>
                       <td colSpan={4} className="px-4 py-6 text-center text-slate-500 font-sans">
-                        No jobs currently assigned to {currentMachine?.name ?? "this machine"}.
+                        በአሁኑ ጊዜ ለ{currentMachine?.name ?? "ይህ ማሽን"} የተመደበ ሥራ የለም።
                       </td>
                     </tr>
                   ) : (
@@ -346,10 +381,11 @@ export default function OperatorMachinePage({
         {/* Right 1 Col: Active Floor Sub-Stock Widget */}
         <div className="space-y-6">
           {currentMachine ? (
-            <OperatorStockWidget machineId={currentMachine.id} />
+            <OperatorStockWidget machineId={currentMachine.id} stock={floorStockQuery as OperatorStockEntry[] | undefined} />
           ) : null}
         </div>
       </div>
     </div>
+    </WorkspaceModuleGate>
   );
 }

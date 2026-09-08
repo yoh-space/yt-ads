@@ -6,9 +6,11 @@ import { useMutation, useQuery } from "convex/react";
 import { Bell, Menu, PanelLeftClose, PanelLeftOpen, Search } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { getNavItemHref, navItems, type View } from "./nav-config";
+import { getNavItemHref, navItems } from "./nav-config";
+import type { View } from "@/types/dashboard-types";
 import { UserMenu } from "./user-menu";
 import { NotificationModal } from "./notification-modal";
+import { SoundControl } from "./sound-control";
 import { TelemetryBar } from "@/components/ui/telemetry-bar";
 import type { Profile } from "@/lib/operations-types";
 import { cn } from "@/lib/utils";
@@ -82,6 +84,10 @@ export function Topbar({
         </div>
         
         <div className="flex items-center gap-5">
+          <div className="hidden md:flex items-center gap-2">
+            <SoundControl />
+          </div>
+
           <div className="w-[245px] h-[34px] flex items-center gap-[7px] px-[7px_7px_7px_10px] border border-line rounded-lg text-gray-500">
             <Search size={17} />
             <input 
@@ -113,11 +119,10 @@ export function Topbar({
 
       <TelemetryBar
         items={[
-          { label: "Bed Vac", value: "-48.2 kPa", tone: "green" },
-          { label: "Ambient", value: "71.4°F / 44% RH", tone: "cyan" },
-          { label: "Node", value: "#3-EST", tone: "green" },
-          { label: "Station", value: "#4", tone: "cyan" },
-          { label: "Local", value: clock, tone: "amber" },
+          { label: "ማሽን ሁኔታ", value: "Running", tone: "green" },
+          { label: "የሙቀት መጠን", value: "22°C / 44%", tone: "cyan" },
+          { label: "ስቴሽን", value: "#4", tone: "green" },
+          { label: "የወቅቱ ሰዓት", value: clock, tone: "amber" },
         ]}
       />
 

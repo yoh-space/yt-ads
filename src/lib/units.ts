@@ -3,7 +3,10 @@ import type { PurchaseUnit, Unit } from "@/lib/operations-types";
 export type InputUnit = PurchaseUnit | Unit;
 
 function isDirectUnitPair(inputUnit: InputUnit, baseUnit: Unit) {
-  return (inputUnit === "liter" && baseUnit === "L") || (inputUnit === "piece" && baseUnit === "pcs") || (inputUnit === "pcs" && baseUnit === "piece");
+  return (inputUnit === "liter" && baseUnit === "L") ||
+    (inputUnit === "canister" && baseUnit === "L") ||
+    (inputUnit === "piece" && baseUnit === "pcs") ||
+    (inputUnit === "pcs" && baseUnit === "piece");
 }
 
 export function convertToBase(

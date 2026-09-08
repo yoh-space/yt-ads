@@ -20,6 +20,14 @@ export const unit = v.union(
   v.literal("piece"),
   v.literal("pcs"),
   v.literal("L"),
+  v.literal("mL"),
+);
+
+export const materialCatalogFamily = v.union(
+  v.literal("ROLL"),
+  v.literal("RIGID_SHEET"),
+  v.literal("INK_SOLVENT"),
+  v.literal("HARDWARE"),
 );
 
 export const jobStatus = v.union(
@@ -32,7 +40,7 @@ export const jobStatus = v.union(
 /**
  * Payment-first customer order lifecycle. Orders enter as unpriced requests
  * (PENDING_REVIEW) and only reach production after reception prices the order
- * and confirms payment or credit. `Expired` is a terminal state applied to
+ * and confirms payment or credit. `EXPIRED` is a terminal state applied to
  * unconfirmed orders past their expiration window.
  */
 export const orderStatus = v.union(
@@ -43,17 +51,8 @@ export const orderStatus = v.union(
   v.literal("IN_PRODUCTION"),
   v.literal("COMPLETED"),
   v.literal("READY_FOR_PICKUP"),
-  v.literal("Expired"),
+  v.literal("EXPIRED"),
   v.literal("EXPIRED_JUNK"),
-  // Legacy aliases from earlier write paths. These were written to the table
-  // before the validator was tightened to the canonical values above. They are
-  // kept only as a bridge so the backfill in `convex/migrations.ts` can read and
-  // normalize existing rows. REMOVE these literals after the migration has
-  // run against the deployed dataset.
-  v.literal("Received"),
-  v.literal("Completed"),
-  v.literal("In Production"),
-  v.literal("Ready for Pickup"),
 );
 
 /** Payment verification result recorded by reception during checkout. */
@@ -68,6 +67,13 @@ export const inventoryUnitType = v.union(
   v.literal("ROLL"),
   v.literal("SHEET"),
   v.literal("LITER"),
+);
+
+export const stockMovementPackageUnit = v.union(
+  inventoryUnitType,
+  v.literal("PACKAGE"),
+  v.literal("CANISTER"),
+  v.literal("PIECE"),
 );
 
 /** Lifecycle of a stock batch issued to the production floor. */
@@ -124,11 +130,6 @@ export const exceptionReason = v.union(
   v.literal("Internal Maintenance"),
 );
 
-export const stockMovementType = v.union(
-  v.literal("STANDARD"),
-  v.literal("EXCEPTION_STOCK_OUT"),
-);
-
 /** Authoritative event types for the event-sourced inventory ledger. */
 export const stockEventType = v.union(
   v.literal("STOCK_IN"),
@@ -155,7 +156,7 @@ export const machineStatus = v.union(
 export const priority = v.union(
   v.literal("High"),
   v.literal("Medium"),
-  v.literal("Normal"),
+  v.literal("Low"),
 );
 
 export const accent = v.union(
@@ -166,17 +167,22 @@ export const accent = v.union(
   v.literal("green"),
 );
 
-export const stockDirection = v.union(
-  v.literal("in"),
-  v.literal("out"),
-);
-
 export const purchaseUnit = v.union(
   v.literal("roll"),
   v.literal("sheet"),
   v.literal("pack"),
+  v.literal("canister"),
   v.literal("liter"),
   v.literal("piece"),
+);
+
+/** Physical package labels used for custody and storekeeper transfers. */
+export const packageUnit = v.union(
+  v.literal("ROLL"),
+  v.literal("SHEET"),
+  v.literal("PACKAGE"),
+  v.literal("CANISTER"),
+  v.literal("PIECE"),
 );
 
 export const stockInputUnit = v.union(
@@ -213,17 +219,6 @@ export const materialRequestStatus = v.union(
   v.literal("Discrepancy"),
 );
 
-export const invoiceType = v.union(
-  v.literal("PROFORMA"),
-  v.literal("TAX_INVOICE"),
-);
-
-export const invoiceStatus = v.union(
-  v.literal("DRAFT"),
-  v.literal("ISSUED"),
-  v.literal("VOID"),
-);
-
 /** Owner-managed conversion rule used when a material has no local override. */
 export const unitConversionRule = v.object({
   materialName: v.string(),
@@ -233,19 +228,12 @@ export const unitConversionRule = v.object({
   conversionRatio: v.number(),
 });
 
-export const invoiceLineItem = v.object({
-  description: v.string(),
-  quantity: v.number(),
-  unit: v.string(),
-  unitPrice: v.number(),
-  lineTotal: v.number(),
-});
-
 export const notificationType = v.union(
   v.literal("material_request"),
   v.literal("material_issue"),
   v.literal("material_received"),
   v.literal("short_stock"),
+  v.literal("material_overuse"),
   v.literal("discrepancy"),
   v.literal("job_update"),
   v.literal("machine_update"),
@@ -293,6 +281,8 @@ export default defineSchema({
     email: v.string(),
     image: v.optional(v.string()),
     role,
+    /** Optional machine scope for operators; empty means all machines for their role. */
+    assignedMachineIds: v.optional(v.array(v.id("machines"))),
     active: v.boolean(),
   })
     .index("by_auth_user", ["authUserId"])
@@ -315,9 +305,17 @@ export default defineSchema({
   materials: defineTable({
     name: v.string(),
     category: v.string(),
+    catalogFamily: v.optional(materialCatalogFamily),
+    catalogVariant: v.optional(v.string()),
+    catalogDimensions: v.optional(v.string()),
+    compatibleMachineTypes: v.optional(v.array(v.string())),
     unit,
     baseUnit: v.optional(unit),
     purchaseUnit: v.optional(purchaseUnit),
+    /** Physical unit shown for custody and transfer; base units remain audit-only. */
+    packageUnit: v.optional(packageUnit),
+    packageSize: v.optional(v.number()),
+    packageLabel: v.optional(v.string()),
     conversionRatio: v.optional(v.number()),
     specification: v.optional(v.string()),
     specificationValue: v.optional(v.string()),
@@ -353,6 +351,8 @@ export default defineSchema({
     model: v.optional(v.string()),
     capability: v.optional(v.string()),
     notes: v.optional(v.string()),
+    primaryMaterialFamilies: v.optional(v.array(v.string())),
+    associatedInkFamilies: v.optional(v.array(v.string())),
     operatorRole: role,
     materialUnit: unit,
     displayUnit: v.optional(v.string()),
@@ -382,23 +382,15 @@ export default defineSchema({
     issuedAt: v.optional(v.number()),
     receivedAt: v.optional(v.number()),
     note: v.optional(v.string()),
+    /** Optional multi-line request header; legacy requests remain one-line compatible. */
+    requestGroupId: v.optional(v.string()),
+    packageUnit: v.optional(packageUnit),
+    requestedPackages: v.optional(v.number()),
+    issuedPackages: v.optional(v.number()),
+    conversionRatioSnapshot: v.optional(v.number()),
   })
     .index("by_job_card", ["jobCardId"])
     .index("by_status", ["status"]),
-
-  stockMovements: defineTable({
-    materialId: v.id("materials"),
-    direction: v.union(stockDirection, v.literal("adjustment"), v.literal("offcut_return")),
-    quantity: v.number(),
-    unit: stockInputUnit,
-    baseUnit: v.optional(unit),
-    baseQuantity: v.optional(v.number()),
-    movementType: v.optional(stockMovementType),
-    exceptionReason: v.optional(v.string()),
-    note: v.string(),
-    createdBy: v.string(),
-    createdAt: v.number(),
-  }).index("by_material", ["materialId"]),
 
   customerOrders: defineTable({
     code: v.string(),
@@ -406,6 +398,9 @@ export default defineSchema({
     phone: v.string(),
     serviceType: serviceType,
     dimensions: v.string(),
+    /** Parsed order dimensions in metres for deterministic job allocation. */
+    length: v.optional(v.number()),
+    width: v.optional(v.number()),
     quantity: v.string(),
     /** Final total price confirmed by reception during checkout. */
     amount: v.optional(v.number()),
@@ -425,17 +420,6 @@ export default defineSchema({
     notes: v.optional(v.string()),
     tinNumber: v.optional(v.string()),
     companyLegalName: v.optional(v.string()),
-    invoiceType: v.optional(invoiceType),
-    invoiceNumber: v.optional(v.string()),
-    invoiceId: v.optional(v.id("invoices")),
-    subtotal: v.optional(v.number()),
-    taxRate: v.optional(v.number()),
-    taxAmount: v.optional(v.number()),
-    paymentReceiptStorageId: v.optional(v.id("_storage")),
-    paymentReceiptFileName: v.optional(v.string()),
-    paymentReceiptUploadedAt: v.optional(v.number()),
-    paymentReceiptVerifiedAt: v.optional(v.number()),
-    paymentReceiptVerifiedBy: v.optional(v.string()),
     machineId: v.optional(v.id("machines")),
     jobCardId: v.optional(v.id("jobCards")),
     createdBy: v.optional(v.string()),
@@ -466,29 +450,6 @@ export default defineSchema({
     createdAt: v.number(),
   }).index("by_created", ["createdAt"]),
 
-  /** Immutable commercial document generated from an order. */
-  invoices: defineTable({
-    orderId: v.id("customerOrders"),
-    invoiceNumber: v.string(),
-    type: invoiceType,
-    status: invoiceStatus,
-    clientName: v.string(),
-    companyLegalName: v.optional(v.string()),
-    tinNumber: v.optional(v.string()),
-    lineItems: v.array(invoiceLineItem),
-    subtotal: v.number(),
-    taxRate: v.number(),
-    taxAmount: v.number(),
-    total: v.number(),
-    currency: v.string(),
-    issuedBy: v.string(),
-    issuedAt: v.number(),
-    updatedAt: v.number(),
-  })
-    .index("by_order", ["orderId"])
-    .index("by_number", ["invoiceNumber"])
-    .index("by_issued_at", ["issuedAt"]),
-
   /**
    * Authoritative inventory event stream. Balances on materials, parentInventory,
    * and operatorSubStock are projections maintained transactionally from these
@@ -505,7 +466,7 @@ export default defineSchema({
     baseQuantity: v.number(),
     /** Whole packaging units involved in a parent-store transfer or receipt. */
     packageQuantity: v.optional(v.number()),
-    packageUnit: v.optional(inventoryUnitType),
+    packageUnit: v.optional(stockMovementPackageUnit),
     /** Snapshot of the rate used; later owner changes do not rewrite history. */
     conversionRatio: v.optional(v.number()),
     parentInventoryId: v.optional(v.id("parentInventory")),
@@ -545,9 +506,7 @@ export default defineSchema({
     length: v.optional(v.number()),
     width: v.optional(v.number()),
     deductOnComplete: v.optional(v.boolean()),
-    inkMaterialId: v.optional(v.id("materials")),
-    inkQuantity: v.optional(v.number()),
-    wasteMarginPercent: v.optional(v.number()),
+    serviceType: v.optional(serviceType),
   })
     .index("by_status", ["status"])
     .index("by_machine", ["machineId"])
@@ -562,9 +521,39 @@ export default defineSchema({
     unit,
     operatorId: v.string(),
     createdAt: v.number(),
+    /** Usage monitoring snapshot captured at production time. */
+    plannedQuantity: v.optional(v.number()),
+    approvedScrapQuantity: v.optional(v.number()),
+    usageAllowanceStatus: v.optional(v.union(
+      v.literal("NORMAL"),
+      v.literal("WATCH"),
+      v.literal("CRITICAL"),
+      v.literal("EXCEEDED"),
+    )),
   })
     .index("by_job_card", ["jobCardId"])
-    .index("by_machine", ["machineId"]),
+    .index("by_machine", ["machineId"])
+    .index("by_allowance_status", ["usageAllowanceStatus"]),
+
+  overuseExceptions: defineTable({
+    jobCardId: v.id("jobCards"),
+    materialId: v.id("materials"),
+    productionLogId: v.optional(v.id("productionLogs")),
+    actualUsage: v.number(),
+    plannedUsage: v.number(),
+    approvedScrapQuantity: v.number(),
+    excessQuantity: v.number(),
+    unit,
+    status: v.union(v.literal("OPEN"), v.literal("ACKNOWLEDGED"), v.literal("RESOLVED")),
+    createdBy: v.string(),
+    createdAt: v.number(),
+    note: v.optional(v.string()),
+    resolvedBy: v.optional(v.string()),
+    resolvedAt: v.optional(v.number()),
+  })
+    .index("by_status", ["status"])
+    .index("by_job_card", ["jobCardId"])
+    .index("by_material", ["materialId"]),
 
   offcuts: defineTable({
     materialId: v.id("materials"),
@@ -673,6 +662,18 @@ export default defineSchema({
     orderExpirationHours: v.optional(v.number()),
     updatedAt: v.number(),
     updatedBy: v.optional(v.string()),
+    /** Owner/admin-controlled usage leakage threshold, expressed as a percentage. */
+    defaultScrapAllowancePercent: v.optional(v.number()),
+/** Default additive bleed/trim allowance in square metres. */
+    defaultMarginSquareMetres: v.optional(v.number()),
+    materialScrapAllowances: v.optional(v.array(v.object({
+      materialId: v.id("materials"),
+      allowancePercent: v.number(),
+    }))),
+    /** Standard waste margin (%) applied to every auto-issued Standard Job Card. */
+    standardWasteMargin: v.optional(v.number()),
+    /** Maximum approved scrap ceiling (%) a Standard Job Card may carry. */
+    maxAllowedScrapLimit: v.optional(v.number()),
   })
     .index("by_key", ["key"]),
 
@@ -700,34 +701,11 @@ export default defineSchema({
     .index("by_unit_type", ["unitType"]),
 
   /**
-   * Two-tier inventory, tier 2 — stock issued to a specific operator/machine.
-   * Quantities are tracked in base units (m, m², L) so production deduction is
-   * direct: a 50 m roll is issued as 50 and completes at e.g. 32.5 remaining.
-   */
-  operatorMachineStock: defineTable({
-    itemId: v.id("parentInventory"),
-    materialId: v.id("materials"),
-    operatorId: v.string(),
-    machineId: v.id("machines"),
-    /** Whole packaging units issued (e.g. 1 roll). */
-    issuedUnits: v.number(),
-    /** Base units issued (e.g. 50 m) — equals issuedUnits × conversion factor. */
-    issuedQuantity: v.number(),
-    /** Base units still at the machine (e.g. 32.5 m). */
-    currentRemaining: v.number(),
-    status: operatorStockStatus,
-    issuedBy: v.optional(v.string()),
-    issuedAt: v.number(),
-    updatedAt: v.number(),
-  })
-    .index("by_item", ["itemId"])
-    .index("by_machine", ["machineId"])
-    .index("by_material_machine", ["materialId", "machineId"])
-    .index("by_status", ["status"]),
-
   /**
    * Current operator custody projection. Each row represents a packaging-unit
    * handover converted to the machine's production unit.
+   * For ink materials, quantities are tracked in millilitres (mL) internally
+   * to prevent rounding errors during small print runs (1L = 1000mL).
    */
   operatorSubStock: defineTable({
     parentInventoryId: v.optional(v.id("parentInventory")),
@@ -741,6 +719,29 @@ export default defineSchema({
     issuedBy: v.optional(v.string()),
     issuedAt: v.number(),
     updatedAt: v.number(),
+    /** Physical custody balance, kept separate from converted audit quantities. */
+    packageUnit: v.optional(packageUnit),
+    issuedPackages: v.optional(v.number()),
+    remainingPackages: v.optional(v.number()),
+    baseUnit: v.optional(unit),
+    conversionRatioSnapshot: v.optional(v.number()),
+    issuedBaseQuantity: v.optional(v.number()),
+    consumedBaseQuantity: v.optional(v.number()),
+    remainingBaseQuantity: v.optional(v.number()),
+    /**
+     * Precision tracking for ink materials in millilitres (mL).
+     * When baseUnit is "L", these fields store the mL equivalent
+     * (1L = 1000mL) to prevent rounding errors on small print runs.
+     */
+    issuedMillilitres: v.optional(v.number()),
+    consumedMillilitres: v.optional(v.number()),
+    remainingMillilitres: v.optional(v.number()),
+    usageAllowanceStatus: v.optional(v.union(
+      v.literal("NORMAL"),
+      v.literal("WATCH"),
+      v.literal("CRITICAL"),
+      v.literal("EXCEEDED"),
+    )),
     /** Owner/admin clearance trail recorded once the batch is fully reconciled. */
     clearedBy: v.optional(v.string()),
     clearedAt: v.optional(v.number()),
@@ -752,16 +753,144 @@ export default defineSchema({
     .index("by_material_machine", ["materialId", "machineId"])
     .index("by_status", ["status"]),
 
+  /** Owner/admin-managed raw-material recipe for a customer service. */
+  serviceMaterialRecipes: defineTable({
+    serviceType,
+    materialId: v.id("materials"),
+    requirementMode: v.union(
+      v.literal("fixed"),
+      v.literal("area_rate"),
+      v.literal("linear_rate"),
+      v.literal("quantity_rate"),
+    ),
+    quantity: v.number(),
+    wasteAllowancePercent: v.optional(v.number()),
+    required: v.boolean(),
+    active: v.boolean(),
+    updatedAt: v.number(),
+    updatedBy: v.string(),
+  })
+    .index("by_service", ["serviceType"])
+    .index("by_material", ["materialId"])
+    .index("by_active_service", ["active", "serviceType"]),
+
+  /**
+   * Composite Bill of Materials (BOM) for multi-material services.
+   * Links a service type to multiple raw materials with per-material
+   * consumption rules (area m², linear m, piece count, or fixed quantity).
+   * Example: Light Box = Flex Banner (area) + Aluminum Frame (linear) + LED Module (piece).
+   */
+  serviceBOM: defineTable({
+    serviceType,
+    materialId: v.id("materials"),
+    /** How this material is consumed: area_rate (m²), linear_rate (m), quantity_rate (pcs), or fixed. */
+    consumptionMode: v.union(
+      v.literal("area_rate"),
+      v.literal("linear_rate"),
+      v.literal("quantity_rate"),
+      v.literal("fixed"),
+    ),
+    /** Consumption quantity per unit of the service (e.g., 1.1 m² per m² of Light Box). */
+    quantityPerUnit: v.number(),
+    /** Waste allowance as percentage (0-100). Added on top of the base consumption. */
+    wasteAllowancePercent: v.optional(v.number()),
+    /** Whether this material is mandatory for the service. */
+    required: v.boolean(),
+    /** Human-readable note for the storekeeper. */
+    note: v.optional(v.string()),
+    active: v.boolean(),
+    updatedAt: v.number(),
+    updatedBy: v.string(),
+  })
+    .index("by_service", ["serviceType"])
+    .index("by_material", ["materialId"])
+    .index("by_active_service", ["active", "serviceType"]),
+
+  /**
+   * Material-type routing catalog consumed by the job-card auto-router. Each
+   * row maps a customer service type to the concrete material type it consumes
+   * (Banner Flex, Vinyl Sticker, Acrylic, …), the preferred raw material, and
+   * the machines capable of producing it. Seeded from the canonical catalog in
+   * `convex/orderAutomation.ts`; the auto-router reads it during
+   * `confirmOrderAndIssueJobCard` for compatibility + load balancing.
+   */
+  materialTypeCatalog: defineTable({
+    serviceType,
+    materialType: v.string(),
+    preferredMaterialName: v.string(),
+    machineCapabilities: v.array(v.string()),
+    operatorRole: role,
+    active: v.boolean(),
+  })
+    .index("by_service_active", ["serviceType", "active"])
+    .index("by_material_type", ["materialType"]),
+
+  /** Immutable per-job snapshot of the service recipe calculation. */
+  jobMaterialRequirements: defineTable({
+    jobCardId: v.id("jobCards"),
+    materialId: v.id("materials"),
+    packageUnit: packageUnit,
+    suggestedPackages: v.number(),
+    requestedPackages: v.optional(v.number()),
+    issuedPackages: v.optional(v.number()),
+    baseUnit: unit,
+    plannedBaseQuantity: v.number(),
+    approvedScrapQuantity: v.number(),
+    conversionRatioSnapshot: v.number(),
+    status: v.union(
+      v.literal("PLANNED"),
+      v.literal("REQUESTED"),
+      v.literal("PARTIALLY_ISSUED"),
+      v.literal("ISSUED"),
+      v.literal("COMPLETED"),
+      v.literal("OVER_ALLOWANCE"),
+    ),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_job_card", ["jobCardId"])
+    .index("by_material", ["materialId"])
+    .index("by_status", ["status"]),
+
+  /** Physical package lines belonging to a multi-material operator request. */
+  materialRequestLines: defineTable({
+    requestGroupId: v.string(),
+    jobCardId: v.id("jobCards"),
+    materialId: v.id("materials"),
+    packageUnit: packageUnit,
+    requestedPackages: v.number(),
+    issuedPackages: v.number(),
+    baseUnit: unit,
+    requestedBaseQuantity: v.number(),
+    issuedBaseQuantity: v.number(),
+    conversionRatioSnapshot: v.number(),
+    status: v.union(
+      v.literal("Requested"),
+      v.literal("Partially Issued"),
+      v.literal("Issued"),
+      v.literal("Short Stock"),
+      v.literal("Discrepancy"),
+    ),
+    note: v.optional(v.string()),
+    requestedBy: v.string(),
+    issuedBy: v.optional(v.string()),
+    requestedAt: v.number(),
+    issuedAt: v.optional(v.number()),
+  })
+    .index("by_request_group", ["requestGroupId"])
+    .index("by_job_card", ["jobCardId"])
+    .index("by_material", ["materialId"])
+    .index("by_status", ["status"]),
+
   /**
    * Weekly audit log comparing the system-calculated floor balance against a
    * physical count. A non-zero discrepancy is written off to both inventory
-   * tiers and stays auditable through `stockMovements`.
+   * tiers and stays auditable through `stock_movements`.
    */
   weeklyReconciliations: defineTable({
     machineId: v.id("machines"),
     operatorId: v.string(),
-    /** Legacy floor-stock reference retained while old rows are migrated. */
-    operatorStockId: v.optional(v.id("operatorMachineStock")),
+    /** Floor-stock reference of the physical count. */
     operatorSubStockId: v.optional(v.id("operatorSubStock")),
     systemCalculatedRemaining: v.number(),
     physicalActualRemaining: v.number(),
@@ -773,7 +902,6 @@ export default defineSchema({
     notes: v.optional(v.string()),
   })
     .index("by_machine", ["machineId"])
-    .index("by_stock", ["operatorStockId"])
     .index("by_reconciled_at", ["reconciledAt"]),
 
   /**
@@ -799,6 +927,9 @@ export default defineSchema({
     telegramId: v.string(),
     phone: v.string(),
     name: v.optional(v.string()),
+    companyLegalName: v.optional(v.string()),
+    tinNumber: v.optional(v.string()),
+    notes: v.optional(v.string()),
     verifiedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),

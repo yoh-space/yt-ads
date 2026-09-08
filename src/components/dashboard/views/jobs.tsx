@@ -123,7 +123,7 @@ export function JobsView({
                             {
                               "bg-coral/10 text-coral": job.priority === "High",
                               "bg-gold/10 text-gold": job.priority === "Medium", 
-                              "bg-gray-100 text-gray-600": job.priority === "Normal"
+                              "bg-gray-100 text-gray-600": job.priority === "Low"
                             }
                           )}>
                             {job.priority}

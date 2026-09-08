@@ -99,7 +99,7 @@ export function SecurityPanel({ isOwner = false }: { isOwner?: boolean }) {
   }
 
   return (
-    <div className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-white shadow-sm">
+    <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
       <FormSection icon={<ShieldCheck size={17} />} title="Change password" note="Keep your account secure.">
         <form onSubmit={changePassword} className="grid gap-4 sm:grid-cols-2">
           <div>
@@ -159,9 +159,9 @@ export function SecurityPanel({ isOwner = false }: { isOwner?: boolean }) {
       </FormSection>
 
       <FormSection icon={<Link2 size={17} />} title="Linked accounts" note="Connect third-party sign-in providers.">
-        <div className="flex items-center justify-between gap-4 rounded-lg border border-line bg-gray-700 px-4 py-3">
+        <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-navy/20 px-4 py-3">
           <div className="flex items-center gap-3">
-            <span className="grid h-9 w-9 flex-none place-items-center rounded-lg bg-gray-600 text-blue shadow-sm ring-1 ring-line">
+            <span className="grid h-9 w-9 flex-none place-items-center rounded-lg bg-white/5 text-blue shadow-sm ring-1 ring-border">
               <svg width="16" height="16" viewBox="0 0 24 24" aria-label="Google">
                 <path fill="#4285F4" d="M23.5 12.27c0-.85-.08-1.66-.22-2.45H12v4.64h6.45a5.52 5.52 0 0 1-2.39 3.62v3h3.87c2.26-2.09 3.57-5.16 3.57-8.81Z" />
                 <path fill="#34A853" d="M12 24c3.24 0 5.96-1.07 7.94-2.91l-3.87-3c-1.08.72-2.45 1.15-4.07 1.15-3.13 0-5.78-2.12-6.73-4.96H1.28v3.1A12 12 0 0 0 12 24Z" />
@@ -170,8 +170,8 @@ export function SecurityPanel({ isOwner = false }: { isOwner?: boolean }) {
               </svg>
             </span>
             <div>
-              <strong className="block text-sm font-semibold text-navy">Google</strong>
-              <small className="block text-xs text-gray-500">Sign in and link with a Google account.</small>
+              <strong className="block text-sm font-semibold text-foreground">Google</strong>
+              <small className="block text-xs text-muted-foreground">Sign in and link with a Google account.</small>
             </div>
           </div>
           <Button variant="secondary" type="button" onClick={linkGoogle} disabled={busy}>
@@ -179,7 +179,7 @@ export function SecurityPanel({ isOwner = false }: { isOwner?: boolean }) {
             Attach Google account
           </Button>
         </div>
-        <p className="mt-3 text-[11px] text-gray-500">
+        <p className="mt-3 text-[11px] text-muted-foreground">
           Google OAuth must be configured in the Convex deployment before linking is available.
         </p>
       </FormSection>
@@ -192,11 +192,11 @@ export function SecurityPanel({ isOwner = false }: { isOwner?: boolean }) {
           note="Owner-only: review and revoke sign-in sessions."
         >
           {sessions === null ? (
-            <div className="rounded-lg border border-dashed border-line bg-gray-600 px-4 py-8 text-center text-xs text-gray-500">
+            <div className="rounded-lg border border-dashed border-border bg-white/[0.02] px-4 py-8 text-center text-xs text-muted-foreground">
               Loading sessions…
             </div>
           ) : sessions.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-line bg-gray-600 px-4 py-8 text-center text-xs text-gray-500">
+            <div className="rounded-lg border border-dashed border-border bg-white/[0.02] px-4 py-8 text-center text-xs text-muted-foreground">
               No active sessions found.
             </div>
           ) : (
@@ -206,16 +206,16 @@ export function SecurityPanel({ isOwner = false }: { isOwner?: boolean }) {
                 return (
                   <div
                     key={session.token}
-                    className="flex items-center justify-between gap-4 rounded-lg border border-line bg-gray-700 px-4 py-3"
+                    className="flex items-center justify-between gap-4 rounded-lg border border-border bg-navy/20 px-4 py-3"
                   >
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <strong className="truncate text-sm font-semibold text-navy">
+                        <strong className="truncate text-sm font-semibold text-foreground">
                           {summariseSessionUserAgent(session.userAgent)}
                         </strong>
                         <StatusPill variant={isCurrent ? "success" : "info"}>{isCurrent ? "Current" : "Active"}</StatusPill>
                       </div>
-                      <small className="mt-0.5 block text-xs text-gray-500">
+                      <small className="mt-0.5 block text-xs text-muted-foreground">
                         IP {session.ipAddress ?? "unknown"} · signed in {formatSessionTime(session.createdAt)}
                         {session.expiresAt ? ` · expires ${formatSessionTime(session.expiresAt)}` : ""}
                       </small>

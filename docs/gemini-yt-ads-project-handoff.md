@@ -48,12 +48,12 @@ The real owner account uses the email address `ytadvert@admin.org`. The temporar
 | Field | Value |
 |---|---|
 | Repository | `https://github.com/yoh-space/yt-ads` |
-| Local project root | `/home/ubuntu/yt-ads` |
+| Local project root | `C:\Users\yohan\OneDrive\Desktop\yt-advertising` |
 | Default branch | `main` |
-| Current checked-out commit | `1004916` — `feat(ui): add global error boundary and loading states` |
-| Current remote relationship | Local `main` was synchronized with `origin/main` at the same commit when this handoff was prepared |
-| Recent merged feature | Pull request #7 added owner controls, targeted notifications, account settings, Google OAuth support, and profile management |
-| Current local-only artifact | `docs/yt-advertisement-requirements-analysis.json` is an improved, sanitized requirements artifact and may be uncommitted; check `git status` before making changes |
+| Current checked-out commit | `daf2098` — `feat: add Storekeeper workspace component for inventory management` |
+| Current remote relationship | Check `git status` and the remote branch before making changes; this working tree may contain staged workspace-routing refactor changes |
+| Recent architecture work | Workspace-oriented routing under `/dashboard/[workspace]/...`, role-specific workspace components, route loading states, and legacy redirects |
+| Current local-only artifacts | Check `git status` for staged or uncommitted documentation and refactor changes before making changes |
 
 The codebase is a working prototype/early production slice, not a fully completed ERP. It is buildable and type-safe locally, but it still requires authenticated Convex deployment configuration and end-to-end smoke testing with real users and data.
 
@@ -61,7 +61,7 @@ The codebase is a working prototype/early production slice, not a fully complete
 
 | Concern | Current implementation |
 |---|---|
-| Web framework | Next.js 15 App Router |
+| Web framework | Next.js 16 App Router |
 | UI runtime | React 19 and TypeScript |
 | Database/backend | Convex reactive queries and mutations |
 | Authentication | Better Auth through the Convex Better Auth component |
@@ -89,7 +89,7 @@ NODE_ENV=production pnpm build
 git diff --check
 ```
 
-The validated suite currently contains **13 passing tests** across confirmed unit conversion and production quantity validation. There is not yet a full Convex integration-test harness.
+The current validation suite contains **66 passing tests** across permissions, routing, access policy, inventory/unit logic, Convex services/validation, Telegram helpers, and dashboard state utilities. There is not yet a full browser end-to-end harness.
 
 ---
 
@@ -264,10 +264,14 @@ Do not replace the existing style with a generic admin template without explicit
 The shell is implemented mainly in:
 
 ```text
-components/dashboard/operations-dashboard.tsx
-components/dashboard/sidebar.tsx
-components/dashboard/topbar.tsx
-components/dashboard/user-menu.tsx
+src/components/dashboard/dashboard-shell.tsx
+src/components/dashboard/owner/owner-workspace.tsx
+src/components/dashboard/manager/manager-workspace.tsx
+src/components/dashboard/reception/reception-workspace.tsx
+src/components/dashboard/storekeeper/storekeeper-workspace.tsx
+src/components/dashboard/sidebar.tsx
+src/components/dashboard/topbar.tsx
+src/components/dashboard/user-menu.tsx
 src/app/globals.css
 ```
 
@@ -282,7 +286,7 @@ The current shell includes:
 
 ### 7.3 Main dashboard views
 
-The navigation is defined in `components/dashboard/nav-config.ts`. The current views are:
+The navigation is defined in `src/components/dashboard/nav-config.ts`. The current views are:
 
 | View | Purpose |
 |---|---|
@@ -296,7 +300,7 @@ The navigation is defined in `components/dashboard/nav-config.ts`. The current v
 
 ### 7.4 Current modal and workflow UX
 
-Modals use `components/dashboard/modals/modal-shell.tsx` and share the same visual language. Existing forms include:
+Modals use `src/components/dashboard/modals/modal-shell.tsx` and share the same visual language. Existing forms include:
 
 ```text
 job-modal.tsx
@@ -444,8 +448,8 @@ The notification system is split into:
 ```text
 convex/notificationHelpers.ts
 convex/notifications.ts
-components/dashboard/notification-modal.tsx
-components/dashboard/topbar.tsx
+src/components/dashboard/notification-modal.tsx
+src/components/dashboard/topbar.tsx
 ```
 
 The helper module provides:
@@ -689,20 +693,21 @@ Do not claim a feature is deployed merely because `pnpm build` passes. Distingui
 | `convex/reports.ts` | Weekly, bi-weekly, and monthly summary aggregation |
 | `convex/audit.ts` | Derived activity feed, not a dedicated audit table |
 | `convex/dashboard.ts` | Aggregate reactive dashboard state query |
-| `components/dashboard/operations-dashboard.tsx` | Main authenticated dashboard orchestration and mutation wiring |
-| `components/dashboard/sidebar.tsx` | Navigation, branding, responsive sidebar, settings entry |
-| `components/dashboard/topbar.tsx` | Header, breadcrumb, search placeholder, notification bell, user menu |
-| `components/dashboard/user-menu.tsx` | Account settings and sign-out popover |
-| `components/dashboard/modals/account-settings-modal.tsx` | Personal profile, password, Google linking, company branding, team access |
-| `components/dashboard/notification-modal.tsx` | Newest-first notification presentation and read actions |
-| `components/dashboard/material-requests-panel.tsx` | Minimal material custody UI |
-| `components/dashboard/views/*` | Overview, inventory, jobs, machines, offcuts, reports, and audit views |
+| `src/components/dashboard/dashboard-shell.tsx` | Authenticated dashboard shell, layout, and global modal wiring |
+| `src/components/dashboard/*/*-workspace.tsx` | Role/workspace-specific dashboard orchestration |
+| `src/components/dashboard/sidebar.tsx` | Navigation, branding, responsive sidebar, settings entry |
+| `src/components/dashboard/topbar.tsx` | Header, breadcrumb, search placeholder, notification bell, user menu |
+| `src/components/dashboard/user-menu.tsx` | Account settings and sign-out popover |
+| `src/components/dashboard/dashboard-action-modals.tsx` | Global stock, material, request, machine, order, and reconciliation actions |
+| `src/components/dashboard/notification-modal.tsx` | Newest-first notification presentation and read actions |
+| `src/components/dashboard/material-requests-panel.tsx` | Minimal material custody UI |
+| `src/components/dashboard/views/*` | Overview, inventory, jobs, machines, offcuts, reports, and audit views |
 | `src/app/sign-in/page.tsx` | Email/password and Google sign-in entry |
 | `src/app/sign-up/page.tsx` | Email/password and Google sign-up entry |
 | `src/app/error.tsx` | Global error recovery/auth redirect UX |
 | `src/app/loading.tsx` | Route-level loading UX |
 | `src/app/globals.css` | Full visual system, responsive layout, modal/form styling |
-| `lib/operations-types.ts` | Frontend shared domain types and role labels |
+| `src/lib/operations-types.ts` | Frontend shared domain types and role labels |
 | `lib/auth-client.ts` | Better Auth browser client |
 
 ---

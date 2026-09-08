@@ -17,28 +17,14 @@ export function OperationalConfigView() {
               </span>
               <div className="min-w-0">
                 <span className="block font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-dark">
-                  Owner / admin control · operational configuration
+                  የባለቤት / አድሚን ቁጥጥር
                 </span>
-                <h2 className="mt-1 text-xl font-bold text-foreground">Operational Configuration</h2>
+                <h2 className="mt-1 text-xl font-bold text-foreground">የስራ ማስተካከያ ህጎች</h2>
                 <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-                  Configure ETB valuation rates, unit conversion defaults, production rules, order expiry,
-                  and risk & theft prevention controls. Changes apply transactionally on the next production record.
+                  የዕቃ ዋጋ፣ የምርት ህግ፣ የትዕዛዝ አስተዳደር እና የደህንነት ቁጥጥር ማስተካከያ።
+                  ለውጦች በቀጣዩ የምርት መዝገብ ላይ በራስ-ሰር ሁኔታ ይተግብራሉ።
                 </p>
               </div>
-            </div>
-            <div className="relative flex flex-wrap items-center gap-x-6 gap-y-2 px-6 py-3">
-              {[
-                { label: "Valuation", value: "ETB rates" },
-                { label: "Conversion", value: "Unit rules" },
-                { label: "Production", value: "Waste & ink" },
-                { label: "Risk", value: "Stock-out controls" },
-              ].map((chip) => (
-                <span key={chip.label} className="inline-flex items-center gap-1.5 text-[11px]">
-                  <span className="h-1.5 w-1.5 rounded-full bg-cyan" />
-                  <span className="font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">{chip.label}</span>
-                  <span className="text-foreground">{chip.value}</span>
-                </span>
-              ))}
             </div>
           </div>
         </div>

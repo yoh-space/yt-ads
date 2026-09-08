@@ -1,7 +1,24 @@
 import { calculateOffcutArea } from "./units";
 import type { PurchaseUnit, Unit } from "./types";
+import type { Id } from "./_generated/dataModel";
 
 export type ProductionType = "area" | "linear" | "ink" | "unit";
+export type UsageAllowanceStatus = "NORMAL" | "WATCH" | "CRITICAL" | "EXCEEDED";
+
+export function getUsageAllowanceStatus(
+  actualUsage: number,
+  plannedUsage: number,
+  allowancePercent: number,
+): UsageAllowanceStatus {
+  if (!Number.isFinite(actualUsage) || !Number.isFinite(plannedUsage) || plannedUsage <= 0) return "NORMAL";
+  const allowance = Math.max(0, allowancePercent);
+  const allowed = plannedUsage * (1 + allowance / 100);
+  const ratio = actualUsage / allowed;
+  if (ratio > 1) return "EXCEEDED";
+  if (ratio > 0.95) return "CRITICAL";
+  if (ratio > 0.8) return "WATCH";
+  return "NORMAL";
+}
 
 type MaterialLike = {
   name: string;
@@ -36,6 +53,16 @@ export type SystemConfig = {
   requireAdminPinForExceptions: boolean;
   maxDirectStockOutEtb: number;
   orderExpirationHours: number;
+  defaultScrapAllowancePercent?: number;
+  defaultMarginSquareMetres?: number;
+  materialScrapAllowances?: Array<{ materialId: Id<"materials">; allowancePercent: number }>;
+  /**
+   * Standard waste margin (%) applied to every auto-issued Standard Job Card.
+   * Allocation formula: Total = (W × H × Qty) × (1 + standardWasteMargin / 100).
+   */
+  standardWasteMargin?: number;
+  /** Maximum approved scrap ceiling (%) a Standard Job Card may carry. */
+  maxAllowedScrapLimit?: number;
   updatedAt: number;
   updatedBy?: string;
 };
@@ -146,6 +173,9 @@ export const DEFAULT_SYSTEM_CONFIG: Omit<SystemConfig, "updatedAt" | "updatedBy"
   requireAdminPinForExceptions: true,
   maxDirectStockOutEtb: 2000,
   orderExpirationHours: 24,
+  defaultMarginSquareMetres: 0,
+  standardWasteMargin: 3,
+  maxAllowedScrapLimit: 5,
 };
 
 /** Resolves the currently governed purchase-to-base conversion for a material. */
@@ -196,6 +226,54 @@ const FALLBACK_ETB_BY_UNIT: Record<string, number> = {
  * `resolveInkConsumptionRateFromConfig`.
  */
 export const DEFAULT_INK_ML_PER_M2 = DEFAULT_SYSTEM_CONFIG.inkMlPerSquareMetre;
+
+/**
+ * Industry-standard ink consumption rates for common printer types.
+ * All rates are derived from 1L = 1000mL for precision tracking.
+ * Used as defaults when no per-material override is configured.
+ */
+export const SYSTEM_INK_STANDARDS = {
+  /** Eco-Solvent / Large Format Banner Printers (1L = 110 m² → ~9.09 mL/m²) */
+  SOLVENT_BANNER: {
+    sqmPerLitre: 110,
+    mlPerSqm: 9.09,
+    label: "Solvent / Banner Ink Coverage",
+  },
+  /** DTF (Direct to Film) Printers (1L = 50 m² with white base → 20.0 mL/m²) */
+  DTF_PRINT: {
+    sqmPerLitre: 50,
+    mlPerSqm: 20.0,
+    label: "DTF Film Ink Coverage",
+  },
+  /** UV Flatbed Printers (1L = 80 m² → 12.5 mL/m²) */
+  UV_FLATBED: {
+    sqmPerLitre: 80,
+    mlPerSqm: 12.5,
+    label: "UV Flatbed Ink Coverage",
+  },
+} as const;
+
+/**
+ * Resolves the appropriate ink consumption rate for a material based on its
+ * name or category matching against the industry standards.
+ */
+export function resolveInkStandardForMaterial(
+  material: Pick<MaterialLike, "name" | "category">,
+): (typeof SYSTEM_INK_STANDARDS)[keyof typeof SYSTEM_INK_STANDARDS] | null {
+  const name = material.name?.toLowerCase() ?? "";
+  const category = material.category?.toLowerCase() ?? "";
+
+  if (name.includes("banner ink") || name.includes("solvent") || category === "banner ink") {
+    return SYSTEM_INK_STANDARDS.SOLVENT_BANNER;
+  }
+  if (name.includes("dtf") || name.includes("film ink") || category === "dtf ink") {
+    return SYSTEM_INK_STANDARDS.DTF_PRINT;
+  }
+  if (name.includes("uv") || name.includes("flatbed") || category === "uv flat bed ink") {
+    return SYSTEM_INK_STANDARDS.UV_FLATBED;
+  }
+  return null;
+}
 
 const AREA_ROLL_CATEGORIES = new Set(["Banner", "Sticker roll", "Film", "Fabric roll"]);
 const AREA_SHEET_CATEGORIES = new Set(["Rigid sheet", "Foam board"]);
@@ -343,19 +421,28 @@ export function computeJobConsumption(material: MaterialLike, input: {
   width?: number;
   quantity: number;
   fallbackArea?: number;
-}): { productionType: ProductionType; baseQuantity: number; unit: string; areaM2: number; inkMl: number } {
+  marginSquareMetres?: number;
+  allowancePercent?: number;
+  inkMlPerSquareMetre?: number;
+}): { productionType: ProductionType; baseQuantity: number; unit: string; areaM2: number; allocatedAreaM2: number; inkMl: number } {
   const productionType = classifyMaterialProductionType(material);
   const area = computeJobArea(input);
+  const margin = Math.max(0, input.marginSquareMetres ?? 0);
+  const allowance = Math.max(0, input.allowancePercent ?? 0);
+  const allocatedArea = Number(((area + margin) * (1 + allowance / 100)).toFixed(3));
   const baseUnit = material.baseUnit ?? material.unit ?? "m²";
 
   if (productionType === "ink") {
-    const ml = area * resolveInkConsumptionRate(material);
+    const inkRate = input.inkMlPerSquareMetre !== undefined
+      ? resolveInkConsumptionRateFromConfig(material, { inkMlPerSquareMetre: input.inkMlPerSquareMetre })
+      : resolveInkConsumptionRate(material);
+    const ml = area * inkRate;
     const litres = Number((ml / 1000).toFixed(3));
-    return { productionType, baseQuantity: litres, unit: "L", areaM2: Number(area.toFixed(3)), inkMl: Number(ml.toFixed(1)) };
+    return { productionType, baseQuantity: litres, unit: "L", areaM2: Number(area.toFixed(3)), allocatedAreaM2: allocatedArea, inkMl: Number(ml.toFixed(1)) };
   }
 
   if (productionType === "area") {
-    return { productionType, baseQuantity: Number(area.toFixed(3)), unit: "m²", areaM2: Number(area.toFixed(3)), inkMl: 0 };
+    return { productionType, baseQuantity: allocatedArea, unit: "m²", areaM2: Number(area.toFixed(3)), allocatedAreaM2: allocatedArea, inkMl: 0 };
   }
 
   if (productionType === "linear") {
@@ -363,8 +450,8 @@ export function computeJobConsumption(material: MaterialLike, input: {
     const areaM2 = typeof input.width === "number" && input.width > 0 && typeof input.length === "number" && input.length > 0
       ? Number((input.length * input.width * input.quantity).toFixed(3))
       : 0;
-    return { productionType, baseQuantity: linearQuantity, unit: baseUnit, areaM2, inkMl: 0 };
+    return { productionType, baseQuantity: Number((linearQuantity * (1 + allowance / 100)).toFixed(3)), unit: baseUnit, areaM2, allocatedAreaM2: allocatedArea, inkMl: 0 };
   }
 
-  return { productionType, baseQuantity: Number(input.quantity.toFixed(3)), unit: baseUnit, areaM2: Number(area.toFixed(3)), inkMl: 0 };
+  return { productionType, baseQuantity: Number((input.quantity * (1 + allowance / 100)).toFixed(3)), unit: baseUnit, areaM2: Number(area.toFixed(3)), allocatedAreaM2: allocatedArea, inkMl: 0 };
 }

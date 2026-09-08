@@ -5,7 +5,7 @@ import { ArrowUpRight, Scissors } from "lucide-react";
 import type { Material } from "@/lib/operations-types";
 import { calculateOffcutArea } from "@/lib/units";
 import { ModalShell } from "./modal-shell";
-import { Button } from "@/components/ui";
+import { Button, NumericInput } from "@/components/ui";
 
 export type NewOffcutInput = {
   materialId: string;
@@ -31,10 +31,12 @@ export function OffcutModal({
 }) {
   const sheetMaterials = materials.filter((material) => material.unit === "m²");
   const [materialId, setMaterialId] = useState(sheetMaterials[0]?.id ?? "");
-  const [width, setWidth] = useState(1);
-  const [length, setLength] = useState(0.5);
+  const [width, setWidth] = useState("1");
+  const [length, setLength] = useState("0.5");
+  const [dimensionsValid, setDimensionsValid] = useState({ width: true, length: true });
   const [location, setLocation] = useState("Rack B · Slot 01");
-  const area = calculateOffcutArea(width, length);
+  const area = calculateOffcutArea(Number(width) || 0, Number(length) || 0);
+  const hasValidationError = !dimensionsValid.width || !dimensionsValid.length || !width.trim() || !length.trim();
 
   return (
     <ModalShell
@@ -42,7 +44,7 @@ export function OffcutModal({
       subtitle="Return a reusable sheet piece to active inventory and a physical rack location."
       onClose={onClose}
       footer={
-        <Button type="submit" form="offcut-form">
+          <Button type="submit" form="offcut-form" disabled={hasValidationError}>
           Return to active inventory
           <ArrowUpRight size={16} />
         </Button>
@@ -53,7 +55,9 @@ export function OffcutModal({
         className="space-y-6"
         onSubmit={(event) => {
           event.preventDefault();
-           onSave({ materialId, width, length, location, operatorSubStockId, machineId });
+            if (!hasValidationError) {
+              onSave({ materialId, width: Number(width), length: Number(length), location, operatorSubStockId, machineId });
+            }
         }}
       >
         <div>
@@ -76,12 +80,13 @@ export function OffcutModal({
             <label className="block text-sm font-semibold text-navy mb-2">
               Width (m)
             </label>
-            <input 
-              type="number" 
-              min="0.1" 
-              step="0.1" 
-              value={width} 
-              onChange={(event) => setWidth(Number(event.target.value))}
+            <NumericInput
+              min={0.1}
+              step="0.1"
+              value={width}
+              emptyValue={0.1}
+              onChange={setWidth}
+              onValidityChange={(isValid) => setDimensionsValid((current) => ({ ...current, width: isValid }))}
               className="w-full px-3 py-2 text-sm border border-line rounded-lg bg-white text-navy placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan focus:border-transparent transition-colors"
             />
           </div>
@@ -89,12 +94,13 @@ export function OffcutModal({
             <label className="block text-sm font-semibold text-navy mb-2">
               Length (m)
             </label>
-            <input 
-              type="number" 
-              min="0.1" 
-              step="0.1" 
-              value={length} 
-              onChange={(event) => setLength(Number(event.target.value))}
+            <NumericInput
+              min={0.1}
+              step="0.1"
+              value={length}
+              emptyValue={0.1}
+              onChange={setLength}
+              onValidityChange={(isValid) => setDimensionsValid((current) => ({ ...current, length: isValid }))}
               className="w-full px-3 py-2 text-sm border border-line rounded-lg bg-white text-navy placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan focus:border-transparent transition-colors"
             />
           </div>

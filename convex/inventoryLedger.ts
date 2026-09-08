@@ -1,6 +1,7 @@
 import type { MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import type { PurchaseUnit, Unit } from "./types";
+import { classifyMaterialProductionType } from "./materialUsage";
 
 export type InventoryEventType =
   | "STOCK_IN"
@@ -25,7 +26,7 @@ export type InventoryEventInput = {
   baseUnit: Unit;
   baseQuantity: number;
   packageQuantity?: number;
-  packageUnit?: "ROLL" | "SHEET" | "LITER";
+  packageUnit?: "ROLL" | "SHEET" | "LITER" | "PACKAGE" | "CANISTER" | "PIECE";
   conversionRatio?: number;
   parentInventoryId?: Id<"parentInventory">;
   operatorSubStockId?: Id<"operatorSubStock">;
@@ -45,8 +46,27 @@ function round(value: number, digits = 3) {
 }
 
 /**
+ * Converts litres to millilitres with precision.
+ * 1L = 1000mL. Used for ink materials to prevent rounding errors.
+ */
+function litresToMillilitres(litres: number): number {
+  return round(litres * 1000, 1);
+}
+
+/**
+ * Converts millilitres to litres with precision.
+ * 1000mL = 1L. Used when deducting from sub-stock stored in litres.
+ */
+function millilitresToLitres(mL: number): number {
+  return round(mL / 1000, 3);
+}
+
+/**
  * Appends one authoritative inventory event and updates only the materialized
  * custody projections. Callers must never patch inventory balances directly.
+ *
+ * For ink materials, sub-stock quantities are tracked in millilitres (mL)
+ * internally to prevent rounding errors during small print runs.
  */
 export async function recordInventoryEvent(
   ctx: MutationCtx,
@@ -94,6 +114,10 @@ export async function recordInventoryEvent(
     const subStock = await ctx.db.get(input.operatorSubStockId);
     if (!subStock) throw new Error("Operator sub-stock not found.");
 
+    // Determine if this is an ink material for mL precision tracking
+    const isInk = classifyMaterialProductionType(material) === "ink";
+    const baseQuantityML = isInk ? litresToMillilitres(input.baseQuantity) : 0;
+
     let remainingDelta = 0;
     if (input.eventType === "STORE_TO_OPERATOR_TRANSFER") remainingDelta = input.baseQuantity;
     if (
@@ -110,10 +134,54 @@ export async function recordInventoryEvent(
     const nextRemaining = round(subStock.currentRemaining + remainingDelta);
     if (nextRemaining < -0.0001) throw new Error("Operator sub-stock cannot go below zero.");
     const isTransfer = input.eventType === "STORE_TO_OPERATOR_TRANSFER";
+    const packageDelta = input.conversionRatio && input.conversionRatio > 0
+      ? input.baseQuantity / input.conversionRatio
+      : 0;
+    const nextRemainingPackages = isTransfer
+      ? (subStock.remainingPackages ?? 0) + (input.packageQuantity ?? 0)
+      : input.eventType === "PRODUCTION_CONSUMPTION"
+        ? Math.max(0, (subStock.remainingPackages ?? 0) - packageDelta)
+        : subStock.remainingPackages;
+
+    // Calculate mL fields for ink materials
+    let issuedMillilitres = subStock.issuedMillilitres;
+    let consumedMillilitres = subStock.consumedMillilitres;
+    let remainingMillilitres = subStock.remainingMillilitres;
+
+    if (isInk) {
+      if (isTransfer) {
+        // On transfer, add mL to the batch
+        issuedMillilitres = round((subStock.issuedMillilitres ?? 0) + baseQuantityML, 1);
+        remainingMillilitres = round((subStock.remainingMillilitres ?? 0) + baseQuantityML, 1);
+      } else if (input.eventType === "PRODUCTION_CONSUMPTION" || input.eventType === "SCRAP_LOG") {
+        // On consumption, deduct mL from the batch
+        consumedMillilitres = round((subStock.consumedMillilitres ?? 0) + baseQuantityML, 1);
+        remainingMillilitres = round((subStock.remainingMillilitres ?? 0) - baseQuantityML, 1);
+        if ((remainingMillilitres ?? 0) < 0) remainingMillilitres = 0;
+      } else if (input.eventType === "RECONCILIATION_ADJUSTMENT") {
+        // On reconciliation, adjust mL
+        const mlDelta = input.balanceEffect === "in" ? baseQuantityML : -baseQuantityML;
+        remainingMillilitres = round((subStock.remainingMillilitres ?? 0) + mlDelta, 1);
+        if ((remainingMillilitres ?? 0) < 0) remainingMillilitres = 0;
+      }
+    }
+
     await ctx.db.patch(subStock._id, {
       issuedUnits: isTransfer ? round(subStock.issuedUnits + (input.packageQuantity ?? 0)) : subStock.issuedUnits,
       issuedQuantity: isTransfer ? round(subStock.issuedQuantity + input.baseQuantity) : subStock.issuedQuantity,
       currentRemaining: Math.max(0, nextRemaining),
+      issuedPackages: isTransfer ? round((subStock.issuedPackages ?? 0) + (input.packageQuantity ?? 0)) : subStock.issuedPackages,
+      remainingPackages: nextRemainingPackages === undefined ? undefined : round(nextRemainingPackages),
+      issuedBaseQuantity: isTransfer ? round((subStock.issuedBaseQuantity ?? 0) + input.baseQuantity) : subStock.issuedBaseQuantity,
+      remainingBaseQuantity: Math.max(0, nextRemaining),
+      conversionRatioSnapshot: subStock.conversionRatioSnapshot ?? input.conversionRatio,
+      consumedBaseQuantity: input.eventType === "PRODUCTION_CONSUMPTION"
+        ? round((subStock.consumedBaseQuantity ?? 0) + input.baseQuantity)
+        : subStock.consumedBaseQuantity,
+      // mL precision fields for ink materials
+      issuedMillilitres,
+      consumedMillilitres,
+      remainingMillilitres,
       status: nextRemaining <= 0.0001 ? "EXHAUSTED" : "ACTIVE",
       updatedAt: Date.now(),
     });

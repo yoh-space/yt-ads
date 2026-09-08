@@ -1,17 +1,27 @@
 import { internalMutation, internalAction, mutation, query, action } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
+import type { Unit } from "./types";
 import { authComponent } from "./auth";
-import { exceptionReason, invoiceLineItem, invoiceType, orderPriority, orderStatus, paymentStatus, unit, serviceType } from "./schema";
+import { exceptionReason, orderPriority, orderStatus, paymentStatus, unit, serviceType } from "./schema";
 import { requireAnyPermission, requirePermission } from "./users";
-import { hasPermission } from "./authorization";
 import { notifyRoles } from "./notificationHelpers";
-import { ensureSystemConfig } from "./systemConfigs";
+import { ensureSystemConfig, CONFIG_KEY } from "./systemConfigs";
+import { DEFAULT_SYSTEM_CONFIG } from "./materialUsage";
+import {
+  compatibleMachines,
+  computeStandardAllocation,
+  resolveRouteForService,
+  selectMachineByLoad,
+  type MaterialTypeRoute,
+  type StandardAllocation,
+} from "./orderAutomation";
 import { recordInventoryEvent } from "./inventoryLedger";
 import { verifyTelegramInitData } from "./telegramAuth";
 import { SERVICE_ROUTING_MAP } from "../src/shared/machine-catalog";
 
-/** Statuses a customer may see through public tracking (Expired stays internal). */
+/** Statuses a customer may see through public tracking (EXPIRED stays internal). */
 const PUBLIC_TRACKING_STATUSES = new Set(["PENDING_REVIEW", "PRICED_AND_PENDING_PAYMENT", "CONFIRMED_PAID_OR_CREDIT", "JOB_CARD_CREATED", "IN_PRODUCTION", "COMPLETED", "READY_FOR_PICKUP"]);
 
 /**
@@ -20,14 +30,14 @@ const PUBLIC_TRACKING_STATUSES = new Set(["PENDING_REVIEW", "PRICED_AND_PENDING_
  * only guards reception's manual progress actions.
  */
 const ALLOWED_STATUS_TRANSITIONS: Record<string, string[]> = {
-  PENDING_REVIEW: ["PRICED_AND_PENDING_PAYMENT", "Expired"],
-  PRICED_AND_PENDING_PAYMENT: ["CONFIRMED_PAID_OR_CREDIT", "Expired"],
+  PENDING_REVIEW: ["PRICED_AND_PENDING_PAYMENT", "EXPIRED"],
+  PRICED_AND_PENDING_PAYMENT: ["CONFIRMED_PAID_OR_CREDIT", "EXPIRED"],
   CONFIRMED_PAID_OR_CREDIT: ["JOB_CARD_CREATED"],
   JOB_CARD_CREATED: ["IN_PRODUCTION"],
   IN_PRODUCTION: ["COMPLETED"],
   COMPLETED: ["READY_FOR_PICKUP"],
   READY_FOR_PICKUP: [],
-  Expired: [],
+  EXPIRED: [],
   EXPIRED_JUNK: [],
 };
 // convex/orders.ts
@@ -52,6 +62,8 @@ type OrderDoc = {
   phone: string;
   serviceType: string;
   dimensions: string;
+  length?: number;
+  width?: number;
   quantity: string;
   amount?: number;
   paymentStatus?: "UNPAID" | "PAID" | "APPROVED_CREDIT";
@@ -76,18 +88,18 @@ type OrderDoc = {
   lastOverdueNotifiedAt?: number;
   tinNumber?: string;
   companyLegalName?: string;
-  invoiceType?: "PROFORMA" | "TAX_INVOICE";
-  invoiceNumber?: string;
-  subtotal?: number;
-  taxRate?: number;
-  taxAmount?: number;
-  paymentReceiptStorageId?: string;
-  paymentReceiptFileName?: string;
-  invoiceId?: string;
 };
 
 function normalizePhone(phone: string) {
   return phone.replace(/[^+\d]/g, "").trim();
+}
+
+function parseDimensions(dimensions: string): { length: number; width: number } | undefined {
+  const match = dimensions.trim().match(/^([0-9]+(?:\.[0-9]{1,3})?)\s*m?\s*[x×]\s*([0-9]+(?:\.[0-9]{1,3})?)\s*m?$/i);
+  if (!match) return undefined;
+  const length = Number(match[1]);
+  const width = Number(match[2]);
+  return Number.isFinite(length) && length > 0 && Number.isFinite(width) && width > 0 ? { length, width } : undefined;
 }
 
 function publicOrder(order: OrderDoc) {
@@ -104,7 +116,7 @@ function publicOrder(order: OrderDoc) {
     priority: order.priority,
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
-     overdue: !["COMPLETED", "READY_FOR_PICKUP", "Expired", "EXPIRED_JUNK"].includes(order.status) && order.preferredDueDate < Date.now(),
+      overdue: !["COMPLETED", "READY_FOR_PICKUP", "EXPIRED", "EXPIRED_JUNK"].includes(order.status) && order.preferredDueDate < Date.now(),
   };
 }
 
@@ -125,6 +137,7 @@ const CUSTOMER_PUSH_STATUSES = new Set([
   "JOB_CARD_CREATED",
   "IN_PRODUCTION",
   "COMPLETED",
+  "READY_FOR_PICKUP",
 ]);
 
 async function pushCustomerOrderStatus(
@@ -177,7 +190,12 @@ async function pushCustomerOrderStatus(
     message =
       `🎉 <b>ስራው ተጠናቋል!</b>\n\n` +
       `• የትዕዛዝ መለያ: <code>${order.code}</code>\n` +
-      `መጥተው መረከብ ወይም በነጣቂ ማስወሰድ ይችላሉ። እናመሰግናለን!${tracking}`;
+      `የመጨረሻ ማጠናቀቂያ ተከናውኗል። ሲዘጋጅ የመረከቢያ ማሳወቂያ ይደርስዎታል።${tracking}`;
+  } else if (order.status === "READY_FOR_PICKUP") {
+    message =
+      `📦 <b>ትዕዛዝዎ ለመረከብ ዝግጁ ነው!</b>\n\n` +
+      `• የትዕዛዝ መለያ: <code>${order.code}</code>\n` +
+      `እባክዎ ወደ ሪሴፕሽን በመምጣት ትዕዛዝዎን ይረከቡ። እናመሰግናለን!${tracking}`;
   }
 
   if (!message) return;
@@ -204,6 +222,8 @@ export const submit = mutation({
     serviceType: serviceType,
     dimensions: v.string(),
     quantity: v.string(),
+    length: v.optional(v.number()),
+    width: v.optional(v.number()),
     preferredDueDate: v.number(),
     priority: v.optional(orderPriority),
     notes: v.optional(v.string()),
@@ -217,9 +237,27 @@ export const submit = mutation({
     const serviceTypeRaw = (args.serviceType as string).trim();
     const serviceType = serviceTypeRaw as typeof args.serviceType;
     const dimensions = args.dimensions.trim();
+    const parsedDimensions = parseDimensions(dimensions);
     const quantity = args.quantity.trim();
-    if (!clientName || !serviceType || !dimensions || !quantity) {
+    if (!clientName || clientName.length > 160 || !serviceType || !dimensions || !quantity) {
       throw new Error("Client, service, dimensions, and quantity are required.");
+    }
+    const dimensionMatch = dimensions.match(/^([0-9]+(?:\.[0-9]{1,2})?)m\s*x\s*([0-9]+(?:\.[0-9]{1,2})?)m$/i);
+    if (!dimensionMatch || Number(dimensionMatch[1]) <= 0 || Number(dimensionMatch[2]) <= 0) {
+      throw new Error("Dimensions must be positive width and height in meters.");
+    }
+    if (!/^[1-9]\d*$/.test(quantity) || Number(quantity) > 100000) {
+      throw new Error("Quantity must be a positive whole number.");
+    }
+    const normalizedTin = args.tinNumber?.trim();
+    if (normalizedTin && !/^\d{10}$/.test(normalizedTin)) {
+      throw new Error("TIN must contain exactly 10 digits.");
+    }
+    if (args.companyLegalName && args.companyLegalName.trim().length > 160) {
+      throw new Error("Company name is too long.");
+    }
+    if (args.notes && args.notes.trim().length > 2000) {
+      throw new Error("Notes are too long.");
     }
 
     // The verified phone lives on the customer's Telegram profile; the manual
@@ -261,13 +299,15 @@ export const submit = mutation({
       phone,
       serviceType,
       dimensions,
+      length: args.length ?? parsedDimensions?.length,
+      width: args.width ?? parsedDimensions?.width,
       quantity,
       preferredDueDate: args.preferredDueDate,
       status: "PENDING_REVIEW",
       priority: args.priority ?? "Medium",
       source: "public_portal",
       notes: args.notes?.trim() || undefined,
-      tinNumber: args.tinNumber?.trim() || undefined,
+      tinNumber: normalizedTin || undefined,
       companyLegalName: args.companyLegalName?.trim() || undefined,
       fileStorageId: args.fileStorageId,
       fileName: args.fileName?.trim() || undefined,
@@ -302,6 +342,8 @@ export const createWalkIn = mutation({
     serviceType: serviceType,
     dimensions: v.string(),
     quantity: v.string(),
+    length: v.optional(v.number()),
+    width: v.optional(v.number()),
     amount: v.optional(v.number()),
     preferredDueDate: v.number(),
     priority: v.optional(orderPriority),
@@ -318,6 +360,7 @@ export const createWalkIn = mutation({
     const serviceTypeRaw = (args.serviceType as string).trim();
     const serviceType = serviceTypeRaw as typeof args.serviceType;
     const dimensions = args.dimensions.trim();
+    const parsedDimensions = parseDimensions(dimensions);
     const quantity = args.quantity.trim();
     if (!clientName || !phone || !serviceType || !dimensions || !quantity) {
       throw new Error("Client, phone, service, dimensions, and quantity are required.");
@@ -340,6 +383,8 @@ export const createWalkIn = mutation({
       phone,
       serviceType,
       dimensions,
+       length: args.length ?? parsedDimensions?.length,
+       width: args.width ?? parsedDimensions?.width,
       quantity,
       amount: args.amount === undefined ? undefined : Number(args.amount.toFixed(2)),
       preferredDueDate: args.preferredDueDate,
@@ -406,81 +451,6 @@ export const listForTelegramUser = query({
   },
 });
 
-export const createInvoice = mutation({
-  args: {
-    orderId: v.id("customerOrders"),
-    type: invoiceType,
-    companyLegalName: v.optional(v.string()),
-    tinNumber: v.optional(v.string()),
-    lineItems: v.array(invoiceLineItem),
-    taxRate: v.number(),
-  },
-  handler: async (ctx, args) => {
-    const { identity } = await requirePermission(ctx, "invoice.create");
-    const order = await ctx.db.get(args.orderId);
-    if (!order) throw new Error("Order not found.");
-    if (!Number.isFinite(args.taxRate) || args.taxRate < 0 || args.taxRate > 100) throw new Error("Tax rate must be between 0 and 100.");
-    if (args.lineItems.length === 0) throw new Error("At least one invoice line item is required.");
-
-    const lineItems = args.lineItems.map((line) => {
-      if (!line.description.trim() || !Number.isFinite(line.quantity) || line.quantity <= 0 || !Number.isFinite(line.unitPrice) || line.unitPrice < 0) {
-        throw new Error("Invoice line items must have a description, positive quantity, and non-negative unit price.");
-      }
-      const lineTotal = Number((line.quantity * line.unitPrice).toFixed(2));
-      if (Math.abs(line.lineTotal - lineTotal) > 0.01) throw new Error("Invoice line total does not match quantity and unit price.");
-      return { ...line, description: line.description.trim(), unit: line.unit.trim(), lineTotal };
-    });
-    const subtotal = Number(lineItems.reduce((sum, line) => sum + line.lineTotal, 0).toFixed(2));
-    const taxAmount = Number((subtotal * args.taxRate / 100).toFixed(2));
-    const total = Number((subtotal + taxAmount).toFixed(2));
-    const invoiceNumber = `INV-${new Date().getFullYear()}-${String(Date.now()).slice(-8)}`;
-    const now = Date.now();
-    const invoiceId = await ctx.db.insert("invoices", {
-      orderId: order._id,
-      invoiceNumber,
-      type: args.type,
-      status: "ISSUED",
-      clientName: order.clientName,
-      companyLegalName: args.companyLegalName?.trim() || order.companyLegalName,
-      tinNumber: args.tinNumber?.trim() || order.tinNumber,
-      lineItems,
-      subtotal,
-      taxRate: args.taxRate,
-      taxAmount,
-      total,
-      currency: "ETB",
-      issuedBy: identity._id,
-      issuedAt: now,
-      updatedAt: now,
-    });
-    await ctx.db.patch(order._id, {
-      amount: total,
-      companyLegalName: args.companyLegalName?.trim() || order.companyLegalName,
-      tinNumber: args.tinNumber?.trim() || order.tinNumber,
-      invoiceType: args.type,
-      invoiceNumber,
-      invoiceId,
-      subtotal,
-      taxRate: args.taxRate,
-      taxAmount,
-      updatedAt: now,
-    });
-    return (await ctx.db.get(invoiceId))!;
-  },
-});
-
-export const getInvoice = query({
-  args: { orderId: v.id("customerOrders") },
-  handler: async (ctx, args) => {
-    await requirePermission(ctx, "invoice.view");
-    const invoices = await ctx.db
-      .query("invoices")
-      .withIndex("by_order", (q) => q.eq("orderId", args.orderId))
-      .collect();
-    return invoices.sort((left, right) => right.issuedAt - left.issuedAt)[0] ?? null;
-  },
-});
-
 /** Bot-only lookup used by the trusted webhook for the `/my-orders` command. */
 export const listByTelegramChat = query({
   args: { telegramChatId: v.string() },
@@ -502,7 +472,7 @@ export const listByTelegramChat = query({
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    const { profile } = await requirePermission(ctx, "order.view");
+    await requirePermission(ctx, "order.view");
     const orders = await ctx.db.query("customerOrders").withIndex("by_due_date").collect();
     const machines = await ctx.db.query("machines").collect();
     const machineNames = new Map(machines.map((machine) => [machine._id, machine.name]));
@@ -510,22 +480,12 @@ export const list = query({
       const rank = { High: 0, Medium: 1, Low: 2 } as const;
       return rank[left.priority] - rank[right.priority] || left.preferredDueDate - right.preferredDueDate;
     });
-    const canSeeBilling = hasPermission(profile.role, "invoice.view");
     return Promise.all(ordered.map(async (order) => ({
       ...order,
-      amount: canSeeBilling ? order.amount : undefined,
-      tinNumber: canSeeBilling ? order.tinNumber : undefined,
-      companyLegalName: canSeeBilling ? order.companyLegalName : undefined,
-      invoiceType: canSeeBilling ? order.invoiceType : undefined,
-      invoiceNumber: canSeeBilling ? order.invoiceNumber : undefined,
-      invoiceId: canSeeBilling ? order.invoiceId : undefined,
-      subtotal: canSeeBilling ? order.subtotal : undefined,
-      taxRate: canSeeBilling ? order.taxRate : undefined,
-      taxAmount: canSeeBilling ? order.taxAmount : undefined,
-      paymentReceiptStorageId: canSeeBilling ? order.paymentReceiptStorageId : undefined,
-      paymentReceiptFileName: canSeeBilling ? order.paymentReceiptFileName : undefined,
+      tinNumber: order.tinNumber,
+      companyLegalName: order.companyLegalName,
       machineName: order.machineId ? machineNames.get(order.machineId) : undefined,
-      overdue: !["COMPLETED", "READY_FOR_PICKUP", "Expired", "EXPIRED_JUNK"].includes(order.status) && order.preferredDueDate < Date.now(),
+     overdue: !["COMPLETED", "READY_FOR_PICKUP", "EXPIRED", "EXPIRED_JUNK"].includes(order.status) && order.preferredDueDate < Date.now(),
       fileUrl: order.fileStorageId ? await ctx.storage.getUrl(order.fileStorageId) : undefined,
     })));
   },
@@ -620,11 +580,103 @@ export const priceOrder = mutation({
 });
 
 /**
+ * Resolves the production assignment for an order without requiring reception
+ * to pick a machine or a material: the material-type catalog decides which raw
+ * material the service consumes, the machine register is filtered by
+ * capability / operator role and load-balanced by unfinished job count, and a
+ * Standard allocation is computed with the configured waste margin.
+ */
+async function resolveAutoRouting(
+  ctx: any,
+  order: OrderDoc,
+  config: { standardWasteMargin?: number; maxAllowedScrapLimit?: number },
+): Promise<{
+  route: MaterialTypeRoute;
+  machineId: string;
+  machineName: string;
+  materialId: string;
+  materialName: string;
+  materialType: string;
+  allocation: StandardAllocation;
+}> {
+  const route = resolveRouteForService(order.serviceType);
+  if (!route) {
+    throw new Error(`No production routing is defined for the ${order.serviceType} service.`);
+  }
+  const materials = await ctx.db.query("materials").withIndex("by_category", (q: any) => q.eq("category", route.materialType)).collect();
+  const preferred = materials.find((m: any) => m.active && m.name === route.preferredMaterialName)
+    ?? materials.find((m: any) => m.active);
+  if (!preferred) {
+    throw new Error(`No active raw material is registered for ${route.materialType}.`);
+  }
+
+  const [machines, jobs] = await Promise.all([
+    ctx.db.query("machines").collect(),
+    ctx.db.query("jobCards").collect(),
+  ]);
+  const loadByMachineId = new Map<string, number>();
+  for (const job of jobs) {
+    if (job.status === "Completed") continue;
+    loadByMachineId.set(job.machineId, (loadByMachineId.get(job.machineId) ?? 0) + 1);
+  }
+  const machine = selectMachineByLoad(compatibleMachines(route, machines), loadByMachineId);
+  if (!machine) {
+    throw new Error(`No available machine can produce ${route.materialType} right now.`);
+  }
+  const allocation = computeStandardAllocation(order, preferred, {
+    standardWasteMargin: config.standardWasteMargin ?? DEFAULT_SYSTEM_CONFIG.standardWasteMargin ?? 0,
+    maxAllowedScrapLimit: config.maxAllowedScrapLimit ?? DEFAULT_SYSTEM_CONFIG.maxAllowedScrapLimit ?? 0,
+  });
+  return {
+    route,
+    machineId: machine._id,
+    machineName: machine.name,
+    materialId: preferred._id,
+    materialName: preferred.name,
+    materialType: route.materialType,
+    allocation,
+  };
+}
+
+/**
+ * Read-only preview of the automatic production assignment used by the confirm
+ * step. Surfaces the machine, raw material, and Standard allocation that
+ * `confirmOrderAndIssueJobCard` will issue so reception can review the routing
+ * without mutating anything.
+ */
+export const previewAutoRouting = query({
+  args: { orderId: v.id("customerOrders") },
+  handler: async (ctx, args) => {
+    await requirePermission(ctx, "order.manage");
+    const order = await ctx.db.get(args.orderId);
+    if (!order) throw new Error("Order not found.");
+    const configRow = await ctx.db
+      .query("systemConfigs")
+      .withIndex("by_key", (q) => q.eq("key", CONFIG_KEY))
+      .unique();
+    const routed = await resolveAutoRouting(ctx, order, configRow ?? {});
+    return {
+      machineId: routed.machineId,
+      machineName: routed.machineName,
+      materialId: routed.materialId,
+      materialName: routed.materialName,
+      materialType: routed.materialType,
+      netBaseQuantity: routed.allocation.netBaseQuantity,
+      plannedBaseQuantity: routed.allocation.plannedBaseQuantity,
+      approvedScrapQuantity: routed.allocation.approvedScrapQuantity,
+      unit: routed.allocation.unit,
+      standardWasteMargin: routed.allocation.wasteMarginPercent,
+      maxAllowedScrapLimit: routed.allocation.maxScrapLimitPercent,
+    };
+  },
+});
+
+/**
  * Reception step 2 of checkout — the single payment-gated entry point to
  * production. Confirms advance payment (PAID) or approved credit
  * (APPROVED_CREDIT), creates the job card, and queues it on the selected
  * machine. Job card creation is impossible before this mutation runs, and it
- * additionally notifies the Telegram customer with their receipt when the
+ *  additionally notifies the Telegram customer when payment is confirmed and
  * order carries a chat id.
  */
 export const confirmOrderAndIssueJobCard = mutation({
@@ -643,7 +695,7 @@ export const confirmOrderAndIssueJobCard = mutation({
   handler: async (ctx, args) => {
     const { identity } = await requirePermission(ctx, "order.manage");
     const order = await ctx.db.get(args.orderId);
-    if (!order) throw new Error("Order is unavailable.");
+    if (!order) throw new Error("Order not found.");
     if (order.jobCardId) throw new Error("This order already has a job card.");
     if (!["PENDING_REVIEW", "PRICED_AND_PENDING_PAYMENT"].includes(order.status)) {
       throw new Error(`Only orders awaiting review or payment can be confirmed (current status: ${order.status}).`);
@@ -664,68 +716,51 @@ export const confirmOrderAndIssueJobCard = mutation({
     if (!targetMachine) {
       targetMachine = (await ctx.db.query("machines").collect()).find((m) => m.active) ?? null;
     }
-    if (!targetMachine || !targetMachine.active) {
-      throw new Error("No active machine available for this service.");
-    }
 
-    let targetMaterial = args.materialId ? await ctx.db.get(args.materialId) : null;
-    if (!targetMaterial && routing) {
-      const allMaterials = await ctx.db.query("materials").collect();
-      targetMaterial = allMaterials.find(
-        (m) => m.active && m.name.toLowerCase() === routing.primaryMaterialName.toLowerCase()
-      ) || allMaterials.find(
-        (m) => m.active && m.name.toLowerCase().includes(routing.primaryMaterialName.toLowerCase())
-      ) || null;
-    }
-    if (!targetMaterial) {
-      targetMaterial = (await ctx.db.query("materials").collect()).find((m) => m.active) ?? null;
-    }
-    if (!targetMaterial || !targetMaterial.active) {
-      throw new Error("No active material available for this job.");
-    }
+    const config = await ensureSystemConfig(ctx, identity._id);
 
-    let plannedQuantity = args.quantity;
-    if (plannedQuantity === undefined || !Number.isFinite(plannedQuantity) || plannedQuantity <= 0) {
-      let baseQty = 1;
-      const dimMatch = order.dimensions?.match(/([\d.]+)\s*(?:[xX*×\s])\s*([\d.]+)/);
-      const parsedQty = parseFloat(order.quantity) || 1;
-      if (dimMatch) {
-        const length = parseFloat(dimMatch[1]);
-        const width = parseFloat(dimMatch[2]);
-        if (!isNaN(length) && !isNaN(width) && length > 0 && width > 0) {
-          baseQty = length * width * parsedQty;
-        } else {
-          baseQty = parsedQty;
-        }
-      } else {
-        baseQty = parsedQty;
+    // Production assignment. Explicit machine/material/quantity remain
+    // supported for backwards compatibility; otherwise the auto-router picks a
+    // compatible, least-loaded machine and computes the Standard allocation
+    // (Total = W×H×Qty × (1 + standardWasteMargin)).
+    let machine: any;
+    let material: any;
+    let allocation: StandardAllocation;
+    if (args.machineId || args.materialId) {
+      if (!args.machineId || !args.materialId || args.quantity === undefined || args.unit === undefined) {
+        throw new Error("Explicit assignment requires machine, material, quantity, and unit.");
       }
-      plannedQuantity = Number((baseQty * (1 + wasteMarginPercent / 100)).toFixed(2));
-    }
-
-    const jobUnit = args.unit ?? (targetMaterial.baseUnit ?? targetMaterial.unit);
-    if (jobUnit !== (targetMaterial.baseUnit ?? targetMaterial.unit)) {
-      throw new Error("Job unit must match the selected material base unit.");
-    }
-
-    if (targetMachine.status === "Maintenance" || targetMachine.status === "Unavailable") {
-      return { success: false as const, error: `${targetMachine.name} is currently ${targetMachine.status.toLowerCase()} and cannot accept new jobs.` };
-    }
-    if (plannedQuantity > targetMaterial.quantity) {
-      return { success: false as const, error: `Stock shortfall — ${targetMaterial.name} has ${targetMaterial.quantity} ${targetMaterial.baseUnit ?? targetMaterial.unit} available but ${plannedQuantity} ${jobUnit} is required.` };
-    }
-
-    // Resolve compatible ink if machine is a printer
-    let inkMaterialId = undefined;
-    if (routing?.compatibleInkName) {
-      const allMaterials = await ctx.db.query("materials").collect();
-      const inkMat = allMaterials.find((m) => m.name.toLowerCase() === routing.compatibleInkName!.toLowerCase());
-      if (inkMat) inkMaterialId = inkMat._id;
-    }
-
-    const amount = args.amount !== undefined ? args.amount : order.amount;
-    if (amount === undefined || !Number.isFinite(amount) || amount < 0) {
-      throw new Error("Confirm the final price before verifying payment.");
+      machine = await ctx.db.get(args.machineId);
+      material = await ctx.db.get(args.materialId);
+      if (!machine || !material || !machine.active || !material.active) {
+        throw new Error("Order, machine, or material is unavailable.");
+      }
+      if (!Number.isFinite(args.quantity) || args.quantity <= 0) {
+        throw new Error("Planned material quantity must be greater than zero.");
+      }
+      if (args.unit !== (material.baseUnit ?? material.unit)) {
+        throw new Error("Job unit must match the selected material base unit.");
+      }
+      if (machine.status === "Maintenance" || machine.status === "Unavailable") {
+        return { success: false as const, error: `${machine.name} is currently ${machine.status.toLowerCase()} and cannot accept new jobs.` };
+      }
+      const planned = Number(args.quantity.toFixed(3));
+      allocation = {
+        plannedBaseQuantity: planned,
+        netBaseQuantity: planned,
+        approvedScrapQuantity: Number((planned * (config.maxAllowedScrapLimit ?? DEFAULT_SYSTEM_CONFIG.maxAllowedScrapLimit ?? 0) / 100).toFixed(3)),
+        unit: args.unit,
+        wasteMarginPercent: 0,
+        maxScrapLimitPercent: config.maxAllowedScrapLimit ?? DEFAULT_SYSTEM_CONFIG.maxAllowedScrapLimit ?? 0,
+      };
+    } else {
+      const routed = await resolveAutoRouting(ctx, order, config);
+      machine = await ctx.db.get(routed.machineId as Id<"machines">);
+      material = await ctx.db.get(routed.materialId as Id<"materials">);
+      if (!machine || !material || !machine.active || !material.active) {
+        throw new Error("The auto-routed machine or material is no longer available.");
+      }
+      allocation = routed.allocation;
     }
 
     const now = Date.now();
@@ -735,20 +770,94 @@ export const confirmOrderAndIssueJobCard = mutation({
       code,
       client: order.clientName,
       title: order.serviceType,
-      machineId: targetMachine._id,
-      materialId: targetMaterial._id,
-      quantity: plannedQuantity,
-      unit: jobUnit,
+      machineId: machine._id,
+      materialId: material._id,
+      quantity: allocation.plannedBaseQuantity,
+      unit: allocation.unit as Unit,
       status: "Queued",
       due: new Date(order.preferredDueDate).toLocaleString("en-ET", { dateStyle: "medium", timeStyle: "short" }),
-      priority: args.priority === "Low" ? "Normal" : args.priority ?? "Normal",
+      priority: args.priority ?? "Medium",
       createdBy: identity._id,
       createdAt: now,
       orderId: args.orderId,
       deductOnComplete: args.deductOnComplete,
-      inkMaterialId,
-      wasteMarginPercent,
+      length: order.length,
+      width: order.width,
+      serviceType: order.serviceType,
     });
+const bomRows = await ctx.db
+      .query("serviceBOM")
+      .withIndex("by_active_service", (q) => q.eq("active", true).eq("serviceType", order.serviceType))
+      .collect();
+    const serviceUnitsMatch = order.quantity.match(/[0-9]+(?:\.[0-9]+)?/);
+    const serviceUnits = serviceUnitsMatch ? Math.max(1, Number(serviceUnitsMatch[0])) : 1;
+    const parsedArea = order.length && order.width ? order.length * order.width : allocation.plannedBaseQuantity;
+    const bomCoversPrimary = bomRows.some((bom) => bom.materialId === material._id);
+    for (const bom of bomRows) {
+      const bomMaterial = await ctx.db.get(bom.materialId);
+      if (!bomMaterial || !bomMaterial.active) {
+        if (bom.required) throw new Error("A required BOM material is no longer active.");
+        continue;
+      }
+      const margin = config.defaultMarginSquareMetres ?? 0;
+      const driver = bom.consumptionMode === "fixed"
+        ? 1
+        : bom.consumptionMode === "area_rate"
+          ? (parsedArea + margin) * serviceUnits
+          : bom.consumptionMode === "linear_rate"
+            ? (order.length ?? allocation.plannedBaseQuantity) * serviceUnits
+            : serviceUnits;
+      const plannedBaseQuantity = Number((bom.quantityPerUnit * driver).toFixed(3));
+      const allowancePercent = bom.wasteAllowancePercent ?? config.defaultScrapAllowancePercent ?? config.maxAllowedWastePercent;
+      const approvedScrapQuantity = Number((plannedBaseQuantity * allowancePercent / 100).toFixed(3));
+      const ratio = bomMaterial.conversionRatio && bomMaterial.conversionRatio > 0 ? bomMaterial.conversionRatio : 1;
+      const packageUnit = bomMaterial.purchaseUnit === "sheet"
+        ? "SHEET"
+        : bomMaterial.purchaseUnit === "roll"
+          ? "ROLL"
+          : bomMaterial.purchaseUnit === "canister" || bomMaterial.purchaseUnit === "liter"
+            ? "CANISTER"
+            : bomMaterial.purchaseUnit === "piece" ? "PIECE" : "PACKAGE";
+      await ctx.db.insert("jobMaterialRequirements", {
+        jobCardId: jobId,
+        materialId: bom.materialId,
+        packageUnit,
+        suggestedPackages: Math.ceil((plannedBaseQuantity + approvedScrapQuantity) / ratio),
+        baseUnit: bomMaterial.baseUnit ?? bomMaterial.unit,
+        plannedBaseQuantity,
+        approvedScrapQuantity,
+        conversionRatioSnapshot: ratio,
+        status: "PLANNED",
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+    // Ensure the auto-allocated primary material is always on the job's
+    // material plan so the operator Sub-Stock queue and material requests
+    // resolve it, even when the service has no active BOM rows.
+    if (!bomCoversPrimary) {
+      const primaryRatio = material.conversionRatio && material.conversionRatio > 0 ? material.conversionRatio : 1;
+      const primaryPackageUnit = material.purchaseUnit === "sheet"
+        ? "SHEET"
+        : material.purchaseUnit === "roll"
+          ? "ROLL"
+          : material.purchaseUnit === "canister" || material.purchaseUnit === "liter"
+            ? "CANISTER"
+            : material.purchaseUnit === "piece" ? "PIECE" : "PACKAGE";
+      await ctx.db.insert("jobMaterialRequirements", {
+        jobCardId: jobId,
+        materialId: material._id,
+        packageUnit: primaryPackageUnit,
+        suggestedPackages: Math.ceil((allocation.plannedBaseQuantity + allocation.approvedScrapQuantity) / primaryRatio),
+        baseUnit: material.baseUnit ?? material.unit ?? allocation.unit,
+        plannedBaseQuantity: allocation.plannedBaseQuantity,
+        approvedScrapQuantity: allocation.approvedScrapQuantity,
+        conversionRatioSnapshot: primaryRatio,
+        status: "PLANNED",
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
     await ctx.db.patch(args.orderId, {
       amount: roundedAmount,
       paymentStatus: args.paymentDecision,
@@ -757,7 +866,7 @@ export const confirmOrderAndIssueJobCard = mutation({
       paymentConfirmedBy: identity._id,
       status: "JOB_CARD_CREATED",
       jobCardId: jobId,
-      machineId: targetMachine._id,
+      machineId: machine._id,
       updatedAt: now,
     });
     if (targetMachine.status !== "Running") await ctx.db.patch(targetMachine._id, { status: "Running", activeJob: code });
@@ -770,7 +879,7 @@ export const confirmOrderAndIssueJobCard = mutation({
       relatedId: args.orderId,
     });
 
-    // Receipt to the Telegram customer: the customer push is centralised in
+    // Payment confirmation to the Telegram customer: the customer push is centralised in
     // `pushCustomerOrderStatus` and fires only when reception explicitly
     // transitions the order past PENDING_REVIEW. It never runs from the
     // public/Mini App create path.
@@ -786,14 +895,27 @@ export const confirmOrderAndIssueJobCard = mutation({
       order.status,
     );
 
-    return { success: true as const, jobId, code, paymentStatus: args.paymentDecision };
+    return {
+      success: true as const,
+      jobId,
+      code,
+      paymentStatus: args.paymentDecision,
+      machineId: machine._id,
+      machineName: machine.name,
+      materialId: material._id,
+      materialName: material.name,
+      allocatedBaseQuantity: allocation.plannedBaseQuantity,
+      unit: allocation.unit,
+      approvedScrapQuantity: allocation.approvedScrapQuantity,
+      standardWasteMargin: allocation.wasteMarginPercent,
+    };
   },
 });
 
 /**
  * Receptionist-initiated rejection triggered from the inline Telegram action
  * keyboard ("Reject" button on the new-order alert). Transitions the order to
- * `Expired` and pushes a polite customer-facing notification so the customer
+ * `EXPIRED` and pushes a polite customer-facing notification so the customer
  * immediately knows their order was declined.
  */
 export const rejectFromReception = mutation({
@@ -802,11 +924,11 @@ export const rejectFromReception = mutation({
     const { identity } = await requirePermission(ctx, "order.manage");
     const order = await ctx.db.get(args.orderId);
     if (!order) throw new Error("Order not found.");
-    if (["COMPLETED", "READY_FOR_PICKUP", "Expired", "EXPIRED_JUNK"].includes(order.status)) {
+    if (["COMPLETED", "READY_FOR_PICKUP", "EXPIRED", "EXPIRED_JUNK"].includes(order.status)) {
       throw new Error(`Cannot reject an order already in status ${order.status}.`);
     }
     await ctx.db.patch(args.orderId, {
-      status: "Expired",
+      status: "EXPIRED",
       updatedAt: Date.now(),
     });
     await notifyOrderRoles(ctx, {
@@ -859,7 +981,7 @@ export const notifyOverdue = mutation({
     const { identity } = await requirePermission(ctx, "order.manage");
     const now = Date.now();
     const overdue = (await ctx.db.query("customerOrders").withIndex("by_due_date").collect()).filter(
-      (order) => !["COMPLETED", "READY_FOR_PICKUP", "Expired", "EXPIRED_JUNK"].includes(order.status) && order.preferredDueDate < now,
+      (order) => !["COMPLETED", "READY_FOR_PICKUP", "EXPIRED", "EXPIRED_JUNK"].includes(order.status) && order.preferredDueDate < now,
     );
     let notified = 0;
     for (const order of overdue) {
@@ -884,7 +1006,7 @@ export const notifyOverdueInternal = internalMutation({
   handler: async (ctx) => {
     const now = Date.now();
     const overdue = (await ctx.db.query("customerOrders").withIndex("by_due_date").collect()).filter(
-      (order) => !["COMPLETED", "READY_FOR_PICKUP", "Expired", "EXPIRED_JUNK"].includes(order.status) && order.preferredDueDate < now,
+      (order) => !["COMPLETED", "READY_FOR_PICKUP", "EXPIRED", "EXPIRED_JUNK"].includes(order.status) && order.preferredDueDate < now,
     );
     let notified = 0;
     for (const order of overdue) {
@@ -1085,6 +1207,7 @@ export const sendTelegramNotification = action({
     chatId: v.string(),
     message: v.string(),
   },
+  returns: v.object({ success: v.boolean() }),
   handler: async (ctx, args) => {
     const token = process.env.TELEGRAM_BOT_TOKEN;
     if (!token) {
@@ -1117,11 +1240,12 @@ export const sendTelegramNotification = action({
   },
 });
 
-export const sendTelegramNotificationInternal = internalMutation({
+export const sendTelegramNotificationInternal = internalAction({
   args: {
     chatId: v.string(),
     message: v.string(),
   },
+  returns: v.object({ success: v.boolean() }),
   handler: async (ctx, args) => {
     const token = process.env.TELEGRAM_BOT_TOKEN;
     if (!token) {

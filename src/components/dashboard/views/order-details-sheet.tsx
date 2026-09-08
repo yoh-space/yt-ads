@@ -17,7 +17,7 @@ import type { CustomerOrder, CustomerOrderStatus } from "@/lib/operations-types"
 import { Button, StatusPill } from "@/components/ui";
 import { getServiceLabel } from "@/constants/services";
 import { cn } from "@/lib/utils";
-import { isDesktopShell, printNative } from "@/lib/desktop";
+import { isDesktopShell } from "@/lib/desktop";
 
 const statusTone = {
   "PENDING_REVIEW": "warning",
@@ -27,7 +27,7 @@ const statusTone = {
   "IN_PRODUCTION": "info",
   "COMPLETED": "success",
   "READY_FOR_PICKUP": "info",
-  "Expired": "danger",
+  "EXPIRED": "danger",
   "EXPIRED_JUNK": "danger",
 } as const;
 
@@ -61,8 +61,6 @@ export function OrderDetailsSheet({
   onConvert,
   onStatus,
   onClose,
-  canInvoice,
-  onInvoice,
 }: {
   order: CustomerOrder;
   machinesLabel?: string;
@@ -71,8 +69,6 @@ export function OrderDetailsSheet({
   onConvert: (order: CustomerOrder) => void;
   onStatus: (orderId: string, status: CustomerOrderStatus) => void;
   onClose: () => void;
-  canInvoice: boolean;
-  onInvoice: (order: CustomerOrder) => void;
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -186,7 +182,7 @@ export function OrderDetailsSheet({
           {/* Telegram Intake & Customer Credentials */}
           <section className="space-y-3">
             <SectionHeading icon={<FileText size={15} />} title="Telegram Intake Credentials" />
-            <div className="rounded-lg border border-line bg-gray-50/60 p-3.5 space-y-2.5">
+            <div className="rounded-lg border border-line bg-gray-900 p-3.5 space-y-2.5">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <span className="text-[10px] font-mono uppercase tracking-wider text-gray-500 block">Order PIN</span>
@@ -353,7 +349,7 @@ export function OrderDetailsSheet({
         </div>
 
         {/* Sticky Footer (only when there are actionable workflow steps) */}
-         {canPrice || canConfirm || canComplete || hasArtwork || canInvoice || (isDesktopShell() && canManage) ? (
+         {canPrice || canConfirm || canComplete || hasArtwork || (isDesktopShell() && canManage) ? (
           <footer className="flex-shrink-0 flex items-center justify-end gap-3 p-6 border-t border-line bg-muted/30">
             {canPrice ? (
               <Button
@@ -387,15 +383,9 @@ export function OrderDetailsSheet({
                 {isPending(`order-status-${order.id}`) ? "Saving…" : "Complete"}
               </Button>
             ) : null}
-            {canInvoice ? <Button type="button" variant="secondary" onClick={() => onInvoice(order)}><Printer size={14} />Invoice</Button> : null}
             {hasArtwork ? (
               <Button type="button" variant="secondary" onClick={downloadAsset}>
                 <Download size={14} />Download Asset
-              </Button>
-            ) : null}
-            {isDesktopShell() && canManage && canInvoice ? (
-              <Button type="button" variant="tertiary" onClick={() => printNative()}>
-                <Printer size={14} />Receipt
               </Button>
             ) : null}
           </footer>

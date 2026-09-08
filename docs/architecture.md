@@ -10,7 +10,8 @@
 | Backend | **Convex 1.25** | Authoritative database, real-time queries, mutations, and scheduled crons (`convex/crons.ts`). All business logic lives here. |
 | Auth | **Better Auth (`@convex-dev/better-auth`)** | Manages staff identities and the `users`/`staff` tables; powers `/sign-in` and `/sign-up` pages; also resolves the signed-in identity for every Convex handler. |
 | Styling | **Tailwind v3.4 + design tokens in `src/app/globals.css`** | Authoritative token set: deep-navy canvases (`--background: 222 47% 11%`), midnight-slate surfaces (`--card: 215 28% 17%`), electric-cyan accents (`--cyan: 199 89% 48%`). |
-| UI primitives | **`src/components/ui/*`** | `Panel`, `PanelHeader`, `Button`, `Badge`, `Input`, `Select`, `StatusPill`, `StatCard`, `TelemetryBar`, `Progress`, `MicroHistogram`, `MetricChart`, `Table`, `Typography` — every dashboard surface composes these. |
+| UI primitives | **`src/components/ui/*`** | `Panel`, `PanelHeader`, `Button`, `Badge`, `Input`, `Select`, `StatusPill`, `StatCard`, `TelemetryBar`, `Progress`, `MicroHistogram`, `MetricChart`, `Table`, `Typography` — every dashboard surface composes these. These are domain-neutral with no Convex or role imports. |
+| Dashboard domains | **`src/components/dashboard/*`** | Domain views and modals are organized under `views/` and `modals/`; shared UI primitives remain in `src/components/ui/*`. |
 | Telegram bot | **grammY (`src/telegram`)** | Long-polling bot over `TELEGRAM_BOT_TOKEN`. Webhook handler is mounted at `/api/telegram`. Sessions back into Convex (`telegramSessions`). |
 | Tauri desktop shell | **Tauri v2 (`src-tauri/`)** | Optional desktop wrapper that loads the existing web app at `http://localhost:3000`; auto-update is registered via `src/components/auto-updater.tsx`. |
 | Cron / schedulers | **`convex/crons.ts` + `ctx.scheduler.runAfter`** | Hourly overdue-order alerts, every-30-minutes order expiry, nightly status-casing migration, plus inline-deferred Telegram pushes and inventory write-backs. |
@@ -25,13 +26,13 @@
 ┌─────────────────────────────────┐    ┌─────────────────────────────────────────┐
 │  Telegram clients (customers)   │    │       Web dashboards (staff)            │
 │  - private chats w/ bot          │    │  - Next.js App Router /dashboard       │
-│  - Telegram Mini App (WebApp)    │    │  - React + Tailwind components          │
-└──────────────────┬──────────────┘    └────────────────────┬──────────────────┘
-                   │                                        │
-                   │ HMAC-SHA256 initData                   │ Better Auth session
+│  - Telegram Mini App (WebApp)    │    │  - Workspace-oriented routing          │
+└──────────────────┬──────────────┘    │  - React + Tailwind components          │
+                   │                                     │  - Dashboard domain components         │
+                   │ HMAC-SHA256 initData  └────────────────────┬──────────────────┘
                    │ Telegram WebApp primary button         │
-                   │                                        │
-                   ▼                                        ▼
+                   │                                        │ Better Auth session
+                   ▼                                        │
         ┌──────────────────────────────────────────────────────────┐
         │           grammY bot webhook + Mini App API              │
         │      /api/telegram  ◄──►  Convex mutations/queries       │
@@ -48,6 +49,17 @@
         │  ─ Single source of truth: stock_movements                │
         └──────────────────────────────────────────────────────────┘
 ```
+
+### 2.1 Workspace-oriented routing
+
+The dashboard uses a canonical workspace routing model defined in `docs/adr/0001-workspace-routing-architecture.md`:
+
+- **Canonical routes**: `/dashboard/[workspace]/...` where `workspace` ∈ `{owner, manager, admin, storekeeper, receptionist, operator}`
+- **Operator routes**: Stable at `/dashboard/operator/[machine]` for `laser`, `cnc`, `plotter`, `printer`
+- **Legacy redirects**: Flat routes (`/orders`, `/inventory`, `/reports`, `/settings`, `/reconciliation`) and the legacy reception route redirect to canonical workspace routes; owner, manager, and storekeeper roots are served directly by the dynamic workspace route
+- **Authorization**: Route contracts in `src/lib/role-routing.ts` define allowed prefixes per workspace; proxy interception in `src/proxy.ts` enforces redirects
+
+The workspace model separates functional operational domains from raw database roles, enabling modular feature loading and scoped layout ownership.
 
 The platform deliberately keeps the React/Next.js server out of the business-logic path: every authoritative decision (creating an order, pricing one, approving clearance, sending a Telegram alert) is a **Convex** call. The Next.js server is responsible only for SSR of the dashboard shell and for the `/api/auth/[...all]` and `/api/telegram` webhook routes.
 
@@ -125,9 +137,9 @@ The schema is defined in `convex/schema.ts`; every table there is annotated with
 `customerOrders` (`schema.ts:396`) is the customer-facing order ledger. The schema encodes:
 
 - **Lifecycle** — `status: orderStatus`. The canonical lifecycle is `PENDING_REVIEW → PRICED_AND_PENDING_PAYMENT → CONFIRMED_PAID_OR_CREDIT → JOB_CARD_CREATED → IN_PRODUCTION → COMPLETED → READY_FOR_PICKUP`, with terminal `Expired` and `EXPIRED_JUNK`. Legacy aliases (`"Received"`, `"In Production"`, `"Completed"`, `"Ready for Pickup"`) are kept only as a bridge for `convex/migrations.ts` to read legacy rows and re-case them.
-- **Enterprise fields** — `tinNumber`, `companyLegalName`, `invoiceType`, `invoiceNumber`, `invoiceId`, `subtotal`, `taxRate`, `taxAmount`, plus optional `paymentReceiptStorageId/FileName`, `paymentReceiptUploadedAt`, `paymentReceiptVerifiedAt/By`. These allow a TIN-issued VAT tax invoice to be generated from the order without a follow-up revision.
+- **Customer organization fields** — `tinNumber` and `companyLegalName` are captured from Telegram orders and shown to reception for copying into the external workflow. The application does not generate invoices or receipts.
 - **Telegram binding** — `telegramChatId`, optional `telegramId` not stored (the binding is on `telegramUsers` for verified customers). Indexed by `by_telegram_chat_id` for fast customer look-ups.
-- **Pricing + payment** — `amount`, `paymentStatus ∈ {UNPAID, PAID, APPROVED_CREDIT}`, `paymentConfirmedAt/By`, `paymentReceiptVerifiedAt/By`. The first external-touch push to the customer is fired when `paymentDecision = PAID` is recorded (`convex/orders.ts` `confirmOrderAndIssueJobCard`).
+- **Pricing + payment** — `amount`, `paymentStatus ∈ {UNPAID, PAID, APPROVED_CREDIT}`, and `paymentConfirmedAt/By`. The first external-touch push to the customer is fired when `paymentDecision = PAID` is recorded (`convex/orders.ts` `confirmOrderAndIssueJobCard`).
 - **Cron-friendly indexes** — `by_due_date` (overdue alerts), `by_expires_at` (24-hour unpaid-order expiry). The cron at `convex/crons.ts:7` runs `expireOrdersInternal` every 30 minutes.
 
 `jobCards` (`schema.ts:522`), `productionLogs` (`schema.ts:544`), and the related `offcuts` / `offcutConsumptions` / `scraps` tables chain behind an order. `JobCard.quantity` is the planned base-unit quantity; each `productionLog` row records the operator's per-session *input* and *output* quantities; the ledger difference between them is what's recorded as `PRODUCTION_CONSUMPTION` (or split into `PRODUCTION_CONSUMPTION` + `SCRAP_LOG` + `OFFCUT_RETURN`).
@@ -151,17 +163,7 @@ The schema is defined in `convex/schema.ts`; every table there is annotated with
 | `weeklyReconciliations` | Audit log of physical floor counts. Carries `systemCalculatedRemaining`, `physicalActualRemaining`, `discrepancy`, and the unit. The discrepancy is also written as a `RECONCILIATION_ADJUSTMENT` event. | `by_machine`, `by_stock`, `by_reconciled_at` |
 | `reconciliations` | Central-store physical-count history. Carries `systemQuantity`, `countedQuantity`, `variance`, optional `etbValue` and `monetaryLoss`, the reviewer chain (`reviewedBy`, `reviewedAt`), and the **Owner-only** lifecycle `Open → Reviewed → Resolved`. Reviewing is via `requireRoles(["owner"])` in `convex/reconciliation.ts:76`. | `by_material`, `by_created`, `by_status` |
 
-### 5.6 Invoicing
-
-`invoices` (`schema.ts:461`) is an immutable commercial document generated from a `customerOrder`. Each row freezes:
-- the bill-of-sale `lineItems` (description, quantity, unit, unitPrice, lineTotal),
-- the financial totals (`subtotal`, `taxRate`, `taxAmount`, `total`, `currency` — always `ETB` in this codebase),
-- the tax identification (`clientName`, `companyLegalName`, `tinNumber`),
-- the lifecycle (`type ∈ {PROFORMA, TAX_INVOICE}`, `status ∈ {DRAFT, ISSUED, VOID}`).
-
-Proforma invoices (`type: PROFORMA`) are issued before payment to capture the quote; tax invoices (`type: TAX_INVOICE`) are issued after payment is confirmed. Both share the same projection shape.
-
-### 5.7 External surfaces (Telegram)
+### 5.6 External surfaces (Telegram)
 
 | Table | Purpose |
 | --- | --- |

@@ -36,8 +36,6 @@ export type Permission =
   | "reconciliation.review"
   | "reconciliation.operator"
   | "reconciliation.clearance"
-  | "invoice.view"
-  | "invoice.create";
 
 const ALL: Permission[] = [
   "dashboard.view",
@@ -74,8 +72,6 @@ const ALL: Permission[] = [
   "reconciliation.review",
   "reconciliation.operator",
   "reconciliation.clearance",
-  "invoice.view",
-  "invoice.create",
 ];
 
 const OPERATIONS: Permission[] = [
@@ -95,6 +91,7 @@ const OPERATIONS: Permission[] = [
 
 const EXCLUDED_FROM_MANAGER: Set<Permission> = new Set([
   "company_settings.update",
+  "reports.view",
   "reconciliation.review",
   "reconciliation.clearance",
 ]);
@@ -146,8 +143,6 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "reconciliation.review", // Added for administrative review
     "reconciliation.operator",
     "reconciliation.clearance",
-    "invoice.view",
-    "invoice.create",
   ],
   storekeeper: [
     "material.view",
@@ -175,8 +170,6 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "order.view",
     "order.create",
     "order.manage",
-    "invoice.view",
-    "invoice.create",
   ],
 };
 

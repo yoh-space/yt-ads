@@ -35,6 +35,7 @@ const defaultRatios: Record<PurchaseUnit, number | undefined> = {
   roll: 160,
   sheet: 2.977,
   pack: 20,
+  canister: 1,
   liter: 1,
   piece: 1,
 };
@@ -133,7 +134,7 @@ export function MaterialModal({
   function selectPurchaseUnit(value: PurchaseUnit) {
     setValue("purchaseUnit", value);
     setValue("conversionRatio", defaultRatios[value]);
-    setValue("displayUnit", value === "roll" ? "ሮል" : value === "sheet" ? "ቁጥር" : value === "pack" ? "Pack" : value === "liter" ? "ሊትር" : "ቁጥር");
+    setValue("displayUnit", value === "roll" ? "ሮል" : value === "sheet" ? "ሺት" : value === "pack" ? "Package" : value === "canister" ? "Canister" : value === "liter" ? "ሊትር" : "ቁጥር");
   }
 
   const onSubmit = (data: MaterialFormOutput) => {

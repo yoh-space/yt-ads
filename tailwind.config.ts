@@ -8,11 +8,24 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        main: "hsl(var(--bg-main))",
+        surface: "hsl(var(--bg-surface))",
+        "surface-elevated": "hsl(var(--bg-surface-elevated))",
+        "border-token": "hsl(var(--border-color))",
+        "text-primary": "hsl(var(--text-primary))",
+        "text-secondary": "hsl(var(--text-secondary))",
+        "text-dim": "hsl(var(--text-dim))",
+        "brand-primary": "hsl(var(--brand-primary))",
+        "brand-primary-light": "hsl(var(--brand-primary-light))",
+        "brand-primary-bg": "hsl(var(--brand-primary-bg))",
+        "status-success": "hsl(var(--status-success))",
+        "status-success-bg": "hsl(var(--status-success-bg))",
+        "status-warning": "hsl(var(--status-warning))",
+        "status-warning-bg": "hsl(var(--status-warning-bg))",
         // Base Canvas & Background
         canvas: "hsl(var(--canvas))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
-
         // Brand Colors
         navy: {
           DEFAULT: "hsl(var(--navy))",
@@ -41,6 +54,16 @@ const config: Config = {
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
+        },
+        amber: {
+          500: "hsl(var(--amber))",
+        },
+        emerald: {
+          500: "hsl(var(--emerald))",
+        },
+        purple: {
+          900: "hsl(var(--purple))",
+          300: "hsl(var(--purple-foreground))",
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
@@ -101,9 +124,11 @@ const config: Config = {
       },
       boxShadow: {
         custom: "var(--shadow)",
+        "brand-glow": "0 0 24px hsl(var(--brand-primary) / 0.22)",
       },
       fontFamily: {
         sans: ["Inter", '"Noto Sans Ethiopic"', "sans-serif"],
+        jakarta: ["Plus Jakarta Sans", '"Noto Sans Ethiopic"', "sans-serif"],
         mono: ['"JetBrains Mono"', '"Fira Code"', "monospace"],
       },
       fontSize: {

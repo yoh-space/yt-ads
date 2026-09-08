@@ -2,12 +2,24 @@ import { describe, expect, it } from "vitest";
 import { MATERIAL_SPECIFICATIONS, findMaterialSpecification } from "./material-specifications";
 
 describe("YT Advertisement material specifications", () => {
-  it("contains the 23+ verified raw material categories across 4 primary units", () => {
-    expect(MATERIAL_SPECIFICATIONS).toHaveLength(24);
-    expect(findMaterialSpecification("Neon Light Flex")?.specificationOptions).toContain("Warm");
-    expect(findMaterialSpecification("Foam Board")?.specificationOptions).toEqual(["18mm", "10mm", "8mm", "5mm", "3mm"]);
+  it("contains the ten canonical specification families", () => {
+    expect(MATERIAL_SPECIFICATIONS).toHaveLength(34);
+    expect(findMaterialSpecification("Neon Light")?.specificationOptions).toEqual([
+      "White (Warm White, Cool White)",
+      "Red",
+      "Blue",
+      "Green",
+      "Yellow",
+      "Orange",
+      "Pink",
+      "Ice Blue",
+      "Purple",
+      "RGB (Color-Changing)",
+      "Neon Spot/Fluorescent Tones (Pink, Yellow, Orange, Green)",
+    ]);
+    expect(findMaterialSpecification("Foam")?.specificationOptions).toEqual(["18mm", "10mm", "8mm", "5mm", "3mm"]);
     expect(findMaterialSpecification("Power Supply")?.specificationOptions).toEqual(["60 Watt", "100 Watt", "200 Watt", "400 Watt"]);
-    expect(findMaterialSpecification("Zecolo")?.specificationOptions).toEqual(["8 cm", "6 cm"]);
+    expect(findMaterialSpecification("Zocolo (Base / Skirting)")?.specificationOptions).toEqual(["8 cm", "6 cm"]);
   });
 
   it("resolves earlier material names and aliases to canonical records", () => {

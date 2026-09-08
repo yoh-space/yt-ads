@@ -5,17 +5,20 @@ import { AlertTriangle, PackageMinus } from "lucide-react";
 import type { ExceptionReason, Material } from "@/lib/operations-types";
 import { formatQuantity } from "@/lib/units";
 import { ModalShell } from "./modal-shell";
-import { Button, Input, Select } from "@/components/ui";
+import { Button, Input, NumericInput, Select } from "@/components/ui";
 
 const reasons: ExceptionReason[] = ["Sample Print", "Minor Repair", "Test Cut", "Internal Maintenance"];
 
 export function ExceptionStockModal({ materials, onClose, onSave }: { materials: Material[]; onClose: () => void; onSave: (input: { materialId: string; quantity: number; unit: Material["unit"]; reason: ExceptionReason; authorizationNote?: string }) => void }) {
   const [materialId, setMaterialId] = useState(materials[0]?.id ?? "");
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState("1");
+  const [quantityValid, setQuantityValid] = useState(true);
   const [reason, setReason] = useState<ExceptionReason>(reasons[0]);
   const [authorizationNote, setAuthorizationNote] = useState("");
   const material = materials.find((entry) => entry.id === materialId);
   const unit = material?.baseUnit ?? material?.unit ?? "m²";
+  const parsedQuantity = Number(quantity);
+  const hasValidationError = !quantity.trim() || !quantityValid || !Number.isFinite(parsedQuantity) || parsedQuantity <= 0;
 
   return (
     <ModalShell
@@ -26,7 +29,7 @@ export function ExceptionStockModal({ materials, onClose, onSave }: { materials:
       footer={
         <div className="flex items-center justify-end gap-3 w-full">
           <Button variant="tertiary" type="button" onClick={onClose}>Cancel</Button>
-          <Button type="submit" form="exception-stock-form">Record exception stock-out</Button>
+          <Button type="submit" form="exception-stock-form" disabled={hasValidationError}>Record exception stock-out</Button>
         </div>
       }
     >
@@ -35,7 +38,7 @@ export function ExceptionStockModal({ materials, onClose, onSave }: { materials:
         className="space-y-5"
         onSubmit={(event) => {
           event.preventDefault();
-          if (materialId && quantity > 0) onSave({ materialId, quantity, unit, reason, authorizationNote: authorizationNote.trim() || undefined });
+           if (materialId && !hasValidationError) onSave({ materialId, quantity: parsedQuantity, unit, reason, authorizationNote: authorizationNote.trim() || undefined });
         }}
       >
         <div>
@@ -47,13 +50,14 @@ export function ExceptionStockModal({ materials, onClose, onSave }: { materials:
 
         <div>
           <label className="block text-sm font-semibold text-navy mb-1.5" htmlFor="exception-quantity">Quantity ({unit})</label>
-          <Input
+          <NumericInput
             id="exception-quantity"
-            type="number"
-            min="0.01"
+            min={0.01}
             step="0.01"
             value={quantity}
-            onChange={(event) => setQuantity(Number(event.target.value))}
+            emptyValue={0.01}
+            onChange={setQuantity}
+            onValidityChange={setQuantityValid}
             className="w-full"
           />
         </div>
@@ -85,7 +89,7 @@ export function ExceptionStockModal({ materials, onClose, onSave }: { materials:
           </span>
           <div>
             <strong className="block text-sm font-semibold text-navy">Immediate deduction</strong>
-            <span className="text-xs text-gray-600">{quantity} {unit} from the material balance</span>
+            <span className="text-xs text-gray-600">{quantity || "0"} {unit} from the material balance</span>
           </div>
         </div>
 

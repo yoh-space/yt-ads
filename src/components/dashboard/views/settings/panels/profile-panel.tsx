@@ -34,8 +34,8 @@ export function ProfilePanel({ profile }: { profile: Profile }) {
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-line bg-transparent shadow-sm">
-      <div className="border-b border-line bg-gray-700 p-2">
+    <div className="overflow-hidden rounded-xl border border-border bg-card">
+      <div className="border-b border-border bg-secondary/40 p-2">
         <div className="flex items-center gap-4">
           <div className="grid h-16 w-16 flex-none place-items-center overflow-hidden rounded-full bg-gradient-to-br from-navy to-navy-2 text-xl font-bold text-white ring-2 ring-cyan/30">
             {profile.image ? (
@@ -45,9 +45,9 @@ export function ProfilePanel({ profile }: { profile: Profile }) {
             )}
           </div>
           <div className="min-w-0">
-            <div className="text-lg font-bold text-navy">{profile.name}</div>
-            <div className="text-sm text-gray-600">{profile.email}</div>
-            <span className="mt-2 inline-flex rounded-full bg-cyan/10 px-2.5 py-0.5 text-xs font-semibold text-cyan-dark">
+            <div className="text-lg font-bold text-foreground">{profile.name}</div>
+            <div className="text-sm text-muted-foreground">{profile.email}</div>
+            <span className="mt-2 inline-flex rounded-full bg-cyan/15 px-2.5 py-0.5 text-xs font-semibold text-cyan-dark">
               {profile.role.replace(/_/g, " ")}
             </span>
           </div>

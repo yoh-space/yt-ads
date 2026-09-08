@@ -1,11 +1,12 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { priority, unit } from "./schema";
+import { priority, serviceType as serviceTypeValidator, unit } from "./schema";
 import { requireActiveProfile, requirePermission } from "./users";
 import { canAccessJob } from "./authorization";
 import { notifyRoles, notifyUser } from "./notificationHelpers";
 import { assertProductionQuantities } from "./validation";
-import { classifyMaterialProductionType, computeJobConsumption, resolveEtbValue } from "./materialUsage";
+import { classifyMaterialProductionType, computeJobConsumption, getUsageAllowanceStatus, resolveEtbValue } from "./materialUsage";
+import { ensureSystemConfig } from "./systemConfigs";
 import { calculateOffcutArea } from "./units";
 import { deductOperatorStock } from "./inventory";
 import { recordInventoryEvent } from "./inventoryLedger";
@@ -77,6 +78,16 @@ async function recordProductionInternal(ctx: any, args: ProductionInput, operato
       createdBy: operatorId,
     });
   }
+  const config = await ensureSystemConfig(ctx, operatorId);
+  // Per-material allowance wins; a default of 0 (or unset) inherits the global
+  // max allowed waste rate so the production-engine threshold stays the baseline.
+  const allowancePercent = config.materialScrapAllowances?.find((entry) => entry.materialId === job.materialId)?.allowancePercent
+    ?? (config.defaultScrapAllowancePercent ? config.defaultScrapAllowancePercent : config.maxAllowedWastePercent);
+  const usageAllowanceStatus = getUsageAllowanceStatus(
+    previousInput + args.inputQuantity + args.wasteQuantity,
+    job.quantity,
+    allowancePercent,
+  );
   await ctx.db.insert("productionLogs", {
     jobCardId: job._id,
     machineId: job.machineId,
@@ -86,7 +97,34 @@ async function recordProductionInternal(ctx: any, args: ProductionInput, operato
     unit: job.unit,
     operatorId,
     createdAt: Date.now(),
+    plannedQuantity: job.quantity,
+    approvedScrapQuantity: Number((job.quantity * allowancePercent / 100).toFixed(3)),
+    usageAllowanceStatus,
   });
+  if (usageAllowanceStatus === "EXCEEDED") {
+    const excessQuantity = Number((previousInput + args.inputQuantity + args.wasteQuantity - job.quantity * (1 + allowancePercent / 100)).toFixed(3));
+    await ctx.db.insert("overuseExceptions", {
+      jobCardId: job._id,
+      materialId: job.materialId,
+      actualUsage: previousInput + args.inputQuantity + args.wasteQuantity,
+      plannedUsage: job.quantity,
+      approvedScrapQuantity: Number((job.quantity * allowancePercent / 100).toFixed(3)),
+      excessQuantity: Math.max(0, excessQuantity),
+      unit: job.unit,
+      status: "OPEN",
+      createdBy: operatorId,
+      createdAt: Date.now(),
+      note: "Production usage exceeded the approved scrap allowance.",
+    });
+    await notifyRoles(ctx, ["owner", "manager", "admin"], {
+      title: "Material overuse exception",
+      message: `${job.code} exceeded the approved usage allowance by ${Math.max(0, excessQuantity)} ${job.unit}.`,
+      type: "material_overuse",
+      actorAuthUserId: operatorId,
+      relatedTable: "jobCards",
+      relatedId: job._id,
+    });
+  }
   await ctx.db.patch(job._id, { status: "In production" });
   if (job.orderId) {
     await ctx.db.patch(job.orderId, { status: "IN_PRODUCTION", updatedAt: Date.now() });
@@ -109,6 +147,39 @@ export const list = query({
   },
 });
 
+export const listUsageAlerts = query({
+  args: {},
+  returns: v.array(v.object({
+    id: v.id("productionLogs"),
+    jobCardId: v.id("jobCards"),
+    status: v.union(v.literal("WATCH"), v.literal("CRITICAL"), v.literal("EXCEEDED")),
+    actualUsage: v.number(),
+    plannedQuantity: v.number(),
+    approvedScrapQuantity: v.number(),
+    createdAt: v.number(),
+  })),
+  handler: async (ctx) => {
+    await requirePermission(ctx, "material.view");
+    const logs = await ctx.db.query("productionLogs")
+      .withIndex("by_allowance_status")
+      .order("desc")
+      .take(100);
+    return logs
+      .filter((log): log is typeof log & { usageAllowanceStatus: "WATCH" | "CRITICAL" | "EXCEEDED"; plannedQuantity: number; approvedScrapQuantity: number } =>
+        (log.usageAllowanceStatus === "WATCH" || log.usageAllowanceStatus === "CRITICAL" || log.usageAllowanceStatus === "EXCEEDED")
+        && log.plannedQuantity !== undefined && log.approvedScrapQuantity !== undefined)
+      .map((log) => ({
+        id: log._id,
+        jobCardId: log.jobCardId,
+        status: log.usageAllowanceStatus,
+        actualUsage: log.inputQuantity + log.wasteQuantity,
+        plannedQuantity: log.plannedQuantity,
+        approvedScrapQuantity: log.approvedScrapQuantity,
+        createdAt: log.createdAt,
+      }));
+  },
+});
+
 export const create = mutation({
   args: {
     client: v.string(),
@@ -122,6 +193,7 @@ export const create = mutation({
     length: v.optional(v.number()),
     width: v.optional(v.number()),
     deductOnComplete: v.optional(v.boolean()),
+    serviceType: v.optional(serviceTypeValidator),
   },
   handler: async (ctx, args) => {
     const { identity } = await requirePermission(ctx, "job.create");
@@ -158,7 +230,60 @@ export const create = mutation({
       length: args.length && Number.isFinite(args.length) && args.length > 0 ? Number(args.length.toFixed(3)) : undefined,
       width: args.width && Number.isFinite(args.width) && args.width > 0 ? Number(args.width.toFixed(3)) : undefined,
       deductOnComplete: args.deductOnComplete,
+      serviceType: args.serviceType,
     });
+    if (args.serviceType) {
+      const recipes = await ctx.db
+        .query("serviceMaterialRecipes")
+        .withIndex("by_active_service", (q) => q.eq("active", true).eq("serviceType", args.serviceType!))
+        .collect();
+      for (const recipe of recipes) {
+        const recipeMaterial = await ctx.db.get(recipe.materialId);
+        if (!recipeMaterial || !recipeMaterial.active) {
+          if (recipe.required) throw new Error("A required recipe material is no longer active.");
+          continue;
+        }
+        const driver = recipe.requirementMode === "fixed"
+          ? 1
+          : recipe.requirementMode === "area_rate"
+            ? (args.length ?? 0) * (args.width ?? 0) * args.quantity
+            : recipe.requirementMode === "linear_rate"
+              ? (args.length ?? 0) * args.quantity
+              : args.quantity;
+        if (driver <= 0) {
+          if (recipe.required) throw new Error(`Dimensions are required for ${recipe.requirementMode} recipe materials.`);
+          continue;
+        }
+        const plannedBaseQuantity = Number((recipe.quantity * driver).toFixed(3));
+        const allowancePercent = recipe.wasteAllowancePercent ?? 0;
+        const approvedScrapQuantity = Number((plannedBaseQuantity * allowancePercent / 100).toFixed(3));
+        const ratio = recipeMaterial.conversionRatio && recipeMaterial.conversionRatio > 0
+          ? recipeMaterial.conversionRatio
+          : 1;
+        const packageUnit = recipeMaterial.purchaseUnit === "sheet"
+          ? "SHEET"
+          : recipeMaterial.purchaseUnit === "roll"
+            ? "ROLL"
+            : recipeMaterial.purchaseUnit === "canister" || recipeMaterial.purchaseUnit === "liter"
+              ? "CANISTER"
+              : recipeMaterial.purchaseUnit === "piece"
+                ? "PIECE"
+                : "PACKAGE";
+        await ctx.db.insert("jobMaterialRequirements", {
+          jobCardId: id,
+          materialId: recipe.materialId,
+          packageUnit,
+          suggestedPackages: Math.ceil((plannedBaseQuantity + approvedScrapQuantity) / ratio),
+          baseUnit: recipeMaterial.baseUnit ?? recipeMaterial.unit,
+          plannedBaseQuantity,
+          approvedScrapQuantity,
+          conversionRatioSnapshot: ratio,
+          status: "PLANNED",
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        });
+      }
+    }
     if (machine.status !== "Running") {
       await ctx.db.patch(args.machineId, { status: "Running", activeJob: code });
     }
@@ -251,11 +376,18 @@ async function consumeFromOffcuts(ctx: any, jobId: any, materialId: any, baseQua
 async function recordAutomaticDeduction(ctx: any, job: any, material: any, actorId: string) {
   if (job.deductOnComplete === false) return { deducted: false, reason: "Automatic deduction disabled for this job." };
 
+  const config = await ensureSystemConfig(ctx, actorId);
+  const allowancePercent = config.materialScrapAllowances?.find((entry) => entry.materialId === job.materialId)?.allowancePercent
+    ?? (config.defaultScrapAllowancePercent ? config.defaultScrapAllowancePercent : config.maxAllowedWastePercent);
+
   const bom = computeJobConsumption(material, {
     length: job.length,
     width: job.width,
     quantity: job.quantity,
     fallbackArea: job.quantity,
+    marginSquareMetres: config.defaultMarginSquareMetres ?? 0,
+    allowancePercent,
+    inkMlPerSquareMetre: config.inkMlPerSquareMetre,
   });
 
   const previousInput = await getProductionTotals(ctx, job._id);
@@ -267,7 +399,8 @@ async function recordAutomaticDeduction(ctx: any, job: any, material: any, actor
       productionType: bom.productionType,
       baseQuantity: bom.baseQuantity,
       rawToDeduct: 0,
-      areaM2: bom.areaM2,
+       areaM2: bom.areaM2,
+       allocatedAreaM2: bom.allocatedAreaM2,
       inkMl: bom.inkMl,
       unit: bom.unit,
       etbValue: resolveEtbValue(material),
@@ -385,7 +518,8 @@ async function recordAutomaticDeduction(ctx: any, job: any, material: any, actor
     productionType: bom.productionType,
     baseQuantity: bom.baseQuantity,
     rawToDeduct: materialToDeduct,
-    areaM2: bom.areaM2,
+       areaM2: bom.areaM2,
+       allocatedAreaM2: bom.allocatedAreaM2,
     inkMl: bom.inkMl,
     inkDeducted,
     inkMaterialName,
@@ -393,6 +527,55 @@ async function recordAutomaticDeduction(ctx: any, job: any, material: any, actor
     etbValue: etb,
     floorDeducted,
   };
+}
+
+async function recordAutomaticBomDeductions(ctx: any, job: any, actorId: string) {
+  const requirements = await ctx.db
+    .query("jobMaterialRequirements")
+    .withIndex("by_job_card", (q: any) => q.eq("jobCardId", job._id))
+    .collect();
+  const openRequirements = requirements.filter((requirement: any) => requirement.status !== "COMPLETED");
+  if (openRequirements.length === 0) return null;
+
+  const coveredMaterialIds = new Set<string>();
+  const deductions: Array<{ materialId: string; baseQuantity: number; floorDeducted: number; centralRemainder: number }> = [];
+  for (const requirement of openRequirements) {
+    const material = await ctx.db.get(requirement.materialId);
+    if (!material || !material.active) throw new Error("A required job BOM material is unavailable.");
+    const baseQuantity = Number((requirement.plannedBaseQuantity + requirement.approvedScrapQuantity).toFixed(3));
+    if (baseQuantity <= 0) continue;
+    const floorDeducted = await deductOperatorStock(ctx, job.machineId, requirement.materialId, baseQuantity, actorId, job._id);
+    const centralRemainder = Number((baseQuantity - floorDeducted).toFixed(3));
+    if (centralRemainder > 0) {
+      await recordInventoryEvent(ctx, {
+        materialId: requirement.materialId,
+        eventType: "PRODUCTION_CONSUMPTION",
+        custody: "parent",
+        balanceEffect: "out",
+        quantity: centralRemainder,
+        unit: material.baseUnit ?? material.unit,
+        baseUnit: material.baseUnit ?? material.unit,
+        baseQuantity: centralRemainder,
+        machineId: job.machineId,
+        jobCardId: job._id,
+        note: `Automatic BOM consumption ${job.code}`,
+        createdBy: actorId,
+      });
+    }
+    await ctx.db.patch(requirement._id, { status: "COMPLETED", updatedAt: Date.now() });
+    coveredMaterialIds.add(String(requirement.materialId));
+    deductions.push({ materialId: requirement.materialId, baseQuantity, floorDeducted, centralRemainder });
+  }
+
+  // A recipe may describe secondary materials only; retain the primary job
+  // material fallback so every completed job still consumes its main input.
+  if (!coveredMaterialIds.has(String(job.materialId))) {
+    const material = await ctx.db.get(job.materialId);
+    if (!material) throw new Error("Job material not found.");
+    const fallback = await recordAutomaticDeduction(ctx, job, material, actorId);
+    return { bom: deductions, fallback };
+  }
+  return { bom: deductions };
 }
 
 export const complete = mutation({
@@ -411,7 +594,8 @@ export const complete = mutation({
     const material = await ctx.db.get(job.materialId);
     if (!material) throw new Error("Job material not found.");
 
-    const deduction = await recordAutomaticDeduction(ctx, job, material, identity._id);
+    const deduction = await recordAutomaticBomDeductions(ctx, job, identity._id)
+      ?? await recordAutomaticDeduction(ctx, job, material, identity._id);
 
     await ctx.db.patch(args.jobId, { status: "Completed" });
     if (job.orderId) {

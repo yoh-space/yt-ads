@@ -16,8 +16,10 @@ import { TeamMemberTile } from "./team-member-tile";
 export function TeamPanel({ profile }: { profile: Profile }) {
   const isOwner = profile.role === "owner";
   const users = useQuery(api.users.listUsers, {});
+  const machines = useQuery(api.machines.list, {});
   const setRole = useMutation(api.users.setRole);
   const setActive = useMutation(api.users.setActive);
+  const setMachineScope = useMutation(api.users.setMachineScope);
   const [message, setMessage] = useState("");
 
   async function changeRole(userId: Id<"users">, nextRole: Role) {
@@ -38,8 +40,17 @@ export function TeamPanel({ profile }: { profile: Profile }) {
     }
   }
 
+  async function changeMachineScope(userId: Id<"users">, machineIds: Id<"machines">[]) {
+    try {
+      await setMachineScope({ userId, machineIds });
+      setMessage("Machine notification scope updated.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Unable to update machine scope.");
+    }
+  }
+
   return (
-    <div className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-gray-700 shadow-sm">
+    <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
       <FormSection
         icon={<Users size={17} />}
         tone="navy"
@@ -51,15 +62,17 @@ export function TeamPanel({ profile }: { profile: Profile }) {
             <TeamMemberTile
               key={user._id}
               member={user}
+              machines={machines ?? []}
               currentProfile={profile}
               canDemoteOwner={isOwner}
               isSelf={user.authUserId === profile.authUserId}
               onChangeRole={changeRole}
               onToggleActive={changeActive}
-            />
+              onChangeMachineScope={changeMachineScope}
+              />
           ))}
           {users?.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-line bg-gray-50/50 px-4 py-8 text-center text-xs text-gray-500">
+            <div className="rounded-lg border border-dashed border-border bg-white/[0.02] px-4 py-8 text-center text-xs text-muted-foreground">
               No team profiles yet.
             </div>
           ) : null}

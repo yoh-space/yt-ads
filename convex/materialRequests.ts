@@ -1,10 +1,11 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { unit } from "./schema";
+import { packageUnit, unit } from "./schema";
 import { requireActiveProfile, requirePermission } from "./users";
 import { canAccessMaterialRequest } from "./authorization";
 import { notifyRoles, notifyUser } from "./notificationHelpers";
 import { recordInventoryEvent } from "./inventoryLedger";
+import type { Id } from "./_generated/dataModel";
 
 export const list = query({
   args: {},
@@ -32,18 +33,51 @@ export const list = query({
       .map((request) => {
         const job = jobMap.get(request.jobCardId);
         const material = materialMap.get(request.materialId);
+        const machine = job ? machineMap.get(job.machineId) : undefined;
         return {
           ...request,
           jobCode: job?.code ?? "Unknown job",
           client: job?.client ?? "Unknown client",
           jobTitle: job?.title ?? "Unknown job",
           materialName: material?.name ?? "Unknown material",
+          machineName: machine?.name ?? machine?.code ?? "Unassigned station",
+          pickLocation: material?.storageLocation ?? "Central store",
           requesterName: userMap.get(request.requestedBy) ?? request.requestedBy,
           issuerName: request.issuedBy ? userMap.get(request.issuedBy) ?? request.issuedBy : undefined,
           receiverName: request.receivedBy ? userMap.get(request.receivedBy) ?? request.receivedBy : undefined,
         };
       })
       .sort((left, right) => right.requestedAt - left.requestedAt);
+  },
+});
+
+export const markShortStock = mutation({
+  args: { requestId: v.id("materialRequests"), note: v.optional(v.string()) },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const { identity } = await requirePermission(ctx, "request.issue");
+    const request = await ctx.db.get(args.requestId);
+    if (!request) throw new Error("Material request not found.");
+    if (request.status !== "Requested" && request.status !== "Partially Issued") {
+      throw new Error("Only open requests can be marked short stock.");
+    }
+    await ctx.db.patch(args.requestId, {
+      status: "Short Stock",
+      issuedBy: identity._id,
+      issuedAt: Date.now(),
+      note: args.note?.trim() || request.note,
+    });
+    if (request.requestGroupId) {
+      const lines = await ctx.db.query("materialRequestLines")
+        .withIndex("by_request_group", (q) => q.eq("requestGroupId", request.requestGroupId!))
+        .collect();
+      for (const line of lines) {
+        if (line.materialId === request.materialId && line.status !== "Issued") {
+          await ctx.db.patch(line._id, { status: "Short Stock" });
+        }
+      }
+    }
+    return (await ctx.db.get(args.requestId))!;
   },
 });
 
@@ -54,6 +88,15 @@ export const create = mutation({
     requestedQuantity: v.number(),
     unit,
     note: v.optional(v.string()),
+    packageUnit: v.optional(packageUnit),
+    requestedPackages: v.optional(v.number()),
+    lines: v.optional(v.array(v.object({
+      materialId: v.id("materials"),
+      requestedQuantity: v.number(),
+      unit,
+      requestedPackages: v.number(),
+      packageUnit,
+    }))),
   },
   handler: async (ctx, args) => {
     const { identity, profile } = await requirePermission(ctx, "request.create");
@@ -64,15 +107,16 @@ export const create = mutation({
     if (!Number.isFinite(args.requestedQuantity) || args.requestedQuantity <= 0) {
       throw new Error("Requested quantity must be greater than zero.");
     }
+    if (args.requestedPackages !== undefined && (!Number.isFinite(args.requestedPackages) || args.requestedPackages <= 0)) {
+      throw new Error("Requested package quantity must be greater than zero.");
+    }
     const unclearedBatches = await ctx.db
       .query("operatorSubStock")
       .withIndex("by_operator", (q) => q.eq("operatorId", identity._id))
       .filter((q) => q.or(q.eq(q.field("status"), "ACTIVE"), q.eq(q.field("status"), "PENDING_CLEARANCE")))
       .collect();
     if (unclearedBatches.length > 0) {
-      throw new Error(
-        "Request Blocked: Owner clearance is required for your previously issued materials before submitting a new request.",
-      );
+      throw new Error("Cannot request new materials until previous stock cycle clearance is approved by Owner.");
     }
     const [job, material] = await Promise.all([
       ctx.db.get(args.jobCardId),
@@ -80,30 +124,72 @@ export const create = mutation({
     ]);
     if (!job || job.status === "Completed") throw new Error("An active job is required for a material request.");
     if (!material || !material.active) throw new Error("Active material not found.");
-    if (job.materialId !== args.materialId || job.unit !== args.unit) {
+    const requestLines = args.lines?.length ? args.lines : [{
+      materialId: args.materialId,
+      requestedQuantity: args.requestedQuantity,
+      unit: args.unit,
+      requestedPackages: args.requestedPackages ?? 0,
+      packageUnit: args.packageUnit ?? "PACKAGE" as const,
+    }];
+    if (requestLines.some((line) => !Number.isFinite(line.requestedQuantity) || line.requestedQuantity <= 0 || !Number.isFinite(line.requestedPackages) || line.requestedPackages <= 0)) {
+      throw new Error("Each material line must contain positive package and converted quantities.");
+    }
+    const requirements = await ctx.db
+      .query("jobMaterialRequirements")
+      .withIndex("by_job_card", (q) => q.eq("jobCardId", args.jobCardId))
+      .collect();
+    const allowedMaterials = new Set([job.materialId, ...requirements.map((requirement) => requirement.materialId)]);
+    if (requestLines.some((line) => !allowedMaterials.has(line.materialId))) {
       throw new Error("The requested material and unit must match the job card.");
     }
-
-    const id = await ctx.db.insert("materialRequests", {
-      jobCardId: args.jobCardId,
-      materialId: args.materialId,
-      requestedQuantity: Number(args.requestedQuantity.toFixed(2)),
-      issuedQuantity: 0,
-      unit: args.unit,
-      status: "Requested",
-      requestedBy: identity._id,
-      requestedAt: Date.now(),
-      note: args.note?.trim() || undefined,
-    });
+    const requestGroupId = `${identity._id}-${Date.now()}`;
+    let firstId: Id<"materialRequests"> | undefined;
+    for (const line of requestLines) {
+      const lineMaterial = line.materialId === material._id ? material : await ctx.db.get(line.materialId);
+      if (!lineMaterial || !lineMaterial.active) throw new Error("Every requested material must be active.");
+      if (line.unit !== (lineMaterial.baseUnit ?? lineMaterial.unit)) throw new Error("Requested unit must match the material base unit.");
+      const id = await ctx.db.insert("materialRequests", {
+        jobCardId: args.jobCardId,
+        materialId: line.materialId,
+        requestedQuantity: Number(line.requestedQuantity.toFixed(3)),
+        issuedQuantity: 0,
+        unit: line.unit,
+        status: "Requested",
+        requestedBy: identity._id,
+        requestedAt: Date.now(),
+        note: args.note?.trim() || undefined,
+        requestGroupId,
+        packageUnit: line.packageUnit,
+        requestedPackages: line.requestedPackages,
+        issuedPackages: 0,
+      });
+      firstId ??= id;
+      await ctx.db.insert("materialRequestLines", {
+        requestGroupId,
+        jobCardId: args.jobCardId,
+        materialId: line.materialId,
+        packageUnit: line.packageUnit,
+        requestedPackages: line.requestedPackages,
+        issuedPackages: 0,
+        baseUnit: line.unit,
+        requestedBaseQuantity: Number(line.requestedQuantity.toFixed(3)),
+        issuedBaseQuantity: 0,
+        conversionRatioSnapshot: lineMaterial.conversionRatio ?? 1,
+        status: "Requested",
+        note: args.note?.trim() || undefined,
+        requestedBy: identity._id,
+        requestedAt: Date.now(),
+      });
+    }
     await notifyRoles(ctx, ["owner", "manager", "admin", "storekeeper"], {
       title: "New material request",
-      message: `${material.name} requested for ${job.code} (${args.requestedQuantity} ${args.unit}).`,
+      message: `${requestLines.length} material line(s) requested for ${job.code}.`,
       type: "material_request",
       actorAuthUserId: identity._id,
       relatedTable: "materialRequests",
-      relatedId: id,
+      relatedId: firstId,
     });
-    return (await ctx.db.get(id))!;
+    return (await ctx.db.get(firstId!))!;
   },
 });
 
@@ -111,6 +197,8 @@ export const issue = mutation({
   args: {
     requestId: v.id("materialRequests"),
     issuedQuantity: v.number(),
+    issuedPackages: v.optional(v.number()),
+    packageUnit: v.optional(packageUnit),
     operatorId: v.optional(v.string()),
     note: v.optional(v.string()),
   },
@@ -118,6 +206,9 @@ export const issue = mutation({
     const { identity } = await requirePermission(ctx, "request.issue");
     if (!Number.isFinite(args.issuedQuantity) || args.issuedQuantity <= 0) {
       throw new Error("Issued quantity must be greater than zero.");
+    }
+    if (args.issuedPackages !== undefined && (!Number.isFinite(args.issuedPackages) || args.issuedPackages <= 0)) {
+      throw new Error("Issued package quantity must be greater than zero.");
     }
     const request = await ctx.db.get(args.requestId);
     if (!request) throw new Error("Material request not found.");
@@ -133,6 +224,15 @@ export const issue = mutation({
     const machine = job ? await ctx.db.get(job.machineId) : undefined;
     if (!job || !machine) throw new Error("The request's job machine is unavailable.");
     const operatorId = args.operatorId?.trim() || request.requestedBy;
+    const packageQuantity = args.issuedPackages ?? 0;
+    const conversionRatio = material.conversionRatio ?? 1;
+    const ledgerPackageUnit = (args.packageUnit ?? request.packageUnit) === "ROLL"
+      ? "ROLL"
+      : (args.packageUnit ?? request.packageUnit) === "SHEET"
+        ? "SHEET"
+        : (args.packageUnit ?? request.packageUnit) === "CANISTER"
+          ? "LITER"
+          : undefined;
     const subStockId = await ctx.db.insert("operatorSubStock", {
       materialId: request.materialId,
       operatorId,
@@ -144,6 +244,14 @@ export const issue = mutation({
       issuedBy: identity._id,
       issuedAt: Date.now(),
       updatedAt: Date.now(),
+      packageUnit: args.packageUnit ?? request.packageUnit,
+      issuedPackages: packageQuantity,
+      remainingPackages: packageQuantity,
+      baseUnit: material.baseUnit ?? material.unit,
+      conversionRatioSnapshot: conversionRatio,
+      issuedBaseQuantity: args.issuedQuantity,
+      consumedBaseQuantity: 0,
+      remainingBaseQuantity: args.issuedQuantity,
     });
     await recordInventoryEvent(ctx, {
       materialId: request.materialId,
@@ -154,6 +262,9 @@ export const issue = mutation({
       unit: request.unit,
       baseUnit: request.unit,
       baseQuantity: args.issuedQuantity,
+      packageQuantity: packageQuantity || undefined,
+      packageUnit: ledgerPackageUnit,
+      conversionRatio,
       operatorSubStockId: subStockId,
       operatorId,
       machineId: machine._id,
@@ -166,14 +277,31 @@ export const issue = mutation({
     const nextStatus = totalIssued < request.requestedQuantity ? "Partially Issued" : "Issued";
     await ctx.db.patch(args.requestId, {
       issuedQuantity: totalIssued,
+      issuedPackages: Number(((request.issuedPackages ?? 0) + (args.issuedPackages ?? 0)).toFixed(3)),
+      packageUnit: args.packageUnit ?? request.packageUnit,
       status: nextStatus,
       issuedBy: identity._id,
       issuedAt: Date.now(),
       note: args.note?.trim() || request.note,
     });
+    if (request.requestGroupId) {
+      const lines = await ctx.db.query("materialRequestLines")
+        .withIndex("by_request_group", (q) => q.eq("requestGroupId", request.requestGroupId!))
+        .collect();
+      const matchingLine = lines.find((line) => line.materialId === request.materialId);
+      if (matchingLine) {
+        await ctx.db.patch(matchingLine._id, {
+          issuedPackages: (matchingLine.issuedPackages ?? 0) + (args.issuedPackages ?? 0),
+          issuedBaseQuantity: (matchingLine.issuedBaseQuantity ?? 0) + args.issuedQuantity,
+          status: totalIssued < request.requestedQuantity ? "Partially Issued" : "Issued",
+          issuedBy: identity._id,
+          issuedAt: Date.now(),
+        });
+      }
+    }
     await notifyUser(ctx, request.requestedBy, {
       title: nextStatus === "Partially Issued" ? "Short stock: request partially issued" : "Material issued",
-      message: `${material.name} for ${request.jobCardId} was issued at ${totalIssued} ${request.unit}.`,
+      message: `${material.name} for ${job.code} was issued at ${totalIssued} ${request.unit}.`,
       type: nextStatus === "Partially Issued" ? "short_stock" : "material_issue",
       actorAuthUserId: identity._id,
       relatedTable: "materialRequests",
@@ -194,6 +322,7 @@ export const acknowledge = mutation({
     }
     const job = await ctx.db.get(request.jobCardId);
     const machine = job ? await ctx.db.get(job.machineId) : undefined;
+    const material = await ctx.db.get(request.materialId);
     if (!canAccessMaterialRequest(profile.role, identity._id, request, machine ?? undefined)) {
       throw new Error("You cannot acknowledge this material request.");
     }
@@ -204,7 +333,7 @@ export const acknowledge = mutation({
     });
     await notifyUser(ctx, request.issuedBy ?? request.requestedBy, {
       title: "Material received",
-      message: `Material request ${args.requestId} was marked received.`,
+      message: `${material?.name ?? "Material request"} for ${job?.code ?? "the production job"} was marked received.`,
       type: "material_received",
       actorAuthUserId: identity._id,
       relatedTable: "materialRequests",

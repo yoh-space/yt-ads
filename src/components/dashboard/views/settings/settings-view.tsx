@@ -17,6 +17,7 @@ import { CompanyPanel } from "./panels/company-panel";
 import { ProfilePanel } from "./panels/profile-panel";
 import { SecurityPanel } from "./panels/security-panel";
 import { TeamPanel } from "./panels/team-panel";
+import { MigrationPanel } from "./panels/migration-panel";
 
 /**
  * Top-level settings shell: chooses which settings category to show and
@@ -50,6 +51,15 @@ export function SettingsView({ profile }: { profile: Profile }) {
             description: "Manage workspace branding and company settings.",
           } satisfies SettingsCategoryEntry]
         : []),
+      ...(canUpdateCompany
+        ? [{
+            id: "migration",
+            icon: <ShieldCheck size={20} />,
+            title: "Data Migration",
+            description: "Run one-time package metadata backfills.",
+            badge: "Admin",
+          } satisfies SettingsCategoryEntry]
+        : []),
     ],
     [canManageTeam, canUpdateCompany, isOwner],
   );
@@ -57,7 +67,7 @@ export function SettingsView({ profile }: { profile: Profile }) {
   const selected = categories.find((entry) => entry.id === activeCategory) ?? categories[0];
 
   return (
-    <div className="min-h-screen bg-canvas">
+    <div className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6">
           <SettingsSidebar
@@ -73,6 +83,7 @@ export function SettingsView({ profile }: { profile: Profile }) {
             {selected.id === "security" && <SecurityPanel isOwner={isOwner} />}
             {selected.id === "team" && <TeamPanel profile={profile} />}
             {selected.id === "company" && <CompanyPanel />}
+            {selected.id === "migration" && <MigrationPanel />}
           </div>
         </div>
       </div>

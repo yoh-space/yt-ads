@@ -4,6 +4,7 @@ import { type HTMLAttributes, type ReactNode, type ButtonHTMLAttributes } from "
 export interface StatCardProps extends Omit<HTMLAttributes<HTMLDivElement>, 'onClick'> {
   icon: ReactNode;
   label: string;
+  subtitle?: string;
   value: string | number;
   description?: string;
   metadata?: string;
@@ -18,6 +19,7 @@ export function StatCard({
   className,
   icon,
   label,
+  subtitle,
   value,
   description,
   metadata,
@@ -64,6 +66,7 @@ export function StatCard({
         <StatCardContent 
           icon={icon}
           label={label}
+          subtitle={subtitle}
           value={value}
           description={description}
           metadata={metadata}
@@ -105,6 +108,7 @@ export function StatCard({
       <StatCardContent 
         icon={icon}
         label={label}
+        subtitle={subtitle}
         value={value}
         description={description}
         metadata={metadata}
@@ -119,6 +123,7 @@ export function StatCard({
 function StatCardContent({
   icon,
   label,
+  subtitle,
   value,
   description,
   metadata,
@@ -128,6 +133,7 @@ function StatCardContent({
 }: {
   icon: ReactNode;
   label: string;
+  subtitle?: string;
   value: string | number;
   description?: string;
   metadata?: string;
@@ -160,20 +166,27 @@ function StatCardContent({
         >
           {icon}
         </span>
-        <span
-          className={cn(
-            "font-mono text-[10px] font-semibold tracking-[0.6px] uppercase",
-            "text-cyan-dark",
-            {
-              "text-gold": variant === "cost",
-              "text-green": variant === "profit" && !isNegative,
-              "text-red": variant === "profit" && isNegative,
-              "text-danger": variant === "alert" || isAlert,
-            }
+        <div className="flex flex-col">
+          <span
+            className={cn(
+              "text-[12px] font-semibold leading-tight",
+              "text-slate-100",
+              {
+                "text-gold": variant === "cost",
+                "text-green": variant === "profit" && !isNegative,
+                "text-red": variant === "profit" && isNegative,
+                "text-danger": variant === "alert" || isAlert,
+              }
+            )}
+          >
+            {label}
+          </span>
+          {subtitle && (
+            <span className="text-[10px] text-muted-foreground/70 leading-tight mt-[1px]">
+              {subtitle}
+            </span>
           )}
-        >
-          {label}
-        </span>
+        </div>
       </div>
 
       {/* Value */}

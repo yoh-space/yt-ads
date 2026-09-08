@@ -6,6 +6,7 @@ import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { OrderPriority } from "@/lib/operations-types";
+import { NumericInput } from "@/components/ui";
 import { ModalShell } from "./modal-shell";
 import { SERVICE_CATEGORIES, type ServiceId } from "@/constants/services";
 
@@ -16,6 +17,8 @@ export type NewOrderInput = {
   phone: string;
   serviceType: ServiceId;
   dimensions: string;
+  length?: number;
+  width?: number;
   quantity: string;
   amount?: number;
   preferredDueDate: number;
@@ -31,6 +34,12 @@ function daysFromNow(days: number) {
   d.setDate(d.getDate() + days);
   d.setHours(17, 0, 0, 0);
   return d.getTime();
+}
+
+function parseDimensions(value: string) {
+  const match = value.trim().match(/^([0-9]+(?:\.[0-9]+)?)\s*m?\s*[x×]\s*([0-9]+(?:\.[0-9]+)?)\s*m?$/i);
+  if (!match) return {};
+  return { length: Number(match[1]), width: Number(match[2]) };
 }
 
 export function OrderCreateModal({
@@ -50,7 +59,8 @@ export function OrderCreateModal({
   const [serviceType, setServiceType] = useState<ServiceId | "">("");
   const [dimensions, setDimensions] = useState("");
   const [quantity, setQuantity] = useState("");
-  const [amount, setAmount] = useState(0);
+  const [amount, setAmount] = useState("");
+  const [amountValid, setAmountValid] = useState(true);
   const [dueDate, setDueDate] = useState(daysFromNow(3));
   const [priority, setPriority] = useState<OrderPriority>("Medium");
   const [notes, setNotes] = useState("");
@@ -102,10 +112,15 @@ export function OrderCreateModal({
     }
 
     // Final submission from step 3
+    if (!amountValid) {
+      setNotice("Please enter a valid order value.");
+      return;
+    }
     setNotice("");
     setSubmitting(true);
     try {
       const fileStorageId = await uploadFile();
+      const parsedDimensions = parseDimensions(dimensions);
       onSave({
         clientName,
         companyLegalName,
@@ -113,8 +128,9 @@ export function OrderCreateModal({
         phone,
         serviceType: serviceType as ServiceId,
         dimensions,
+        ...parsedDimensions,
         quantity,
-        amount: amount > 0 ? amount : undefined,
+        amount: Number(amount) > 0 ? Number(amount) : undefined,
         preferredDueDate: dueDate,
         priority,
         notes,
@@ -156,7 +172,7 @@ export function OrderCreateModal({
               className={`inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium shadow transition ${submitting ? "opacity-70 cursor-wait" : "hover:bg-cyan-600"} ${step === 3 ? "bg-green-600 text-white" : "bg-cyan text-white"}`}
               type="submit"
               form="new-order-form"
-              disabled={submitting}
+              disabled={submitting || (step === 3 && !amountValid)}
             >
               {step === 3 ? (submitting ? "Creating…" : "Create order") : "Continue"}
               <ArrowUpRight size={16} />
@@ -245,13 +261,13 @@ export function OrderCreateModal({
             </label>
             <label className="block">
               <span className="text-sm font-medium text-gray-700">Order value (ETB)</span>
-              <input
-                type="number"
-                min="0"
+              <NumericInput
+                min={0}
                 step="50"
                 placeholder="e.g. 4500"
-                value={amount || ""}
-                onChange={(e) => setAmount(Number(e.target.value))}
+                value={amount}
+                onChange={setAmount}
+                onValidityChange={setAmountValid}
                 className="mt-1 block w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan/60"
               />
             </label>

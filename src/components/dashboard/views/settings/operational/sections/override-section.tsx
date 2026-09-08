@@ -66,27 +66,27 @@ export function OverrideSection({
     <FormSection
       icon={<Cog size={17} />}
       tone="cyan"
-      title="Individual Material Custom Price Overrides"
-      note="Override the unit rate for high-value materials."
+      title="የእቃ ዋጋ ማስተካከያ"
+      note="ለከፍተኛ ዋጋ ያላቸው ዕቃዎች የክፍል ዋጋ ማስተካከያ።"
     >
       {overrides.length > 0 ? (
         <div className="space-y-2">
           {overrides.map((row) => (
             <div
               key={row.materialName}
-              className="flex items-center justify-between gap-3 rounded-lg border border-line bg-gray-50/60 px-4 py-3"
+              className="flex items-center justify-between gap-3 rounded-lg border border-border bg-navy/20 px-4 py-3"
             >
               <div className="min-w-0">
-                <strong className="block truncate text-sm font-semibold text-navy">{row.materialName}</strong>
-                <small className="block text-[11px] text-gray-500">Custom valuation rate</small>
+                <strong className="block truncate text-sm font-semibold text-foreground">{row.materialName}</strong>
+                <small className="block text-[11px] text-muted-foreground">Custom valuation rate</small>
               </div>
               <div className="flex flex-none items-center gap-3">
-                <b className="font-mono text-sm font-semibold text-navy">
+                <b className="font-mono text-sm font-semibold text-foreground">
                   {row.etbValue.toLocaleString("en-US")} ETB
                 </b>
                 <button
                   type="button"
-                  className="grid h-7 w-7 place-items-center rounded-md border border-line text-gray-400 transition-colors hover:border-coral/30 hover:bg-coral/10 hover:text-coral"
+                  className="grid h-7 w-7 place-items-center rounded-md border border-border text-muted-foreground transition-colors hover:border-coral/30 hover:bg-coral/10 hover:text-coral"
                   onClick={() => removeOverride(row.materialName)}
                   aria-label={`Remove override for ${row.materialName}`}
                 >
@@ -97,7 +97,7 @@ export function OverrideSection({
           ))}
         </div>
       ) : (
-        <p className="rounded-lg border border-dashed border-line bg-gray-50/50 px-4 py-6 text-center text-xs text-gray-500">
+        <p className="rounded-lg border border-dashed border-border bg-white/[0.02] px-4 py-6 text-center text-xs text-muted-foreground">
           No custom overrides configured.
         </p>
       )}

@@ -8,6 +8,7 @@ import { notifyUser } from "./notificationHelpers";
 import { verifyTelegramInitData } from "./telegramAuth";
 
 const MANAGEMENT_ROLES: Role[] = ["owner", "manager", "admin"];
+const OPERATOR_ROLES: Role[] = ["laser_operator", "cnc_operator", "plotter_operator", "printer_operator"];
 
 type AuthIdentity = NonNullable<Awaited<ReturnType<typeof authComponent.safeGetAuthUser>>>;
 
@@ -123,6 +124,49 @@ export const getByTelegramId = query({
       .query("telegramUsers")
       .withIndex("by_telegram_id", (q) => q.eq("telegramId", telegramId))
       .unique();
+  },
+});
+
+export const updateTelegramProfile = mutation({
+  args: {
+    telegramId: v.string(),
+    initData: v.string(),
+    phone: v.string(),
+    name: v.optional(v.string()),
+    companyLegalName: v.optional(v.string()),
+    tinNumber: v.optional(v.string()),
+    notes: v.optional(v.string()),
+  },
+  returns: v.object({
+    telegramId: v.string(),
+    phone: v.string(),
+    name: v.optional(v.string()),
+    companyLegalName: v.optional(v.string()),
+    tinNumber: v.optional(v.string()),
+    notes: v.optional(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    const telegramId = args.telegramId.trim();
+    const verified = await verifyTelegramInitData(args.initData);
+    if (!telegramId || verified.telegramId !== telegramId) throw new Error("Telegram identity mismatch.");
+    const phone = args.phone.replace(/[^+\d]/g, "").trim();
+    if (!/^\+?\d{7,15}$/.test(phone)) throw new Error("Enter a valid phone number.");
+    const name = args.name?.trim() || undefined;
+    const companyLegalName = args.companyLegalName?.trim() || undefined;
+    const tinNumber = args.tinNumber?.replace(/\D/g, "").trim() || undefined;
+    const notes = args.notes?.trim() || undefined;
+    if (name && name.length > 160) throw new Error("Name is too long.");
+    if (companyLegalName && companyLegalName.length > 160) throw new Error("Company name is too long.");
+    if (tinNumber && !/^\d{10}$/.test(tinNumber)) throw new Error("TIN must contain exactly 10 digits.");
+    if (notes && notes.length > 2000) throw new Error("Notes are too long.");
+    const existing = await ctx.db.query("telegramUsers").withIndex("by_telegram_id", (q) => q.eq("telegramId", telegramId)).unique();
+    const now = Date.now();
+    if (existing) {
+      await ctx.db.patch(existing._id, { phone, name, companyLegalName, tinNumber, notes, verifiedAt: now, updatedAt: now });
+      return { telegramId, phone, name, companyLegalName, tinNumber, notes };
+    }
+    await ctx.db.insert("telegramUsers", { telegramId, phone, name, companyLegalName, tinNumber, notes, verifiedAt: now, createdAt: now, updatedAt: now });
+    return { telegramId, phone, name, companyLegalName, tinNumber, notes };
   },
 });
 
@@ -258,7 +302,12 @@ export const setRole = mutation({
     if (actor.role === "manager" && args.role === "owner") {
       throw new Error("Managers cannot assign the owner role.");
     }
-    await ctx.db.patch(args.userId, { role: args.role });
+    await ctx.db.patch(args.userId, {
+      role: args.role,
+      assignedMachineIds: args.role === target.role && OPERATOR_ROLES.includes(args.role)
+        ? target.assignedMachineIds
+        : undefined,
+    });
     await notifyUser(ctx, target.authUserId, {
       title: "Role updated",
       message: `Your workspace role is now ${args.role}.`,
@@ -293,6 +342,51 @@ export const setActive = mutation({
         relatedId: args.userId,
       });
     }
+  },
+});
+
+/** Assigns an operator to one or more production machines for scoped visibility. */
+export const setMachineScope = mutation({
+  args: {
+    userId: v.id("users"),
+    machineIds: v.array(v.id("machines")),
+  },
+  returns: v.object({ updated: v.boolean() }),
+  handler: async (ctx, args) => {
+    const { profile: actor } = await requirePermission(ctx, "team.manage");
+    const target = await ctx.db.get(args.userId);
+    if (!target) throw new Error("User profile not found.");
+    if (!OPERATOR_ROLES.includes(target.role)) {
+      if (args.machineIds.length > 0) throw new Error("Only operator profiles can have machine scope.");
+      await ctx.db.patch(args.userId, { assignedMachineIds: undefined });
+      return { updated: true };
+    }
+
+    const uniqueMachineIds = [...new Set(args.machineIds)];
+    const machines = await Promise.all(uniqueMachineIds.map((machineId) => ctx.db.get(machineId)));
+    if (machines.some((machine) => !machine || !machine.active)) {
+      throw new Error("Machine scope can only include active machines.");
+    }
+    if (machines.some((machine) => machine!.operatorRole !== target.role)) {
+      throw new Error("Each selected machine must match the operator role.");
+    }
+
+    await ctx.db.patch(args.userId, {
+      assignedMachineIds: uniqueMachineIds.length > 0 ? uniqueMachineIds : undefined,
+    });
+    if (target.authUserId !== actor.authUserId) {
+      await notifyUser(ctx, target.authUserId, {
+        title: "Machine scope updated",
+        message: uniqueMachineIds.length > 0
+          ? "Your notification and operator workspace scope was updated."
+          : "Your notifications now include all active machines assigned to your role.",
+        type: "account_update",
+        actorAuthUserId: actor.authUserId,
+        relatedTable: "users",
+        relatedId: args.userId,
+      });
+    }
+    return { updated: true };
   },
 });
 

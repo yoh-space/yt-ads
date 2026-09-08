@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Ethiopic:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700;800&family=Noto+Sans+Ethiopic:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -6,8 +6,24 @@
 
 @layer base {
   :root {
+    /* Enterprise inventory tokens. Components consume these aliases, not color literals. */
+    --bg-main: 222 36% 7%;
+    --bg-surface: 218 36% 11%;
+    --bg-surface-elevated: 215 28% 17%;
+    --border-color: 215 28% 17%;
+    --text-primary: 210 40% 98%;
+    --text-secondary: 215 20% 65%;
+    --text-dim: 215 16% 47%;
+    --brand-primary: 187 92% 43%;
+    --brand-primary-light: 187 92% 55%;
+    --brand-primary-bg: 187 92% 43% / 0.15;
+    --status-success: 160 84% 39%;
+    --status-success-bg: 160 84% 39% / 0.15;
+    --status-warning: 38 92% 50%;
+    --status-warning-bg: 38 92% 50% / 0.15;
     --canvas: 222 47% 11%;
-    --background: 222 47% 11%;
+    /* Stitch industrial dark palette (kept as HSL so existing shadcn tokens remain compatible). */
+    --background: 222 36% 7%;
     --foreground: 210 40% 98%;
     --navy: 222 47% 11%;
     --navy-2: 215 28% 17%;
@@ -20,7 +36,7 @@
     --green: 160 84% 39%;
     --coral: 0 84% 60%;
     --muted: 215 20% 65%;
-    --card: 215 28% 17%;
+    --card: 218 36% 11%;
     --card-foreground: 210 40% 98%;
     --popover: 215 28% 17%;
     --popover-foreground: 210 40% 98%;
@@ -42,15 +58,22 @@
     --warning: 38 92% 50%;
     --warning-foreground: 222 47% 11%;
     --danger: 0 84% 60%;
+    --danger-bg: 0 84% 60% / 0.15;
     --danger-foreground: 210 40% 98%;
     --info: 199 89% 48%;
     --info-foreground: 210 40% 98%;
-    --border: 215 25% 27%;
+    --border: 215 28% 17%;
     --input: 215 25% 27%;
     --ring: 199 89% 48%;
     --line: 215 25% 27%;
     --radius: 0.75rem;
     --shadow: 0 18px 45px rgba(2, 6, 23, 0.34);
+    --surface: 218 36% 11%;
+    --stitch-muted: 215 28% 17%;
+    --amber: 38 92% 50%;
+    --emerald: 160 84% 39%;
+    --purple: 263 70% 30%;
+    --purple-foreground: 270 95% 85%;
   }
 }
 

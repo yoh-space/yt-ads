@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import {
-  getRoleHomeRoute,
+  getLegacyRouteRedirect,
   isPublicRoute,
+  isRedirectLoop,
   isRouteAllowedForRole,
   isValidRole,
 } from "./lib/role-routing";
@@ -12,7 +13,14 @@ const COOKIE_SESSION_NAME = "better-auth.session_token";
 const COOKIE_SECURE_SESSION_NAME = "__Secure-better-auth.session_token";
 const COOKIE_ROLE_NAME = "user_role";
 
-async function resolveRoleFromConvex(sessionToken: string): Promise<Role | null> {
+/**
+ * Role cookie max-age in seconds. Set to 1 hour to limit staleness window.
+ * The cookie is a routing hint only — Convex enforces the actual authorization.
+ * A shorter lifetime ensures role changes propagate within a reasonable window.
+ */
+const ROLE_COOKIE_MAX_AGE = 60 * 60; // 1 hour
+
+async function resolveRoleFromConvex(sessionToken: string, cookieName: string): Promise<Role | null> {
   const siteUrl = process.env.NEXT_PUBLIC_CONVEX_SITE_URL;
   const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
   if (!siteUrl || !convexUrl) return null;
@@ -22,7 +30,7 @@ async function resolveRoleFromConvex(sessionToken: string): Promise<Role | null>
     const tokenRes = await fetch(`${siteUrl}/api/auth/convex/token`, {
       headers: {
         host: new URL(siteUrl).host,
-        cookie: `${COOKIE_SESSION_NAME}=${sessionToken}`,
+        cookie: `${cookieName}=${sessionToken}`,
       },
     });
     if (!tokenRes.ok) return null;
@@ -59,6 +67,11 @@ async function resolveRoleFromConvex(sessionToken: string): Promise<Role | null>
  * Next.js 16 Edge Access & Request Interceptor Guard (replacing deprecated middleware.ts).
  * Handles primary request interception, session token verification, role landing dispatch,
  * and unauthorized route redirects.
+ *
+ * Staleness note: The user_role cookie is a routing hint with a short TTL (1 hour).
+ * Convex backend enforces the actual authorization on every business operation.
+ * If a role changes, the worst case is a temporary wrong route shell until the cookie
+ * expires or is refreshed by a successful Convex query.
  */
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -69,9 +82,10 @@ export async function proxy(request: NextRequest) {
   }
 
   // 2. Verify Better Auth session cookie
-  const sessionToken =
-    request.cookies.get(COOKIE_SESSION_NAME)?.value ||
-    request.cookies.get(COOKIE_SECURE_SESSION_NAME)?.value;
+  const sessionCookie =
+    request.cookies.get(COOKIE_SESSION_NAME) ??
+    request.cookies.get(COOKIE_SECURE_SESSION_NAME);
+  const sessionToken = sessionCookie?.value;
 
   if (!sessionToken) {
     const signInUrl = new URL("/sign-in", request.url);
@@ -80,12 +94,14 @@ export async function proxy(request: NextRequest) {
   }
 
   // 3. Resolve role: check fast cookie cache first, fallback to Convex API query
+  // The cookie is treated as a routing hint, not the final security boundary.
+  // Convex backend enforces the actual authorization on every business operation.
   let role: Role | null = null;
   const cachedRole = request.cookies.get(COOKIE_ROLE_NAME)?.value;
   if (isValidRole(cachedRole)) {
     role = cachedRole;
   } else {
-    role = await resolveRoleFromConvex(sessionToken);
+    role = await resolveRoleFromConvex(sessionToken, sessionCookie?.name ?? COOKIE_SESSION_NAME);
   }
 
   // If session is expired/invalid, redirect to sign-in
@@ -95,47 +111,18 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(signInUrl);
   }
 
-  const roleHome = getRoleHomeRoute(role);
-
-  // 4. Root /dashboard dispatch: route to specific role landing page
-  if (pathname === "/dashboard" || pathname === "/dashboard/") {
-    const redirectUrl = new URL(roleHome, request.url);
+  // 4. Resolve route redirects (root /dashboard, /inventory, unauthorized paths) via unified contract
+  const redirectTarget = getLegacyRouteRedirect(pathname, role);
+  if (redirectTarget && !isRedirectLoop(pathname, redirectTarget)) {
+    const redirectUrl = new URL(redirectTarget, request.url);
+    if (!isRouteAllowedForRole(role, pathname)) {
+      redirectUrl.searchParams.set("unauthorized", "1");
+    }
     const response = NextResponse.redirect(redirectUrl);
     response.cookies.set(COOKIE_ROLE_NAME, role, {
       path: "/",
       sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 7,
-    });
-    return response;
-  }
-
-  // 5. Root /inventory dispatch: route storekeeper to parent, operators to substock
-  if (pathname === "/inventory" || pathname === "/inventory/") {
-    const target =
-      role === "storekeeper"
-        ? "/inventory/parent"
-        : ["laser_operator", "cnc_operator", "plotter_operator", "printer_operator"].includes(role)
-          ? "/inventory/substock"
-          : "/inventory/parent";
-    const redirectUrl = new URL(target, request.url);
-    const response = NextResponse.redirect(redirectUrl);
-    response.cookies.set(COOKIE_ROLE_NAME, role, {
-      path: "/",
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 7,
-    });
-    return response;
-  }
-
-  // 6. Access Authorization Guard: block unauthorized route attempts
-  if (!isRouteAllowedForRole(role, pathname)) {
-    const redirectUrl = new URL(roleHome, request.url);
-    redirectUrl.searchParams.set("unauthorized", "1");
-    const response = NextResponse.redirect(redirectUrl);
-    response.cookies.set(COOKIE_ROLE_NAME, role, {
-      path: "/",
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 7,
+      maxAge: ROLE_COOKIE_MAX_AGE,
     });
     return response;
   }
@@ -146,7 +133,7 @@ export async function proxy(request: NextRequest) {
     response.cookies.set(COOKIE_ROLE_NAME, role, {
       path: "/",
       sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 7,
+      maxAge: ROLE_COOKIE_MAX_AGE,
     });
   }
   return response;

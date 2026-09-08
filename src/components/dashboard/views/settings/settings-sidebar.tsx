@@ -27,7 +27,7 @@ export function SettingsSidebar({
 }) {
   return (
     <aside className="space-y-6">
-      <div className="overflow-hidden rounded-xl border border-line bg-white shadow-sm">
+      <div className="overflow-hidden rounded-xl border border-border bg-card">
         <div className="relative bg-navy p-5">
           <div className="absolute inset-0 bg-[radial-gradient(420px_160px_at_110%_-40%,rgba(25,196,210,0.35),transparent_65%)]" />
           <div className="relative flex items-center gap-3">
@@ -51,7 +51,7 @@ export function SettingsSidebar({
                   "group relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan",
                   isActive
                     ? "bg-navy text-white shadow-[0_10px_24px_rgba(0,46,75,0.28)]"
-                    : "text-gray-700 hover:bg-gray-50",
+                    : "text-muted-foreground hover:bg-white/5",
                 )}
                 onClick={() => onSelect(category.id)}
               >
@@ -64,7 +64,7 @@ export function SettingsSidebar({
                     "grid h-9 w-9 flex-none place-items-center rounded-lg transition-colors duration-200",
                     isActive
                       ? "bg-cyan text-navy"
-                      : "bg-gray-100 text-gray-500 group-hover:bg-cyan/10 group-hover:text-cyan-dark",
+                      : "bg-white/5 text-muted-foreground group-hover:bg-cyan/10 group-hover:text-cyan-dark",
                   )}
                 >
                   {category.icon}
@@ -77,7 +77,7 @@ export function SettingsSidebar({
                       <span
                         className={cn(
                           "flex-none rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider",
-                          isActive ? "bg-white/20 text-cyan" : "bg-navy/10 text-navy",
+                          isActive ? "bg-white/20 text-cyan" : "bg-white/10 text-muted-foreground",
                         )}
                       >
                         {category.badge}
@@ -87,7 +87,7 @@ export function SettingsSidebar({
                   <span
                     className={cn(
                       "mt-0.5 block truncate text-[11px]",
-                      isActive ? "text-cyan-100/80" : "text-gray-500",
+                      isActive ? "text-cyan-100/80" : "text-muted-foreground/70",
                     )}
                   >
                     {category.description}
@@ -96,7 +96,7 @@ export function SettingsSidebar({
 
                 <ChevronRight
                   size={15}
-                  className={cn("flex-none transition-colors", isActive ? "text-cyan" : "text-gray-300")}
+                  className={cn("flex-none transition-colors", isActive ? "text-cyan" : "text-muted-foreground/50")}
                 />
               </button>
             );

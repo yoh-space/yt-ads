@@ -9,9 +9,9 @@ export type Role =
   | "plotter_operator"
   | "printer_operator";
 
-export type Unit = "m²" | "m" | "sheet" | "piece" | "pcs" | "L";
+export type Unit = "m²" | "m" | "sheet" | "piece" | "pcs" | "L" | "mL";
 
-export type PurchaseUnit = "roll" | "sheet" | "pack" | "liter" | "piece";
+export type PurchaseUnit = "roll" | "sheet" | "pack" | "canister" | "liter" | "piece";
 export type MaterialSpecification =
   | "Color Type"
   | "Roll Weight & Size"
@@ -26,9 +26,9 @@ export type MaterialSpecification =
 
 export type JobStatus = "Queued" | "In production" | "Completed" | "Paused";
 
-export type MachineStatus = "Running" | "Available" | "Maintenance";
+export type MachineStatus = "Running" | "Available" | "Maintenance" | "Unavailable";
 
-export type Priority = "High" | "Medium" | "Normal";
+export type Priority = "High" | "Medium" | "Low";
 
 export type Accent = "cyan" | "gold" | "violet" | "blue" | "green";
 

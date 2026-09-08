@@ -10,19 +10,19 @@ export interface StatusPillProps extends HTMLAttributes<HTMLSpanElement> {
 }
 
 const PILL_SURFACES: Record<StatusPillVariant, string> = {
-  success: "bg-emerald-950/40 text-emerald-400 border-emerald-800/60",
-  warning: "bg-amber-950/40 text-amber-400 border-amber-800/60",
-  danger: "bg-rose-950/40 text-rose-300 border-rose-800/60",
-  neutral: "bg-slate-900/60 text-slate-300 border-slate-700/60",
-  info: "bg-cyan-950/40 text-cyan-300 border-cyan-800/60",
+  success: "bg-status-success-bg text-status-success border-status-success/40",
+  warning: "bg-status-warning-bg text-status-warning border-status-warning/40",
+  danger: "bg-[var(--danger-bg)] text-[var(--danger)] border-[var(--danger)]/40",
+  neutral: "bg-surface-elevated text-text-secondary border-border-token",
+  info: "bg-brand-primary-bg text-brand-primary-light border-brand-primary/40",
 };
 
 const DOT_TONES: Record<StatusPillVariant, string> = {
-  success: "bg-[#38B000] shadow-[0_0_6px_rgba(56,176,0,0.85)]",
-  warning: "bg-[#FFB703] shadow-[0_0_6px_rgba(255,183,3,0.85)] animate-pulse-dot",
-  danger: "bg-[#f43f5e] shadow-[0_0_6px_rgba(244,63,94,0.85)]",
-  neutral: "bg-slate-500",
-  info: "bg-[#00B4D8] shadow-[0_0_6px_rgba(0,180,216,0.85)]",
+  success: "bg-status-success shadow-[0_0_6px_var(--status-success)]",
+  warning: "bg-status-warning shadow-[0_0_6px_var(--status-warning)] animate-pulse-dot",
+  danger: "bg-[var(--danger)] shadow-[0_0_6px_var(--danger)]",
+  neutral: "bg-text-dim",
+  info: "bg-brand-primary-light shadow-[0_0_6px_var(--brand-primary)]",
 };
 
 export function StatusPill({ className, variant = "neutral", children, ...props }: StatusPillProps) {
@@ -37,7 +37,7 @@ export function StatusPill({ className, variant = "neutral", children, ...props 
       {...props}
     >
       {variant === "danger" ? (
-        <Zap size={9} strokeWidth={2.5} className="text-[#f43f5e] flex-none" fill="currentColor" />
+        <Zap size={9} strokeWidth={2.5} className="text-[var(--danger)] flex-none" fill="currentColor" />
       ) : (
         <span aria-hidden className={cn("inline-block w-[5px] h-[5px] rounded-full flex-none", DOT_TONES[variant])} />
       )}

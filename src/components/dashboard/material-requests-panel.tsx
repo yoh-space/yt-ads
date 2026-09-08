@@ -8,13 +8,11 @@ import {
   Inbox,
   PackageCheck,
   Send,
-  Truck,
 } from "lucide-react";
 import type { MaterialRequest, MaterialRequestStatus, Role } from "@/lib/operations-types";
 import { hasPermission } from "@/lib/permissions";
 import { formatQuantity } from "@/lib/units";
-import { Panel, PanelHeader, Button, StatusPill, Input } from "@/components/ui";
-import { cn } from "@/lib/utils";
+import { Panel, PanelHeader, Button, StatusPill, NumericInput } from "@/components/ui";
 
 const STATUS_TONE: Record<MaterialRequestStatus, "success" | "warning" | "info" | "neutral" | "danger"> = {
   Requested: "warning",
@@ -34,12 +32,30 @@ const PHASE_LABEL: Partial<Record<MaterialRequestStatus, string>> = {
   Discrepancy: "Discrepancy",
 };
 
+function requesterInitials(name: string) {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("") || "?";
+}
+
+function relativeTime(timestamp: number) {
+  const minutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60000));
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  return `${hours}h ago`;
+}
+
 export function MaterialRequestsPanel({
   requests,
   role,
   onRequest,
   onIssue,
   onAcknowledge,
+  onShortStock,
   isPending,
 }: {
   requests: MaterialRequest[];
@@ -47,58 +63,32 @@ export function MaterialRequestsPanel({
   onRequest: () => void;
   onIssue: (requestId: string, issuedQuantity: number) => void;
   onAcknowledge: (requestId: string) => void;
+  onShortStock?: (requestId: string) => void;
   isPending: (key: string) => boolean;
 }) {
-  const [issueQuantities, setIssueQuantities] = useState<Record<string, number>>({});
-  const canRequest = hasPermission(role, "request.create");
+  const [issueQuantities, setIssueQuantities] = useState<Record<string, string>>({});
+  const [issueValidity, setIssueValidity] = useState<Record<string, boolean>>({});
+  const canRequest = role !== "storekeeper" && hasPermission(role, "request.create");
   const canIssue = hasPermission(role, "request.issue");
   const canAcknowledge = hasPermission(role, "request.acknowledge");
 
   const visible = requests.slice(0, 8);
   const pendingToIssue = requests.filter((r) => r.status === "Requested" || r.status === "Partially Issued").length;
-  const pendingReceipt = requests.filter((r) => r.status === "Issued" || r.status === "Partially Issued").length;
-  const received = requests.filter((r) => r.status === "Received").length;
   const hasWorkflow = canRequest || canIssue || canAcknowledge;
 
-  const statItems = [
-    { label: "Pending request", value: pendingToIssue, icon: Send, tone: "text-amber-400 bg-amber-950/40 border-amber-800/60" },
-    { label: "Awaiting receipt", value: pendingReceipt, icon: Truck, tone: "text-cyan-300 bg-cyan-950/40 border-cyan-800/60" },
-    { label: "Received", value: received, icon: PackageCheck, tone: "text-emerald-400 bg-emerald-950/40 border-emerald-800/60" },
-  ];
-
   return (
-    <Panel className="overflow-hidden">
+    <Panel className="overflow-hidden border-border bg-card">
       <PanelHeader
-        kicker="MATERIAL REQUESTS & APPROVAL"
-        title="የእቃ ጥያቄዎች"
-        subtitle="Request → Issue → Received · store-controlled floor stock handover"
+        kicker="FLOOR MATERIAL REQUISITIONS"
+        title="የኦፕሬተሮች የዕቃ ጥያቄ መከታተያ"
+        subtitle="Operator requests awaiting physical stock handover"
         icon={<ClipboardList size={17} />}
         action={
-          canRequest ? (
-            <Button size="small" onClick={onRequest}>
-              <Send size={13} />
-              New request
-            </Button>
-          ) : undefined
+          <span className="rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-wider text-amber-400">
+            {pendingToIssue} pending
+          </span>
         }
       />
-
-      {/* Phase summary strip */}
-      <div className="grid grid-cols-1 gap-3 px-[17px] py-4 sm:grid-cols-3">
-        {statItems.map(({ label, value, icon: Icon, tone }) => (
-          <div key={label} className="flex items-center gap-3 rounded-lg border border-border/60 bg-secondary/40 px-3.5 py-2.5">
-            <span className={cn("grid h-8 w-8 flex-none place-items-center rounded-lg border", tone)}>
-              <Icon size={15} />
-            </span>
-            <div className="min-w-0">
-              <span className="block truncate font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                {label}
-              </span>
-              <strong className="block text-lg font-bold text-foreground leading-tight">{value}</strong>
-            </div>
-          </div>
-        ))}
-      </div>
 
       {/* Request list */}
       {visible.length === 0 ? (
@@ -120,9 +110,11 @@ export function MaterialRequestsPanel({
           ) : null}
         </div>
       ) : (
-        <div className="divide-y divide-border/60 border-t border-border/60">
+        <div className="space-y-2 border-t border-border/60 p-3">
           {visible.map((request) => {
-            const issueQuantity = issueQuantities[request.id] ?? request.requestedQuantity;
+            const issueQuantity = issueQuantities[request.id] ?? String(request.requestedQuantity);
+            const parsedIssueQuantity = Number(issueQuantity);
+            const issueHasError = !issueQuantity.trim() || issueValidity[request.id] === false || !Number.isFinite(parsedIssueQuantity) || parsedIssueQuantity <= 0;
             const tone = STATUS_TONE[request.status];
             const showIssue =
               canIssue && (request.status === "Requested" || request.status === "Partially Issued");
@@ -130,58 +122,62 @@ export function MaterialRequestsPanel({
               canAcknowledge && (request.status === "Issued" || request.status === "Partially Issued");
 
             return (
-              <div key={request.id} className="flex flex-col gap-3 px-[17px] py-4 transition-colors hover:bg-secondary/30 md:flex-row md:items-center">
-                <span className="grid h-10 w-10 flex-none place-items-center rounded-lg border border-cyan-800/50 bg-cyan-950/30 text-cyan-dark">
-                  <ClipboardList size={17} />
-                </span>
-
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <strong className="text-sm font-semibold text-foreground">
-                      {request.jobCode} · {request.materialName}
-                    </strong>
-                    <StatusPill variant={tone}>{request.status}</StatusPill>
+              <div key={request.id} className="rounded-md border border-border bg-background/70 p-3 transition-colors hover:border-primary/50">
+                <div className="flex items-start gap-2.5">
+                  <span className="grid h-8 w-8 flex-none place-items-center rounded-full border border-primary/40 bg-primary/10 font-mono text-[10px] font-bold text-primary">
+                    {requesterInitials(request.requesterName)}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <strong className="truncate text-xs font-semibold text-foreground">{request.requesterName}</strong>
+                      <span className="flex-none font-mono text-[9px] text-muted-foreground">{relativeTime(request.requestedAt)}</span>
+                    </div>
+                    <p className="truncate text-[10px] text-muted-foreground">
+                      {request.machineName ?? "Unassigned station"} · {request.pickLocation ?? "Central store"}
+                    </p>
                   </div>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {request.client} · requested{" "}
-                    <b className="text-foreground">{formatQuantity(request.requestedQuantity, request.unit)} {request.unit}</b>
-                    {request.issuedQuantity > 0 ? (
-                      <span className="text-muted-foreground"> · issued {formatQuantity(request.issuedQuantity, request.unit)} {request.unit}</span>
-                    ) : null}
-                  </p>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground/90">
-                    {request.requesterName} · {PHASE_LABEL[request.status] ?? request.status}
-                  </p>
+                  <StatusPill variant={tone}>{PHASE_LABEL[request.status] ?? request.status}</StatusPill>
                 </div>
-
-                <div className="flex flex-none flex-wrap items-center gap-2">
+                <div className="mt-3 rounded border border-border/70 bg-muted/30 px-2.5 py-2">
+                  <p className="text-[9px] uppercase tracking-wider text-muted-foreground">Requested</p>
+                  <p className="mt-0.5 text-xs font-semibold text-foreground">
+                    {formatQuantity(request.requestedQuantity, request.unit)} · {request.materialName}
+                  </p>
+                  <p className="mt-0.5 text-[10px] text-muted-foreground">{request.jobCode} · {request.client}</p>
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
                   {showIssue ? (
                     <>
-                      <Input
-                        aria-label={`Issue quantity for ${request.jobCode}`}
-                        type="number"
-                        min="0.01"
-                        max={request.requestedQuantity}
-                        step="0.01"
-                        value={issueQuantity}
-                        onChange={(event) =>
-                          setIssueQuantities((current) => ({
-                            ...current,
-                            [request.id]: Number(event.target.value),
-                          }))
-                        }
-                        className="w-24"
-                      />
+                       <NumericInput
+                         aria-label={`Issue quantity for ${request.jobCode}`}
+                         min={0.01}
+                         max={request.requestedQuantity}
+                         step="0.01"
+                         value={issueQuantity}
+                         emptyValue={0.01}
+                         onChange={(value) => setIssueQuantities((current) => ({ ...current, [request.id]: value }))}
+                         onValidityChange={(isValid) => setIssueValidity((current) => ({ ...current, [request.id]: isValid }))}
+                         className="w-24"
+                       />
                       <Button
                         size="small"
                         variant="secondary"
                         pending={isPending(`issue-${request.id}`)}
-                        disabled={isPending(`issue-${request.id}`)}
-                        onClick={() => onIssue(request.id, issueQuantity)}
+                         disabled={isPending(`issue-${request.id}`) || issueHasError}
+                         onClick={() => onIssue(request.id, parsedIssueQuantity)}
                       >
                         <PackageCheck size={13} />
-                        {isPending(`issue-${request.id}`) ? "Issuing..." : "Issue"}
+                         {isPending(`issue-${request.id}`) ? "Handing over..." : role === "storekeeper" ? `Approve & Hand Over ${formatQuantity(parsedIssueQuantity, request.unit)}` : "Issue"}
                       </Button>
+                      {onShortStock ? <Button
+                        size="small"
+                        variant="tertiary"
+                        pending={isPending(`short-${request.id}`)}
+                        disabled={isPending(`short-${request.id}`)}
+                        onClick={() => onShortStock(request.id)}
+                      >
+                        Mark short stock
+                      </Button> : null}
                     </>
                   ) : null}
                   {showAck ? (

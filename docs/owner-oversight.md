@@ -32,7 +32,7 @@ The Owner role carries **`ALL`** permissions — **minus** three things the Owne
 | `request.issue` | Issuing material from the central store to a press operator is the storekeeper's job; the Owner never executes handovers. |
 | `request.acknowledge` | Acknowledging receipt of an issued batch is done by the operator who received it. |
 
-The result: **the Owner never sees a "New Request" form, an "Issue" button, or an "Acknowledge" action.** The dashboard applies these permission exclusions consistently (e.g. in `src/components/dashboard/operations-dashboard.tsx`, the request drawer / handler buttons only render when `canCreateRequest/canIssueRequest/canAcknowledgeRequest` are true for the role — all of which are false for the Owner).
+The result: **the Owner never sees a "New Request" form, an "Issue" button, or an "Acknowledge" action.** The dashboard applies these permission exclusions consistently across the owner workspace and global action modals; request controls only render when `canCreateRequest/canIssueRequest/canAcknowledgeRequest` are true for the role — all of which are false for the Owner.
 
 The Owner *is* granted two permissions that the Owner (and only the Owner + admin) carry, exclusively:
 

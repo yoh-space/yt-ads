@@ -36,8 +36,6 @@ export type Permission =
   | "reconciliation.review"
   | "reconciliation.operator"
   | "reconciliation.clearance"
-  | "invoice.view"
-  | "invoice.create";
 
 const ALL: Permission[] = [
   "dashboard.view",
@@ -75,8 +73,6 @@ const ALL: Permission[] = [
   "reconciliation.review",
   "reconciliation.operator",
   "reconciliation.clearance",
-  "invoice.view",
-  "invoice.create",
 ];
 
 const OPERATIONS: Permission[] = [
@@ -101,7 +97,13 @@ const MANAGEMENT_ROLES: Role[] = ["owner", "manager", "admin", "storekeeper"];
 /** Frontend mirror of the backend RBAC map (keep in sync with convex/authorization.ts). */
 export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   owner: ALL.filter((permission) => permission !== "request.create" && permission !== "request.issue" && permission !== "request.acknowledge"),
-  manager: ALL.filter((permission) => permission !== "company_settings.update" && permission !== "reconciliation.review" && permission !== "reconciliation.clearance"),
+  manager: ALL.filter(
+    (permission) =>
+      permission !== "company_settings.update" &&
+      permission !== "reports.view" &&
+      permission !== "reconciliation.review" &&
+      permission !== "reconciliation.clearance",
+  ),
   admin: [
     "dashboard.view",
     "material.view",
@@ -136,8 +138,6 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "reconciliation.record",
     "reconciliation.operator",
     "reconciliation.clearance",
-    "invoice.view",
-    "invoice.create",
   ],
   storekeeper: [
     "dashboard.view",
@@ -176,17 +176,11 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "order.view",
     "order.create",
     "order.manage",
-    "invoice.view",
-    "invoice.create",
   ],
 };
 
 export function hasPermission(role: Role, permission: Permission): boolean {
   return ROLE_PERMISSIONS[role].includes(permission);
-}
-
-export function hasAnyPermission(role: Role, permissions: Permission[]): boolean {
-  return permissions.some((permission) => hasPermission(role, permission));
 }
 
 /** UI convenience: check a permission against a possibly-null profile. */
@@ -209,17 +203,3 @@ export function canAccessJob(role: Role, machine: { operatorRole: Role } | undef
   if (!machine) return false;
   return machine.operatorRole === role;
 }
-
-export function canAccessMaterialRequest(
-  role: Role,
-  identityId: string,
-  request: { requestedBy: string },
-  machine?: { operatorRole: Role },
-): boolean {
-  if (isManagementOrStore(role)) return true;
-  if (request.requestedBy === identityId) return true;
-  if (machine && machine.operatorRole === role) return true;
-  return false;
-}
-
-export type { Machine, JobCard, MaterialRequest };
