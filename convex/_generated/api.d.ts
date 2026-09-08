@@ -17,6 +17,7 @@ import type * as dashboard from "../dashboard.js";
 import type * as http from "../http.js";
 import type * as inventory from "../inventory.js";
 import type * as inventoryLedger from "../inventoryLedger.js";
+import type * as jobConsumption from "../jobConsumption.js";
 import type * as jobs from "../jobs.js";
 import type * as machines from "../machines.js";
 import type * as materialRequests from "../materialRequests.js";
@@ -59,6 +60,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   inventory: typeof inventory;
   inventoryLedger: typeof inventoryLedger;
+  jobConsumption: typeof jobConsumption;
   jobs: typeof jobs;
   machines: typeof machines;
   materialRequests: typeof materialRequests;
