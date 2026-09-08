@@ -23,6 +23,13 @@ export const unit = v.union(
   v.literal("mL"),
 );
 
+export const materialCatalogFamily = v.union(
+  v.literal("ROLL"),
+  v.literal("RIGID_SHEET"),
+  v.literal("INK_SOLVENT"),
+  v.literal("HARDWARE"),
+);
+
 export const jobStatus = v.union(
   v.literal("Queued"),
   v.literal("In production"),
@@ -298,6 +305,10 @@ export default defineSchema({
   materials: defineTable({
     name: v.string(),
     category: v.string(),
+    catalogFamily: v.optional(materialCatalogFamily),
+    catalogVariant: v.optional(v.string()),
+    catalogDimensions: v.optional(v.string()),
+    compatibleMachineTypes: v.optional(v.array(v.string())),
     unit,
     baseUnit: v.optional(unit),
     purchaseUnit: v.optional(purchaseUnit),
@@ -339,6 +350,8 @@ export default defineSchema({
     model: v.optional(v.string()),
     capability: v.optional(v.string()),
     notes: v.optional(v.string()),
+    primaryMaterialFamilies: v.optional(v.array(v.string())),
+    associatedInkFamilies: v.optional(v.array(v.string())),
     operatorRole: role,
     materialUnit: unit,
     displayUnit: v.optional(v.string()),

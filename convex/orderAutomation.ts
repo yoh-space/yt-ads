@@ -21,7 +21,7 @@ export type MaterialTypeRoute = {
   operatorRole: string;
 };
 
-export const MATERIAL_TYPE_CATALOG: readonly MaterialTypeRoute[] = [
+export const MATERIAL_TYPE_CATALOG = [
   { serviceType: "banner_print", materialType: "Banner Flex", preferredMaterialName: "Banner", machineCapabilities: ["3.2m Print Width"], operatorRole: "printer_operator" },
   { serviceType: "sticker_white", materialType: "Vinyl Sticker", preferredMaterialName: "Normal Sticker", machineCapabilities: ["1.6m Width"], operatorRole: "plotter_operator" },
   { serviceType: "sticker_transparent", materialType: "Vinyl Sticker", preferredMaterialName: "Transparent Sticker", machineCapabilities: ["1.6m Width"], operatorRole: "plotter_operator" },
@@ -44,7 +44,7 @@ export const MATERIAL_TYPE_CATALOG: readonly MaterialTypeRoute[] = [
   { serviceType: "mica_engrave", materialType: "Mica", preferredMaterialName: "Mica Sheet", machineCapabilities: ["1.22m x 2.44m Standard Board", "2.0m x 3.0m Bed Size"], operatorRole: "laser_operator" },
   { serviceType: "dtf", materialType: "DTF Film", preferredMaterialName: "DTF Film", machineCapabilities: ["0.60m Print Width"], operatorRole: "printer_operator" },
   { serviceType: "sublimation", materialType: "DTF Film", preferredMaterialName: "DTF Film", machineCapabilities: ["0.60m Print Width"], operatorRole: "printer_operator" },
-];
+] as const satisfies readonly MaterialTypeRoute[];
 
 const CATALOG_INDEX = new Map<string, MaterialTypeRoute>(MATERIAL_TYPE_CATALOG.map((route) => [route.serviceType, route]));
 

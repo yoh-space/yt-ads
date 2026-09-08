@@ -1,5 +1,6 @@
 export type MaterialPurchaseUnit = "roll" | "sheet" | "pack" | "liter" | "piece";
 export type MaterialBaseUnit = "m²" | "m" | "pcs" | "L";
+export type MaterialCatalogFamily = "ROLL" | "RIGID_SHEET" | "INK_SOLVENT" | "HARDWARE";
 
 export type MaterialSpecificationDefinition = {
   name: string;
@@ -8,6 +9,8 @@ export type MaterialSpecificationDefinition = {
   purchaseUnit: MaterialPurchaseUnit;
   baseUnit: MaterialBaseUnit;
   conversionRatio?: number;
+  packageSize?: number;
+  packageLabel?: string;
   displayUnit: string;
   specification?: string;
   specificationOptions?: readonly string[];
@@ -20,6 +23,10 @@ export type MaterialSpecificationDefinition = {
   /** Confirmed sheet length in metres (rigid boards). */
   sheetLength?: number;
   note?: string;
+  catalogFamily?: MaterialCatalogFamily;
+  catalogVariant?: string;
+  catalogDimensions?: string;
+  compatibleMachineTypes?: readonly string[];
 };
 
 const machineInkOptions = [
@@ -30,7 +37,9 @@ const machineInkOptions = [
 ] as const;
 
 const stickerOptions = [
-  "1.27 Meter × 50 Meter Roll",
+  "1.2 Meter × 50 Meter Roll",
+  "1.07 Meter × 50 Meter Roll",
+  "1.52 Meter × 50 Meter Roll",
 ] as const;
 
 /**
@@ -47,8 +56,12 @@ export const MATERIAL_SPECIFICATIONS: readonly MaterialSpecificationDefinition[]
     conversionRatio: 160,
     displayUnit: "ሮል",
     rollWidth: 3.2,
-    specification: "Roll Weight & Size",
-    specificationOptions: ["2 Meter Roll Weight", "3 Meter Roll Weight"],
+    catalogFamily: "ROLL",
+    catalogVariant: "Banner Flex",
+    catalogDimensions: "3.2m × 50m; 2.07m × 50m",
+    compatibleMachineTypes: ["Banner Printer", "Print and Cut"],
+    specification: "Roll Dimensions",
+    specificationOptions: ["3.2m × 50m", "2.07m × 50m"],
     note: "Confirmed conversion basis: 3.2m × 50m = 160m² per roll.",
   },
   {
@@ -62,6 +75,10 @@ export const MATERIAL_SPECIFICATIONS: readonly MaterialSpecificationDefinition[]
     storageLocation: "Store",
     averageUse: "Based on customer requirement",
     note: "Confirmed conversion basis: 0.60m × 100m; track production usage in running metres.",
+    catalogFamily: "ROLL",
+    catalogVariant: "DTF Film",
+    catalogDimensions: "0.60m × 100m",
+    compatibleMachineTypes: ["DTF"],
   },
   {
     name: "Acrylic",
@@ -85,6 +102,12 @@ export const MATERIAL_SPECIFICATIONS: readonly MaterialSpecificationDefinition[]
     displayUnit: "ሊትር",
     specification: "Ink Type & Color Config",
     specificationOptions: machineInkOptions,
+    catalogFamily: "INK_SOLVENT",
+    catalogVariant: "DTF Ink 1L",
+    catalogDimensions: "1L canister",
+    packageSize: 1,
+    packageLabel: "1L canister",
+    compatibleMachineTypes: ["DTF"],
   },
   {
     name: "Banner Ink",
@@ -95,6 +118,12 @@ export const MATERIAL_SPECIFICATIONS: readonly MaterialSpecificationDefinition[]
     displayUnit: "ሊትር",
     specification: "Ink Type & Color Config",
     specificationOptions: machineInkOptions,
+    catalogFamily: "INK_SOLVENT",
+    catalogVariant: "Banner Ink 5L",
+    catalogDimensions: "5L canister",
+    packageSize: 5,
+    packageLabel: "5L canister",
+    compatibleMachineTypes: ["Banner Printer"],
   },
   {
     name: "Print and Cut INK",
@@ -105,6 +134,12 @@ export const MATERIAL_SPECIFICATIONS: readonly MaterialSpecificationDefinition[]
     displayUnit: "ሊትር",
     specification: "Ink Type & Color Config",
     specificationOptions: machineInkOptions,
+    catalogFamily: "INK_SOLVENT",
+    catalogVariant: "Print & Cut Ink 1L",
+    catalogDimensions: "1L canister",
+    packageSize: 1,
+    packageLabel: "1L canister",
+    compatibleMachineTypes: ["Print and Cut"],
   },
   {
     name: "UV Flat bed Ink",
@@ -115,6 +150,12 @@ export const MATERIAL_SPECIFICATIONS: readonly MaterialSpecificationDefinition[]
     displayUnit: "ሊትር",
     specification: "Ink Type & Color Config",
     specificationOptions: machineInkOptions,
+    catalogFamily: "INK_SOLVENT",
+    catalogVariant: "UV Ink 1L",
+    catalogDimensions: "1L canister",
+    packageSize: 1,
+    packageLabel: "1L canister",
+    compatibleMachineTypes: ["UV Flatbed"],
   },
   {
     name: "LED Module / Strip",
@@ -216,8 +257,11 @@ export const MATERIAL_SPECIFICATIONS: readonly MaterialSpecificationDefinition[]
       "Yellow",
       "Clear/Transparent",
       "Translucent",
-      "Silver Metallic",
-      "Gold Metallic",
+       "Silver Metallic",
+       "Gold Metallic",
+       "Blue Light",
+       "Blue Dark",
+       "Lemmen",
       "Mirror/Frosted",
     ],
   },
@@ -256,9 +300,10 @@ export const MATERIAL_SPECIFICATIONS: readonly MaterialSpecificationDefinition[]
       "Red",
       "Blue",
       "Green",
-      "Yellow",
-      "Orange",
-      "Pink",
+       "Yellow",
+       "Orange",
+       "Pink",
+       "Ice Blue",
       "Purple",
       "RGB (Color-Changing)",
       "Neon Spot/Fluorescent Tones (Pink, Yellow, Orange, Green)",
@@ -273,7 +318,7 @@ export const MATERIAL_SPECIFICATIONS: readonly MaterialSpecificationDefinition[]
     conversionRatio: 1,
     displayUnit: "ቁጥር",
     specification: "Wattage",
-    specificationOptions: ["60 Watt", "400 Watt"],
+     specificationOptions: ["60 Watt", "100 Watt", "200 Watt", "400 Watt"],
   },
   {
     name: "Foam",
@@ -346,6 +391,106 @@ export const MATERIAL_SPECIFICATIONS: readonly MaterialSpecificationDefinition[]
     baseUnit: "pcs",
     conversionRatio: 1,
     displayUnit: "ቁጥር",
+  },
+  {
+    name: "Mesh Sticker",
+    category: "Sticker roll",
+    purchaseUnit: "roll",
+    baseUnit: "m²",
+    conversionRatio: 60,
+    displayUnit: "ሮል",
+    catalogFamily: "ROLL",
+    catalogVariant: "Mesh Sticker",
+    catalogDimensions: "1.2m × 50m; 1.52m × 50m",
+    compatibleMachineTypes: ["Banner Printer", "Print and Cut"],
+    specification: "Roll Width / Type",
+    specificationOptions: ["1.2 Meter × 50 Meter Roll", "1.52 Meter × 50 Meter Roll"],
+  },
+  {
+    name: "Cladding",
+    category: "Rigid sheet",
+    purchaseUnit: "sheet",
+    baseUnit: "pcs",
+    conversionRatio: 1,
+    displayUnit: "ቁጥር",
+    catalogFamily: "RIGID_SHEET",
+    catalogVariant: "Cladding",
+    catalogDimensions: "1.22m × 2.44m",
+    compatibleMachineTypes: ["UV Flatbed", "CNC Router"],
+    specification: "Color Type",
+    specificationOptions: ["White", "Gray", "Black"],
+    sheetWidth: 1.22,
+    sheetLength: 2.44,
+  },
+  {
+    name: "Banner Solvent",
+    category: "Solvent",
+    purchaseUnit: "liter",
+    baseUnit: "L",
+    conversionRatio: 1,
+    displayUnit: "ሊትር",
+    catalogFamily: "INK_SOLVENT",
+    catalogVariant: "Banner Solvent",
+    catalogDimensions: "Canister",
+    compatibleMachineTypes: ["Banner Printer"],
+  },
+  {
+    name: "DTF Solvent",
+    category: "Solvent",
+    purchaseUnit: "liter",
+    baseUnit: "L",
+    conversionRatio: 1,
+    displayUnit: "ሊትር",
+    catalogFamily: "INK_SOLVENT",
+    catalogVariant: "DTF Solvent",
+    catalogDimensions: "Canister",
+    compatibleMachineTypes: ["DTF"],
+  },
+  {
+    name: "Print & Cut Solvent",
+    category: "Solvent",
+    purchaseUnit: "liter",
+    baseUnit: "L",
+    conversionRatio: 1,
+    displayUnit: "ሊትር",
+    catalogFamily: "INK_SOLVENT",
+    catalogVariant: "Print & Cut Solvent",
+    catalogDimensions: "Canister",
+    compatibleMachineTypes: ["Print and Cut"],
+  },
+  {
+    name: "Electric Wire",
+    category: "Electrical",
+    purchaseUnit: "roll",
+    baseUnit: "m",
+    conversionRatio: 1,
+    displayUnit: "ሜትር",
+    catalogFamily: "HARDWARE",
+    catalogVariant: "Electric Wire",
+    catalogDimensions: "Metres",
+  },
+  {
+    name: "T-Shirts",
+    category: "Finished component",
+    purchaseUnit: "piece",
+    baseUnit: "pcs",
+    conversionRatio: 1,
+    displayUnit: "ቁጥር",
+    catalogFamily: "HARDWARE",
+    catalogVariant: "T-Shirts",
+    compatibleMachineTypes: ["DTF"],
+  },
+  {
+    name: "Digital Screen",
+    category: "Display hardware",
+    purchaseUnit: "piece",
+    baseUnit: "pcs",
+    conversionRatio: 1,
+    displayUnit: "ቁጥር",
+    catalogFamily: "HARDWARE",
+    catalogVariant: "Digital Screen",
+    specification: "Screen Size",
+    specificationOptions: ["A1", "A2"],
   },
 ];
 

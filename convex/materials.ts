@@ -1,6 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { unit, purchaseUnit, accent } from "./schema";
+import { unit, purchaseUnit, accent, materialCatalogFamily } from "./schema";
 import { convertToBase, type InputUnit } from "./units";
 import { requirePermission, requireActiveProfile } from "./users";
 import { canViewFinancial } from "./authorization";
@@ -27,6 +27,10 @@ export const create = mutation({
   args: {
     name: v.string(),
     category: v.string(),
+    catalogFamily: v.optional(materialCatalogFamily),
+    catalogVariant: v.optional(v.string()),
+    catalogDimensions: v.optional(v.string()),
+    compatibleMachineTypes: v.optional(v.array(v.string())),
     unit,
     baseUnit: v.optional(unit),
     purchaseUnit: v.optional(purchaseUnit),
@@ -87,6 +91,10 @@ export const create = mutation({
     const id = await ctx.db.insert("materials", {
       name: canonicalName,
       category: catalog?.category ?? (args.category.trim() || "Custom"),
+      catalogFamily: args.catalogFamily ?? catalog?.catalogFamily,
+      catalogVariant: args.catalogVariant?.trim() || catalog?.catalogVariant,
+      catalogDimensions: args.catalogDimensions?.trim() || catalog?.catalogDimensions,
+      compatibleMachineTypes: args.compatibleMachineTypes ?? (catalog?.compatibleMachineTypes ? [...catalog.compatibleMachineTypes] : undefined),
       unit: baseUnit,
       baseUnit,
       purchaseUnit: purchaseUnitValue,

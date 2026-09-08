@@ -12,6 +12,10 @@ export function ProductionSection({
   setMaxAllowedWastePercent,
   minOffcutAreaSquareMetre,
   setMinOffcutAreaSquareMetre,
+  standardWasteMargin,
+  setStandardWasteMargin,
+  maxAllowedScrapLimit,
+  setMaxAllowedScrapLimit,
 }: {
   inkMlPerSquareMetre: number;
   setInkMlPerSquareMetre: (n: number) => void;
@@ -19,6 +23,10 @@ export function ProductionSection({
   setMaxAllowedWastePercent: (n: number) => void;
   minOffcutAreaSquareMetre: number;
   setMinOffcutAreaSquareMetre: (n: number) => void;
+  standardWasteMargin: number;
+  setStandardWasteMargin: (n: number) => void;
+  maxAllowedScrapLimit: number;
+  setMaxAllowedScrapLimit: (n: number) => void;
 }) {
   return (
     <FormSection
@@ -55,6 +63,26 @@ export function ProductionSection({
           min={0}
           step="0.01"
           hint="Offcuts smaller than this are not tracked."
+        />
+        <NumericField
+          label="Standard Job-Card Waste Margin"
+          value={standardWasteMargin}
+          onChange={setStandardWasteMargin}
+          suffix="%"
+          min={0}
+          max={100}
+          step="0.1"
+          hint="Added on top of the net quantity when the job card is created."
+        />
+        <NumericField
+          label="Maximum Allowed Scrap Limit"
+          value={maxAllowedScrapLimit}
+          onChange={setMaxAllowedScrapLimit}
+          suffix="%"
+          min={0}
+          max={100}
+          step="0.1"
+          hint="Caps the approved scrap recorded against a job card."
         />
       </div>
     </FormSection>

@@ -9,7 +9,7 @@ import { requireAdmin } from "./users";
 import { convertToBase, type InputUnit } from "./units";
 import { api } from "./_generated/api";
 import { internal } from "./_generated/api";
-import { MATERIAL_SPECIFICATIONS, type MaterialSpecificationDefinition } from "../src/shared/material-specifications";
+import { MATERIAL_SPECIFICATIONS, type MaterialCatalogFamily, type MaterialSpecificationDefinition } from "../src/shared/material-specifications";
 import { recordInventoryEvent } from "./inventoryLedger";
 import { classifyMaterialProductionType, effectiveConsumptionRate, resolveEtbValue } from "./materialUsage";
 import { assertServiceIdsMatchSchema } from "./services";
@@ -23,12 +23,27 @@ import { MATERIAL_TYPE_CATALOG } from "./orderAutomation";
  */
 function materialMasterFields(material: MaterialSpecificationDefinition) {
   const classifierInput = { name: material.name, category: material.category, baseUnit: material.baseUnit };
+  const catalogFamily: MaterialCatalogFamily = material.catalogFamily ?? (
+    material.category === "Ink" || material.name.toLowerCase().includes("solvent")
+      ? "INK_SOLVENT"
+      : material.purchaseUnit === "roll"
+        ? "ROLL"
+        : material.category === "Rigid sheet" || material.category === "Foam board"
+          ? "RIGID_SHEET"
+          : "HARDWARE"
+  );
   return {
     name: material.name,
     category: material.category,
+    catalogFamily,
+    catalogVariant: material.catalogVariant,
+    catalogDimensions: material.catalogDimensions,
+    compatibleMachineTypes: material.compatibleMachineTypes ? [...material.compatibleMachineTypes] : undefined,
     unit: material.baseUnit,
     baseUnit: material.baseUnit,
     purchaseUnit: material.purchaseUnit,
+    packageSize: material.packageSize,
+    packageLabel: material.packageLabel,
     conversionRatio: material.conversionRatio,
     rollEquivalent: material.purchaseUnit === "roll" ? material.conversionRatio : undefined,
     sheetEquivalent: material.purchaseUnit === "sheet" ? material.conversionRatio : undefined,
@@ -206,14 +221,12 @@ export const seed = mutation({
 const YT_WORKSPACE_KEY = "yt-advertisement";
 
 const YT_MACHINE_MASTER_DATA = [
-  { name: "Large Format Banner Printer", code: "BAN-01", type: "Banner Printer", model: "3.2m Eco-Solvent / Solvent Printer", capability: "3.2m Print Width", operatorRole: "printer_operator" as const, materialUnit: "m²" as const, displayUnit: "m²", status: "Available" as const },
-  { name: "DTF Printer", code: "DTF-01", type: "DTF", manufacturer: "Crystal", model: "60cm Roll-to-Roll DTF", capability: "0.60m Print Width", operatorRole: "printer_operator" as const, materialUnit: "m" as const, displayUnit: "m", status: "Available" as const },
-  { name: "Print & Cut Eco-Solvent Plotter", code: "PAC-01", type: "Print and Cut", manufacturer: "Crystal", model: "1.6m Print & Cut Plotter", capability: "1.6m Width", operatorRole: "plotter_operator" as const, materialUnit: "m²" as const, displayUnit: "m²", status: "Available" as const },
-  { name: "CNC Router 2030", code: "CNC-01", type: "CNC Router", model: "2000mm x 3000mm Heavy Duty", capability: "2.0m x 3.0m Bed Size", operatorRole: "cnc_operator" as const, materialUnit: "m²" as const, displayUnit: "m²", status: "Available" as const },
-  { name: "Laser Cutter 1325", code: "LAS-01", type: "Laser Cutter 1325", manufacturer: "Crystal", model: "1300mm x 2500mm CO2 Laser", capability: "1.22m x 2.44m Standard Board", operatorRole: "laser_operator" as const, materialUnit: "m²" as const, displayUnit: "m²", status: "Available" as const },
-  { name: "Pneumatic / Manual Heat Press", code: "HPR-01", type: "Heat press", model: "Flatbed Heat Press", capability: "40cm x 60cm Platen", operatorRole: "printer_operator" as const, materialUnit: "pcs" as const, displayUnit: "pcs", status: "Available" as const },
-  { name: "Paper Guillotine Cutter (Conca)", code: "CON-01", type: "Conca", model: "Heavy Duty Paper Cutter", capability: "A3+ Cutting Width", operatorRole: "printer_operator" as const, materialUnit: "pcs" as const, displayUnit: "pcs", status: "Available" as const, notes: "Paper work" },
-  { name: "UV Flatbed Printer", code: "UVF-01", type: "UV Flat bed", manufacturer: "Crystal", model: "Industrial UV Flatbed", capability: "Direct-to-Rigid Board", operatorRole: "printer_operator" as const, materialUnit: "m²" as const, displayUnit: "m²", status: "Available" as const },
+  { name: "Crystal Jet 7K Series", code: "BAN-01", type: "Banner Printer", manufacturer: "Crystal", model: "Crystal Jet 7K Series", capability: "Banner and heavy sticker production", primaryMaterialFamilies: ["ROLL"], associatedInkFamilies: ["Banner Ink 5L", "Banner Solvent"], operatorRole: "printer_operator" as const, materialUnit: "m²" as const, displayUnit: "m²", status: "Available" as const },
+  { name: "Crystc Eco-Solvent Printer", code: "PAC-01", type: "Print and Cut", manufacturer: "Crystal", model: "Eco-Solvent Print & Cut", capability: "Stickers and grayback media", primaryMaterialFamilies: ["ROLL"], associatedInkFamilies: ["Print & Cut Ink 1L", "Print & Cut Solvent"], operatorRole: "plotter_operator" as const, materialUnit: "m²" as const, displayUnit: "m²", status: "Available" as const },
+  { name: "Ricoh Flatbed UV Machine", code: "UVF-01", type: "UV Flatbed", manufacturer: "Ricoh", model: "Flatbed UV", capability: "Rigid sheets and specialty media", primaryMaterialFamilies: ["RIGID_SHEET", "HARDWARE"], associatedInkFamilies: ["UV Ink 1L"], operatorRole: "printer_operator" as const, materialUnit: "m²" as const, displayUnit: "m²", status: "Available" as const },
+  { name: "DTF i3200", code: "DTF-01", type: "DTF", manufacturer: "i3200", model: "DTF i3200", capability: "T-shirts and textile films", primaryMaterialFamilies: ["ROLL", "HARDWARE"], associatedInkFamilies: ["DTF Ink 1L", "DTF Solvent"], operatorRole: "printer_operator" as const, materialUnit: "m" as const, displayUnit: "m", status: "Available" as const },
+  { name: "Laser Cutter", code: "LAS-01", type: "Laser Cutter", manufacturer: "Crystal", model: "CO2 Laser Cutter", capability: "Mica and foam board cutting", primaryMaterialFamilies: ["RIGID_SHEET"], operatorRole: "laser_operator" as const, materialUnit: "m²" as const, displayUnit: "m²", status: "Available" as const },
+  { name: "CNC Router", code: "CNC-01", type: "CNC Router", model: "Heavy Duty CNC Router", capability: "Foam board, cladding, and MDF sheets", primaryMaterialFamilies: ["RIGID_SHEET"], operatorRole: "cnc_operator" as const, materialUnit: "m²" as const, displayUnit: "m²", status: "Available" as const },
 ] as const;
 
 const YT_MATERIAL_MASTER_DATA = MATERIAL_SPECIFICATIONS;
@@ -453,7 +466,12 @@ export const seedYtAdvertisementWorkspace = mutation({
     });
 
     const machineRecords = YT_MACHINE_MASTER_DATA;
-    for (const machine of machineRecords) await ctx.db.insert("machines", { ...machine, active: true });
+    for (const machine of machineRecords) await ctx.db.insert("machines", {
+      ...machine,
+       primaryMaterialFamilies: "primaryMaterialFamilies" in machine ? [...machine.primaryMaterialFamilies] : undefined,
+       associatedInkFamilies: "associatedInkFamilies" in machine ? [...machine.associatedInkFamilies] : undefined,
+      active: true,
+    });
 
     const materialRecords = YT_MATERIAL_MASTER_DATA;
     const accents = ["cyan", "violet", "gold", "green", "blue"] as const;
@@ -625,14 +643,21 @@ export const migrateYtAdvertisementMasterData = mutation({
           manufacturer: "manufacturer" in machine ? machine.manufacturer : undefined,
           model: machine.model,
           capability: machine.capability,
-          notes: "notes" in machine ? machine.notes : undefined,
+          notes: "notes" in machine ? String(machine.notes) : undefined,
+          primaryMaterialFamilies: "primaryMaterialFamilies" in machine ? [...machine.primaryMaterialFamilies] : undefined,
+          associatedInkFamilies: "associatedInkFamilies" in machine ? [...machine.associatedInkFamilies] : undefined,
           operatorRole: machine.operatorRole,
           materialUnit: machine.materialUnit,
           displayUnit: machine.displayUnit,
         });
         machinesPatched += 1;
       } else {
-        await ctx.db.insert("machines", { ...machine, active: true });
+        await ctx.db.insert("machines", {
+          ...machine,
+          primaryMaterialFamilies: "primaryMaterialFamilies" in machine ? [...machine.primaryMaterialFamilies] : undefined,
+          associatedInkFamilies: "associatedInkFamilies" in machine ? [...machine.associatedInkFamilies] : undefined,
+          active: true,
+        });
         machinesInserted += 1;
       }
     }
@@ -1315,6 +1340,8 @@ interface MachineInsertInput {
   model?: string;
   capability?: string;
   notes?: string;
+  primaryMaterialFamilies?: string[];
+  associatedInkFamilies?: string[];
   operatorRole: Role;
   materialUnit: "m²" | "m" | "sheet" | "piece" | "pcs" | "L";
   displayUnit?: string;

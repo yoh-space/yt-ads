@@ -66,6 +66,8 @@ export function OperationalPanel() {
         inkMlPerSquareMetre: form.inkMlPerSquareMetre,
         maxAllowedWastePercent: form.maxAllowedWastePercent,
         minOffcutAreaSquareMetre: form.minOffcutAreaSquareMetre,
+        standardWasteMargin: form.standardWasteMargin,
+        maxAllowedScrapLimit: form.maxAllowedScrapLimit,
         requireAdminPinForExceptions: form.requireAdminPinForExceptions,
         maxDirectStockOutEtb: form.maxDirectStockOutEtb,
         orderExpirationHours: form.orderExpirationHours,
@@ -143,6 +145,10 @@ export function OperationalPanel() {
             setMaxAllowedWastePercent={form.setMaxAllowedWastePercent}
             minOffcutAreaSquareMetre={form.minOffcutAreaSquareMetre}
             setMinOffcutAreaSquareMetre={form.setMinOffcutAreaSquareMetre}
+            standardWasteMargin={form.standardWasteMargin}
+            setStandardWasteMargin={form.setStandardWasteMargin}
+            maxAllowedScrapLimit={form.maxAllowedScrapLimit}
+            setMaxAllowedScrapLimit={form.setMaxAllowedScrapLimit}
           />
 
           <ScrapAllowanceSection

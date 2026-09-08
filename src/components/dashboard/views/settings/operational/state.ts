@@ -34,6 +34,8 @@ export interface OperationalConfigState {
   inkMlPerSquareMetre: number;
   maxAllowedWastePercent: number;
   minOffcutAreaSquareMetre: number;
+  standardWasteMargin: number;
+  maxAllowedScrapLimit: number;
   requireAdminPinForExceptions: boolean;
   maxDirectStockOutEtb: number;
   orderExpirationHours: number;
@@ -53,6 +55,8 @@ export interface OperationalConfigActions {
   setInkMlPerSquareMetre: (n: number) => void;
   setMaxAllowedWastePercent: (n: number) => void;
   setMinOffcutAreaSquareMetre: (n: number) => void;
+  setStandardWasteMargin: (n: number) => void;
+  setMaxAllowedScrapLimit: (n: number) => void;
   setRequireAdminPinForExceptions: (v: boolean) => void;
   setMaxDirectStockOutEtb: (n: number) => void;
   setOrderExpirationHours: (n: number) => void;
@@ -73,6 +77,8 @@ interface SystemConfigResponse {
   inkMlPerSquareMetre: number;
   maxAllowedWastePercent: number;
   minOffcutAreaSquareMetre: number;
+  standardWasteMargin?: number;
+  maxAllowedScrapLimit?: number;
   requireAdminPinForExceptions: boolean;
   maxDirectStockOutEtb: number;
   orderExpirationHours?: number;
@@ -99,6 +105,8 @@ export function useOperationalConfigState(
   const [inkMlPerSquareMetre, setInkMlPerSquareMetre] = useState(0);
   const [maxAllowedWastePercent, setMaxAllowedWastePercent] = useState(0);
   const [minOffcutAreaSquareMetre, setMinOffcutAreaSquareMetre] = useState(0);
+  const [standardWasteMargin, setStandardWasteMargin] = useState(3);
+  const [maxAllowedScrapLimit, setMaxAllowedScrapLimit] = useState(5);
   const [requireAdminPinForExceptions, setRequireAdminPinForExceptions] = useState(true);
   const [maxDirectStockOutEtb, setMaxDirectStockOutEtb] = useState(0);
   const [orderExpirationHours, setOrderExpirationHours] = useState(12);
@@ -119,6 +127,8 @@ export function useOperationalConfigState(
     setInkMlPerSquareMetre(config.inkMlPerSquareMetre);
     setMaxAllowedWastePercent(config.maxAllowedWastePercent);
     setMinOffcutAreaSquareMetre(config.minOffcutAreaSquareMetre);
+    setStandardWasteMargin(config.standardWasteMargin ?? 3);
+    setMaxAllowedScrapLimit(config.maxAllowedScrapLimit ?? 5);
     setRequireAdminPinForExceptions(config.requireAdminPinForExceptions);
     setMaxDirectStockOutEtb(config.maxDirectStockOutEtb);
     setOrderExpirationHours(config.orderExpirationHours ?? 12);
@@ -139,6 +149,8 @@ export function useOperationalConfigState(
     inkMlPerSquareMetre,
     maxAllowedWastePercent,
     minOffcutAreaSquareMetre,
+    standardWasteMargin,
+    maxAllowedScrapLimit,
     requireAdminPinForExceptions,
     maxDirectStockOutEtb,
     orderExpirationHours,
@@ -155,6 +167,8 @@ export function useOperationalConfigState(
     setInkMlPerSquareMetre,
     setMaxAllowedWastePercent,
     setMinOffcutAreaSquareMetre,
+    setStandardWasteMargin,
+    setMaxAllowedScrapLimit,
     setRequireAdminPinForExceptions,
     setMaxDirectStockOutEtb,
     setOrderExpirationHours,
