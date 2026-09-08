@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeStandardAllocation } from "./orderAutomation";
+import { computeStandardAllocation } from "../orderAutomation";
 
 describe("Phase 6 & Orders Auto-Routing Invariants", () => {
   it("computes standard allocation accurately for standard order sizes", () => {

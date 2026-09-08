@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assertPositiveFinite, assertProductionQuantities } from "./validation";
+import { assertPositiveFinite, assertProductionQuantities } from "../validation";
 
 describe("production validation", () => {
   it("accepts valid production quantities", () => {

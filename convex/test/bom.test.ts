@@ -4,8 +4,8 @@ import {
   resolveRouteForService,
   compatibleMachines,
   selectMachineByLoad,
-} from "./orderAutomation";
-import { parseDimensions } from "../src/telegram/geometry";
+} from "../orderAutomation";
+import { parseDimensions } from "../../src/telegram/geometry";
 
 describe("BOM Allocation & Routing Math", () => {
   it("resolves service route from canonical catalog", () => {

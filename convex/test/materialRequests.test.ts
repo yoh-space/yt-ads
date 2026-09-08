@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   issueMaterialRequestInternal,
   acknowledgeMaterialRequestInternal,
-} from "./materialRequests";
+} from "../materialRequests";
 
 function createMockCtx(initialDocs: Record<string, any> = {}) {
   const docs = new Map<string, any>(Object.entries(initialDocs));

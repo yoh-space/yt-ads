@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { materialNormalization } from "./migrations";
-import type { MutationCtx } from "./_generated/server";
+import { materialNormalization } from "../migrations";
+import type { MutationCtx } from "../_generated/server";
 
 describe("Phase 8: materialNormalization migration", () => {
   function createMockCtx(initialDocs: Record<string, any> = {}) {

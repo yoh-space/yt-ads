@@ -402,6 +402,9 @@ export function getLegacyRouteRedirect(pathname: string, role: Role): string | n
       const target = `/dashboard/${workspace}/inventory`;
       return isRedirectLoop(cleanPath, target) ? null : target;
     }
+    if (workspace === "storekeeper") {
+      return "/dashboard/storekeeper/inventory";
+    }
     const target = `/dashboard/${workspace}/inventory/parent`;
     return isRedirectLoop(cleanPath, target) ? null : target;
   }

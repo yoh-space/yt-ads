@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { recordInventoryEvent } from "./inventoryLedger";
-import type { MutationCtx } from "./_generated/server";
+import { recordInventoryEvent } from "../inventoryLedger";
+import type { MutationCtx } from "../_generated/server";
 
 describe("inventoryLedger.recordInventoryEvent invariants", () => {
   function createMockCtx(initialDocs: Record<string, any> = {}) {

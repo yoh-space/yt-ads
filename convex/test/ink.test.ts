@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { resolveInkRequirements } from "./bomResolver";
-import type { QueryCtx } from "./_generated/server";
+import { resolveInkRequirements } from "../bomResolver";
+import type { QueryCtx } from "../_generated/server";
 
 describe("Phase 5: Ink & Solvent Resolution & Validation", () => {
   function createMockQueryCtx(materials: Array<any> = []) {

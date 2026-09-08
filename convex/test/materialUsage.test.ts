@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getUsageAllowanceStatus } from "./materialUsage";
+import { getUsageAllowanceStatus } from "../materialUsage";
 
 describe("usage allowance status", () => {
   it("keeps usage normal through the 80 percent threshold", () => {

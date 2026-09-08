@@ -19,7 +19,7 @@ import type { Role } from "./types";
  */
 
 /** Resolves the base-units-per-packaging-unit factor for a parent item. */
-function conversionFactorFor(item: {
+export function conversionFactorFor(item: {
   unitType: "ROLL" | "SHEET" | "LITER";
   lengthPerRoll?: number;
   areaPerSheet?: number;
