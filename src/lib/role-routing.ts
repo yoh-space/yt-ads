@@ -154,6 +154,7 @@ export const ROUTE_DESCRIPTORS: Record<string, RouteDescriptor> = {
     view: "orders",
     href: (role) => {
       if (isOperatorRole(role)) return "/dashboard"; // operators don't access orders
+      if (role === "receptionist") return "/dashboard/receptionist/orders";
       return "/orders";
     },
     type: "canonical",
@@ -221,7 +222,10 @@ export const ROUTE_DESCRIPTORS: Record<string, RouteDescriptor> = {
   },
   settings: {
     view: "settings",
-    href: () => "/settings",
+    href: (role) => {
+      if (role === "receptionist") return "/dashboard/receptionist/settings";
+      return "/settings";
+    },
     type: "canonical",
   },
   config: {

@@ -209,6 +209,9 @@ describe("role-routing", () => {
     expect(getLegacyRouteRedirect("/orders", "owner")).toBe("/dashboard/owner/orders");
     expect(getLegacyRouteRedirect("/orders", "receptionist")).toBe("/dashboard/receptionist/orders");
     expect(getLegacyRouteRedirect("/orders", "manager")).toBe("/dashboard/manager/orders");
+    expect(getLegacyRouteRedirect("/orders", "receptionist")).toBe("/dashboard/receptionist/orders");
+    expect(getLegacyRouteRedirect("/settings", "receptionist")).toBe("/dashboard/receptionist/settings");
+    expect(getLegacyRouteRedirect("/dashboard/reception", "receptionist")).toBe("/dashboard/receptionist");
     expect(getLegacyRouteRedirect("/reports", "owner")).toBe("/dashboard/owner/reports");
     expect(getLegacyRouteRedirect("/settings", "owner")).toBe("/dashboard/owner/settings");
     // Operators use flat legacy routes directly — /dashboard/operator/[machine] conflicts with workspace routes

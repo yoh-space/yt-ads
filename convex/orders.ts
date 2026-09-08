@@ -354,6 +354,36 @@ export const createWalkIn = mutation({
   },
   handler: async (ctx, args) => {
     const { identity } = await requirePermission(ctx, "order.create");
+    return createWalkInInternal(ctx, identity, args);
+  },
+});
+
+/**
+ * Shared walk-in order creation body. Exposed for the receptionist namespace so
+ * the workspace mutation re-gates with the strict role guard while reusing the
+ * exact validation / notification / insert behavior of the generic surface.
+ */
+export async function createWalkInInternal(
+  ctx: any,
+  identity: { _id: string },
+  args: {
+    clientName: string;
+    phone: string;
+    serviceType: any;
+    dimensions: string;
+    quantity: string;
+    length?: number;
+    width?: number;
+    amount?: number;
+    preferredDueDate: number;
+    priority?: "High" | "Medium" | "Low";
+    notes?: string;
+    fileStorageId?: Id<"_storage">;
+    fileName?: string;
+    tinNumber?: string;
+    companyLegalName?: string;
+  },
+) {
     const clientName = args.clientName.trim();
     const phone = normalizePhone(args.phone);
     const serviceTypeRaw = (args.serviceType as string).trim();
@@ -409,8 +439,7 @@ export const createWalkIn = mutation({
       relatedId: id,
     });
     return { code, order: publicOrder((await ctx.db.get(id)) as OrderDoc) };
-  },
-});
+}
 
 export const track = query({
   args: { lookup: v.string() },
@@ -494,6 +523,20 @@ export const setStatus = mutation({
   args: { orderId: v.id("customerOrders"), status: orderStatus },
   handler: async (ctx, args) => {
     const { identity } = await requirePermission(ctx, "order.manage");
+    return setStatusInternal(ctx, identity, args);
+  },
+});
+
+/**
+ * Shared order status transition body (reception desk drive). Exposed for the
+ * receptionist namespace so the workspace mutation re-gates strictly while
+ * keeping the transition map, job-card cascade, and customer push identical.
+ */
+export async function setStatusInternal(
+  ctx: any,
+  identity: { _id: string },
+  args: { orderId: Id<"customerOrders">; status: any },
+) {
     const order = await ctx.db.get(args.orderId);
     if (!order) throw new Error("Order not found.");
     const allowed = ALLOWED_STATUS_TRANSITIONS[order.status] ?? [];
@@ -535,8 +578,7 @@ export const setStatus = mutation({
       },
       previousStatus,
     );
-  },
-});
+}
 
 /**
  * Reception step 1 of checkout: records the final total price and moves the
@@ -550,6 +592,21 @@ export const priceOrder = mutation({
   },
   handler: async (ctx, args) => {
     const { identity } = await requirePermission(ctx, "order.manage");
+    return priceOrderInternal(ctx, identity, args);
+  },
+});
+
+/**
+ * Shared quote-commit body (reception step 1 of checkout): records the final
+ * price and moves the order to PRICED_AND_PENDING_PAYMENT. Exposed for the
+ * receptionist namespace so the workspace mutation re-gates strictly while
+ * reusing the exact price / customer-push behavior.
+ */
+export async function priceOrderInternal(
+  ctx: any,
+  identity: { _id: string },
+  args: { orderId: Id<"customerOrders">; amount: number },
+) {
     const order = await ctx.db.get(args.orderId);
     if (!order) throw new Error("Order not found.");
     if (!["PENDING_REVIEW", "PRICED_AND_PENDING_PAYMENT"].includes(order.status)) {
@@ -575,8 +632,7 @@ export const priceOrder = mutation({
       order.status,
     );
     return { code: order.code, amount: Number(args.amount.toFixed(2)) };
-  },
-});
+}
 
 /**
  * Resolves the production assignment for an order without requiring reception
