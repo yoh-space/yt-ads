@@ -5,7 +5,7 @@ export interface ParsedDimensions {
   label: string;
 }
 
-export function formatNumber(value: number): string {
+function formatNumber(value: number): string {
   return Number.isInteger(value) ? String(value) : String(Math.round(value * 100) / 100);
 }
 

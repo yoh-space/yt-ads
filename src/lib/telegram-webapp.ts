@@ -46,7 +46,7 @@ export function isTelegramMiniApp(): boolean {
  * Resolve the customer identity from the launch context (query string takes
  * precedence because the bot packs the verified phone there on every launch).
  */
-export function readTelegramLaunchContext(): TelegramLaunchContext {
+function readTelegramLaunchContext(): TelegramLaunchContext {
   const fromUrl = readLaunchContextFromUrl();
   const fromWebApp = readLaunchContextFromWebApp();
   return {

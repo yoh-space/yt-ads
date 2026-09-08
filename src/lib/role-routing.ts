@@ -103,7 +103,7 @@ export function isOperatorMachineAllowed(role: Role, machine: string): boolean {
  * - "redirect": Minimal redirect-only compatibility route.
  * - "operator-stable": Operator machine route that owns the stable URL contract.
  */
-export type RouteType = "canonical" | "redirect" | "operator-stable";
+type RouteType = "canonical" | "redirect" | "operator-stable";
 
 /**
  * Canonical route descriptor — single source of truth for navigation hrefs.

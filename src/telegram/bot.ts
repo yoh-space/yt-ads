@@ -637,7 +637,7 @@ async function handleMessage(ctx: MyContext) {
 
 /* ─────────────────────────── bot assembly ─────────────────────────── */
 
-export function createBot(token: string): Bot<MyContext> {
+function createBot(token: string): Bot<MyContext> {
   const bot = new Bot<MyContext>(token);
 
   // All bot copy is authored with Telegram HTML tags; default every message

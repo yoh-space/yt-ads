@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 import { type HTMLAttributes, type ReactNode } from "react";
 import { SectionLabel } from "./typography";
 
-export type MetricChartAccent = "cyan" | "emerald" | "amber" | "rose";
+type MetricChartAccent = "cyan" | "emerald" | "amber" | "rose";
 
 const ACCENT_LABEL_TONES: Record<MetricChartAccent, "cyan" | "amber" | "emerald" | "rose"> = {
   cyan: "cyan",

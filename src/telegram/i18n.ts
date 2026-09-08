@@ -2,7 +2,7 @@ import type { Language, OrderDraft, OrderStatus } from "./types";
 
 type Vars = Record<string, string | number>;
 
-export const copy = {
+const copy = {
   am: {
     start: "እንኳን ወደ <b>YT Advertisement</b> የቴሌግራም ቦት በደህና መጡ! 🖨️\n\nእኛ ጋር የህትመት፣ የፖስተርና የማስታወቂያ ስራዎችን በዚህ ቴሌግራም ቦት አማካኝነት ማዘዝ ይችላሉ። ትዕዛዝ ለማስመዝገብ መጀመሪያ የስልክ ቁጥርዎ ያስፈልገናል።\n\nከታች <b>« 📱 ስልክ ቁጥርዎን ያጋሩን (Share Contact) »</b> የሚለውን ቁልፍ ተጭነው ቁጥርዎን ያጋሩ።",
     contactSaved: "✅ ስልክ ቁጥርዎ ተመዝግቧል (<code>{phone}</code>)።\n\nአሁን በ Mini App ትዕዛዝ ማዘዝ ይችላሉ — ከታች ያለውን ቁልፍ ይጫኑ።",

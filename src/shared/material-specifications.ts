@@ -1,5 +1,5 @@
-export type MaterialPurchaseUnit = "roll" | "sheet" | "pack" | "liter" | "piece";
-export type MaterialBaseUnit = "m²" | "m" | "pcs" | "L";
+type MaterialPurchaseUnit = "roll" | "sheet" | "pack" | "liter" | "piece";
+type MaterialBaseUnit = "m²" | "m" | "pcs" | "L";
 export type MaterialCatalogFamily = "ROLL" | "RIGID_SHEET" | "INK_SOLVENT" | "HARDWARE";
 export type MaterialFamily = "RAW_MATERIAL" | "INK" | "SOLVENT" | "HARDWARE";
 
@@ -768,8 +768,6 @@ export const MATERIAL_SPECIFICATIONS: readonly MaterialSpecificationDefinition[]
   },
 ];
 
-export const materialNameOptions = MATERIAL_SPECIFICATIONS.map((material) => material.name);
-
 export function findMaterialSpecification(name: string): MaterialSpecificationDefinition | undefined {
   const normalized = name.trim().toLowerCase();
   // Verified catalog definitions are appended after legacy aliases; prefer the
@@ -784,8 +782,4 @@ export function findMaterialSpecification(name: string): MaterialSpecificationDe
     }
   }
   return undefined;
-}
-
-export function materialSpecificationOptions(name: string): readonly string[] {
-  return findMaterialSpecification(name)?.specificationOptions ?? [];
 }

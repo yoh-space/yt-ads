@@ -43,7 +43,7 @@ export const usePendingStore = create<PendingStore>((set) => ({
   },
 }));
 
-export function usePending() {
+function usePending() {
   const isPending = usePendingStore((s) => (key: string) => s.set.has(key));
   const startPending = usePendingStore((s) => s.startPending);
   const finishPending = usePendingStore((s) => s.finishPending);

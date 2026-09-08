@@ -148,8 +148,3 @@ export function getServiceLabel(id: string, lang: "en" | "am" = "en"): string | 
   if (!item) return undefined;
   return lang === "am" ? AMHARIC_SERVICE_LABELS[id as ServiceId] ?? item.label : item.label;
 }
-
-/** Returns all canonical service ids in declaration order. */
-export function allServiceIds(): ServiceId[] {
-  return [...SERVICE_IDS];
-}

@@ -53,43 +53,4 @@ export function MetricValue({ className, size = "md", tone = "default", ...props
   );
 }
 
-export interface TechCodeProps extends HTMLAttributes<HTMLSpanElement> {
-  tone?: "default" | "cyan" | "muted";
-}
 
-export function TechCode({ className, tone = "default", ...props }: TechCodeProps) {
-  return (
-    <span
-      className={cn(
-        "font-mono text-[10px] font-bold uppercase tracking-[0.12em] whitespace-nowrap",
-        {
-          "text-foreground": tone === "default",
-          "text-[#00B4D8]": tone === "cyan",
-          "text-muted-foreground": tone === "muted",
-        },
-        className
-      )}
-      {...props}
-    />
-  );
-}
-
-export interface TimestampProps extends HTMLAttributes<HTMLSpanElement> {
-  tone?: "muted" | "cyan";
-}
-
-export function Timestamp({ className, tone = "muted", ...props }: TimestampProps) {
-  return (
-    <span
-      className={cn(
-        "font-mono text-[9px] font-medium tabular-nums tracking-[0.1em] whitespace-nowrap",
-        {
-          "text-muted-foreground": tone === "muted",
-          "text-cyan": tone === "cyan",
-        },
-        className
-      )}
-      {...props}
-    />
-  );
-}

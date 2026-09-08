@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 import { type CSSProperties, type HTMLAttributes } from "react";
 
-export type ProgressTone = "cyan" | "emerald" | "amber" | "rose" | "muted";
+type ProgressTone = "cyan" | "emerald" | "amber" | "rose" | "muted";
 
 const FILL_TONES: Record<ProgressTone, string> = {
   cyan: "bg-[#00B4D8] shadow-[0_0_10px_rgba(0,180,216,0.55)]",

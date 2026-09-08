@@ -10,7 +10,6 @@ export {
   SERVICE_IDS,
   SERVICE_CATEGORIES,
   AMHARIC_SERVICE_LABELS,
-  allServiceIds,
   getServiceLabel,
 } from "@/shared/services";
 export type { ServiceId, ServiceItem, ServiceCategory } from "@/shared/services";

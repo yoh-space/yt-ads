@@ -8,8 +8,6 @@ import { FieldLabel, FormSection } from "../../chrome/form";
 import { NumericField } from "../../chrome/numeric-field";
 import type { ScrapAllowanceRow } from "../state";
 
-export { type MaterialOption } from "./override-section";
-
 /**
  * Per-source scrap allowance rules.
  * The default applies to any material without an explicit row; a value of 0

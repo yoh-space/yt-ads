@@ -11,7 +11,7 @@ export type Role =
 export type Unit = "m²" | "m" | "sheet" | "piece" | "pcs" | "L" | "mL";
 export type PurchaseUnit = "roll" | "sheet" | "pack" | "canister" | "liter" | "piece";
 export type PackageUnit = "ROLL" | "SHEET" | "PACKAGE" | "CANISTER" | "PIECE";
-export type MaterialSpecification =
+type MaterialSpecification =
   | "Color Type"
   | "Roll Weight & Size"
   | "Thickness / Size (in millimeters)"
@@ -22,12 +22,12 @@ export type MaterialSpecification =
   | "Wattage"
   | "Height (in centimeters)"
   | "Roll Width / Type";
-export type JobStatus = "Queued" | "In production" | "Completed" | "Paused";
+type JobStatus = "Queued" | "In production" | "Completed" | "Paused";
 export type MachineStatus = "Running" | "Available" | "Maintenance" | "Unavailable";
-export type Priority = "High" | "Medium" | "Low";
+type Priority = "High" | "Medium" | "Low";
 export type CustomerOrderStatus = "PENDING_REVIEW" | "PRICED_AND_PENDING_PAYMENT" | "CONFIRMED_PAID_OR_CREDIT" | "JOB_CARD_CREATED" | "IN_PRODUCTION" | "COMPLETED" | "READY_FOR_PICKUP" | "EXPIRED" | "EXPIRED_JUNK";
 export type OrderPriority = "High" | "Medium" | "Low";
-export type OrderSource = "public_portal" | "walk_in";
+type OrderSource = "public_portal" | "walk_in";
 export type ExceptionReason = "Sample Print" | "Minor Repair" | "Test Cut" | "Internal Maintenance";
 
 export type CustomerOrder = {
@@ -64,22 +64,9 @@ export type CustomerOrder = {
 
 export type TrackedOrder = Pick<CustomerOrder, "id" | "code" | "clientName" | "serviceType" | "dimensions" | "quantity" | "preferredDueDate" | "status" | "priority" | "createdAt" | "updatedAt" | "overdue">;
 
-export type StockException = {
-  id: string;
-  materialId: string;
-  materialName: string;
-  quantity: number;
-  unit: Unit;
-  baseQuantity: number;
-  reason: ExceptionReason;
-  authorizationNote?: string;
-  createdBy: string;
-  createdAt: number;
-};
 export type Accent = "cyan" | "gold" | "violet" | "blue" | "green";
-export type ProductionType = "area" | "linear" | "ink" | "unit";
-export type UsageAllowanceStatus = "NORMAL" | "WATCH" | "CRITICAL" | "EXCEEDED";
-export type ReconciliationStatus = "Open" | "Reviewed" | "Resolved";
+type ProductionType = "area" | "linear" | "ink" | "unit";
+type ReconciliationStatus = "Open" | "Reviewed" | "Resolved";
 
 export type Material = {
   id: string;
@@ -150,17 +137,6 @@ export type JobCard = {
   serviceType?: string;
 };
 
-export type Offcut = {
-  id: string;
-  materialId: string;
-  label: string;
-  width: number;
-  length: number;
-  area: number;
-  location: string;
-  createdAt: string;
-};
-
 export type ScrapLog = {
   id: string;
   materialId: string;
@@ -215,42 +191,6 @@ export type Profile = {
   role: Role;
   active: boolean;
   image?: string;
-};
-
-export type ReconciliationRecord = {
-  id: string;
-  materialId: string;
-  materialName: string;
-  materialUnit: Unit;
-  status: ReconciliationStatus;
-  systemQuantity: number;
-  countedQuantity: number;
-  variance: number;
-  etbValue?: number;
-  monetaryLoss?: number;
-  countedBy: string;
-  countedByName: string;
-  reviewedBy?: string;
-  reviewedByName?: string;
-  note?: string;
-  createdAt: number;
-  reviewedAt?: number;
-};
-
-export type ReconciliationSummary = {
-  openCounts: number;
-  shortageCounts: number;
-  surplusCounts: number;
-  totalMonetaryLoss: number;
-  countRecords: number;
-  currentVariances: Array<{
-    materialId: string;
-    materialName: string;
-    unit: Unit;
-    variance: number;
-    monetaryLoss: number;
-    countDate: number;
-  }>;
 };
 
 export const roleLabels: Record<Role, { am: string; en: string; initial: string }> = {

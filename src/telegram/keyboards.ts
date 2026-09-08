@@ -2,17 +2,16 @@ import { InlineKeyboard, Keyboard } from "grammy";
 import type { Language } from "./types";
 import { getServiceLabel, SERVICE_CATEGORIES } from "@/constants/services";
 
-export const REPLY_MAIN_MENU = "main.menu";
 export const REPLY_NEW_ORDER = "main.order";
 export const REPLY_MINI_APP = "main.miniapp";
 export const REPLY_ORDER_STATUS = "main.status";
 export const REPLY_MY_ORDERS = "main.my-orders";
 export const REPLY_CONTACT = "main.contact";
 export const REPLY_LANGUAGE = "main.language";
-export const REPLY_PHONE = "contact.share";
+const REPLY_PHONE = "contact.share";
 
 /** Label of the /start share-contact button (bilingual by design). */
-export const SHARE_CONTACT_LABEL = "📱 ስልክ ቁጥርዎን ያጋሩ (Share Contact)";
+const SHARE_CONTACT_LABEL = "📱 ስልክ ቁጥርዎን ያጋሩ (Share Contact)";
 
 const mainMenuLabels: Record<Language, Record<string, string>> = {
   am: {
@@ -35,7 +34,7 @@ const mainMenuLabels: Record<Language, Record<string, string>> = {
   },
 };
 
-export function labelFor(lang: Language, key: string): string {
+function labelFor(lang: Language, key: string): string {
   return mainMenuLabels[lang][key] ?? key;
 }
 

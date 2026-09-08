@@ -3,7 +3,7 @@
 import { cn } from "@/lib/utils";
 import { type HTMLAttributes } from "react";
 
-export type TelemetryTone = "green" | "cyan" | "amber" | "rose" | "muted";
+type TelemetryTone = "green" | "cyan" | "amber" | "rose" | "muted";
 
 const VALUE_TONES: Record<TelemetryTone, string> = {
   green: "text-[#4ade80]",
@@ -13,7 +13,7 @@ const VALUE_TONES: Record<TelemetryTone, string> = {
   muted: "text-slate-400",
 };
 
-export interface TelemetryItem {
+interface TelemetryItem {
   label: string;
   value: string;
   tone?: TelemetryTone;

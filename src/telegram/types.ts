@@ -4,7 +4,7 @@ export type Language = "am" | "en";
  * The active step of the traditional (text-first) order flow. When set, plain
  * text/photos/contacts from the user are interpreted by that step's handler.
  */
-export type FlowStep =
+type FlowStep =
   | "service"
   | "other_spec" // waiting for a free-text service description ("ሌላ")
   | "dimensions"

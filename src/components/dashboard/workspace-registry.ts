@@ -5,7 +5,7 @@ import type { WorkspaceId } from "@/lib/role-routing";
 import type { View } from "@/types/dashboard-types";
 
 export type { WorkspaceId };
-export type WorkspacePlacement = "primary" | "secondary" | "footer";
+type WorkspacePlacement = "primary" | "secondary" | "footer";
 
 export type WorkspaceModule = {
   id: string;

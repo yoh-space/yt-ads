@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 import { Zap } from "lucide-react";
 import { type HTMLAttributes } from "react";
 
-export type StatusPillVariant = "success" | "warning" | "neutral" | "danger" | "info";
+type StatusPillVariant = "success" | "warning" | "neutral" | "danger" | "info";
 
 export interface StatusPillProps extends HTMLAttributes<HTMLSpanElement> {
   variant?: StatusPillVariant;

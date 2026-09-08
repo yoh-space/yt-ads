@@ -120,6 +120,3 @@ export function TeamMemberTile({
     </div>
   );
 }
-
-/** Re-export shared role list for any other settings UI that needs it. */
-export { roleOptions, roleTone };
