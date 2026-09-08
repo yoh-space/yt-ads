@@ -28,7 +28,7 @@ Keep deployment values in `.env.local` and use `.env.example` only as a safe tem
 
 ## Convex conventions
 
-Persistent business operations must be implemented in Convex handlers. Mutations must validate input, require an active application profile, enforce the relevant role, and write all accounting changes transactionally. Production input, scrap, and offcut changes must remain auditable through `stockMovements`.
+Persistent business operations must be implemented in Convex handlers. Mutations must validate input, require an active application profile, enforce the relevant role, and write all accounting changes transactionally. Production input, scrap, and offcut changes must remain auditable through `stock_movements`.
 
 Do not edit generated files in `convex/_generated/` manually. Regenerate them through the Convex CLI when the schema or public functions change.
 

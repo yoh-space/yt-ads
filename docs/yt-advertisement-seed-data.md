@@ -176,7 +176,7 @@ The material seed now persists `specification`, `specificationOptions`, and an o
 | LED Module / Strip | Color Type | Cool White (6000K-6500K); Warm White (3000K); Red; Green; Blue; Yellow; Amber; RGB (Multi-Color); RGBW |
 | Zocolo (Base / Skirting) | Height (in centimeters) | 8 cm; 6 cm |
 
-The canonical definitions live in `shared/material-specifications.ts`. Earlier names such as `LED`, `Mica`, `Canvas`, and `ZOCOLO` are treated as migration aliases and are normalized to the new canonical names. PVC Film intentionally has no conversion ratio until its physical roll dimensions are verified.
+The canonical definitions live in `src/shared/material-specifications.ts`. Earlier names such as `LED`, `Mica`, `Canvas`, and `ZOCOLO` are treated as migration aliases and are normalized to the new canonical names. PVC Film intentionally has no conversion ratio until its physical roll dimensions are verified.
 
 ## Applying the revised master data
 

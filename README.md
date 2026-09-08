@@ -86,7 +86,7 @@ For standard area-based completion, the automatic allocation formula is:
 allocated area = (length × width + configured margin m²) × (1 + scrap allowance %)
 ```
 
-The calculated allocation is deducted FIFO from operator floor stock and then central stock through auditable `stockMovements`. Ink uses the printed square metres and the governed mL/m² rate, converting mL to litres only at the inventory base-unit boundary. Solvents are periodically adjusted rather than deducted per job.
+The calculated allocation is deducted FIFO from operator floor stock and then central stock through auditable `stock_movements`. Ink uses the printed square metres and the governed mL/m² rate, converting mL to litres only at the inventory base-unit boundary. Solvents are periodically adjusted rather than deducted per job.
 
 Reception does not manually allocate raw materials. Machine compatibility, service BOM requirements, owner-configured margin, and scrap limits determine the planned material allocation. Operators may record an optional production log, but standard completion does not require manual intake values.
 
