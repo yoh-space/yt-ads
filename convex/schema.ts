@@ -340,6 +340,7 @@ export default defineSchema({
     rollWidth: v.optional(v.number()),
     sheetWidth: v.optional(v.number()),
     sheetLength: v.optional(v.number()),
+    isSolvent: v.optional(v.boolean()),
   })
     .index("by_category", ["category"])
     .index("by_unit", ["unit"]),
@@ -357,6 +358,11 @@ export default defineSchema({
     displayUnit: v.optional(v.string()),
     status: machineStatus,
     activeJob: v.optional(v.string()),
+    primaryMaterials: v.optional(v.array(v.string())),
+    compatibleInks: v.optional(v.array(v.string())),
+    solventNames: v.optional(v.array(v.string())),
+    defaultWasteMarginPercent: v.optional(v.number()),
+    maxAllowedScrapLimitPercent: v.optional(v.number()),
     active: v.boolean(),
   })
     .index("by_code", ["code"])
@@ -410,6 +416,8 @@ export default defineSchema({
     paymentConfirmedBy: v.optional(v.string()),
     fileStorageId: v.optional(v.id("_storage")),
     fileName: v.optional(v.string()),
+    attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
+    attachmentFileNames: v.optional(v.array(v.string())),
     preferredDueDate: v.number(),
     status: orderStatus,
     priority: orderPriority,
@@ -537,6 +545,9 @@ export default defineSchema({
     length: v.optional(v.number()),
     width: v.optional(v.number()),
     deductOnComplete: v.optional(v.boolean()),
+    inkMaterialId: v.optional(v.id("materials")),
+    inkQuantity: v.optional(v.number()),
+    wasteMarginPercent: v.optional(v.number()),
   })
     .index("by_status", ["status"])
     .index("by_machine", ["machineId"])

@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowUpRight, CalendarDays, Clock3, Plus, Printer, Search, Wrench, X, FileText } from "lucide-react";
+import { ArrowUpRight, CalendarDays, Clock3, Plus, Printer, Search, Wrench, X, FileText, Sparkles, Cpu, Layers } from "lucide-react";
 import type { CustomerOrder, Machine, Material, OrderPriority, CustomerOrderStatus } from "@/lib/operations-types";
 import { formatQuantity } from "@/lib/units";
 import { getServiceLabel } from "@/constants/services";
+import { SERVICE_ROUTING_MAP } from "@/shared/machine-catalog";
 import { Button, Panel, PanelHeader, StatusPill } from "@/components/ui";
 import { ModalShell } from "../modals/modal-shell";
 import { OrderDetailsSheet } from "./order-details-sheet";
@@ -494,20 +495,62 @@ export function OrderPriceModal({ order, onClose, onSave }: { order: CustomerOrd
 }
 
 export function OrderConfirmModal({ order, machines, materials, onClose, onSave }: { order: CustomerOrder; machines: Machine[]; materials: Material[]; onClose: () => void; onSave: (input: { paymentDecision: "PAID" | "APPROVED_CREDIT"; paymentMethod?: string; machineId: string; materialId: string; quantity: number; unit: Material["unit"]; priority?: OrderPriority }) => void }) {
-  const [machineId, setMachineId] = useState(machines[0]?.id ?? "");
-  const [materialId, setMaterialId] = useState(materials[0]?.id ?? "");
-  const [quantity, setQuantity] = useState(1);
   const [paymentDecision, setPaymentDecision] = useState<"PAID" | "APPROVED_CREDIT">("PAID");
   const [paymentMethod, setPaymentMethod] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const material = materials.find((entry) => entry.id === materialId);
-  const machine = machines.find((entry) => entry.id === machineId);
+
+  // Automated Machine Assignment & Job Card Allocation based on service catalog routing
+  const routing = SERVICE_ROUTING_MAP[order.serviceType];
+
+  const autoMachine = useMemo(() => {
+    if (!routing) return machines[0];
+    return (
+      machines.find((m) => m.code === routing.preferredMachineCode && m.status !== "Maintenance" && m.status !== "Unavailable") ||
+      machines.find((m) => m.code === routing.preferredMachineCode) ||
+      machines[0]
+    );
+  }, [machines, routing]);
+
+  const autoMaterial = useMemo(() => {
+    if (!routing) return materials[0];
+    const targetName = routing.primaryMaterialName.toLowerCase();
+    return (
+      materials.find((m) => m.name.toLowerCase() === targetName) ||
+      materials.find((m) => m.name.toLowerCase().includes(targetName)) ||
+      materials[0]
+    );
+  }, [materials, routing]);
+
+  // Automated calculation of planned usage with Owner-Configured Standard Waste Margin
+  const plannedQuantity = useMemo(() => {
+    let baseQty = 1;
+    const dimMatch = order.dimensions?.match(/([\d.]+)\s*(?:[xX*×\s])\s*([\d.]+)/);
+    const parsedQty = parseFloat(order.quantity) || 1;
+    if (dimMatch) {
+      const length = parseFloat(dimMatch[1]);
+      const width = parseFloat(dimMatch[2]);
+      if (!isNaN(length) && !isNaN(width) && length > 0 && width > 0) {
+        baseQty = length * width * parsedQty;
+      } else {
+        baseQty = parsedQty;
+      }
+    } else {
+      baseQty = parsedQty;
+    }
+    const wasteMargin = routing?.defaultWasteMarginPercent ?? 5;
+    return Number((baseQty * (1 + wasteMargin / 100)).toFixed(2));
+  }, [order.dimensions, order.quantity, routing]);
+
+  const machineId = autoMachine?.id ?? "";
+  const materialId = autoMaterial?.id ?? "";
+  const hasShortfall = autoMaterial ? plannedQuantity > autoMaterial.quantity : false;
+  const isMachineUnavailable = autoMachine?.status === "Maintenance" || autoMachine?.status === "Unavailable";
 
   return (
     <ModalShell
       title={`${order.code} · Confirm Payment & Issue Job Card`}
-      subtitle="Verify payment method and assign production resources. Job card will be created upon confirmation."
-      kicker="CONFIRM ORDER"
+      subtitle="Verify payment to trigger automated machine routing and job card creation. Manual allocation is disabled per ERP rules."
+      kicker="AUTOMATED PRODUCTION DISPATCH"
       onClose={onClose}
       footer={
         <div className="flex gap-3 justify-end">
@@ -515,9 +558,9 @@ export function OrderConfirmModal({ order, machines, materials, onClose, onSave 
           <Button 
             type="submit" 
             variant="primary" 
-            disabled={submitting || !machineId || !materialId || quantity <= 0 || (paymentDecision === "PAID" && !paymentMethod.trim())}
+            disabled={submitting || !machineId || !materialId || plannedQuantity <= 0 || isMachineUnavailable || (paymentDecision === "PAID" && !paymentMethod.trim())}
             onClick={() => {
-              if (submitting || !machineId || !materialId || quantity <= 0) return;
+              if (submitting || !machineId || !materialId || plannedQuantity <= 0 || isMachineUnavailable) return;
               if (paymentDecision === "PAID" && !paymentMethod.trim()) return;
               setSubmitting(true);
               onSave({ 
@@ -525,13 +568,13 @@ export function OrderConfirmModal({ order, machines, materials, onClose, onSave 
                 paymentMethod: paymentDecision === "PAID" ? paymentMethod.trim() : undefined,
                 machineId, 
                 materialId, 
-                quantity, 
-                unit: material?.baseUnit ?? material?.unit ?? "m²", 
+                quantity: plannedQuantity, 
+                unit: autoMaterial?.baseUnit ?? autoMaterial?.unit ?? "m²", 
                 priority: order.priority 
               });
             }}
           >
-            {submitting ? "Confirming…" : "Confirm & Create Job Card"} <ArrowUpRight size={16} />
+            {submitting ? "Dispatching…" : "Confirm & Auto-Create Job Card"} <ArrowUpRight size={16} />
           </Button>
         </div>
       }
@@ -542,6 +585,9 @@ export function OrderConfirmModal({ order, machines, materials, onClose, onSave 
           <ArrowUpRight size={17} className="text-cyan flex-none" />
           <span className="text-sm text-gray-600">Order</span>
           <strong className="text-sm text-navy">{order.code}</strong>
+          <span className="ml-auto inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+            <Sparkles size={12} /> Auto-Calculated
+          </span>
         </div>
 
         {/* Order Details Grid */}
@@ -551,7 +597,7 @@ export function OrderConfirmModal({ order, machines, materials, onClose, onSave 
           <div><small className="text-muted-foreground">Service</small><br /><strong className="text-navy">{getServiceLabel(order.serviceType) ?? order.serviceType}</strong></div>
           <div><small className="text-muted-foreground">Total Price</small><br /><strong className="text-navy">{order.amount ? `${order.amount.toFixed(2)} ETB` : "—"}</strong></div>
           <div><small className="text-muted-foreground">Dimensions</small><br /><strong className="text-navy">{order.dimensions}</strong></div>
-          <div><small className="text-muted-foreground">Quantity</small><br /><strong className="text-navy">{order.quantity}</strong></div>
+          <div><small className="text-muted-foreground">Order Quantity</small><br /><strong className="text-navy">{order.quantity}</strong></div>
         </div>
 
         {/* Payment Verification Section */}
@@ -586,7 +632,7 @@ export function OrderConfirmModal({ order, machines, materials, onClose, onSave 
               <span className="block text-xs font-semibold text-navy mb-1">Payment Method</span>
               <input 
                 type="text" 
-                placeholder="e.g. Cash, Bank Transfer, Mobile Money"
+                placeholder="e.g. Telebirr, CBE Bank Transfer, Cash"
                 value={paymentMethod}
                 onChange={(e) => setPaymentMethod(e.target.value)}
                 className="w-full px-3 py-2 bg-white border border-line rounded-lg text-sm text-ink outline-none focus:border-cyan"
@@ -595,60 +641,67 @@ export function OrderConfirmModal({ order, machines, materials, onClose, onSave 
           )}
         </div>
 
-        {/* Production Assignment */}
-        <div className="space-y-4">
-          <label className="block">
-            <span className="block text-sm font-semibold text-navy mb-2">Assigned machine</span>
-            <select 
-              value={machineId} 
-              onChange={(event) => setMachineId(event.target.value)}
-              className="w-full px-3 py-2 bg-white border border-line rounded-lg text-sm text-ink outline-none focus:border-cyan"
-            >
-              {machines.map((entry) => (
-                <option key={entry.id} value={entry.id}>{entry.name} · {entry.code} · {entry.status}</option>
-              ))}
-            </select>
-          </label>
-          {machine && (machine.status === "Maintenance" || machine.status === "Unavailable") ? (
-            <p className="text-sm text-danger">{machine.name} is {machine.status.toLowerCase()} and cannot accept new jobs.</p>
-          ) : null}
-
-          <label className="block">
-            <span className="block text-sm font-semibold text-navy mb-2">Raw material</span>
-            <select 
-              value={materialId} 
-              onChange={(event) => setMaterialId(event.target.value)}
-              className="w-full px-3 py-2 bg-white border border-line rounded-lg text-sm text-ink outline-none focus:border-cyan"
-            >
-              {materials.map((entry) => (
-                <option key={entry.id} value={entry.id}>{entry.name} · {formatQuantity(entry.quantity, entry.baseUnit ?? entry.unit)}</option>
-              ))}
-            </select>
-          </label>
-          {material && quantity > material.quantity ? (
-            <p className="text-sm text-danger">
-              Stock shortfall — {material.name} has {formatQuantity(material.quantity, material.unit)} available but {quantity} {material?.baseUnit ?? material?.unit} is required.
-            </p>
-          ) : null}
-
-          <label className="block">
-            <span className="block text-sm font-semibold text-navy mb-2">Planned material usage ({material?.baseUnit ?? material?.unit})</span>
-            <input 
-              type="number" 
-              min="0.1" 
-              step="0.1" 
-              value={quantity} 
-              onChange={(event) => setQuantity(Number(event.target.value))}
-              className="w-full px-3 py-2 bg-white border border-line rounded-lg text-sm text-ink outline-none focus:border-cyan"
-            />
-          </label>
-
-          {/* Stock After Production */}
-          <div className="flex items-center gap-3 p-3 bg-green/10 rounded-lg border border-green/20">
-            <ArrowUpRight size={17} className="text-green flex-none" />
-            <span className="text-sm text-gray-600">Available after production</span>
-            <strong className="text-sm text-navy">{material ? formatQuantity(Math.max(0, material.quantity - quantity), material.unit) : "—"}</strong>
+        {/* Automated Resource Assignment Cards */}
+        <div className="space-y-3 p-4 bg-surface rounded-lg border border-line">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold text-navy flex items-center gap-2">
+              <Cpu size={16} className="text-cyan" /> Automated Machine & Material Assignment
+            </span>
+            <span className="text-xs text-muted-foreground">Strict ERP Mapping</span>
           </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+            {/* Machine Assignment */}
+            <div className="p-3 bg-muted/20 rounded-md border border-line/60">
+              <span className="text-xs text-muted-foreground block mb-1">Target Machine</span>
+              <strong className="text-sm text-navy block">{autoMachine?.name ?? "Machine Fleet Unavailable"}</strong>
+              <div className="flex items-center gap-2 mt-1.5">
+                <span className="text-xs text-muted-foreground">{autoMachine?.code}</span>
+                <span className="text-xs text-muted-foreground">·</span>
+                <span className={`text-xs font-medium ${isMachineUnavailable ? "text-danger" : "text-emerald-600"}`}>
+                  {autoMachine?.status ?? "Unknown"}
+                </span>
+              </div>
+              {isMachineUnavailable && (
+                <p className="text-xs text-danger mt-1">Machine under maintenance. Cannot dispatch jobs.</p>
+              )}
+            </div>
+
+            {/* Material & Ink Assignment */}
+            <div className="p-3 bg-muted/20 rounded-md border border-line/60">
+              <span className="text-xs text-muted-foreground block mb-1">Primary Material & Ink</span>
+              <strong className="text-sm text-navy block">{autoMaterial?.name ?? "Raw Material"}</strong>
+              <div className="text-xs text-muted-foreground mt-1.5 flex items-center gap-1.5">
+                <Layers size={12} />
+                <span>{routing?.compatibleInkName ? `Ink: ${routing.compatibleInkName}` : "Zero ink (Dry mechanical cut)"}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Planned Consumption Calculation */}
+          <div className="pt-2 border-t border-line/40">
+            <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+              <span>Calculated Production Input:</span>
+              <strong className="text-sm text-navy">
+                {plannedQuantity} {autoMaterial?.baseUnit ?? autoMaterial?.unit ?? "m²"}
+              </strong>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Includes <strong>{routing?.defaultWasteMarginPercent ?? 5}%</strong> Owner Standard Waste Margin · Max Allowed Scrap Limit: <strong>{routing?.maxScrapLimitPercent ?? 10}%</strong>.
+            </p>
+          </div>
+
+          {/* Stock Alert */}
+          {hasShortfall ? (
+            <div className="p-2.5 bg-danger/10 text-danger rounded border border-danger/20 text-xs">
+              ⚠️ Stock shortfall: Central store has only {formatQuantity(autoMaterial?.quantity ?? 0, autoMaterial?.unit ?? "m²")} available.
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-xs text-emerald-600">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+              <span>Sufficient stock verified ({formatQuantity(autoMaterial?.quantity ?? 0, autoMaterial?.unit ?? "m²")} in store)</span>
+            </div>
+          )}
         </div>
       </div>
     </ModalShell>

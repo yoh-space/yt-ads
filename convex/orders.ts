@@ -9,6 +9,7 @@ import { notifyRoles } from "./notificationHelpers";
 import { ensureSystemConfig } from "./systemConfigs";
 import { recordInventoryEvent } from "./inventoryLedger";
 import { verifyTelegramInitData } from "./telegramAuth";
+import { SERVICE_ROUTING_MAP } from "../src/shared/machine-catalog";
 
 /** Statuses a customer may see through public tracking (Expired stays internal). */
 const PUBLIC_TRACKING_STATUSES = new Set(["PENDING_REVIEW", "PRICED_AND_PENDING_PAYMENT", "CONFIRMED_PAID_OR_CREDIT", "JOB_CARD_CREATED", "IN_PRODUCTION", "COMPLETED", "READY_FOR_PICKUP"]);
@@ -632,41 +633,99 @@ export const confirmOrderAndIssueJobCard = mutation({
     amount: v.optional(v.number()),
     paymentDecision: v.union(v.literal("PAID"), v.literal("APPROVED_CREDIT")),
     paymentMethod: v.optional(v.string()),
-    machineId: v.id("machines"),
-    materialId: v.id("materials"),
-    quantity: v.number(),
-    unit,
+    machineId: v.optional(v.id("machines")),
+    materialId: v.optional(v.id("materials")),
+    quantity: v.optional(v.number()),
+    unit: v.optional(unit),
     priority: v.optional(orderPriority),
     deductOnComplete: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const { identity } = await requirePermission(ctx, "order.manage");
     const order = await ctx.db.get(args.orderId);
-    const machine = await ctx.db.get(args.machineId);
-    const material = await ctx.db.get(args.materialId);
-    if (!order || !machine || !material || !machine.active || !material.active) {
-      throw new Error("Order, machine, or material is unavailable.");
-    }
+    if (!order) throw new Error("Order is unavailable.");
     if (order.jobCardId) throw new Error("This order already has a job card.");
     if (!["PENDING_REVIEW", "PRICED_AND_PENDING_PAYMENT"].includes(order.status)) {
       throw new Error(`Only orders awaiting review or payment can be confirmed (current status: ${order.status}).`);
     }
 
+    // Automated Machine & Material resolution based on service catalog
+    const routing = SERVICE_ROUTING_MAP[order.serviceType];
+    const sysConfig = await ensureSystemConfig(ctx);
+    const wasteMarginPercent = routing?.defaultWasteMarginPercent ?? sysConfig.maxAllowedWastePercent ?? 5;
+
+    let targetMachine = args.machineId ? await ctx.db.get(args.machineId) : null;
+    if (!targetMachine && routing) {
+      targetMachine = await ctx.db
+        .query("machines")
+        .withIndex("by_code", (q) => q.eq("code", routing.preferredMachineCode))
+        .first();
+    }
+    if (!targetMachine) {
+      targetMachine = (await ctx.db.query("machines").collect()).find((m) => m.active) ?? null;
+    }
+    if (!targetMachine || !targetMachine.active) {
+      throw new Error("No active machine available for this service.");
+    }
+
+    let targetMaterial = args.materialId ? await ctx.db.get(args.materialId) : null;
+    if (!targetMaterial && routing) {
+      const allMaterials = await ctx.db.query("materials").collect();
+      targetMaterial = allMaterials.find(
+        (m) => m.active && m.name.toLowerCase() === routing.primaryMaterialName.toLowerCase()
+      ) || allMaterials.find(
+        (m) => m.active && m.name.toLowerCase().includes(routing.primaryMaterialName.toLowerCase())
+      ) || null;
+    }
+    if (!targetMaterial) {
+      targetMaterial = (await ctx.db.query("materials").collect()).find((m) => m.active) ?? null;
+    }
+    if (!targetMaterial || !targetMaterial.active) {
+      throw new Error("No active material available for this job.");
+    }
+
+    let plannedQuantity = args.quantity;
+    if (plannedQuantity === undefined || !Number.isFinite(plannedQuantity) || plannedQuantity <= 0) {
+      let baseQty = 1;
+      const dimMatch = order.dimensions?.match(/([\d.]+)\s*(?:[xX*×\s])\s*([\d.]+)/);
+      const parsedQty = parseFloat(order.quantity) || 1;
+      if (dimMatch) {
+        const length = parseFloat(dimMatch[1]);
+        const width = parseFloat(dimMatch[2]);
+        if (!isNaN(length) && !isNaN(width) && length > 0 && width > 0) {
+          baseQty = length * width * parsedQty;
+        } else {
+          baseQty = parsedQty;
+        }
+      } else {
+        baseQty = parsedQty;
+      }
+      plannedQuantity = Number((baseQty * (1 + wasteMarginPercent / 100)).toFixed(2));
+    }
+
+    const jobUnit = args.unit ?? (targetMaterial.baseUnit ?? targetMaterial.unit);
+    if (jobUnit !== (targetMaterial.baseUnit ?? targetMaterial.unit)) {
+      throw new Error("Job unit must match the selected material base unit.");
+    }
+
+    if (targetMachine.status === "Maintenance" || targetMachine.status === "Unavailable") {
+      return { success: false as const, error: `${targetMachine.name} is currently ${targetMachine.status.toLowerCase()} and cannot accept new jobs.` };
+    }
+    if (plannedQuantity > targetMaterial.quantity) {
+      return { success: false as const, error: `Stock shortfall — ${targetMaterial.name} has ${targetMaterial.quantity} ${targetMaterial.baseUnit ?? targetMaterial.unit} available but ${plannedQuantity} ${jobUnit} is required.` };
+    }
+
+    // Resolve compatible ink if machine is a printer
+    let inkMaterialId = undefined;
+    if (routing?.compatibleInkName) {
+      const allMaterials = await ctx.db.query("materials").collect();
+      const inkMat = allMaterials.find((m) => m.name.toLowerCase() === routing.compatibleInkName!.toLowerCase());
+      if (inkMat) inkMaterialId = inkMat._id;
+    }
+
     const amount = args.amount !== undefined ? args.amount : order.amount;
     if (amount === undefined || !Number.isFinite(amount) || amount < 0) {
       throw new Error("Confirm the final price before verifying payment.");
-    }
-    if (!Number.isFinite(args.quantity) || args.quantity <= 0) {
-      throw new Error("Planned material quantity must be greater than zero.");
-    }
-    if (args.unit !== (material.baseUnit ?? material.unit)) {
-      throw new Error("Job unit must match the selected material base unit.");
-    }
-    if (machine.status === "Maintenance" || machine.status === "Unavailable") {
-      return { success: false as const, error: `${machine.name} is currently ${machine.status.toLowerCase()} and cannot accept new jobs.` };
-    }
-    if (args.quantity > material.quantity) {
-      return { success: false as const, error: `Stock shortfall — ${material.name} has ${material.quantity} ${material.baseUnit ?? material.unit} available but ${args.quantity} ${args.unit} is required.` };
     }
 
     const now = Date.now();
@@ -676,10 +735,10 @@ export const confirmOrderAndIssueJobCard = mutation({
       code,
       client: order.clientName,
       title: order.serviceType,
-      machineId: args.machineId,
-      materialId: args.materialId,
-      quantity: args.quantity,
-      unit: args.unit,
+      machineId: targetMachine._id,
+      materialId: targetMaterial._id,
+      quantity: plannedQuantity,
+      unit: jobUnit,
       status: "Queued",
       due: new Date(order.preferredDueDate).toLocaleString("en-ET", { dateStyle: "medium", timeStyle: "short" }),
       priority: args.priority === "Low" ? "Normal" : args.priority ?? "Normal",
@@ -687,6 +746,8 @@ export const confirmOrderAndIssueJobCard = mutation({
       createdAt: now,
       orderId: args.orderId,
       deductOnComplete: args.deductOnComplete,
+      inkMaterialId,
+      wasteMarginPercent,
     });
     await ctx.db.patch(args.orderId, {
       amount: roundedAmount,
@@ -696,13 +757,13 @@ export const confirmOrderAndIssueJobCard = mutation({
       paymentConfirmedBy: identity._id,
       status: "JOB_CARD_CREATED",
       jobCardId: jobId,
-      machineId: args.machineId,
+      machineId: targetMachine._id,
       updatedAt: now,
     });
-    if (machine.status !== "Running") await ctx.db.patch(machine._id, { status: "Running", activeJob: code });
-    await notifyRoles(ctx, [machine.operatorRole, "owner", "manager", "admin"], {
+    if (targetMachine.status !== "Running") await ctx.db.patch(targetMachine._id, { status: "Running", activeJob: code });
+    await notifyRoles(ctx, [targetMachine.operatorRole, "owner", "manager", "admin"], {
       title: "Paid order issued to production",
-      message: `${order.code} (${order.clientName}) is confirmed ${args.paymentDecision} and queued as ${code} on ${machine.name}.`,
+      message: `${order.code} (${order.clientName}) is confirmed ${args.paymentDecision} and queued as ${code} on ${targetMachine.name}.`,
       type: "order_status",
       actorAuthUserId: identity._id,
       relatedTable: "customerOrders",

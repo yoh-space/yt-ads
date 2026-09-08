@@ -60,19 +60,34 @@ const AREA_CATEGORIES = new Set([
 
 /** Category names that map to printing inks depleted by volume per m² printed. */
 const INK_NAMES = new Set([
+  "Banner Ink 5L Canister",
   "Banner Ink",
+  "DTF Ink 1L Canister",
   "DTF Ink",
+  "Print & Cut Ink 1L Canister",
   "Print and Cut INK",
+  "UV Ink 1L Canister",
   "UV Flat bed Ink",
 ]);
 
+export const SOLVENT_NAMES = new Set([
+  "Solvents",
+  "Banner Solvent",
+  "DTF Solvent",
+  "Print & Cut Solvent",
+  "Solvent",
+]);
+
 const INK_CATEGORY = "Ink";
+const SOLVENT_CATEGORY = "Solvent";
 
 /** Unit items (count-based depletion): electrical parts, finished components, display hardware. */
 const UNIT_CATEGORIES = new Set([
   "Electrical",
   "Finished component",
   "Display hardware",
+  "Hardware",
+  "Textile & Apparel",
 ]);
 
 /**
@@ -91,20 +106,38 @@ export const DEFAULT_SYSTEM_CONFIG: Omit<SystemConfig, "updatedAt" | "updatedBy"
   etbPerMetre: 150,
   etbPerSheet: 400,
   unitConversionDefaults: [
+    { materialName: "Banner Flex", purchaseUnit: "roll", baseUnit: "m²", conversionRatio: 160 },
     { materialName: "Banner", purchaseUnit: "roll", baseUnit: "m²", conversionRatio: 160 },
-    { materialName: "DTF Film", purchaseUnit: "roll", baseUnit: "m", conversionRatio: 100 },
-    { materialName: "Acrylic", purchaseUnit: "sheet", baseUnit: "m²", conversionRatio: 2.977 },
-    { materialName: "Foam", purchaseUnit: "sheet", baseUnit: "m²", conversionRatio: 2.977 },
-    { materialName: "Normal Sticker", purchaseUnit: "roll", baseUnit: "m²", conversionRatio: 63.5 },
-    { materialName: "Frosted Sticker", purchaseUnit: "roll", baseUnit: "m²", conversionRatio: 63.5 },
-    { materialName: "Transparent Sticker", purchaseUnit: "roll", baseUnit: "m²", conversionRatio: 63.5 },
-    { materialName: "Reflective Sticker", purchaseUnit: "roll", baseUnit: "m²", conversionRatio: 63.5 },
+    { materialName: "Frosted Sticker", purchaseUnit: "roll", baseUnit: "m²", conversionRatio: 60 },
+    { materialName: "Mesh Sticker", purchaseUnit: "roll", baseUnit: "m²", conversionRatio: 76 },
     { materialName: "Mush Sticker", purchaseUnit: "roll", baseUnit: "m²", conversionRatio: 63.5 },
+    { materialName: "Transparent Sticker", purchaseUnit: "roll", baseUnit: "m²", conversionRatio: 76 },
+    { materialName: "Reflective Sticker", purchaseUnit: "roll", baseUnit: "m²", conversionRatio: 76 },
+    { materialName: "Normal Sticker", purchaseUnit: "roll", baseUnit: "m²", conversionRatio: 63.5 },
+    { materialName: "DTF Film", purchaseUnit: "roll", baseUnit: "m", conversionRatio: 100 },
+    { materialName: "Canvas", purchaseUnit: "roll", baseUnit: "m²", conversionRatio: 45 },
     { materialName: "Canvas (Canva)", purchaseUnit: "roll", baseUnit: "m²", conversionRatio: 45.6 },
-    { materialName: "Neon Light", purchaseUnit: "roll", baseUnit: "m", conversionRatio: 5 },
-    { materialName: "LED Module / Strip", purchaseUnit: "pack", baseUnit: "pcs", conversionRatio: 20 },
+    { materialName: "Mica", purchaseUnit: "sheet", baseUnit: "m²", conversionRatio: 2.977 },
     { materialName: "Mica Sheet", purchaseUnit: "piece", baseUnit: "pcs", conversionRatio: 1 },
+    { materialName: "Acrylic", purchaseUnit: "sheet", baseUnit: "m²", conversionRatio: 2.977 },
+    { materialName: "Cladding", purchaseUnit: "sheet", baseUnit: "m²", conversionRatio: 2.977 },
+    { materialName: "Foam Board", purchaseUnit: "sheet", baseUnit: "m²", conversionRatio: 2.977 },
+    { materialName: "Foam", purchaseUnit: "sheet", baseUnit: "m²", conversionRatio: 2.977 },
+    { materialName: "Banner Ink 5L Canister", purchaseUnit: "liter", baseUnit: "L", conversionRatio: 5 },
+    { materialName: "DTF Ink 1L Canister", purchaseUnit: "liter", baseUnit: "L", conversionRatio: 1 },
+    { materialName: "Print & Cut Ink 1L Canister", purchaseUnit: "liter", baseUnit: "L", conversionRatio: 1 },
+    { materialName: "UV Ink 1L Canister", purchaseUnit: "liter", baseUnit: "L", conversionRatio: 1 },
     { materialName: "Power Supply", purchaseUnit: "piece", baseUnit: "pcs", conversionRatio: 1 },
+    { materialName: "Digital Screen", purchaseUnit: "piece", baseUnit: "pcs", conversionRatio: 1 },
+    { materialName: "LED Modules", purchaseUnit: "pack", baseUnit: "pcs", conversionRatio: 20 },
+    { materialName: "LED Module / Strip", purchaseUnit: "pack", baseUnit: "pcs", conversionRatio: 20 },
+    { materialName: "Zecolo", purchaseUnit: "piece", baseUnit: "pcs", conversionRatio: 1 },
+    { materialName: "Neon Light Flex", purchaseUnit: "roll", baseUnit: "m", conversionRatio: 5 },
+    { materialName: "Neon Light", purchaseUnit: "roll", baseUnit: "m", conversionRatio: 5 },
+    { materialName: "Electric Wire", purchaseUnit: "roll", baseUnit: "m", conversionRatio: 100 },
+    { materialName: "T-Shirts", purchaseUnit: "piece", baseUnit: "pcs", conversionRatio: 1 },
+    { materialName: "Amire", purchaseUnit: "pack", baseUnit: "pcs", conversionRatio: 250 },
+    { materialName: "Roll-Up Stands", purchaseUnit: "piece", baseUnit: "pcs", conversionRatio: 1 },
   ],
   materialOverrides: [],
   inkMlPerSquareMetre: 12,

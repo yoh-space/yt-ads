@@ -6,7 +6,7 @@ import { authComponent, createAuth } from "./auth";
 import { requireAdmin } from "./users";
 import { convertToBase, type InputUnit } from "./units";
 import { api } from "./_generated/api";
-import { MATERIAL_SPECIFICATIONS, type MaterialSpecificationDefinition } from "../src/shared/material-specifications";
+import { MATERIAL_SPECIFICATIONS, findMaterialSpecification, type MaterialSpecificationDefinition } from "../src/shared/material-specifications";
 import { recordInventoryEvent } from "./inventoryLedger";
 
 /**
@@ -20,7 +20,7 @@ export async function seedDemoData(ctx: MutationCtx, createdById: string) {
   }
 
   const definition = (name: string): MaterialSpecificationDefinition => {
-    const material = MATERIAL_SPECIFICATIONS.find((entry) => entry.name === name);
+    const material = findMaterialSpecification(name);
     if (!material) throw new Error(`Missing demo material definition: ${name}`);
     return material;
   };
@@ -61,31 +61,38 @@ export async function seedDemoData(ctx: MutationCtx, createdById: string) {
     return id;
   };
 
-  const matBanner = await createDemoMaterial(definition("Banner"), 286, 160, "cyan", "3 Meter Roll Weight");
-  const matAcrylic = await createDemoMaterial(definition("Acrylic"), 54.8, 65, "violet", "3mm");
-  const matVinyl = await createDemoMaterial(definition("Normal Sticker"), 417, 240, "gold", "1.27 Meter × 50 Meter Roll");
-  const matLed = await createDemoMaterial(definition("LED Module / Strip"), 1260, 800, "blue", "Cool White (6000K-6500K)");
-  const matInk = await createDemoMaterial(definition("DTF Ink"), 18.2, 12, "green", "CMYK (Cyan, Magenta, Yellow, Key/Black)");
-  const matMdf = await createDemoMaterial(definition("Foam"), 91.4, 45, "gold", "18mm");
+  const matBanner = await createDemoMaterial(definition("Banner Flex"), 286, 160, "cyan", "3.2m × 50m (160 m²)");
+  const matAcrylic = await createDemoMaterial(definition("Mica"), 54.8, 65, "violet", "3mm");
+  const matVinyl = await createDemoMaterial(definition("Frosted Sticker"), 417, 240, "gold", "1.2m × 50m (60 m²)");
+  const matLed = await createDemoMaterial(definition("LED Modules"), 1260, 800, "blue", "Cool White (6000K-6500K)");
+  const matInk = await createDemoMaterial(definition("DTF Ink 1L Canister"), 18.2, 12, "green", "White");
+  const matMdf = await createDemoMaterial(definition("Foam Board"), 91.4, 45, "gold", "18mm");
 
   const mLaser = await ctx.db.insert("machines", {
-    name: "Laser Cutter 1325", code: "LAS-01", type: "Laser cutter",
+    name: "Laser Cutter", code: "LAS-01", type: "CO2 Laser Cutter 1325",
     operatorRole: "laser_operator", materialUnit: "m²", status: "Running",
     activeJob: "JC-0421", active: true,
+    primaryMaterials: ["Mica", "Foam Board"],
   });
   const mCnc = await ctx.db.insert("machines", {
-    name: "CNC Router 2030", code: "CNC-02", type: "CNC router",
+    name: "CNC Router", code: "CNC-01", type: "Heavy Duty CNC Router 2030",
     operatorRole: "cnc_operator", materialUnit: "m²", status: "Running",
     activeJob: "JC-0424", active: true,
+    primaryMaterials: ["Foam Board", "Cladding"],
   });
   const mPlotter = await ctx.db.insert("machines", {
-    name: "Graphtec FC9000", code: "PLT-01", type: "Plotter & vinyl cutter",
-    operatorRole: "plotter_operator", materialUnit: "m", status: "Available", active: true,
+    name: "Crystc Eco-Solvent Printer", code: "CESP-01", type: "Eco-Solvent Printer & Cutter",
+    operatorRole: "plotter_operator", materialUnit: "m²", status: "Available", active: true,
+    primaryMaterials: ["Frosted Sticker", "Transparent Sticker", "Reflective Sticker", "Mesh Sticker"],
+    compatibleInks: ["Print & Cut Ink 1L Canister"],
   });
   const mPrinter = await ctx.db.insert("machines", {
-    name: "Eco-solvent 3.2m", code: "PRT-01", type: "Large format printer",
+    name: "Crystal Jet 7K Series", code: "CJ7K-01", type: "Large Format Solvent Printer",
     operatorRole: "printer_operator", materialUnit: "m²", status: "Running",
     activeJob: "JC-0420", active: true,
+    primaryMaterials: ["Banner Flex", "Mesh Sticker"],
+    compatibleInks: ["Banner Ink 5L Canister"],
+    solventNames: ["Banner Solvent"],
   });
 
   await ctx.db.insert("jobCards", {
@@ -144,14 +151,136 @@ export const seed = mutation({
 const YT_WORKSPACE_KEY = "yt-advertisement";
 
 const YT_MACHINE_MASTER_DATA = [
-  { name: "Large Format Banner Printer", code: "BAN-01", type: "Banner Printer", model: "3.2m Eco-Solvent / Solvent Printer", capability: "3.2m Print Width", operatorRole: "printer_operator" as const, materialUnit: "m²" as const, displayUnit: "m²", status: "Available" as const },
-  { name: "DTF Printer", code: "DTF-01", type: "DTF", manufacturer: "Crystal", model: "60cm Roll-to-Roll DTF", capability: "0.60m Print Width", operatorRole: "printer_operator" as const, materialUnit: "m" as const, displayUnit: "m", status: "Available" as const },
-  { name: "Print & Cut Eco-Solvent Plotter", code: "PAC-01", type: "Print and Cut", manufacturer: "Crystal", model: "1.6m Print & Cut Plotter", capability: "1.6m Width", operatorRole: "plotter_operator" as const, materialUnit: "m²" as const, displayUnit: "m²", status: "Available" as const },
-  { name: "CNC Router 2030", code: "CNC-01", type: "CNC Router", model: "2000mm x 3000mm Heavy Duty", capability: "2.0m x 3.0m Bed Size", operatorRole: "cnc_operator" as const, materialUnit: "m²" as const, displayUnit: "m²", status: "Available" as const },
-  { name: "Laser Cutter 1325", code: "LAS-01", type: "Laser Cutter 1325", manufacturer: "Crystal", model: "1300mm x 2500mm CO2 Laser", capability: "1.22m x 2.44m Standard Board", operatorRole: "laser_operator" as const, materialUnit: "m²" as const, displayUnit: "m²", status: "Available" as const },
-  { name: "Pneumatic / Manual Heat Press", code: "HPR-01", type: "Heat press", model: "Flatbed Heat Press", capability: "40cm x 60cm Platen", operatorRole: "printer_operator" as const, materialUnit: "pcs" as const, displayUnit: "pcs", status: "Available" as const },
-  { name: "Paper Guillotine Cutter (Conca)", code: "CON-01", type: "Conca", model: "Heavy Duty Paper Cutter", capability: "A3+ Cutting Width", operatorRole: "printer_operator" as const, materialUnit: "pcs" as const, displayUnit: "pcs", status: "Available" as const, notes: "Paper work" },
-  { name: "UV Flatbed Printer", code: "UVF-01", type: "UV Flat bed", manufacturer: "Crystal", model: "Industrial UV Flatbed", capability: "Direct-to-Rigid Board", operatorRole: "printer_operator" as const, materialUnit: "m²" as const, displayUnit: "m²", status: "Available" as const },
+  {
+    name: "Crystal Jet 7K Series",
+    code: "CJ7K-01",
+    type: "Large Format Solvent Printer",
+    manufacturer: "Crystal Jet",
+    model: "Crystal Jet 7K Series 3.2m Solvent",
+    capability: "3.2m Print Width · Heavy Duty Exterior Banner & Mesh",
+    operatorRole: "printer_operator" as const,
+    materialUnit: "m²" as const,
+    displayUnit: "m²",
+    primaryMaterials: ["Banner Flex", "Mesh Sticker"],
+    compatibleInks: ["Banner Ink 5L Canister"],
+    solventNames: ["Banner Solvent"],
+    defaultWasteMarginPercent: 5,
+    maxAllowedScrapLimitPercent: 10,
+    status: "Available" as const,
+    notes: "Uses Banner Ink 5L Canister + Banner Solvent (Solvent adjusted periodically).",
+  },
+  {
+    name: "Crystc Eco-Solvent Printer",
+    code: "CESP-01",
+    type: "Eco-Solvent Printer & Cutter",
+    manufacturer: "Crystc",
+    model: "Crystc 1.6m Precision Eco-Solvent Printer",
+    capability: "1.6m Print Width · High Resolution Vinyl, Stickers & Grayback",
+    operatorRole: "plotter_operator" as const,
+    materialUnit: "m²" as const,
+    displayUnit: "m²",
+    primaryMaterials: ["Frosted Sticker", "Transparent Sticker", "Reflective Sticker", "Mesh Sticker"],
+    compatibleInks: ["Print & Cut Ink 1L Canister"],
+    solventNames: ["Print & Cut Solvent"],
+    defaultWasteMarginPercent: 5,
+    maxAllowedScrapLimitPercent: 8,
+    status: "Available" as const,
+    notes: "Uses Eco / Print & Cut Ink 1L Canister + Print & Cut Solvent.",
+  },
+  {
+    name: "Ricoh Flatbed UV Machine",
+    code: "RUV-01",
+    type: "Industrial UV Flatbed Printer",
+    manufacturer: "Ricoh",
+    model: "Ricoh Flatbed UV Industrial Series",
+    capability: "Direct-to-Rigid Sheet Printing (Mica, Foam Board, Cladding, Canvas)",
+    operatorRole: "printer_operator" as const,
+    materialUnit: "m²" as const,
+    displayUnit: "m²",
+    primaryMaterials: ["Mica", "Foam Board", "Cladding", "Canvas"],
+    compatibleInks: ["UV Ink 1L Canister"],
+    solventNames: [],
+    defaultWasteMarginPercent: 4,
+    maxAllowedScrapLimitPercent: 8,
+    status: "Available" as const,
+    notes: "Uses UV Ink 1L Canister (CMYK + White). No solvent consumption.",
+  },
+  {
+    name: "DTF i3200",
+    code: "DTF-01",
+    type: "DTF Textile & Apparel Printer",
+    manufacturer: "Crystal",
+    model: "DTF i3200 Dual Head 60cm Roll-to-Roll",
+    capability: "60cm Textile Films, T-Shirt Direct Transfer",
+    operatorRole: "printer_operator" as const,
+    materialUnit: "m" as const,
+    displayUnit: "m",
+    primaryMaterials: ["DTF Film", "T-Shirts"],
+    compatibleInks: ["DTF Ink 1L Canister"],
+    solventNames: ["DTF Solvent"],
+    defaultWasteMarginPercent: 5,
+    maxAllowedScrapLimitPercent: 10,
+    status: "Available" as const,
+    notes: "Uses DTF Ink 1L Canister + DTF Solvent.",
+  },
+  {
+    name: "Laser Cutter",
+    code: "LAS-01",
+    type: "CO2 Laser Cutter 1325",
+    manufacturer: "Crystal",
+    model: "1325 CO2 Precision Laser System",
+    capability: "1.22m x 2.44m Bed · Precision Mica, Acrylic & Foam Board Cutting",
+    operatorRole: "laser_operator" as const,
+    materialUnit: "m²" as const,
+    displayUnit: "m²",
+    primaryMaterials: ["Mica", "Foam Board"],
+    compatibleInks: [],
+    solventNames: [],
+    defaultWasteMarginPercent: 3,
+    maxAllowedScrapLimitPercent: 7,
+    status: "Available" as const,
+    notes: "Laser profile cutting for Mica and Foam Boards. Zero ink consumption.",
+  },
+  {
+    name: "CNC Router",
+    code: "CNC-01",
+    type: "Heavy Duty CNC Router 2030",
+    model: "2030 Heavy Duty 3-Axis CNC Router",
+    capability: "2.0m x 3.0m Bed · Foam Board, Cladding, MDF Heavy Routing",
+    operatorRole: "cnc_operator" as const,
+    materialUnit: "m²" as const,
+    displayUnit: "m²",
+    primaryMaterials: ["Foam Board", "Cladding"],
+    compatibleInks: [],
+    solventNames: [],
+    defaultWasteMarginPercent: 5,
+    maxAllowedScrapLimitPercent: 10,
+    status: "Available" as const,
+    notes: "Router cutting and 3D engraving for rigid cladding and foam boards.",
+  },
+  {
+    name: "Pneumatic / Manual Heat Press",
+    code: "HPR-01",
+    type: "Heat press",
+    model: "Flatbed Heat Press",
+    capability: "40cm x 60cm Platen",
+    operatorRole: "printer_operator" as const,
+    materialUnit: "pcs" as const,
+    displayUnit: "pcs",
+    status: "Available" as const,
+  },
+  {
+    name: "Paper Guillotine Cutter (Conca)",
+    code: "CON-01",
+    type: "Conca",
+    model: "Heavy Duty Paper Cutter",
+    capability: "A3+ Cutting Width",
+    operatorRole: "printer_operator" as const,
+    materialUnit: "pcs" as const,
+    displayUnit: "pcs",
+    status: "Available" as const,
+    notes: "Paper work",
+  },
 ] as const;
 
 const YT_MATERIAL_MASTER_DATA = MATERIAL_SPECIFICATIONS;
@@ -339,7 +468,15 @@ export const seedYtAdvertisementWorkspace = mutation({
     });
 
     const machineRecords = YT_MACHINE_MASTER_DATA;
-    for (const machine of machineRecords) await ctx.db.insert("machines", { ...machine, active: true });
+    for (const machine of machineRecords) {
+      await ctx.db.insert("machines", {
+        ...machine,
+        primaryMaterials: "primaryMaterials" in machine && machine.primaryMaterials ? [...machine.primaryMaterials] : undefined,
+        compatibleInks: "compatibleInks" in machine && machine.compatibleInks ? [...machine.compatibleInks] : undefined,
+        solventNames: "solventNames" in machine && machine.solventNames ? [...machine.solventNames] : undefined,
+        active: true,
+      });
+    }
 
     const materialRecords = YT_MATERIAL_MASTER_DATA;
     const accents = ["cyan", "violet", "gold", "green", "blue"] as const;
@@ -360,6 +497,7 @@ export const seedYtAdvertisementWorkspace = mutation({
         reorderAt: 0,
         storageLocation: material.storageLocation,
         averageUse: material.averageUse,
+        isSolvent: material.isSolvent,
         accent: accents[index % accents.length],
         active: true,
       });
@@ -522,10 +660,21 @@ export const migrateYtAdvertisementMasterData = mutation({
           operatorRole: machine.operatorRole,
           materialUnit: machine.materialUnit,
           displayUnit: machine.displayUnit,
+          primaryMaterials: "primaryMaterials" in machine ? [...machine.primaryMaterials] : undefined,
+          compatibleInks: "compatibleInks" in machine ? [...machine.compatibleInks] : undefined,
+          solventNames: "solventNames" in machine ? [...machine.solventNames] : undefined,
+          defaultWasteMarginPercent: "defaultWasteMarginPercent" in machine ? machine.defaultWasteMarginPercent : undefined,
+          maxAllowedScrapLimitPercent: "maxAllowedScrapLimitPercent" in machine ? machine.maxAllowedScrapLimitPercent : undefined,
         });
         machinesPatched += 1;
       } else {
-        await ctx.db.insert("machines", { ...machine, active: true });
+        await ctx.db.insert("machines", {
+          ...machine,
+          primaryMaterials: "primaryMaterials" in machine && machine.primaryMaterials ? [...machine.primaryMaterials] : undefined,
+          compatibleInks: "compatibleInks" in machine && machine.compatibleInks ? [...machine.compatibleInks] : undefined,
+          solventNames: "solventNames" in machine && machine.solventNames ? [...machine.solventNames] : undefined,
+          active: true,
+        });
         machinesInserted += 1;
       }
     }
@@ -551,6 +700,7 @@ export const migrateYtAdvertisementMasterData = mutation({
         specificationOptions: material.specificationOptions ? [...material.specificationOptions] : undefined,
         storageLocation: material.storageLocation,
         averageUse: material.averageUse,
+        isSolvent: material.isSolvent,
       };
       if (existing) {
         await ctx.db.patch(existing._id, masterFields);
