@@ -16,6 +16,8 @@ type ModalContextType = {
   setMachineSettingsTarget: (machine: Machine | null) => void;
   floorMachineId?: string;
   setFloorMachineId: (id?: string) => void;
+  floorSubStockId?: string;
+  setFloorSubStockId: (id?: string) => void;
 };
 
 const ModalContext = createContext<ModalContextType | undefined>(undefined);
@@ -26,6 +28,7 @@ export function DashboardModalProvider({ children }: { children: ReactNode }) {
   const [editMachineTarget, setEditMachineTarget] = useState<Machine | null>(null);
   const [machineSettingsTarget, setMachineSettingsTarget] = useState<Machine | null>(null);
   const [floorMachineId, setFloorMachineId] = useState<string | undefined>();
+  const [floorSubStockId, setFloorSubStockId] = useState<string | undefined>();
 
   const openModal = (m: Modal) => setModal(m);
   const closeModal = () => {
@@ -33,6 +36,8 @@ export function DashboardModalProvider({ children }: { children: ReactNode }) {
     setConvertOrderTarget(null);
     setEditMachineTarget(null);
     setMachineSettingsTarget(null);
+    setFloorMachineId(undefined);
+    setFloorSubStockId(undefined);
   };
 
   return (
@@ -49,6 +54,8 @@ export function DashboardModalProvider({ children }: { children: ReactNode }) {
         setMachineSettingsTarget,
         floorMachineId,
         setFloorMachineId,
+        floorSubStockId,
+        setFloorSubStockId,
       }}
     >
       {children}
@@ -71,6 +78,8 @@ export function useDashboardModal() {
       setMachineSettingsTarget: () => {},
       floorMachineId: undefined,
       setFloorMachineId: () => {},
+      floorSubStockId: undefined,
+      setFloorSubStockId: () => {},
     };
   }
   return context;

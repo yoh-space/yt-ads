@@ -10,8 +10,6 @@ import { ensureSystemConfig } from "./systemConfigs";
 import { calculateOffcutArea } from "./units";
 import { deductOperatorStock } from "./inventory";
 import { recordInventoryEvent } from "./inventoryLedger";
-import { resolveJobBOM } from "./bomResolver";
-import { deductJobRequirements } from "./jobConsumption";
 import type { Unit } from "./types";
 
 async function notifyOrderCompletion(ctx: any, orderId: any, actorAuthUserId: string) {
@@ -62,14 +60,24 @@ async function recordProductionInternal(ctx: any, args: ProductionInput, operato
   if (previousInput + args.inputQuantity > job.quantity) {
     throw new Error("Production input exceeds the planned job quantity.");
   }
-  await deductJobRequirements(ctx, {
-    jobCardId: job._id,
-    actorId: operatorId,
-    mode: "incremental",
-    actualInputQuantity: args.inputQuantity,
-    actualOutputQuantity: args.outputQuantity,
-    wasteQuantity: args.wasteQuantity,
-  });
+  const floorDeducted = await deductOperatorStock(ctx, job.machineId, job.materialId, args.inputQuantity, operatorId, job._id);
+  const centralRemainder = Number((args.inputQuantity - floorDeducted).toFixed(3));
+  if (centralRemainder > 0) {
+    await recordInventoryEvent(ctx, {
+      materialId: job.materialId,
+      eventType: "PRODUCTION_CONSUMPTION",
+      custody: "parent",
+      balanceEffect: "out",
+      quantity: centralRemainder,
+      unit: material.baseUnit ?? material.unit,
+      baseUnit: material.baseUnit ?? material.unit,
+      baseQuantity: centralRemainder,
+      machineId: job.machineId,
+      jobCardId: job._id,
+      note: `Production consumption ${job.code}`,
+      createdBy: operatorId,
+    });
+  }
   const config = await ensureSystemConfig(ctx, operatorId);
   // Per-material allowance wins; a default of 0 (or unset) inherits the global
   // max allowed waste rate so the production-engine threshold stays the baseline.
@@ -172,28 +180,6 @@ export const listUsageAlerts = query({
   },
 });
 
-export const getJobRequirements = query({
-  args: { jobCardId: v.id("jobCards") },
-  handler: async (ctx, args) => {
-    const requirements = await ctx.db
-      .query("jobMaterialRequirements")
-      .withIndex("by_job_card", (q) => q.eq("jobCardId", args.jobCardId))
-      .collect();
-    const materials = await ctx.db.query("materials").collect();
-    const materialById = new Map(materials.map((m) => [m._id, m]));
-
-    return requirements.map((req) => {
-      const mat = materialById.get(req.materialId);
-      return {
-        ...req,
-        materialName: mat?.name ?? "Material",
-        materialUnit: mat?.baseUnit ?? mat?.unit ?? req.baseUnit,
-        materialFamily: mat?.materialFamily,
-      };
-    });
-  },
-});
-
 export const create = mutation({
   args: {
     client: v.string(),
@@ -247,27 +233,51 @@ export const create = mutation({
       serviceType: args.serviceType,
     });
     if (args.serviceType) {
-      const config = await ensureSystemConfig(ctx, identity._id);
-      const bomItems = await resolveJobBOM(
-        ctx,
-        args.serviceType,
-        { length: args.length, width: args.width },
-        String(args.quantity),
-        {
-          standardWasteMargin: config.defaultScrapAllowancePercent ?? config.maxAllowedWastePercent,
-          maxAllowedScrapLimit: config.maxAllowedWastePercent,
-        },
-      );
-      for (const item of bomItems) {
+      const recipes = await ctx.db
+        .query("serviceMaterialRecipes")
+        .withIndex("by_active_service", (q) => q.eq("active", true).eq("serviceType", args.serviceType!))
+        .collect();
+      for (const recipe of recipes) {
+        const recipeMaterial = await ctx.db.get(recipe.materialId);
+        if (!recipeMaterial || !recipeMaterial.active) {
+          if (recipe.required) throw new Error("A required recipe material is no longer active.");
+          continue;
+        }
+        const driver = recipe.requirementMode === "fixed"
+          ? 1
+          : recipe.requirementMode === "area_rate"
+            ? (args.length ?? 0) * (args.width ?? 0) * args.quantity
+            : recipe.requirementMode === "linear_rate"
+              ? (args.length ?? 0) * args.quantity
+              : args.quantity;
+        if (driver <= 0) {
+          if (recipe.required) throw new Error(`Dimensions are required for ${recipe.requirementMode} recipe materials.`);
+          continue;
+        }
+        const plannedBaseQuantity = Number((recipe.quantity * driver).toFixed(3));
+        const allowancePercent = recipe.wasteAllowancePercent ?? 0;
+        const approvedScrapQuantity = Number((plannedBaseQuantity * allowancePercent / 100).toFixed(3));
+        const ratio = recipeMaterial.conversionRatio && recipeMaterial.conversionRatio > 0
+          ? recipeMaterial.conversionRatio
+          : 1;
+        const packageUnit = recipeMaterial.purchaseUnit === "sheet"
+          ? "SHEET"
+          : recipeMaterial.purchaseUnit === "roll"
+            ? "ROLL"
+            : recipeMaterial.purchaseUnit === "canister" || recipeMaterial.purchaseUnit === "liter"
+              ? "CANISTER"
+              : recipeMaterial.purchaseUnit === "piece"
+                ? "PIECE"
+                : "PACKAGE";
         await ctx.db.insert("jobMaterialRequirements", {
           jobCardId: id,
-          materialId: item.materialId,
-          packageUnit: item.packageUnit,
-          suggestedPackages: item.suggestedPackages,
-          baseUnit: item.baseUnit,
-          plannedBaseQuantity: item.plannedBaseQuantity,
-          approvedScrapQuantity: item.approvedScrapQuantity,
-          conversionRatioSnapshot: item.conversionRatioSnapshot,
+          materialId: recipe.materialId,
+          packageUnit,
+          suggestedPackages: Math.ceil((plannedBaseQuantity + approvedScrapQuantity) / ratio),
+          baseUnit: recipeMaterial.baseUnit ?? recipeMaterial.unit,
+          plannedBaseQuantity,
+          approvedScrapQuantity,
+          conversionRatioSnapshot: ratio,
           status: "PLANNED",
           createdAt: Date.now(),
           updatedAt: Date.now(),
@@ -582,11 +592,10 @@ export const complete = mutation({
     if (job.status === "Completed") return;
 
     const material = await ctx.db.get(job.materialId);
-    const deduction = await deductJobRequirements(ctx, {
-      jobCardId: job._id,
-      actorId: identity._id,
-      mode: "completion",
-    });
+    if (!material) throw new Error("Job material not found.");
+
+    const deduction = await recordAutomaticBomDeductions(ctx, job, identity._id)
+      ?? await recordAutomaticDeduction(ctx, job, material, identity._id);
 
     await ctx.db.patch(args.jobId, { status: "Completed" });
     if (job.orderId) {

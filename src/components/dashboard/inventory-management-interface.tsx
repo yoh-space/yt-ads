@@ -219,7 +219,7 @@ export function InventoryManagementInterface({ initialView }: { initialView: Inv
           <h1 className="mt-5 text-balance text-xl font-extrabold tracking-tight text-text-primary md:text-xl">
             የስቶክ እና ጥሬ እቃ ቁጥጥር <span className="text-brand-primary-light">(Inventory Management)</span>
           </h1>
-          <p className="mt-3 text-sm leading-6 text-text-secondary">የዋና ስቶክ እና የማሽን ኦፕሬተሮች Sub-Stock ሙሉ ሁኔታ</p>
+          <p className="mt-3 text-sm leading-6 text-text-secondary">የዋና ስቶክ እና የማሽን ኦፕሬተሮች Floor Stock ሙሉ ሁኔታ</p>
         </div>
         <button
           type="button"
@@ -256,7 +256,7 @@ export function InventoryManagementInterface({ initialView }: { initialView: Inv
             activeView === "substock" ? "bg-brand-primary text-main shadow-brand-glow" : "text-text-secondary hover:bg-surface-elevated hover:text-text-primary",
           )}
         >
-          <Factory size={16} /> የማሽን ስቶክ <span className="font-normal opacity-80">(Sub-Stock)</span>
+          <Factory size={16} /> የማሽን ስቶክ <span className="font-normal opacity-80">(Floor Stock)</span>
           <span className={cn("rounded-full px-2 py-0.5 font-mono text-[10px]", activeView === "substock" ? "bg-main/20" : "bg-surface-elevated text-text-secondary")}>{machineCards.length}</span>
         </button>
       </div>
@@ -310,7 +310,7 @@ export function InventoryManagementInterface({ initialView }: { initialView: Inv
       ) : null}
 
       {activeView === "substock" ? (
-        <section role="tabpanel" aria-label="Machine sub-stock" className="space-y-6">
+        <section role="tabpanel" aria-label="Machine floor stock" className="space-y-6">
           {pendingClearances > 0 ? <div className="flex flex-col gap-3 rounded-2xl border border-status-warning/40 bg-status-warning-bg p-4 sm:flex-row sm:items-center"><span className="grid h-10 w-10 flex-none place-items-center rounded-xl bg-status-warning text-main"><LockKeyhole size={18} /></span><div><div className="flex flex-wrap items-center gap-2"><strong className="text-sm font-extrabold text-text-primary">CLEARANCE GATE: PENDING APPROVAL</strong><TokenBadge tone="warning">{pendingClearances} UNVERIFIED LOGS</TokenBadge></div><p className="mt-1 text-xs leading-5 text-text-secondary">Floor material requests remain locked until reconciliation is reviewed.</p></div></div> : null}
 
           <div className="grid gap-4 md:grid-cols-3">
@@ -319,7 +319,7 @@ export function InventoryManagementInterface({ initialView }: { initialView: Inv
             <KpiCard label="Pending Clearances" value={pendingClearances.toString()} unit="UNVERIFIED LOGS" detail={pendingClearances > 0 ? "Reconciliation action required" : "No pending verification"} icon={CircleAlert} tone={pendingClearances > 0 ? "warning" : "success"} />
           </div>
 
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><div className="flex items-center gap-2 text-brand-primary-light"><Factory size={15} /><span className="font-mono text-[10px] font-bold uppercase tracking-[0.18em]">Tier 2 Production Floor</span></div><h2 className="mt-2 text-xl font-extrabold text-text-primary">የማሽን ኦፕሬተር Sub-Stock</h2><p className="mt-1 text-sm text-text-secondary">Live material custody at each production workstation.</p></div>{canRequest ? <button type="button" disabled={(unclearedStock ?? []).length > 0} onClick={() => openModal("request")} className="inline-flex items-center justify-center gap-2 rounded-xl border border-brand-primary/40 bg-brand-primary-bg px-4 py-2.5 text-xs font-bold text-brand-primary-light transition hover:bg-brand-primary/20 disabled:cursor-not-allowed disabled:opacity-40"><Plus size={14} /> አዲስ ቀለም መድብ</button> : null}</div>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><div className="flex items-center gap-2 text-brand-primary-light"><Factory size={15} /><span className="font-mono text-[10px] font-bold uppercase tracking-[0.18em]">Tier 2 Production Floor</span></div><h2 className="mt-2 text-xl font-extrabold text-text-primary">የማሽን ኦፕሬተር ስቶክ (Machine Floor Stock)</h2><p className="mt-1 text-sm text-text-secondary">Live material custody at each production workstation.</p></div>{canRequest ? <button type="button" disabled={(unclearedStock ?? []).length > 0} onClick={() => openModal("request")} className="inline-flex items-center justify-center gap-2 rounded-xl border border-brand-primary/40 bg-brand-primary-bg px-4 py-2.5 text-xs font-bold text-brand-primary-light transition hover:bg-brand-primary/20 disabled:cursor-not-allowed disabled:opacity-40"><Plus size={14} /> አዲስ ቀለም መድብ</button> : null}</div>
 
           <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
             {machineCards.map((card) => {

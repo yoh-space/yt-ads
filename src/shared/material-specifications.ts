@@ -1,6 +1,7 @@
 export type MaterialPurchaseUnit = "roll" | "sheet" | "pack" | "liter" | "piece";
 export type MaterialBaseUnit = "m²" | "m" | "pcs" | "L";
 export type MaterialCatalogFamily = "ROLL" | "RIGID_SHEET" | "INK_SOLVENT" | "HARDWARE";
+export type MaterialFamily = "RAW_MATERIAL" | "INK" | "SOLVENT" | "HARDWARE";
 
 export type MaterialSpecificationDefinition = {
   name: string;
@@ -12,6 +13,8 @@ export type MaterialSpecificationDefinition = {
   packageSize?: number;
   packageLabel?: string;
   isSolvent?: boolean;
+  materialFamily?: MaterialFamily;
+  inkColor?: string;
   displayUnit: string;
   specification?: string;
   specificationOptions?: readonly string[];
@@ -29,6 +32,33 @@ export type MaterialSpecificationDefinition = {
   catalogDimensions?: string;
   compatibleMachineTypes?: readonly string[];
 };
+
+/** Derives the operational MaterialFamily from catalog attributes */
+export function resolveMaterialFamily(material: {
+  catalogFamily?: MaterialCatalogFamily;
+  isSolvent?: boolean;
+  category?: string;
+  name?: string;
+}): MaterialFamily {
+  if (material.isSolvent || material.name?.toLowerCase().includes("solvent")) {
+    return "SOLVENT";
+  }
+  if (
+    material.category === "Ink" ||
+    material.catalogFamily === "INK_SOLVENT" ||
+    material.name?.toLowerCase().includes("ink")
+  ) {
+    return "INK";
+  }
+  if (
+    material.catalogFamily === "HARDWARE" ||
+    material.category === "Hardware" ||
+    material.category === "Accessories"
+  ) {
+    return "HARDWARE";
+  }
+  return "RAW_MATERIAL";
+}
 
 const machineInkOptions = [
   "CMYK (Cyan, Magenta, Yellow, Key/Black)",

@@ -504,26 +504,124 @@ export function OrderConfirmModal({ order, machines, materials, onClose, onSave 
           )}
         </div>
 
-        <div className="space-y-3 rounded-lg border border-cyan/20 bg-cyan/5 p-4">
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-sm font-semibold text-navy">Automated production assignment</span>
-            {dispatchPreview ? <span className="text-xs font-semibold text-cyan-dark">Owner routing applied</span> : <span className="text-xs text-gray-500">Checking…</span>}
+        <div className="space-y-4 rounded-xl border border-border-token bg-surface p-4">
+          <div className="flex items-center justify-between gap-3 border-b border-border-token pb-2">
+            <span className="text-sm font-bold text-text-primary">Production & Resource Verification</span>
+            {dispatchPreview ? (
+              <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-600">
+                Route Verified
+              </span>
+            ) : (
+              <span className="text-xs text-text-secondary">Checking resources…</span>
+            )}
           </div>
+
           {dispatchPreview ? (
             <>
-              <div className="grid gap-3 sm:grid-cols-2 text-sm">
-                <div><small className="block text-muted-foreground">Assigned machine</small><strong className="text-navy">{dispatchPreview.machineName}</strong></div>
-                <div><small className="block text-muted-foreground">Raw material</small><strong className="text-navy">{dispatchPreview.materialCheck.materialName}</strong></div>
-                <div><small className="block text-muted-foreground">Required allocation</small><strong className="text-navy">{dispatchPreview.materialCheck.requiredQuantity} {dispatchPreview.materialCheck.unit}</strong></div>
-                <div><small className="block text-muted-foreground">Available raw stock</small><strong className={dispatchPreview.materialCheck.sufficient ? "text-emerald-600" : "text-danger"}>{dispatchPreview.materialCheck.availableQuantity} {dispatchPreview.materialCheck.unit}</strong></div>
+              {/* Section 1: Workstation & Material Summary */}
+              <div className="grid gap-3 rounded-lg bg-surface-elevated p-3 text-xs sm:grid-cols-2">
+                <div>
+                  <span className="block text-text-secondary">Assigned Workstation</span>
+                  <strong className="text-sm font-bold text-text-primary">{dispatchPreview.machineName}</strong>
+                </div>
+                <div>
+                  <span className="block text-text-secondary">Required Material</span>
+                  <strong className="text-sm font-bold text-text-primary">{dispatchPreview.materialCheck.materialName}</strong>
+                </div>
+                <div>
+                  <span className="block text-text-secondary">Base Production Size</span>
+                  <span className="font-semibold text-text-primary">
+                    {dispatchPreview.netBaseQuantity} {dispatchPreview.unit}
+                    {dispatchPreview.standardWasteMargin ? ` (+${dispatchPreview.standardWasteMargin}% waste buffer)` : ""}
+                  </span>
+                </div>
+                <div>
+                  <span className="block text-text-secondary">Approved Scrap Allowance</span>
+                  <span className="font-semibold text-text-primary">
+                    {dispatchPreview.approvedScrapQuantity} {dispatchPreview.unit} (up to {dispatchPreview.maxAllowedScrapLimit}%)
+                  </span>
+                </div>
               </div>
-              <div className={dispatchPreview.inkCheck.sufficient ? "rounded border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-700" : "rounded border border-danger/30 bg-danger/10 p-3 text-xs text-danger"}>
-                <strong className="block">{dispatchPreview.inkCheck.sufficient ? "Sufficient Ink verified" : "Insufficient Ink Stock"}</strong>
-                {dispatchPreview.inkCheck.required ? <span>{dispatchPreview.inkCheck.materialNames.join(", ") || "Required machine ink"}: {dispatchPreview.inkCheck.availableLitres} L available / {dispatchPreview.inkCheck.requiredLitres} L required.</span> : <span>This machine route does not require tracked ink.</span>}
+
+              {/* Section 2: Raw Material Status */}
+              <div
+                className={
+                  dispatchPreview.materialCheck.sufficient
+                    ? "rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-800 dark:text-emerald-300"
+                    : "rounded-lg border border-danger/30 bg-danger/10 p-3 text-xs text-danger"
+                }
+              >
+                <div className="flex items-center justify-between">
+                  <strong className="font-bold">
+                    {dispatchPreview.materialCheck.sufficient
+                      ? "Sufficient Raw Material Verified"
+                      : "Insufficient Raw Material"}
+                  </strong>
+                  <span className="font-semibold">
+                    {dispatchPreview.materialCheck.availableQuantity} {dispatchPreview.materialCheck.unit} available /{" "}
+                    {dispatchPreview.materialCheck.requiredQuantity} {dispatchPreview.materialCheck.unit} required
+                  </span>
+                </div>
               </div>
-              {!dispatchPreview.canDispatch ? <p className="m-0 text-xs font-semibold text-danger">Cannot dispatch: {dispatchPreview.errors.join(" ")}</p> : null}
+
+              {/* Section 3: Ink Status & Per-Color Breakdown */}
+              <div
+                className={
+                  dispatchPreview.inkCheck.sufficient
+                    ? "space-y-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-800 dark:text-emerald-300"
+                    : "space-y-2 rounded-lg border border-danger/30 bg-danger/10 p-3 text-xs text-danger"
+                }
+              >
+                <div className="flex items-center justify-between">
+                  <strong className="font-bold">
+                    {dispatchPreview.inkCheck.sufficient ? "Sufficient Ink Verified" : "Insufficient Ink Stock"}
+                  </strong>
+                  {dispatchPreview.inkCheck.required && (
+                    <span className="font-semibold">
+                      {dispatchPreview.inkCheck.availableLitres} L total / {dispatchPreview.inkCheck.requiredLitres} L total
+                    </span>
+                  )}
+                </div>
+
+                {dispatchPreview.inkCheck.required ? (
+                  dispatchPreview.inkCheck.items && dispatchPreview.inkCheck.items.length > 0 ? (
+                    <div className="mt-2 space-y-1.5 border-t border-current/20 pt-2">
+                      {dispatchPreview.inkCheck.items.map((item, idx) => (
+                        <div key={idx} className="flex items-center justify-between text-[11px]">
+                          <span className="font-medium">
+                            {item.inkColor ? `${item.inkColor} (${item.materialName})` : item.materialName}
+                          </span>
+                          <span className={item.sufficient ? "font-semibold text-emerald-700 dark:text-emerald-200" : "font-bold text-danger"}>
+                            {item.availableLitres} L in stock / {item.requiredLitres} L needed ({item.sufficient ? "OK" : "Shortage"})
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-[11px] opacity-90">
+                      {dispatchPreview.inkCheck.materialNames?.join(", ") || "Machine ink"}: {dispatchPreview.inkCheck.availableLitres} L available / {dispatchPreview.inkCheck.requiredLitres} L required.
+                    </div>
+                  )
+                ) : (
+                  <div className="text-[11px] opacity-80">This workstation does not require tracked liquid ink.</div>
+                )}
+              </div>
+
+              {/* Section 4: Dispatch Error Notice */}
+              {!dispatchPreview.canDispatch && (
+                <div className="rounded-lg border border-danger/40 bg-danger/15 p-3 text-xs text-danger">
+                  <strong className="block font-bold">Cannot Dispatch Job Card:</strong>
+                  <ul className="mt-1 list-disc pl-4 space-y-0.5">
+                    {dispatchPreview.errors.map((err, i) => (
+                      <li key={i}>{err}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </>
-          ) : <p className="m-0 text-xs text-gray-500">Validating machine, raw material, and ink inventory…</p>}
+          ) : (
+            <p className="m-0 text-xs text-text-secondary">Validating equipment, raw material, and ink inventory…</p>
+          )}
         </div>
       </div>
     </ModalShell>

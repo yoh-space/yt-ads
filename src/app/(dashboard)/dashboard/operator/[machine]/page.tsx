@@ -17,6 +17,7 @@ import {
 import { InventoryLoader } from "@/components/dashboard/inventory-loader";
 import { useSafeMutation } from "@/components/dashboard/pending-store";
 import { useDashboardModal } from "@/components/dashboard/modal-context";
+import { MachineFluidGauge } from "@/components/dashboard/operator/machine-fluid-gauge";
 import { NumericInput, StatusPill } from "@/components/ui";
 import { formatQuantity } from "@/lib/units";
 import { OperatorStockWidget } from "@/components/dashboard/views/operator-stock";
@@ -49,7 +50,7 @@ export default function OperatorMachinePage({
   const floorStockQuery = useQuery(api.inventory.listOperatorMachineStock, profile?.active ? {} : "skip");
   const unclearedStockQuery = useQuery(api.inventory.myUnclearedStock, profile?.active ? {} : "skip");
 
-  const { openModal } = useDashboardModal();
+  const { openModal, setFloorMachineId, setFloorSubStockId } = useDashboardModal();
   const { isPending, safeMutation } = useSafeMutation();
 
   const completeJobMutation = useMutation(api.jobs.complete);
@@ -104,6 +105,11 @@ export default function OperatorMachinePage({
     !productionInputsValid.waste
   );
 
+  const jobRequirements = useQuery(
+    api.jobs.getJobRequirements,
+    displayedJob ? { jobCardId: displayedJob.id as Id<"jobCards"> } : "skip"
+  );
+
   return (
     <WorkspaceModuleGate context={accessContext} moduleId="jobs.queue">
     <div className="space-y-6">
@@ -135,53 +141,62 @@ export default function OperatorMachinePage({
         </div>
       ) : null}
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#1E293B] pb-5">
-        <div>
-          <span className="font-mono text-xs uppercase tracking-widest text-[#00B4D8]">
-            የኦፕሬተር መቆጣጠሪያ · {machineParam.toUpperCase()}
-          </span>
-          <h1 className="text-2xl font-bold tracking-tight text-white mt-0.5 flex items-center gap-2">
-            {currentMachine?.name ?? `${machineParam.toUpperCase()} Machine`}
-            {currentMachine ? (
-              <StatusPill variant={currentMachine.status === "Running" ? "success" : "info"}>
-                {currentMachine.status}
-              </StatusPill>
-            ) : null}
-          </h1>
-          <p className="text-xs text-slate-400 mt-1">
-            የማሽን መለያ: {currentMachine?.code ?? "—"} · የሚለካበት መለኪያ: {currentMachine?.materialUnit ?? "m²"}
-          </p>
+      {/* ZONE 1: Machine Header & Fluid Gauges */}
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#1E293B] pb-5">
+          <div>
+            <span className="font-mono text-xs uppercase tracking-widest text-[#00B4D8]">
+              የኦፕሬተር መቆጣጠሪያ · {machineParam.toUpperCase()}
+            </span>
+            <h1 className="text-2xl font-bold tracking-tight text-white mt-0.5 flex items-center gap-2">
+              {currentMachine?.name ?? `${machineParam.toUpperCase()} Machine`}
+              {currentMachine ? (
+                <StatusPill variant={currentMachine.status === "Running" ? "success" : "info"}>
+                  {currentMachine.status}
+                </StatusPill>
+              ) : null}
+            </h1>
+            <p className="text-xs text-slate-400 mt-1">
+              የማሽን መለያ: {currentMachine?.code ?? "—"} · የሚለካበት መለኪያ: {currentMachine?.materialUnit ?? "m²"}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => router.push("/inventory/substock")}
+              className="px-3.5 py-1.5 rounded-sm border border-[#1E293B] bg-[#14161D] text-xs font-semibold text-slate-300 hover:text-white hover:border-[#00B4D8] transition-colors"
+            >
+              የማሽን ዕቃ
+            </button>
+
+            {/* Material Request Action — Locked if hasPendingClearance */}
+            <button
+              type="button"
+              disabled={hasPendingClearance}
+              onClick={() => {
+                if (currentMachine) setFloorMachineId(currentMachine.id);
+                openModal("request");
+              }}
+              title={
+                hasPendingClearance
+                  ? "የዕቃ ቆጠራ ማረጋገጫ ስላልተጠናቀቀ አዲስ ዕቃ መጠየቅ አይቻልም"
+                  : "ከግምጃ ቤት ዕቃ ይጠይቁ"
+              }
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-sm text-xs font-semibold transition-colors ${
+                hasPendingClearance
+                  ? "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
+                  : "bg-[#00B4D8] text-[#0B132B] hover:bg-[#90E0EF]"
+              }`}
+            >
+              {hasPendingClearance ? <Lock size={13} /> : <Plus size={13} />}
+              {hasPendingClearance ? "የዕቃ ጥያቄ ተቆልፏል" : "ዕቃ ጠይቅ"}
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => router.push("/inventory/substock")}
-            className="px-3.5 py-1.5 rounded-sm border border-[#1E293B] bg-[#14161D] text-xs font-semibold text-slate-300 hover:text-white hover:border-[#00B4D8] transition-colors"
-          >
-            የማሽን ዕቃ
-          </button>
-
-          {/* Material Request Action — Locked if hasPendingClearance */}
-          <button
-            type="button"
-            disabled={hasPendingClearance}
-            onClick={() => openModal("request")}
-            title={
-              hasPendingClearance
-                ? "የዕቃ ቆጠራ ማረጋገጫ ስላልተጠናቀቀ አዲስ ዕቃ መጠየቅ አይቻልም"
-                : "ከግምጃ ቤት ዕቃ ይጠይቁ"
-            }
-            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-sm text-xs font-semibold transition-colors ${
-              hasPendingClearance
-                ? "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
-                : "bg-[#00B4D8] text-[#0B132B] hover:bg-[#90E0EF]"
-            }`}
-          >
-            {hasPendingClearance ? <Lock size={13} /> : <Plus size={13} />}
-            {hasPendingClearance ? "የዕቃ ጥያቄ ተቆልፏል" : "ዕቃ ጠይቅ"}
-          </button>
-        </div>
+        {currentMachine ? (
+          <MachineFluidGauge machineId={currentMachine.id as Id<"machines">} />
+        ) : null}
       </div>
 
       {/* Grid: Active Job Card & Machine Control / Stock */}
@@ -202,6 +217,7 @@ export default function OperatorMachinePage({
 
             {displayedJob ? (
               <div className="space-y-4">
+                {/* ZONE 2: Active Job Details & Materials List */}
                 <div className="flex items-start justify-between">
                   <div>
                     <span className="font-mono text-xs font-bold text-[#00B4D8]">{displayedJob.code}</span>
@@ -216,6 +232,45 @@ export default function OperatorMachinePage({
                   </div>
                 </div>
 
+                {/* Job Materials (BOM Requirements) */}
+                {jobRequirements && jobRequirements.length > 0 && (
+                  <div className="rounded-lg border border-[#1E293B] bg-[#0C0D10]/80 p-3 text-xs space-y-2">
+                    <div className="flex items-center justify-between font-semibold text-slate-300 border-b border-[#1E293B] pb-1.5">
+                      <span>የስራው ጥሬ እቃዎች (Material Requirements)</span>
+                      <span className="text-[10px] text-slate-400 font-mono">{jobRequirements.length} materials</span>
+                    </div>
+                    <div className="divide-y divide-[#1E293B]/60 space-y-1">
+                      {jobRequirements.map((req) => (
+                        <div key={req._id} className="flex items-center justify-between pt-1 text-[11px]">
+                          <div>
+                            <span className="font-medium text-white">{req.materialName}</span>
+                            <span className="ml-2 text-slate-400">
+                              (የታቀደ: {req.plannedBaseQuantity} {req.materialUnit} · ብክነት ማካካሻ: {req.approvedScrapQuantity} {req.materialUnit})
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-slate-300">
+                              ተወስዷል: {req.consumedBaseQuantity ?? 0} / {req.plannedBaseQuantity + req.approvedScrapQuantity} {req.materialUnit}
+                            </span>
+                            <span
+                              className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                                req.status === "COMPLETED"
+                                  ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                                  : req.status === "ISSUED"
+                                    ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
+                                    : "bg-slate-700/40 text-slate-400 border border-slate-600/50"
+                              }`}
+                            >
+                              {req.status}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* ZONE 3: Production Logging & Usable Remainder / Scrap Actions */}
                 {isCompletedJob ? (
                   <div className="rounded-sm border border-emerald-500/30 bg-emerald-950/20 p-4 text-sm text-emerald-200">
                     <div className="flex items-center gap-2 font-semibold">
@@ -310,13 +365,21 @@ export default function OperatorMachinePage({
                 {/* Usable remainder & scrap quick actions */}
                 <div className="flex items-center gap-3 pt-2">
                   <button
-                    onClick={() => openModal("offcut")}
+                    onClick={() => {
+                      if (currentMachine) setFloorMachineId(currentMachine.id);
+                      if (floorStockQuery?.[0]) setFloorSubStockId(floorStockQuery[0]._id);
+                      openModal("offcut");
+                    }}
                     className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-sm border border-[#1E293B] bg-[#0C0D10] text-xs font-semibold text-slate-300 hover:text-white hover:border-cyan transition-colors"
                   >
                     <Scissors size={13} /> ጥቅም ላይ የሚውል ቀሪ ዕቃ መዝግብ
                   </button>
                   <button
-                    onClick={() => openModal("scrap")}
+                    onClick={() => {
+                      if (currentMachine) setFloorMachineId(currentMachine.id);
+                      if (floorStockQuery?.[0]) setFloorSubStockId(floorStockQuery[0]._id);
+                      openModal("scrap");
+                    }}
                     className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-sm border border-[#1E293B] bg-[#0C0D10] text-xs font-semibold text-slate-300 hover:text-white hover:border-rose-500 transition-colors"
                   >
                     <Trash2 size={13} /> የማይጠቅም ብክነት መዝግብ

@@ -30,13 +30,6 @@ export const materialCatalogFamily = v.union(
   v.literal("HARDWARE"),
 );
 
-export const materialFamily = v.union(
-  v.literal("RAW_MATERIAL"),
-  v.literal("INK"),
-  v.literal("SOLVENT"),
-  v.literal("HARDWARE"),
-);
-
 export const jobStatus = v.union(
   v.literal("Queued"),
   v.literal("In production"),
@@ -346,8 +339,6 @@ export default defineSchema({
     sheetWidth: v.optional(v.number()),
     sheetLength: v.optional(v.number()),
     isSolvent: v.optional(v.boolean()),
-    materialFamily: v.optional(materialFamily),
-    inkColor: v.optional(v.string()),
   })
     .index("by_category", ["category"])
     .index("by_name", ["name"])
@@ -373,15 +364,6 @@ export default defineSchema({
     solventNames: v.optional(v.array(v.string())),
     defaultWasteMarginPercent: v.optional(v.number()),
     maxAllowedScrapLimitPercent: v.optional(v.number()),
-    inkRequirements: v.optional(
-      v.array(
-        v.object({
-          materialName: v.string(),
-          inkColor: v.optional(v.string()),
-          rateMlPerSqM: v.optional(v.number()),
-        })
-      )
-    ),
     active: v.boolean(),
   })
     .index("by_code", ["code"])
@@ -859,7 +841,6 @@ export default defineSchema({
     plannedBaseQuantity: v.number(),
     approvedScrapQuantity: v.number(),
     conversionRatioSnapshot: v.number(),
-    consumedBaseQuantity: v.optional(v.number()),
     status: v.union(
       v.literal("PLANNED"),
       v.literal("REQUESTED"),
@@ -871,31 +852,6 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   })
-    .index("by_job_card", ["jobCardId"])
-    .index("by_material", ["materialId"])
-    .index("by_status", ["status"]),
-
-  /**
-   * Advisory reservations soft-locking material and ink allocations before
-   * job insertion, released upon order cancellation or confirmed upon completion.
-   */
-  reservations: defineTable({
-    orderId: v.id("customerOrders"),
-    jobCardId: v.optional(v.id("jobCards")),
-    materialId: v.id("materials"),
-    reservedQuantity: v.number(),
-    unit,
-    inkColor: v.optional(v.string()),
-    status: v.union(
-      v.literal("RESERVED"),
-      v.literal("COMMITTED"),
-      v.literal("RELEASED"),
-    ),
-    expiresAt: v.optional(v.number()),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  })
-    .index("by_order", ["orderId"])
     .index("by_job_card", ["jobCardId"])
     .index("by_material", ["materialId"])
     .index("by_status", ["status"]),
