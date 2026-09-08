@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Profile, Role } from "@/lib/operations-types";
@@ -12,11 +13,13 @@ import { InventoryLoader } from "./inventory-loader";
 import { DashboardAccessDenied } from "./access-denied";
 import { canAccess } from "@/lib/access-policy";
 import { WorkspaceRenderer } from "./workspace-renderer";
+import { isOwnerWorkspacePath } from "./owner/owner-shell";
 import { resolveWorkspace } from "./workspace-registry";
 import { DashboardModalProvider } from "./modal-context";
 import { DashboardActionModals } from "./dashboard-action-modals";
 
 function DashboardShellInner({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
   const profile = useQuery(api.users.getCurrentProfile);
   const companySettings = useQuery(api.users.getCompanySettings);
   const role: Role = profile?.role ?? "admin";
@@ -55,6 +58,13 @@ function DashboardShellInner({ children }: { children: ReactNode }) {
 
   if (profile && !profile.active) {
     return <DashboardAccessDenied />;
+  }
+
+  // Owner workspace renders its own isolated shell inside owner/layout.tsx.
+  // Branch here (client-side) so client navigations from shared pages also
+  // bypass the shared shell correctly.
+  if (isOwnerWorkspacePath(pathname)) {
+    return <>{children}</>;
   }
 
   const resolvedProfile: Profile | null = profile ? { ...profile, id: profile._id } : null;
