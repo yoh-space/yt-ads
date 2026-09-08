@@ -174,6 +174,7 @@ export const ROUTE_DESCRIPTORS: Record<string, RouteDescriptor> = {
       if (machine) return `/dashboard/operator/${machine}`;
       if (role === "owner") return "/dashboard/owner/jobs";
       if (role === "admin") return "/dashboard/admin/jobs";
+      if (role === "manager") return "/dashboard/manager/jobs";
       return "/dashboard/manager";
     },
     type: "canonical",
@@ -183,6 +184,7 @@ export const ROUTE_DESCRIPTORS: Record<string, RouteDescriptor> = {
     href: (role) => {
       if (role === "owner") return "/dashboard/owner/machines";
       if (role === "admin") return "/dashboard/admin/machines";
+      if (role === "manager") return "/dashboard/manager/machines";
       return "/dashboard/manager";
     },
     type: "canonical",
@@ -404,6 +406,9 @@ export function getLegacyRouteRedirect(pathname: string, role: Role): string | n
     }
     if (workspace === "storekeeper") {
       return "/dashboard/storekeeper/inventory";
+    }
+    if (workspace === "manager") {
+      return "/dashboard/manager/inventory";
     }
     const target = `/dashboard/${workspace}/inventory/parent`;
     return isRedirectLoop(cleanPath, target) ? null : target;

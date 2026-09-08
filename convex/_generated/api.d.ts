@@ -29,6 +29,8 @@ import type * as inventoryLedger from "../inventoryLedger.js";
 import type * as jobConsumption from "../jobConsumption.js";
 import type * as jobs from "../jobs.js";
 import type * as machines from "../machines.js";
+import type * as manager_overview from "../manager/overview.js";
+import type * as manager_requisitions from "../manager/requisitions.js";
 import type * as materialRequests from "../materialRequests.js";
 import type * as materialUsage from "../materialUsage.js";
 import type * as materials from "../materials.js";
@@ -94,6 +96,8 @@ declare const fullApi: ApiFromModules<{
   jobConsumption: typeof jobConsumption;
   jobs: typeof jobs;
   machines: typeof machines;
+  "manager/overview": typeof manager_overview;
+  "manager/requisitions": typeof manager_requisitions;
   materialRequests: typeof materialRequests;
   materialUsage: typeof materialUsage;
   materials: typeof materials;
