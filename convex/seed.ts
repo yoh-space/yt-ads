@@ -9,7 +9,7 @@ import { requireAdmin } from "./users";
 import { convertToBase, type InputUnit } from "./units";
 import { api } from "./_generated/api";
 import { internal } from "./_generated/api";
-import { MATERIAL_SPECIFICATIONS, findMaterialSpecification, type MaterialCatalogFamily, type MaterialSpecificationDefinition } from "../src/shared/material-specifications";
+import { MATERIAL_SPECIFICATIONS, findMaterialSpecification, resolveMaterialFamily, type MaterialCatalogFamily, type MaterialSpecificationDefinition } from "../src/shared/material-specifications";
 import { recordInventoryEvent } from "./inventoryLedger";
 import { classifyMaterialProductionType, effectiveConsumptionRate, resolveEtbValue } from "./materialUsage";
 import { assertServiceIdsMatchSchema } from "./services";
@@ -45,6 +45,13 @@ function materialMasterFields(material: MaterialSpecificationDefinition) {
     packageSize: material.packageSize,
     packageLabel: material.packageLabel,
     isSolvent: material.isSolvent,
+    materialFamily: material.materialFamily ?? resolveMaterialFamily({
+      catalogFamily,
+      isSolvent: material.isSolvent,
+      category: material.category,
+      name: material.name,
+    }),
+    inkColor: material.inkColor,
     conversionRatio: material.conversionRatio,
     rollEquivalent: material.purchaseUnit === "roll" ? material.conversionRatio : undefined,
     sheetEquivalent: material.purchaseUnit === "sheet" ? material.conversionRatio : undefined,

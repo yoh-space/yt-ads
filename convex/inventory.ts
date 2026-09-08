@@ -463,18 +463,61 @@ export const listOperatorMachineStock = query({
         const material = materialById.get(batch.materialId);
         const machine = machineById.get(batch.machineId);
         const baseUnit = material?.baseUnit ?? material?.unit ?? "m²";
+        const materialFamily = material?.materialFamily ?? (material?.category === "Ink" ? "INK" : material?.isSolvent ? "SOLVENT" : "RAW_MATERIAL");
         return {
           ...batch,
           materialName: material?.name ?? "Unknown material",
           machineName: machine?.name ?? "Unknown machine",
           operatorName: userNames.get(batch.operatorId) ?? "Assigned operator",
           baseUnit,
+          materialFamily,
+          inkColor: material?.inkColor,
+          isSolvent: material?.isSolvent ?? false,
           consumed: Number((batch.issuedQuantity - batch.currentRemaining).toFixed(3)),
           usagePercent: batch.issuedQuantity > 0
             ? Math.round(((batch.issuedQuantity - batch.currentRemaining) / batch.issuedQuantity) * 100)
             : 0,
         };
       });
+  },
+});
+
+export const listMachineInkStock = query({
+  args: { machineId: v.id("machines") },
+  handler: async (ctx, args) => {
+    await requireAnyPermission(ctx, ["material.view", "machine.view", "job.view"]);
+    const batches = await ctx.db
+      .query("operatorSubStock")
+      .withIndex("by_machine", (q) => q.eq("machineId", args.machineId))
+      .collect();
+    const materials = await ctx.db.query("materials").collect();
+    const materialById = new Map(materials.map((m) => [m._id, m]));
+
+    const inkOrSolventBatches = batches.filter((b) => {
+      const mat = materialById.get(b.materialId);
+      if (!mat) return false;
+      const fam = mat.materialFamily ?? (mat.category === "Ink" ? "INK" : mat.isSolvent ? "SOLVENT" : "RAW_MATERIAL");
+      return fam === "INK" || fam === "SOLVENT" || mat.isSolvent;
+    });
+
+    return inkOrSolventBatches.map((b) => {
+      const mat = materialById.get(b.materialId);
+      const fam = mat?.materialFamily ?? (mat?.category === "Ink" ? "INK" : mat?.isSolvent ? "SOLVENT" : "RAW_MATERIAL");
+      const remainingMl = b.remainingMillilitres ?? Number((b.currentRemaining * 1000).toFixed(1));
+      return {
+        _id: b._id,
+        materialId: b.materialId,
+        materialName: mat?.name ?? "Unknown ink",
+        inkColor: mat?.inkColor,
+        materialFamily: fam,
+        isSolvent: mat?.isSolvent ?? false,
+        remainingMillilitres: remainingMl,
+        remainingLitres: Number((remainingMl / 1000).toFixed(3)),
+        currentRemaining: b.currentRemaining,
+        status: b.status,
+        updatedAt: b.updatedAt,
+      };
+    });
   },
 });
 

@@ -2,6 +2,8 @@ import { internalMutation, internalAction, mutation } from "./_generated/server"
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { requirePermission } from "./users";
+import { MACHINE_CATALOG } from "../src/shared/machine-catalog";
+import { findMaterialSpecification } from "../src/shared/material-specifications";
 
 /**
  * Canonical `customerOrders.status` values. Any stored value outside this set
@@ -297,6 +299,266 @@ export const runPackageMetadataMigration = mutation({
       .unique();
     if (existing) return { skipped: true, reason: "already run" };
     await ctx.scheduler.runAfter(0, internal.migrations.migratePackageMetadata, {});
+    return { scheduled: true };
+  },
+});
+
+/**
+ * Step 48: Migrates legacy serviceMaterialRecipes to canonical serviceBOM table.
+ */
+export const normalizeServiceRecipesToBom = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const existing = await ctx.db
+      .query("migrations")
+      .withIndex("by_key", (q: any) => q.eq("key", "serviceRecipesToBom"))
+      .unique();
+    if (existing) return { patched: 0, skipped: true };
+
+    const legacyRecipes = await ctx.db.query("serviceMaterialRecipes").collect();
+    let patched = 0;
+    const now = Date.now();
+
+    for (const recipe of legacyRecipes) {
+      const bomExists = await ctx.db
+        .query("serviceBOM")
+        .withIndex("by_service", (q: any) => q.eq("serviceType", recipe.serviceType))
+        .collect();
+      if (bomExists.some((b: any) => b.materialId === recipe.materialId)) continue;
+
+      const consumptionMode = recipe.requirementMode;
+      await ctx.db.insert("serviceBOM", {
+        serviceType: recipe.serviceType,
+        materialId: recipe.materialId,
+        consumptionMode,
+        quantityPerUnit: recipe.quantity,
+        wasteAllowancePercent: recipe.wasteAllowancePercent,
+        required: recipe.required,
+        active: recipe.active,
+        updatedAt: now,
+        updatedBy: recipe.updatedBy ?? "migration",
+      });
+      patched++;
+    }
+
+    await ctx.db.insert("migrations", { key: "serviceRecipesToBom", ranAt: now });
+    return { patched };
+  },
+});
+
+/**
+ * Step 49 & 51: Normalizes material master fields (materialFamily, inkColor, isSolvent).
+ */
+export const materialNormalization = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const existing = await ctx.db
+      .query("migrations")
+      .withIndex("by_key", (q: any) => q.eq("key", "materialNormalization"))
+      .unique();
+    if (existing) return { patched: 0, skipped: true };
+
+    const materials = await ctx.db.query("materials").collect();
+    let patched = 0;
+    const now = Date.now();
+
+    for (const mat of materials) {
+      const spec = findMaterialSpecification(mat.name);
+      const isSolvent = mat.isSolvent || Boolean(spec?.isSolvent) || (mat.name.toLowerCase().includes("solvent") && !mat.name.toLowerCase().includes("ink"));
+      const materialFamily = mat.materialFamily ?? (
+        spec?.materialFamily ??
+        (mat.category === "Ink" || (!isSolvent && mat.name.toLowerCase().includes("ink"))
+          ? "INK"
+          : isSolvent
+            ? "SOLVENT"
+            : mat.category === "Hardware"
+              ? "HARDWARE"
+              : "RAW_MATERIAL")
+      );
+
+      let inkColor = mat.inkColor;
+      if (!inkColor && (materialFamily === "INK" || mat.category === "Ink")) {
+        const lower = mat.name.toLowerCase();
+        if (lower.includes("cyan")) inkColor = "Cyan";
+        else if (lower.includes("magenta")) inkColor = "Magenta";
+        else if (lower.includes("yellow")) inkColor = "Yellow";
+        else if (lower.includes("black")) inkColor = "Black";
+        else if (lower.includes("white")) inkColor = "White";
+      }
+
+      await ctx.db.patch(mat._id, {
+        materialFamily,
+        inkColor,
+        isSolvent,
+      });
+      patched++;
+    }
+
+    await ctx.db.insert("migrations", { key: "materialNormalization", ranAt: now });
+    return { patched };
+  },
+});
+
+/**
+ * Step 50: Populates machine compatibility and structured inkRequirements.
+ */
+export const backfillMachineCompatibility = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const existing = await ctx.db
+      .query("migrations")
+      .withIndex("by_key", (q: any) => q.eq("key", "machineCompatibility"))
+      .unique();
+    if (existing) return { patched: 0, skipped: true };
+
+    const machines = await ctx.db.query("machines").collect();
+    let patched = 0;
+
+    for (const machine of machines) {
+      const catalogEntry = MACHINE_CATALOG.find(
+        (m) => m.code === machine.code || m.name.toLowerCase() === machine.name.toLowerCase()
+      );
+      if (!catalogEntry) continue;
+
+      const inkReqs = machine.inkRequirements ?? catalogEntry.compatibleInkNames.map((name) => {
+        let inkColor: string | undefined;
+        const lower = name.toLowerCase();
+        if (lower.includes("cyan")) inkColor = "Cyan";
+        else if (lower.includes("magenta")) inkColor = "Magenta";
+        else if (lower.includes("yellow")) inkColor = "Yellow";
+        else if (lower.includes("black")) inkColor = "Black";
+        else if (lower.includes("white")) inkColor = "White";
+        return {
+          materialName: name,
+          inkColor,
+          rateMlPerSqM: 12,
+        };
+      });
+
+      await ctx.db.patch(machine._id, {
+        primaryMaterials: [...catalogEntry.primaryMaterialNames],
+        compatibleInks: [...catalogEntry.compatibleInkNames],
+        solventNames: [...catalogEntry.solventNames],
+        inkRequirements: inkReqs,
+      });
+      patched++;
+    }
+
+    await ctx.db.insert("migrations", { key: "machineCompatibility", ranAt: Date.now() });
+    return { patched };
+  },
+});
+
+/**
+ * Step 52: Backfills length and width from dimension strings.
+ */
+export const backfillOrderDimensions = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const existing = await ctx.db
+      .query("migrations")
+      .withIndex("by_key", (q: any) => q.eq("key", "orderDimensions"))
+      .unique();
+    if (existing) return { patched: 0, skipped: true };
+
+    const orders = await ctx.db.query("customerOrders").collect();
+    let patched = 0;
+
+    for (const order of orders) {
+      if (order.length !== undefined && order.width !== undefined) continue;
+      if (!order.dimensions) continue;
+
+      const match = order.dimensions.trim().match(/^([0-9]+(?:\.[0-9]{1,3})?)\s*m?\s*[x×]\s*([0-9]+(?:\.[0-9]{1,3})?)\s*m?$/i);
+      if (!match) continue;
+
+      const length = Number(match[1]);
+      const width = Number(match[2]);
+      if (Number.isFinite(length) && length > 0 && Number.isFinite(width) && width > 0) {
+        await ctx.db.patch(order._id, { length, width });
+        patched++;
+      }
+    }
+
+    await ctx.db.insert("migrations", { key: "orderDimensions", ranAt: Date.now() });
+    return { patched };
+  },
+});
+
+/**
+ * Step 53: Backfills jobMaterialRequirements for open jobs lacking requirements.
+ */
+export const backfillJobMaterialRequirements = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const existing = await ctx.db
+      .query("migrations")
+      .withIndex("by_key", (q: any) => q.eq("key", "jobMaterialRequirementsBackfill"))
+      .unique();
+    if (existing) return { patched: 0, skipped: true };
+
+    const jobs = await ctx.db.query("jobCards").collect();
+    let patched = 0;
+    const now = Date.now();
+
+    for (const job of jobs) {
+      if (job.status === "Completed") continue;
+      const requirements = await ctx.db
+        .query("jobMaterialRequirements")
+        .withIndex("by_job_card", (q: any) => q.eq("jobCardId", job._id))
+        .collect();
+      if (requirements.length > 0) continue;
+
+      const material = await ctx.db.get(job.materialId);
+      if (!material) continue;
+
+      const ratio = material.conversionRatio && material.conversionRatio > 0 ? material.conversionRatio : 1;
+      const packageUnit = material.purchaseUnit === "sheet"
+        ? "SHEET"
+        : material.purchaseUnit === "roll"
+          ? "ROLL"
+          : material.purchaseUnit === "canister" || material.purchaseUnit === "liter"
+            ? "CANISTER"
+            : material.purchaseUnit === "piece" ? "PIECE" : "PACKAGE";
+
+      await ctx.db.insert("jobMaterialRequirements", {
+        jobCardId: job._id,
+        materialId: job.materialId,
+        packageUnit,
+        suggestedPackages: Math.ceil(job.quantity / ratio),
+        baseUnit: job.unit,
+        plannedBaseQuantity: job.quantity,
+        approvedScrapQuantity: Number((job.quantity * 0.05).toFixed(3)),
+        consumedBaseQuantity: 0,
+        conversionRatioSnapshot: ratio,
+        status: "PLANNED",
+        createdAt: now,
+        updatedAt: now,
+      });
+      patched++;
+    }
+
+    await ctx.db.insert("migrations", { key: "jobMaterialRequirementsBackfill", ranAt: now });
+    return { patched };
+  },
+});
+
+export const executeUnifiedMigrations = internalAction({
+  args: {},
+  handler: async (ctx) => {
+    await ctx.runMutation(internal.migrations.normalizeServiceRecipesToBom, {});
+    await ctx.runMutation(internal.migrations.materialNormalization, {});
+    await ctx.runMutation(internal.migrations.backfillMachineCompatibility, {});
+    await ctx.runMutation(internal.migrations.backfillOrderDimensions, {});
+    await ctx.runMutation(internal.migrations.backfillJobMaterialRequirements, {});
+    return { success: true };
+  },
+});
+
+export const runUnifiedWorkflowMigrations = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await requirePermission(ctx, "company_settings.update");
+    await ctx.scheduler.runAfter(0, internal.migrations.executeUnifiedMigrations, {});
     return { scheduled: true };
   },
 });

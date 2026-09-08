@@ -1,6 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { unit, purchaseUnit, accent, materialCatalogFamily } from "./schema";
+import { unit, purchaseUnit, accent, materialCatalogFamily, materialFamily } from "./schema";
 import { convertToBase, type InputUnit } from "./units";
 import { requirePermission, requireActiveProfile } from "./users";
 import { canViewFinancial } from "./authorization";
@@ -28,6 +28,8 @@ export const create = mutation({
     name: v.string(),
     category: v.string(),
     catalogFamily: v.optional(materialCatalogFamily),
+    materialFamily: v.optional(materialFamily),
+    inkColor: v.optional(v.string()),
     catalogVariant: v.optional(v.string()),
     catalogDimensions: v.optional(v.string()),
     compatibleMachineTypes: v.optional(v.array(v.string())),
@@ -92,6 +94,8 @@ export const create = mutation({
       name: canonicalName,
       category: catalog?.category ?? (args.category.trim() || "Custom"),
       catalogFamily: args.catalogFamily ?? catalog?.catalogFamily,
+      materialFamily: args.materialFamily ?? catalog?.materialFamily,
+      inkColor: args.inkColor ?? catalog?.inkColor,
       catalogVariant: args.catalogVariant?.trim() || catalog?.catalogVariant,
       catalogDimensions: args.catalogDimensions?.trim() || catalog?.catalogDimensions,
       compatibleMachineTypes: args.compatibleMachineTypes ?? (catalog?.compatibleMachineTypes ? [...catalog.compatibleMachineTypes] : undefined),

@@ -18,7 +18,8 @@ import {
 } from "./orderAutomation";
 import { recordInventoryEvent } from "./inventoryLedger";
 import { verifyTelegramInitData } from "./telegramAuth";
-import { loadActiveBomForService, resolveServiceRoute, resolveInkRequirements, resolveJobBOM } from "./bomResolver";
+import { loadActiveBomForService, resolveServiceRoute } from "./bomResolver";
+import { SERVICE_ROUTING_MAP } from "../src/shared/machine-catalog";
 
 /** Statuses a customer may see through public tracking (EXPIRED stays internal). */
 const PUBLIC_TRACKING_STATUSES = new Set(["PENDING_REVIEW", "PRICED_AND_PENDING_PAYMENT", "CONFIRMED_PAID_OR_CREDIT", "JOB_CARD_CREATED", "IN_PRODUCTION", "COMPLETED", "READY_FOR_PICKUP"]);
@@ -641,16 +642,6 @@ async function resolveAutoRouting(
   };
 }
 
-export type InkCheckItem = {
-  materialId?: string;
-  materialName: string;
-  inkColor?: string;
-  requiredMl: number;
-  requiredLitres: number;
-  availableLitres: number;
-  sufficient: boolean;
-};
-
 type DispatchResourceCheck = {
   canDispatch: boolean;
   errors: string[];
@@ -670,7 +661,6 @@ type DispatchResourceCheck = {
     materialNames: string[];
     sufficient: boolean;
     message?: string;
-    items: InkCheckItem[];
   };
 };
 
@@ -686,65 +676,32 @@ async function validateDispatchResources(ctx: any, order: OrderDoc, routed: Awai
   }
 
   const machine = await ctx.db.get(routed.machineId as Id<"machines">);
+  const compatibleInkNames: string[] = machine?.compatibleInks?.length ? machine.compatibleInks : [];
+  const inkRequired = compatibleInkNames.length > 0;
   const quantityMatch = order.quantity.match(/[0-9]+(?:\.[0-9]+)?/);
   const serviceUnits = quantityMatch ? Math.max(1, Number(quantityMatch[0])) : 1;
   const printedArea = order.length && order.width
     ? order.length * order.width * serviceUnits
     : routed.allocation.netBaseQuantity;
-
-  const inkRequirements = machine
-    ? await resolveInkRequirements(ctx, machine, printedArea, {
-        inkMlPerSquareMetre: config.inkMlPerSquareMetre ?? 12,
-      })
+  const requiredMl = inkRequired ? Number((printedArea * (config.inkMlPerSquareMetre ?? 12)).toFixed(1)) : 0;
+  const requiredLitres = Number((requiredMl / 1000).toFixed(3));
+  const inkRows = inkRequired
+    ? await ctx.db.query("materials").withIndex("by_category", (q: any) => q.eq("category", "Ink")).collect()
     : [];
-
-  const inkRequired = inkRequirements.length > 0;
-  const inkItems: InkCheckItem[] = [];
-  let allInksSufficient = true;
-  let totalRequiredMl = 0;
-  let totalRequiredLitres = 0;
-  let totalAvailableLitres = 0;
-
-  for (const req of inkRequirements) {
-    totalRequiredMl += req.requiredMl;
-    totalRequiredLitres += req.requiredLitres;
-    let available = 0;
-    let foundMaterial = req.materialId ? await ctx.db.get(req.materialId) : null;
-    if (!foundMaterial) {
-      const allInkMaterials = await ctx.db.query("materials").collect();
-      foundMaterial = allInkMaterials.find(
-        (m: any) =>
-          m.active &&
-          (m.name.toLowerCase() === req.materialName.toLowerCase() ||
-           (req.inkColor && m.inkColor?.toLowerCase() === req.inkColor.toLowerCase()))
-      ) ?? null;
-    }
-    if (foundMaterial && foundMaterial.active) {
-      available = foundMaterial.quantity ?? 0;
-    }
-    totalAvailableLitres += available;
-    const sufficient = available >= req.requiredLitres;
-    if (!sufficient) {
-      allInksSufficient = false;
-      const colorDesc = req.inkColor ? ` (${req.inkColor})` : "";
-      errors.push(
-        foundMaterial
-          ? `Insufficient ${req.materialName}${colorDesc}: ${available} L available, ${req.requiredLitres} L required.`
-          : `Required ink ${req.materialName}${colorDesc} is not registered or active in inventory.`
-      );
-    }
-    inkItems.push({
-      materialId: foundMaterial?._id,
-      materialName: req.materialName,
-      inkColor: req.inkColor,
-      requiredMl: req.requiredMl,
-      requiredLitres: req.requiredLitres,
-      availableLitres: available,
-      sufficient,
-    });
+  const matchedInkRows = inkRows.filter((row: any) => compatibleInkNames.some((name: string) => {
+    const wanted = name.toLowerCase();
+    const actual = row.name.toLowerCase();
+    return actual === wanted || actual.startsWith(wanted) || wanted.startsWith(actual);
+  }));
+  const availableLitres = matchedInkRows.reduce((total: number, row: any) => total + (row.quantity ?? 0), 0);
+  const inkSufficient = !inkRequired || (matchedInkRows.length > 0 && availableLitres >= requiredLitres);
+  const inkMaterialNames = matchedInkRows.map((row: any) => row.name);
+  if (inkRequired && !inkSufficient) {
+    const names = compatibleInkNames.join(", ");
+    errors.push(matchedInkRows.length === 0
+      ? `Cannot dispatch: ${names} is not registered in inventory for machine ${machine?.code ?? routed.machineName}.`
+      : `Cannot dispatch: ${names} stock is insufficient for machine ${machine?.code ?? routed.machineName}. Required ${requiredLitres} L, available ${availableLitres} L.`);
   }
-
-  const inkSufficient = !inkRequired || (allInksSufficient && inkItems.length > 0);
 
   return {
     canDispatch: errors.length === 0,
@@ -759,13 +716,12 @@ async function validateDispatchResources(ctx: any, order: OrderDoc, routed: Awai
     },
     ink: {
       required: inkRequired,
-      requiredMl: Number(totalRequiredMl.toFixed(1)),
-      requiredLitres: Number(totalRequiredLitres.toFixed(3)),
-      availableLitres: Number(totalAvailableLitres.toFixed(3)),
-      materialNames: inkItems.map((i) => i.materialName),
+      requiredMl,
+      requiredLitres,
+      availableLitres,
+      materialNames: inkMaterialNames,
       sufficient: inkSufficient,
       message: errors.find((error) => error.includes("ink") || error.includes("Ink")),
-      items: inkItems,
     },
   };
 }
@@ -844,13 +800,16 @@ export const confirmOrderAndIssueJobCard = mutation({
     }
 
     // Automated Machine & Material resolution based on service catalog
-    const routing = await resolveServiceRoute(ctx, order.serviceType);
+    const routing = SERVICE_ROUTING_MAP[order.serviceType];
     const sysConfig = await ensureSystemConfig(ctx);
+    const wasteMarginPercent = routing?.defaultWasteMarginPercent ?? sysConfig.maxAllowedWastePercent ?? 5;
 
     let targetMachine = args.machineId ? await ctx.db.get(args.machineId) : null;
     if (!targetMachine && routing) {
-      const allMachines = await ctx.db.query("machines").collect();
-      targetMachine = allMachines.find((m) => m.active && m.operatorRole === routing.operatorRole) ?? null;
+      targetMachine = await ctx.db
+        .query("machines")
+        .withIndex("by_code", (q) => q.eq("code", routing.preferredMachineCode))
+        .first();
     }
     if (!targetMachine) {
       targetMachine = (await ctx.db.query("machines").collect()).find((m) => m.active) ?? null;
@@ -902,7 +861,6 @@ export const confirmOrderAndIssueJobCard = mutation({
       allocation = routed.allocation;
     }
 
-    let resources: DispatchResourceCheck | null = null;
     if (machine && material) {
       const route = await resolveServiceRoute(ctx, order.serviceType) ?? {
         serviceType: order.serviceType,
@@ -911,7 +869,7 @@ export const confirmOrderAndIssueJobCard = mutation({
         machineCapabilities: [],
         operatorRole: machine.operatorRole,
       } as MaterialTypeRoute;
-      resources = await validateDispatchResources(ctx, order, {
+      const resources = await validateDispatchResources(ctx, order, {
         route,
         machineId: machine._id,
         machineName: machine.name,
@@ -926,40 +884,6 @@ export const confirmOrderAndIssueJobCard = mutation({
     const now = Date.now();
     const roundedAmount = Number(amount.toFixed(2));
     const code = `JC-${String(430 + Math.floor(Math.random() * 500)).padStart(4, "0")}`;
-
-    // Step 39 & 40: Create reservations BEFORE job insertion
-    const reservationIds: Array<Id<"reservations">> = [];
-    if (material) {
-      const rawRes = await ctx.db.insert("reservations", {
-        orderId: args.orderId,
-        materialId: material._id,
-        reservedQuantity: allocation.plannedBaseQuantity,
-        unit: allocation.unit as Unit,
-        status: "RESERVED",
-        createdAt: now,
-        updatedAt: now,
-      });
-      reservationIds.push(rawRes);
-    }
-    if (resources?.ink.required && resources.ink.items.length > 0) {
-      for (const item of resources.ink.items) {
-        if (item.materialId) {
-          const inkRes = await ctx.db.insert("reservations", {
-            orderId: args.orderId,
-            materialId: item.materialId as Id<"materials">,
-            reservedQuantity: item.requiredLitres,
-            unit: "L",
-            inkColor: item.inkColor,
-            status: "RESERVED",
-            createdAt: now,
-            updatedAt: now,
-          });
-          reservationIds.push(inkRes);
-        }
-      }
-    }
-
-    // Step 40: Insert jobCards only after reservation succeeds
     const jobId = await ctx.db.insert("jobCards", {
       code,
       client: order.clientName,
@@ -979,40 +903,54 @@ export const confirmOrderAndIssueJobCard = mutation({
       width: order.width,
       serviceType: order.serviceType,
     });
-
-    for (const rId of reservationIds) {
-      await ctx.db.patch(rId, { jobCardId: jobId, updatedAt: now });
-    }
-
-    // Step 7: Expand BOM via resolveJobBOM
-    const bomItems = await resolveJobBOM(
-      ctx,
-      order.serviceType,
-      { length: order.length, width: order.width },
-      order.quantity,
-      {
-        standardWasteMargin: config.standardWasteMargin ?? DEFAULT_SYSTEM_CONFIG.standardWasteMargin ?? 5,
-        maxAllowedScrapLimit: config.maxAllowedScrapLimit ?? DEFAULT_SYSTEM_CONFIG.maxAllowedScrapLimit ?? 10,
-        defaultMarginSquareMetres: config.defaultMarginSquareMetres,
+    const bomRows = await loadActiveBomForService(ctx, order.serviceType);
+    const serviceUnitsMatch = order.quantity.match(/[0-9]+(?:\.[0-9]+)?/);
+    const serviceUnits = serviceUnitsMatch ? Math.max(1, Number(serviceUnitsMatch[0])) : 1;
+    const parsedArea = order.length && order.width ? order.length * order.width : allocation.plannedBaseQuantity;
+    const bomCoversPrimary = bomRows.some((bom) => bom.materialId === material._id);
+    for (const bom of bomRows) {
+      const bomMaterial = await ctx.db.get(bom.materialId);
+      if (!bomMaterial || !bomMaterial.active) {
+        if (bom.required) throw new Error("A required BOM material is no longer active.");
+        continue;
       }
-    );
-    for (const item of bomItems) {
+      const margin = config.defaultMarginSquareMetres ?? 0;
+      const driver = bom.consumptionMode === "fixed"
+        ? 1
+        : bom.consumptionMode === "area_rate"
+          ? (parsedArea + margin) * serviceUnits
+          : bom.consumptionMode === "linear_rate"
+            ? (order.length ?? allocation.plannedBaseQuantity) * serviceUnits
+            : serviceUnits;
+      const plannedBaseQuantity = Number((bom.quantityPerUnit * driver).toFixed(3));
+      const allowancePercent = bom.wasteAllowancePercent ?? config.defaultScrapAllowancePercent ?? config.maxAllowedWastePercent;
+      const approvedScrapQuantity = Number((plannedBaseQuantity * allowancePercent / 100).toFixed(3));
+      const ratio = bomMaterial.conversionRatio && bomMaterial.conversionRatio > 0 ? bomMaterial.conversionRatio : 1;
+      const packageUnit = bomMaterial.purchaseUnit === "sheet"
+        ? "SHEET"
+        : bomMaterial.purchaseUnit === "roll"
+          ? "ROLL"
+          : bomMaterial.purchaseUnit === "canister" || bomMaterial.purchaseUnit === "liter"
+            ? "CANISTER"
+            : bomMaterial.purchaseUnit === "piece" ? "PIECE" : "PACKAGE";
       await ctx.db.insert("jobMaterialRequirements", {
         jobCardId: jobId,
-        materialId: item.materialId,
-        packageUnit: item.packageUnit,
-        suggestedPackages: item.suggestedPackages,
-        baseUnit: item.baseUnit,
-        plannedBaseQuantity: item.plannedBaseQuantity,
-        approvedScrapQuantity: item.approvedScrapQuantity,
-        consumedBaseQuantity: 0,
-        conversionRatioSnapshot: item.conversionRatioSnapshot,
+        materialId: bom.materialId,
+        packageUnit,
+        suggestedPackages: Math.ceil((plannedBaseQuantity + approvedScrapQuantity) / ratio),
+        baseUnit: bomMaterial.baseUnit ?? bomMaterial.unit,
+        plannedBaseQuantity,
+        approvedScrapQuantity,
+        conversionRatioSnapshot: ratio,
         status: "PLANNED",
         createdAt: now,
         updatedAt: now,
       });
     }
-    if (!bomItems.some((b) => b.materialId === material._id)) {
+    // Ensure the auto-allocated primary material is always on the job's
+    // material plan so the operator Sub-Stock queue and material requests
+    // resolve it, even when the service has no active BOM rows.
+    if (!bomCoversPrimary) {
       const primaryRatio = material.conversionRatio && material.conversionRatio > 0 ? material.conversionRatio : 1;
       const primaryPackageUnit = material.purchaseUnit === "sheet"
         ? "SHEET"
@@ -1029,7 +967,6 @@ export const confirmOrderAndIssueJobCard = mutation({
         baseUnit: material.baseUnit ?? material.unit ?? allocation.unit,
         plannedBaseQuantity: allocation.plannedBaseQuantity,
         approvedScrapQuantity: allocation.approvedScrapQuantity,
-        consumedBaseQuantity: 0,
         conversionRatioSnapshot: primaryRatio,
         status: "PLANNED",
         createdAt: now,
