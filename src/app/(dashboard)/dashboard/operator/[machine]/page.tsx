@@ -61,6 +61,25 @@ export default function OperatorMachinePage({
   const [wasteQuantity, setWasteQuantity] = useState("");
   const [productionInputsValid, setProductionInputsValid] = useState({ input: true, output: true, waste: true });
 
+  const machines = machinesQuery !== undefined ? (withIds(machinesQuery) as Machine[]) : [];
+  const jobs = jobsQuery !== undefined ? (withIds(jobsQuery) as JobCard[]) : [];
+
+  const currentMachine =
+    machines.find((m) => m.type.toLowerCase().includes(machineParam) || m.code.toLowerCase().includes(machineParam)) ??
+    machines[0];
+
+  const machineJobs = jobs.filter(
+    (j) => currentMachine && j.machineId === currentMachine.id
+  );
+  const activeJob = machineJobs.find((j) => j.status === "In production") ?? machineJobs.find((j) => j.status === "Queued");
+  const completedJob = machineJobs.find((j) => j.status === "Completed");
+  const displayedJob = activeJob ?? completedJob;
+
+  const jobRequirements = useQuery(
+    api.jobs.getJobRequirements,
+    displayedJob ? { jobCardId: displayedJob.id as Id<"jobCards"> } : "skip"
+  );
+
   if (!profile || machinesQuery === undefined || jobsQuery === undefined) {
     return (
       <div className="flex min-h-[400px] items-center justify-center">
@@ -69,21 +88,6 @@ export default function OperatorMachinePage({
     );
   }
 
-  const machines = withIds(machinesQuery) as Machine[];
-  const jobs = withIds(jobsQuery) as JobCard[];
-
-  // Find machine matching slug (e.g. "laser", "cnc", "plotter", "printer")
-  const currentMachine =
-    machines.find((m) => m.type.toLowerCase().includes(machineParam) || m.code.toLowerCase().includes(machineParam)) ??
-    machines[0];
-
-  // Assigned jobs for this machine
-  const machineJobs = jobs.filter(
-    (j) => currentMachine && j.machineId === currentMachine.id
-  );
-  const activeJob = machineJobs.find((j) => j.status === "In production") ?? machineJobs.find((j) => j.status === "Queued");
-  const completedJob = machineJobs.find((j) => j.status === "Completed");
-  const displayedJob = activeJob ?? completedJob;
   const isCompletedJob = displayedJob?.status === "Completed";
   const accessContext: AccessContext = {
     profile: { role: profile.role, active: profile.active },
@@ -103,11 +107,6 @@ export default function OperatorMachinePage({
     !productionInputsValid.input ||
     !productionInputsValid.output ||
     !productionInputsValid.waste
-  );
-
-  const jobRequirements = useQuery(
-    api.jobs.getJobRequirements,
-    displayedJob ? { jobCardId: displayedJob.id as Id<"jobCards"> } : "skip"
   );
 
   return (
