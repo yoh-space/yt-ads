@@ -19,6 +19,7 @@ import {
 } from "./orderAutomation";
 import { recordInventoryEvent } from "./inventoryLedger";
 import { verifyTelegramInitData } from "./telegramAuth";
+import { SERVICE_ROUTING_MAP } from "../src/shared/machine-catalog";
 
 /** Statuses a customer may see through public tracking (EXPIRED stays internal). */
 const PUBLIC_TRACKING_STATUSES = new Set(["PENDING_REVIEW", "PRICED_AND_PENDING_PAYMENT", "CONFIRMED_PAID_OR_CREDIT", "JOB_CARD_CREATED", "IN_PRODUCTION", "COMPLETED", "READY_FOR_PICKUP"]);
@@ -700,9 +701,20 @@ export const confirmOrderAndIssueJobCard = mutation({
       throw new Error(`Only orders awaiting review or payment can be confirmed (current status: ${order.status}).`);
     }
 
-    const amount = args.amount !== undefined ? args.amount : order.amount;
-    if (amount === undefined || !Number.isFinite(amount) || amount < 0) {
-      throw new Error("Confirm the final price before verifying payment.");
+    // Automated Machine & Material resolution based on service catalog
+    const routing = SERVICE_ROUTING_MAP[order.serviceType];
+    const sysConfig = await ensureSystemConfig(ctx);
+    const wasteMarginPercent = routing?.defaultWasteMarginPercent ?? sysConfig.maxAllowedWastePercent ?? 5;
+
+    let targetMachine = args.machineId ? await ctx.db.get(args.machineId) : null;
+    if (!targetMachine && routing) {
+      targetMachine = await ctx.db
+        .query("machines")
+        .withIndex("by_code", (q) => q.eq("code", routing.preferredMachineCode))
+        .first();
+    }
+    if (!targetMachine) {
+      targetMachine = (await ctx.db.query("machines").collect()).find((m) => m.active) ?? null;
     }
 
     const config = await ensureSystemConfig(ctx, identity._id);
@@ -857,10 +869,10 @@ const bomRows = await ctx.db
       machineId: machine._id,
       updatedAt: now,
     });
-    if (machine.status !== "Running") await ctx.db.patch(machine._id, { status: "Running", activeJob: code });
-    await notifyRoles(ctx, [machine.operatorRole, "owner", "manager", "admin"], {
+    if (targetMachine.status !== "Running") await ctx.db.patch(targetMachine._id, { status: "Running", activeJob: code });
+    await notifyRoles(ctx, [targetMachine.operatorRole, "owner", "manager", "admin"], {
       title: "Paid order issued to production",
-      message: `${order.code} (${order.clientName}) is confirmed ${args.paymentDecision} and queued as ${code} on ${machine.name}.`,
+      message: `${order.code} (${order.clientName}) is confirmed ${args.paymentDecision} and queued as ${code} on ${targetMachine.name}.`,
       type: "order_status",
       actorAuthUserId: identity._id,
       relatedTable: "customerOrders",

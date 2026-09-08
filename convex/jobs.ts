@@ -449,6 +449,68 @@ async function recordAutomaticDeduction(ctx: any, job: any, material: any, actor
     });
   }
 
+  // Synchronous Ink Deduction:
+  // If the job prints on an ink-consuming machine, deduct substrate m² and ink Liters simultaneously.
+  // Solvents are strictly excluded and adjusted periodically.
+  let inkDeducted = 0;
+  let inkMaterialName: string | undefined = undefined;
+  
+  if (bom.areaM2 > 0 && material.category !== "Ink") {
+    const machine = await ctx.db.get(job.machineId);
+    let targetInkMaterial: any = null;
+    if (job.inkMaterialId) {
+      targetInkMaterial = await ctx.db.get(job.inkMaterialId);
+    } else if (machine) {
+      const compatibleInkNames: string[] = machine.compatibleInks ?? [];
+      const allMaterials = await ctx.db.query("materials").collect();
+      if (compatibleInkNames.length > 0) {
+        targetInkMaterial = allMaterials.find((m: any) =>
+          compatibleInkNames.some((cin) => cin.toLowerCase() === m.name.toLowerCase())
+        );
+      } else {
+        const code = (machine.code ?? "").toLowerCase();
+        const mName = (machine.name ?? "").toLowerCase();
+        if (code.includes("cj7k") || mName.includes("crystal jet") || mName.includes("banner")) {
+          targetInkMaterial = allMaterials.find((m: any) => m.name.toLowerCase().includes("banner ink"));
+        } else if (code.includes("cesp") || mName.includes("eco-solvent") || mName.includes("crystc") || mName.includes("pac")) {
+          targetInkMaterial = allMaterials.find((m: any) => m.name.toLowerCase().includes("print & cut ink") || m.name.toLowerCase().includes("print and cut"));
+        } else if (code.includes("ruv") || mName.includes("ricoh") || mName.includes("uv")) {
+          targetInkMaterial = allMaterials.find((m: any) => m.name.toLowerCase().includes("uv ink") || m.name.toLowerCase().includes("uv flat"));
+        } else if (code.includes("dtf") || mName.includes("dtf") || mName.includes("i3200")) {
+          targetInkMaterial = allMaterials.find((m: any) => m.name.toLowerCase().includes("dtf ink"));
+        }
+      }
+    }
+
+    if (targetInkMaterial && !targetInkMaterial.isSolvent) {
+      const sysConfig = await ctx.db.query("systemConfigs").withIndex("by_key", (q: any) => q.eq("key", "default")).first();
+      const inkRateMl = sysConfig?.inkMlPerSquareMetre ?? 12;
+      const calculatedInkLiters = Number(((bom.areaM2 * inkRateMl) / 1000).toFixed(3));
+      if (calculatedInkLiters > 0) {
+        const floorInkDeducted = await deductOperatorStock(ctx, job.machineId, targetInkMaterial._id, calculatedInkLiters, actorId, job._id);
+        const centralInkRemainder = Number((calculatedInkLiters - floorInkDeducted).toFixed(3));
+        if (centralInkRemainder > 0) {
+          await recordInventoryEvent(ctx, {
+            materialId: targetInkMaterial._id,
+            eventType: "PRODUCTION_CONSUMPTION",
+            custody: "parent",
+            balanceEffect: "out",
+            quantity: centralInkRemainder,
+            unit: "L",
+            baseUnit: "L",
+            baseQuantity: centralInkRemainder,
+            machineId: job.machineId,
+            jobCardId: job._id,
+            note: `Synchronous ink deduction for ${job.code} on ${machine?.name ?? "machine"} (${calculatedInkLiters} L)`,
+            createdBy: actorId,
+          });
+        }
+        inkDeducted = calculatedInkLiters;
+        inkMaterialName = targetInkMaterial.name;
+      }
+    }
+  }
+
   const etb = resolveEtbValue(material);
   
   return {
@@ -459,6 +521,8 @@ async function recordAutomaticDeduction(ctx: any, job: any, material: any, actor
        areaM2: bom.areaM2,
        allocatedAreaM2: bom.allocatedAreaM2,
     inkMl: bom.inkMl,
+    inkDeducted,
+    inkMaterialName,
     unit: bom.unit,
     etbValue: etb,
     floorDeducted,

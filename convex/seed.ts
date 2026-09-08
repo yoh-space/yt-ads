@@ -72,7 +72,7 @@ export async function seedDemoData(ctx: MutationCtx, createdById: string) {
   }
 
   const definition = (name: string): MaterialSpecificationDefinition => {
-    const material = MATERIAL_SPECIFICATIONS.find((entry) => entry.name === name);
+    const material = findMaterialSpecification(name);
     if (!material) throw new Error(`Missing demo material definition: ${name}`);
     return material;
   };
@@ -113,31 +113,38 @@ export async function seedDemoData(ctx: MutationCtx, createdById: string) {
     return id;
   };
 
-  const matBanner = await createDemoMaterial(definition("Banner"), 286, 160, "cyan", "3 Meter Roll Weight");
-  const matAcrylic = await createDemoMaterial(definition("Acrylic"), 54.8, 65, "violet", "3mm");
-  const matVinyl = await createDemoMaterial(definition("Normal Sticker"), 417, 240, "gold", "1.27 Meter × 50 Meter Roll");
-  const matLed = await createDemoMaterial(definition("LED Module / Strip"), 1260, 800, "blue", "Cool White (6000K-6500K)");
-  const matInk = await createDemoMaterial(definition("DTF Ink"), 18.2, 12, "green", "CMYK (Cyan, Magenta, Yellow, Key/Black)");
-  const matMdf = await createDemoMaterial(definition("Foam"), 91.4, 45, "gold", "18mm");
+  const matBanner = await createDemoMaterial(definition("Banner Flex"), 286, 160, "cyan", "3.2m × 50m (160 m²)");
+  const matAcrylic = await createDemoMaterial(definition("Mica"), 54.8, 65, "violet", "3mm");
+  const matVinyl = await createDemoMaterial(definition("Frosted Sticker"), 417, 240, "gold", "1.2m × 50m (60 m²)");
+  const matLed = await createDemoMaterial(definition("LED Modules"), 1260, 800, "blue", "Cool White (6000K-6500K)");
+  const matInk = await createDemoMaterial(definition("DTF Ink 1L Canister"), 18.2, 12, "green", "White");
+  const matMdf = await createDemoMaterial(definition("Foam Board"), 91.4, 45, "gold", "18mm");
 
   const mLaser = await ctx.db.insert("machines", {
-    name: "Laser Cutter 1325", code: "LAS-01", type: "Laser cutter",
+    name: "Laser Cutter", code: "LAS-01", type: "CO2 Laser Cutter 1325",
     operatorRole: "laser_operator", materialUnit: "m²", status: "Running",
     activeJob: "JC-0421", active: true,
+    primaryMaterials: ["Mica", "Foam Board"],
   });
   const mCnc = await ctx.db.insert("machines", {
-    name: "CNC Router 2030", code: "CNC-02", type: "CNC router",
+    name: "CNC Router", code: "CNC-01", type: "Heavy Duty CNC Router 2030",
     operatorRole: "cnc_operator", materialUnit: "m²", status: "Running",
     activeJob: "JC-0424", active: true,
+    primaryMaterials: ["Foam Board", "Cladding"],
   });
   const mPlotter = await ctx.db.insert("machines", {
-    name: "Graphtec FC9000", code: "PLT-01", type: "Plotter & vinyl cutter",
-    operatorRole: "plotter_operator", materialUnit: "m", status: "Available", active: true,
+    name: "Crystc Eco-Solvent Printer", code: "CESP-01", type: "Eco-Solvent Printer & Cutter",
+    operatorRole: "plotter_operator", materialUnit: "m²", status: "Available", active: true,
+    primaryMaterials: ["Frosted Sticker", "Transparent Sticker", "Reflective Sticker", "Mesh Sticker"],
+    compatibleInks: ["Print & Cut Ink 1L Canister"],
   });
   const mPrinter = await ctx.db.insert("machines", {
-    name: "Eco-solvent 3.2m", code: "PRT-01", type: "Large format printer",
+    name: "Crystal Jet 7K Series", code: "CJ7K-01", type: "Large Format Solvent Printer",
     operatorRole: "printer_operator", materialUnit: "m²", status: "Running",
     activeJob: "JC-0420", active: true,
+    primaryMaterials: ["Banner Flex", "Mesh Sticker"],
+    compatibleInks: ["Banner Ink 5L Canister"],
+    solventNames: ["Banner Solvent"],
   });
 
   await ctx.db.insert("jobCards", {
@@ -649,6 +656,11 @@ export const migrateYtAdvertisementMasterData = mutation({
           operatorRole: machine.operatorRole,
           materialUnit: machine.materialUnit,
           displayUnit: machine.displayUnit,
+          primaryMaterials: "primaryMaterials" in machine ? [...machine.primaryMaterials] : undefined,
+          compatibleInks: "compatibleInks" in machine ? [...machine.compatibleInks] : undefined,
+          solventNames: "solventNames" in machine ? [...machine.solventNames] : undefined,
+          defaultWasteMarginPercent: "defaultWasteMarginPercent" in machine ? machine.defaultWasteMarginPercent : undefined,
+          maxAllowedScrapLimitPercent: "maxAllowedScrapLimitPercent" in machine ? machine.maxAllowedScrapLimitPercent : undefined,
         });
         machinesPatched += 1;
       } else {

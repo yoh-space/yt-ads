@@ -419,8 +419,8 @@ export function OrderConfirmModal({ order, machines, materials, onClose, onSave 
   return (
     <ModalShell
       title={`${order.code} · Confirm Payment & Issue Job Card`}
-      subtitle="Verify payment method and assign production resources. Job card will be created upon confirmation."
-      kicker="CONFIRM ORDER"
+      subtitle="Verify payment to trigger automated machine routing and job card creation. Manual allocation is disabled per ERP rules."
+      kicker="AUTOMATED PRODUCTION DISPATCH"
       onClose={onClose}
       footer={
         <div className="flex gap-3 justify-end">
@@ -444,7 +444,7 @@ export function OrderConfirmModal({ order, machines, materials, onClose, onSave 
               });
             }}
           >
-            {submitting ? "Confirming…" : "Confirm & Create Job Card"} <ArrowUpRight size={16} />
+            {submitting ? "Dispatching…" : "Confirm & Auto-Create Job Card"} <ArrowUpRight size={16} />
           </Button>
         </div>
       }
@@ -455,6 +455,9 @@ export function OrderConfirmModal({ order, machines, materials, onClose, onSave 
           <ArrowUpRight size={17} className="text-cyan flex-none" />
           <span className="text-sm text-gray-600">Order</span>
           <strong className="text-sm text-navy">{order.code}</strong>
+          <span className="ml-auto inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+            <Sparkles size={12} /> Auto-Calculated
+          </span>
         </div>
 
         {/* Order Details Grid */}
@@ -464,7 +467,7 @@ export function OrderConfirmModal({ order, machines, materials, onClose, onSave 
           <div><small className="text-muted-foreground">Service</small><br /><strong className="text-navy">{getServiceLabel(order.serviceType) ?? order.serviceType}</strong></div>
           <div><small className="text-muted-foreground">Total Price</small><br /><strong className="text-navy">{order.amount ? `${order.amount.toFixed(2)} ETB` : "—"}</strong></div>
           <div><small className="text-muted-foreground">Dimensions</small><br /><strong className="text-navy">{order.dimensions}</strong></div>
-          <div><small className="text-muted-foreground">Quantity</small><br /><strong className="text-navy">{order.quantity}</strong></div>
+          <div><small className="text-muted-foreground">Order Quantity</small><br /><strong className="text-navy">{order.quantity}</strong></div>
         </div>
 
         {/* Payment Verification Section */}
@@ -499,7 +502,7 @@ export function OrderConfirmModal({ order, machines, materials, onClose, onSave 
               <span className="block text-xs font-semibold text-navy mb-1">Payment Method</span>
               <input 
                 type="text" 
-                placeholder="e.g. Cash, Bank Transfer, Mobile Money"
+                placeholder="e.g. Telebirr, CBE Bank Transfer, Cash"
                 value={paymentMethod}
                 onChange={(e) => setPaymentMethod(e.target.value)}
                 className="w-full px-3 py-2 bg-white border border-line rounded-lg text-sm text-ink outline-none focus:border-cyan"
@@ -563,6 +566,18 @@ export function OrderConfirmModal({ order, machines, materials, onClose, onSave 
             <span className="text-sm text-gray-600">Available after production</span>
              <strong className="text-sm text-navy">{material ? formatQuantity(Math.max(0, material.quantity - parsedQuantity), material.unit) : "—"}</strong>
           </div>
+
+          {/* Stock Alert */}
+          {hasShortfall ? (
+            <div className="p-2.5 bg-danger/10 text-danger rounded border border-danger/20 text-xs">
+              ⚠️ Stock shortfall: Central store has only {formatQuantity(autoMaterial?.quantity ?? 0, autoMaterial?.unit ?? "m²")} available.
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-xs text-emerald-600">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+              <span>Sufficient stock verified ({formatQuantity(autoMaterial?.quantity ?? 0, autoMaterial?.unit ?? "m²")} in store)</span>
+            </div>
+          )}
         </div>
       </div>
     </ModalShell>
