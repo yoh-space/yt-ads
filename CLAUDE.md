@@ -4,10 +4,13 @@ This project uses **Next.js App Router**, **Convex**, and **Better Auth**.
 
 ## Active architecture
 
-- `app/` contains the active Next.js routes and the Better Auth catch-all route.
-- `components/dashboard/` contains the live Convex-backed dashboard, views, modals, and operator workspaces.
+- `src/app/` contains the active Next.js routes and the Better Auth catch-all route.
+- `src/components/dashboard/` contains the live Convex-backed dashboard, views, modals, and operator workspaces.
+- `src/components/ui/` contains domain-neutral UI primitives and `src/components/public/` the order tracker and Telegram Mini App.
 - `convex/` contains the schema, queries, mutations, authentication helpers, seed mutation, and shared backend validation.
-- `lib/` contains shared frontend types, authentication clients, and pure conversion helpers.
+- `src/lib/` contains shared frontend types, authentication clients, role routing, and pure conversion helpers.
+- `src/shared/` contains the service catalog, material specifications, and machine catalog.
+- `src/proxy.ts` is the Next.js 16 edge request interceptor that enforces role-gated routing.
 - `pages/` is not an active routing directory for this App Router project.
 
 ## Development checks

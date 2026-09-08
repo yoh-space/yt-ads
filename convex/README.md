@@ -1,6 +1,6 @@
 # Convex and Better Auth setup
 
-The application uses Convex for the database, reactive queries, and authenticated mutations. Better Auth is mounted through the Convex component and exposed to Next.js through `app/api/auth/[...all]/route.ts`.
+The application uses Convex for the database, reactive queries, and authenticated mutations. Better Auth is mounted through the Convex component and exposed to Next.js through `src/app/api/auth/[...all]/route.ts`.
 
 ## Required deployment configuration
 
@@ -69,7 +69,7 @@ To enable Google sign-in and account linking, set `GOOGLE_CLIENT_ID` and `GOOGLE
 
 For the current master-data conversion rules, `purchaseUnit` is one of `roll`, `sheet`, `pack`, `liter`, or `piece`; `baseUnit` is one of `m²`, `m`, `L`, or `pcs`; and `conversionRatio` converts purchase quantity into base quantity. PVC Film remains intentionally unconfigured until its physical roll dimensions are confirmed.
 
-Material records also carry a canonical `specification`, optional `specificationValue`, and the strict `specificationOptions` list used by the creation form and Convex validation. The supported families are: Neon Light color type; Banner roll weight and size; Foam thickness/size in millimeters; Mica Sheet color/finish; Acrylic thickness in millimeters; Canvas roll width/type; Machine Ink type and color configuration; Power Supply wattage; LED Module / Strip color type; and Zocolo height in centimeters. The source of truth is `shared/material-specifications.ts`, which also preserves aliases such as `LED`, `Mica`, `Canvas`, and `ZOCOLO` for non-destructive migration.
+Material records also carry a canonical `specification`, optional `specificationValue`, and the strict `specificationOptions` list used by the creation form and Convex validation. The supported families are: Neon Light color type; Banner roll weight and size; Foam thickness/size in millimeters; Mica Sheet color/finish; Acrylic thickness in millimeters; Canvas roll width/type; Machine Ink type and color configuration; Power Supply wattage; LED Module / Strip color type; and Zocolo height in centimeters. The source of truth is `src/shared/material-specifications.ts`, which also preserves aliases such as `LED`, `Mica`, `Canvas`, and `ZOCOLO` for non-destructive migration.
 
 ## Verification
 

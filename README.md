@@ -2,7 +2,7 @@
 
 YT Advertising Operations Control is an Amharic-first operations dashboard for an advertising-production team. It tracks raw materials, machine assignments, job cards, production activity, reusable offcuts, unusable scrap, and inventory movements in a single workflow.
 
-The application uses the **Next.js App Router** for the web interface, **Convex** for reactive persistence and backend mutations, and **Better Auth** for email/password authentication with optional Google OAuth. The active dashboard is implemented under `components/dashboard/`; the older local-state dashboard has been removed.
+The application uses the **Next.js App Router** for the web interface, **Convex** for reactive persistence and backend mutations, and **Better Auth** for email/password authentication with optional Google OAuth. The active dashboard is implemented under `src/components/dashboard/`; the older local-state dashboard has been removed.
 
 ## Current capabilities
 
@@ -108,11 +108,21 @@ New interface work must use semantic design tokens and theme variables for color
 ## Repository structure
 
 ```text
-src/app/                     Next.js App Router pages and Better Auth route
-components/dashboard/        Live dashboard, views, modals, and operator workspaces
-convex/                      Convex schema, queries, mutations, auth, and validation
-lib/                         Shared frontend types, auth clients, and conversion helpers
-docs/                        Project validation and operational notes
+src/app/                     Next.js App Router pages, routes, and Better Auth catch-all
+src/components/ui/           Domain-neutral UI primitives (Panel, Button, Badge, Table, ...)
+src/components/dashboard/    Live dashboard shell, views, modals, and role workspaces
+src/components/public/       Order tracker and Telegram Mini App customer portal
+src/lib/                     Shared frontend types, auth clients, routing, and helpers
+src/shared/                  Service catalog, material specifications, and machine catalog
+src/telegram/                grammY bot logic, keyboards, sessions, and i18n
+src/types/                   Shared TypeScript type definitions
+src/hooks/                   Frontend hooks (e.g. useNotification)
+src/store/                   Client-side state stores (e.g. useSoundStore)
+src/constants/               Frontend constants (e.g. services)
+src/proxy.ts                 Next.js 16 edge request interceptor (role-gated routing)
+convex/                      Convex schema, queries, mutations, auth, validation, crons
+src-tauri/                   Tauri v2 desktop shell (Cargo, capabilities, icons)
+docs/                        Architecture, workflows, RBAC, security, and ADR docs
 .env.example                 Required local environment variable names
 package.json                 Development, test, type-check, and build commands
 ```
@@ -266,7 +276,7 @@ Use the locked package manager and run the complete validation set before commit
 # 1. Install locked dependencies
 pnpm install --frozen-lockfile
 
-# 2. Run unit & ERP calculation test suite (51 passing tests)
+# 2. Run unit & ERP calculation test suite
 pnpm test
 
 # 3. Static typecheck (zero TypeScript errors)
@@ -284,7 +294,7 @@ All persistent operations must be performed through Convex handlers rather than 
 
 Stock-in converts the selected purchase unit into the material’s normalized base unit using `conversionRatio` before updating inventory and recording both entered and normalized quantities. Production logging consumes base units directly, inserts a `productionLogs` record, and creates a corresponding stock-movement audit row. Standard job completion derives material allocation from persisted dimensions, BOM requirements, configured margin, and scrap allowance before releasing the machine. Ink is deducted with mL precision; solvents remain periodic adjustments. Scrap records deduct stock and create an auditable outbound movement. Reusable square-meter offcuts increase material stock and create an `offcut_return` movement.
 
-Each raw-material entity may also define a canonical specification family, a selected specification value, and a strict option list. The current catalog covers Neon Light colors, Banner roll weight/size, Foam and Acrylic thickness, Mica Sheet finish, Canvas roll width/type, Machine Ink type/color configuration, Power Supply wattage, LED Module / Strip colors, and Zocolo height. These definitions are centralized in `shared/material-specifications.ts` and are enforced by both the material form and the Convex create validator.
+Each raw-material entity may also define a canonical specification family, a selected specification value, and a strict option list. The current catalog covers Neon Light colors, Banner roll weight/size, Foam and Acrylic thickness, Mica Sheet finish, Canvas roll width/type, Machine Ink type/color configuration, Power Supply wattage, LED Module / Strip colors, and Zocolo height. These definitions are centralized in `src/shared/material-specifications.ts` and are enforced by both the material form and the Convex create validator.
 
 ## Environment variables
 
@@ -292,6 +302,12 @@ Each raw-material entity may also define a canonical specification family, a sel
 |---|---|
 | `NEXT_PUBLIC_CONVEX_URL` | Public Convex cloud URL used by the browser client. |
 | `NEXT_PUBLIC_CONVEX_SITE_URL` | Convex site URL used by the Better Auth Next.js integration. |
+| `NEXT_PUBLIC_APP_URL` | Public application base URL. |
+| `TELEGRAM_BOT_TOKEN` | Token for the grammY Telegram bot. |
+| `TELEGRAM_RECEPTION_CHAT_ID` | Chat ID for receptionist Telegram alerts. |
+| `TELEGRAM_OWNER_CHAT_ID` | Chat ID for owner Telegram alerts. |
+| `TELEGRAM_ALERT_CHAT_ID` | Chat ID for general alert notifications. |
+| `TELEGRAM_WEBHOOK_SECRET` | Secret used to secure the Telegram webhook. |
 | `BETTER_AUTH_SECRET` | Secret configured in the Convex deployment for Better Auth. |
 | `SITE_URL` | Application site URL configured in the Convex deployment. |
 | `GOOGLE_CLIENT_ID` | Optional Google OAuth client ID for sign-in and account linking. |
@@ -299,8 +315,25 @@ Each raw-material entity may also define a canonical specification family, a sel
 
 Do not commit `.env.local` or deployment secrets. Keep `.env.example` limited to variable names and safe documentation.
 
-## Current release status
+## Desktop shell (Tauri v2)
+
+The web client can be wrapped as a cross-platform native desktop app with the Tauri v2 shell in `src-tauri/`, loaded via `@tauri-apps/api` and `@tauri-apps/plugin-updater`. The shell loads `http://localhost:3000` in development (window 1280×800 min). `src/components/auto-updater.tsx` is a root-mounted background updater that no-ops outside a Tauri WebView; `src/lib/desktop.ts` exposes `printNative()` and `isDesktopShell()` used by the receptionist receipt-print flow. Desktop scripts (`pnpm tauri:dev`, `pnpm tauri:build`) require the Rust toolchain.
 
 ## 8. Role Workspace Route Matrix
+
+Each authenticated role is routed to its role-specific workspace landing (`ROLE_HOME_ROUTE` in `src/lib/role-routing.ts`), enforced by the `src/proxy.ts` edge interceptor:
+
+| Role | Landing route |
+|---|---|
+| Owner / Admin | `/dashboard/owner` |
+| Manager | `/dashboard/manager` |
+| Storekeeper | `/dashboard/storekeeper` |
+| Receptionist | `/dashboard/receptionist` |
+| Laser operator | `/dashboard/operator/laser` |
+| CNC operator | `/dashboard/operator/cnc` |
+| Plotter operator | `/dashboard/operator/plotter` |
+| Printer operator | `/dashboard/operator/printer` |
+
+Workspace routing is defined in `src/lib/role-routing.ts` (`ROUTE_CONTRACTS`), dashboard navigation in `src/components/dashboard/nav-config.ts`, and workspace composition in `src/components/dashboard/workspace-registry.ts`.
 
 The requirement-based seed creates the verified company, machine, and material master data with catalog families, physical dimensions, machine associations, and conversion metadata without inventing operational history. `migrateYtAdvertisementMasterData` updates existing master records without changing quantities or activity. The next product-level improvements are Convex integration tests for authorization and notification targeting, a production Google OAuth configuration, image upload storage for company logos instead of URL-only branding, and continuous integration for the verification commands.
