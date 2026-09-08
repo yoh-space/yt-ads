@@ -8,7 +8,7 @@ import { notifyUser } from "./notificationHelpers";
 import { verifyTelegramInitData } from "./telegramAuth";
 
 const MANAGEMENT_ROLES: Role[] = ["owner", "manager", "admin"];
-const OPERATOR_ROLES: Role[] = ["laser_operator", "cnc_operator", "plotter_operator", "printer_operator"];
+export const OPERATOR_ROLES: Role[] = ["laser_operator", "cnc_operator", "plotter_operator", "printer_operator"];
 
 type AuthIdentity = NonNullable<Awaited<ReturnType<typeof authComponent.safeGetAuthUser>>>;
 

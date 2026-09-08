@@ -581,40 +581,55 @@ async function recordAutomaticBomDeductions(ctx: any, job: any, actorId: string)
   return { bom: deductions };
 }
 
+/**
+ * Shared job-completion transaction used by the generic `complete` mutation
+ * and the machine-scoped operator namespace mutation. Mutations validate input,
+ * require an active application profile, enforce the relevant role, and write
+ * all deduction, order-status, machine-availability, and notification changes
+ * transactionally.
+ */
+export async function completeJobInternal(
+  ctx: any,
+  identity: { _id: string },
+  profile: { role: string },
+  args: { jobId: any },
+) {
+  const job = await ctx.db.get(args.jobId);
+  if (!job) throw new Error("Job card not found.");
+  const machine = await ctx.db.get(job.machineId);
+  if (!machine) throw new Error("Job machine not found.");
+  if (!canAccessJob(profile.role as any, machine)) {
+    throw new Error("You are not assigned to this machine.");
+  }
+  if (job.status === "Completed") return { success: true, deduction: undefined };
+
+  const deduction = await deductJobRequirements(ctx, {
+    jobCardId: job._id,
+    actorId: identity._id,
+    mode: "completion",
+  });
+
+  await ctx.db.patch(args.jobId, { status: "Completed" });
+  if (job.orderId) {
+    await ctx.db.patch(job.orderId, { status: "COMPLETED", updatedAt: Date.now() });
+    await notifyOrderCompletion(ctx, job.orderId, identity._id);
+  }
+  await ctx.db.patch(machine._id, { status: "Available", activeJob: undefined });
+  await notifyUser(ctx, job.createdBy, {
+    title: "Job completed",
+    message: `${job.code} was completed and ${machine.name} is available.`,
+    type: "job_update",
+    actorAuthUserId: identity._id,
+    relatedTable: "jobCards",
+    relatedId: args.jobId,
+  });
+  return { success: true, deduction };
+}
+
 export const complete = mutation({
   args: { jobId: v.id("jobCards") },
   handler: async (ctx, args) => {
     const { identity, profile } = await requireActiveProfile(ctx);
-    const job = await ctx.db.get(args.jobId);
-    if (!job) throw new Error("Job card not found.");
-    const machine = await ctx.db.get(job.machineId);
-    if (!machine) throw new Error("Job machine not found.");
-    if (!canAccessJob(profile.role, machine)) {
-      throw new Error("You are not assigned to this machine.");
-    }
-    if (job.status === "Completed") return;
-
-    const material = await ctx.db.get(job.materialId);
-    const deduction = await deductJobRequirements(ctx, {
-      jobCardId: job._id,
-      actorId: identity._id,
-      mode: "completion",
-    });
-
-    await ctx.db.patch(args.jobId, { status: "Completed" });
-    if (job.orderId) {
-      await ctx.db.patch(job.orderId, { status: "COMPLETED", updatedAt: Date.now() });
-      await notifyOrderCompletion(ctx, job.orderId, identity._id);
-    }
-    await ctx.db.patch(machine._id, { status: "Available", activeJob: undefined });
-    await notifyUser(ctx, job.createdBy, {
-      title: "Job completed",
-      message: `${job.code} was completed and ${machine.name} is available.`,
-      type: "job_update",
-      actorAuthUserId: identity._id,
-      relatedTable: "jobCards",
-      relatedId: args.jobId,
-    });
-    return { success: true, deduction };
+    return completeJobInternal(ctx, identity, profile, args);
   },
 });

@@ -10,13 +10,6 @@ import { InventoryLoader } from "@/components/dashboard/inventory-loader";
 import { WorkspaceModuleGate } from "@/components/dashboard/workspace-renderer";
 import { NumericInput } from "@/components/ui";
 import type { AccessContext } from "@/lib/access-policy";
-import type { Machine } from "@/lib/operations-types";
-
-type WithId<T extends { _id: string }> = Omit<T, "_id"> & { id: T["_id"] };
-
-function withIds<T extends { _id: string }>(docs: T[]): WithId<T>[] {
-  return docs.map(({ _id, ...rest }) => ({ ...rest, id: _id }));
-}
 
 function formatNumber(value: number) {
   return value.toLocaleString("en-US", { maximumFractionDigits: 3 });
@@ -29,24 +22,22 @@ export default function OperatorReconciliationPage({
 }) {
   const { machine: machineParam } = use(params);
   const profile = useQuery(api.users.getCurrentProfile);
-  const machinesQuery = useQuery(api.machines.list, profile?.active ? {} : "skip");
-  const stock = useQuery(api.inventory.listOperatorMachineStock, profile?.active ? {} : "skip");
+  const machine = useQuery(api.operator.machines.getMachine, { machineSlug: machineParam });
+  const stock = useQuery(api.operator.inventory.listStock, { machineSlug: machineParam });
   const reconcile = useMutation(api.inventory.performWeeklyReconciliation);
   const [counts, setCounts] = useState<Record<string, string>>({});
   const [countValidity, setCountValidity] = useState<Record<string, boolean>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
 
-  if (!profile || machinesQuery === undefined || stock === undefined) {
+  if (!profile || machine === undefined || stock === undefined) {
     return <div className="flex min-h-[400px] items-center justify-center"><InventoryLoader label="Loading Stock Reconciliation…" /></div>;
   }
 
-  const machines = withIds(machinesQuery) as Machine[];
-  const machine = machines.find((entry) => entry.type.toLowerCase().includes(machineParam.toLowerCase()) || entry.code.toLowerCase().includes(machineParam.toLowerCase()));
-  const machineStock = stock.filter((entry) => entry.machineId === machine?.id && entry.status === "ACTIVE");
+  const machineStock = stock.filter((entry) => entry.machineId === machine.id && entry.status === "ACTIVE");
   const accessContext: AccessContext = {
     profile: { role: profile.role, active: profile.active },
-    attributes: { machineId: machine?.id, machineType: machineParam as "laser" | "cnc" | "plotter" | "printer" },
+    attributes: { machineId: machine.id, machineType: machineParam as "laser" | "cnc" | "plotter" | "printer" },
   };
 
   async function submitCount(stockId: Id<"operatorSubStock">, systemRemaining: number, unit: string) {
