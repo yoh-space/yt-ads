@@ -216,10 +216,6 @@ export function DashboardActionModals({ profile }: { profile: Profile | null }) 
             orderId: convertOrderTarget.id as Id<"customerOrders">,
             paymentDecision: input.paymentDecision,
             paymentMethod: input.paymentMethod,
-            machineId: input.machineId as Id<"machines">,
-            materialId: input.materialId as Id<"materials">,
-            quantity: input.quantity,
-            unit: input.unit,
             priority: input.priority,
           }).then((result) => { setConvertOrderTarget(null); return result; }), "Order confirmed · job card issued")}
         />

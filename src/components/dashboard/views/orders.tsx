@@ -1,6 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { ArrowUpRight, CalendarDays, Clock3, Plus, Search, Wrench, X, Copy, Check, Sparkles } from "lucide-react";
 import type { CustomerOrder, Machine, Material, OrderPriority, CustomerOrderStatus } from "@/lib/operations-types";
 import { formatQuantity } from "@/lib/units";
@@ -403,20 +406,12 @@ export function OrderPriceModal({ order, onClose, onSave }: { order: CustomerOrd
   );
 }
 
-export function OrderConfirmModal({ order, machines, materials, onClose, onSave }: { order: CustomerOrder; machines: Machine[]; materials: Material[]; onClose: () => void; onSave: (input: { paymentDecision: "PAID" | "APPROVED_CREDIT"; paymentMethod?: string; machineId: string; materialId: string; quantity: number; unit: Material["unit"]; priority?: OrderPriority }) => void }) {
-  const [machineId, setMachineId] = useState(machines[0]?.id ?? "");
-  const [materialId, setMaterialId] = useState(materials[0]?.id ?? "");
-  const [quantity, setQuantity] = useState("1");
-  const [quantityValid, setQuantityValid] = useState(true);
+export function OrderConfirmModal({ order, machines, materials, onClose, onSave }: { order: CustomerOrder; machines: Machine[]; materials: Material[]; onClose: () => void; onSave: (input: { paymentDecision: "PAID" | "APPROVED_CREDIT"; paymentMethod?: string; priority?: OrderPriority }) => void }) {
   const [paymentDecision, setPaymentDecision] = useState<"PAID" | "APPROVED_CREDIT">("PAID");
   const [paymentMethod, setPaymentMethod] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const material = materials.find((entry) => entry.id === materialId);
-  const machine = machines.find((entry) => entry.id === machineId);
-  const parsedQuantity = Number(quantity);
-  const hasQuantityError = !quantity.trim() || !quantityValid || !Number.isFinite(parsedQuantity) || parsedQuantity <= 0;
-  const autoMaterial = material;
-  const hasShortfall = Boolean(autoMaterial && parsedQuantity > autoMaterial.quantity);
+  const dispatchPreview = useQuery(api.orders.previewAutoRouting, { orderId: order.id as Id<"customerOrders"> });
+  const dispatchBlocked = !dispatchPreview || !dispatchPreview.canDispatch;
 
   return (
     <ModalShell
@@ -430,19 +425,15 @@ export function OrderConfirmModal({ order, machines, materials, onClose, onSave 
           <Button 
             type="submit" 
             variant="primary" 
-             disabled={submitting || !machineId || !materialId || hasQuantityError || (paymentDecision === "PAID" && !paymentMethod.trim())}
+             disabled={submitting || dispatchBlocked || (paymentDecision === "PAID" && !paymentMethod.trim())}
             onClick={() => {
-               if (submitting || !machineId || !materialId || hasQuantityError) return;
+                if (submitting || dispatchBlocked) return;
               if (paymentDecision === "PAID" && !paymentMethod.trim()) return;
               setSubmitting(true);
               onSave({ 
                 paymentDecision, 
                 paymentMethod: paymentDecision === "PAID" ? paymentMethod.trim() : undefined,
-                machineId, 
-                materialId, 
-                 quantity: parsedQuantity,
-                unit: material?.baseUnit ?? material?.unit ?? "m²", 
-                priority: order.priority 
+                 priority: order.priority 
               });
             }}
           >
@@ -513,73 +504,26 @@ export function OrderConfirmModal({ order, machines, materials, onClose, onSave 
           )}
         </div>
 
-        {/* Production Assignment */}
-        <div className="space-y-4">
-          <label className="block">
-            <span className="block text-sm font-semibold text-navy mb-2">Assigned machine</span>
-            <select 
-              value={machineId} 
-              onChange={(event) => setMachineId(event.target.value)}
-              className="w-full px-3 py-2 bg-white border border-line rounded-lg text-sm text-ink outline-none focus:border-cyan"
-            >
-              {machines.map((entry) => (
-                <option key={entry.id} value={entry.id}>{entry.name} · {entry.code} · {entry.status}</option>
-              ))}
-            </select>
-          </label>
-          {machine && (machine.status === "Maintenance" || machine.status === "Unavailable") ? (
-            <p className="text-sm text-danger">{machine.name} is {machine.status.toLowerCase()} and cannot accept new jobs.</p>
-          ) : null}
-
-          <label className="block">
-            <span className="block text-sm font-semibold text-navy mb-2">Raw material</span>
-            <select 
-              value={materialId} 
-              onChange={(event) => setMaterialId(event.target.value)}
-              className="w-full px-3 py-2 bg-white border border-line rounded-lg text-sm text-ink outline-none focus:border-cyan"
-            >
-              {materials.map((entry) => (
-                <option key={entry.id} value={entry.id}>{entry.name} · {formatQuantity(entry.quantity, entry.baseUnit ?? entry.unit)}</option>
-              ))}
-            </select>
-          </label>
-           {material && parsedQuantity > material.quantity ? (
-             <p className="text-sm text-danger">
-               Stock shortfall — {material.name} has {formatQuantity(material.quantity, material.unit)} available but {parsedQuantity} {material?.baseUnit ?? material?.unit} is required.
-            </p>
-          ) : null}
-
-          <label className="block">
-            <span className="block text-sm font-semibold text-navy mb-2">Planned material usage ({material?.baseUnit ?? material?.unit})</span>
-           <NumericInput
-             min={0.1}
-             step="0.1"
-             value={quantity}
-             emptyValue={0.1}
-             onChange={setQuantity}
-             onValidityChange={setQuantityValid}
-             className="w-full px-3 py-2 bg-white border border-line rounded-lg text-sm text-ink outline-none focus:border-cyan"
-           />
-          </label>
-
-          {/* Stock After Production */}
-          <div className="flex items-center gap-3 p-3 bg-green/10 rounded-lg border border-green/20">
-            <ArrowUpRight size={17} className="text-green flex-none" />
-            <span className="text-sm text-gray-600">Available after production</span>
-             <strong className="text-sm text-navy">{material ? formatQuantity(Math.max(0, material.quantity - parsedQuantity), material.unit) : "—"}</strong>
+        <div className="space-y-3 rounded-lg border border-cyan/20 bg-cyan/5 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-sm font-semibold text-navy">Automated production assignment</span>
+            {dispatchPreview ? <span className="text-xs font-semibold text-cyan-dark">Owner routing applied</span> : <span className="text-xs text-gray-500">Checking…</span>}
           </div>
-
-          {/* Stock Alert */}
-          {hasShortfall ? (
-            <div className="p-2.5 bg-danger/10 text-danger rounded border border-danger/20 text-xs">
-              ⚠️ Stock shortfall: Central store has only {formatQuantity(autoMaterial?.quantity ?? 0, autoMaterial?.unit ?? "m²")} available.
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 text-xs text-emerald-600">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
-              <span>Sufficient stock verified ({formatQuantity(autoMaterial?.quantity ?? 0, autoMaterial?.unit ?? "m²")} in store)</span>
-            </div>
-          )}
+          {dispatchPreview ? (
+            <>
+              <div className="grid gap-3 sm:grid-cols-2 text-sm">
+                <div><small className="block text-muted-foreground">Assigned machine</small><strong className="text-navy">{dispatchPreview.machineName}</strong></div>
+                <div><small className="block text-muted-foreground">Raw material</small><strong className="text-navy">{dispatchPreview.materialCheck.materialName}</strong></div>
+                <div><small className="block text-muted-foreground">Required allocation</small><strong className="text-navy">{dispatchPreview.materialCheck.requiredQuantity} {dispatchPreview.materialCheck.unit}</strong></div>
+                <div><small className="block text-muted-foreground">Available raw stock</small><strong className={dispatchPreview.materialCheck.sufficient ? "text-emerald-600" : "text-danger"}>{dispatchPreview.materialCheck.availableQuantity} {dispatchPreview.materialCheck.unit}</strong></div>
+              </div>
+              <div className={dispatchPreview.inkCheck.sufficient ? "rounded border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-700" : "rounded border border-danger/30 bg-danger/10 p-3 text-xs text-danger"}>
+                <strong className="block">{dispatchPreview.inkCheck.sufficient ? "Sufficient Ink verified" : "Insufficient Ink Stock"}</strong>
+                {dispatchPreview.inkCheck.required ? <span>{dispatchPreview.inkCheck.materialNames.join(", ") || "Required machine ink"}: {dispatchPreview.inkCheck.availableLitres} L available / {dispatchPreview.inkCheck.requiredLitres} L required.</span> : <span>This machine route does not require tracked ink.</span>}
+              </div>
+              {!dispatchPreview.canDispatch ? <p className="m-0 text-xs font-semibold text-danger">Cannot dispatch: {dispatchPreview.errors.join(" ")}</p> : null}
+            </>
+          ) : <p className="m-0 text-xs text-gray-500">Validating machine, raw material, and ink inventory…</p>}
         </div>
       </div>
     </ModalShell>

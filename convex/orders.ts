@@ -603,9 +603,13 @@ async function resolveAutoRouting(
   if (!route) {
     throw new Error(`No production routing is defined for the ${order.serviceType} service.`);
   }
-  const materials = await ctx.db.query("materials").withIndex("by_category", (q: any) => q.eq("category", route.materialType)).collect();
-  const preferred = materials.find((m: any) => m.active && m.name === route.preferredMaterialName)
-    ?? materials.find((m: any) => m.active);
+   const [namedMaterials, categoryMaterials] = await Promise.all([
+     ctx.db.query("materials").withIndex("by_name", (q: any) => q.eq("name", route.preferredMaterialName)).collect(),
+     ctx.db.query("materials").withIndex("by_category", (q: any) => q.eq("category", route.materialType)).take(100),
+   ]);
+   const materials = [...namedMaterials, ...categoryMaterials.filter((candidate: any) => !namedMaterials.some((named: any) => named._id === candidate._id))];
+   const preferred = materials.find((m: any) => m.active && m.name === route.preferredMaterialName)
+     ?? materials.find((m: any) => m.active);
   if (!preferred) {
     throw new Error(`No active raw material is registered for ${route.materialType}.`);
   }
@@ -638,6 +642,90 @@ async function resolveAutoRouting(
   };
 }
 
+type DispatchResourceCheck = {
+  canDispatch: boolean;
+  errors: string[];
+  material: {
+    materialId: string;
+    materialName: string;
+    requiredQuantity: number;
+    availableQuantity: number;
+    unit: string;
+    sufficient: boolean;
+  };
+  ink: {
+    required: boolean;
+    requiredMl: number;
+    requiredLitres: number;
+    availableLitres: number;
+    materialNames: string[];
+    sufficient: boolean;
+    message?: string;
+  };
+};
+
+async function validateDispatchResources(ctx: any, order: OrderDoc, routed: Awaited<ReturnType<typeof resolveAutoRouting>>, config: any): Promise<DispatchResourceCheck> {
+  const material = await ctx.db.get(routed.materialId as Id<"materials">);
+  if (!material || !material.active) throw new Error("The routed raw material is no longer active.");
+
+  const requiredQuantity = routed.allocation.plannedBaseQuantity;
+  const materialSufficient = material.quantity >= requiredQuantity;
+  const errors: string[] = [];
+  if (!materialSufficient) {
+    errors.push(`Insufficient ${material.name}: ${material.quantity} ${material.baseUnit ?? material.unit} available, ${requiredQuantity} required.`);
+  }
+
+  const machine = await ctx.db.get(routed.machineId as Id<"machines">);
+  const compatibleInkNames: string[] = machine?.compatibleInks?.length ? machine.compatibleInks : [];
+  const inkRequired = compatibleInkNames.length > 0;
+  const quantityMatch = order.quantity.match(/[0-9]+(?:\.[0-9]+)?/);
+  const serviceUnits = quantityMatch ? Math.max(1, Number(quantityMatch[0])) : 1;
+  const printedArea = order.length && order.width
+    ? order.length * order.width * serviceUnits
+    : routed.allocation.netBaseQuantity;
+  const requiredMl = inkRequired ? Number((printedArea * (config.inkMlPerSquareMetre ?? 12)).toFixed(1)) : 0;
+  const requiredLitres = Number((requiredMl / 1000).toFixed(3));
+  const inkRows = inkRequired
+    ? await ctx.db.query("materials").withIndex("by_category", (q: any) => q.eq("category", "Ink")).collect()
+    : [];
+  const matchedInkRows = inkRows.filter((row: any) => compatibleInkNames.some((name: string) => {
+    const wanted = name.toLowerCase();
+    const actual = row.name.toLowerCase();
+    return actual === wanted || actual.startsWith(wanted) || wanted.startsWith(actual);
+  }));
+  const availableLitres = matchedInkRows.reduce((total: number, row: any) => total + (row.quantity ?? 0), 0);
+  const inkSufficient = !inkRequired || (matchedInkRows.length > 0 && availableLitres >= requiredLitres);
+  const inkMaterialNames = matchedInkRows.map((row: any) => row.name);
+  if (inkRequired && !inkSufficient) {
+    const names = compatibleInkNames.join(", ");
+    errors.push(matchedInkRows.length === 0
+      ? `Cannot dispatch: ${names} is not registered in inventory for machine ${machine?.code ?? routed.machineName}.`
+      : `Cannot dispatch: ${names} stock is insufficient for machine ${machine?.code ?? routed.machineName}. Required ${requiredLitres} L, available ${availableLitres} L.`);
+  }
+
+  return {
+    canDispatch: errors.length === 0,
+    errors,
+    material: {
+      materialId: routed.materialId,
+      materialName: routed.materialName,
+      requiredQuantity,
+      availableQuantity: material.quantity,
+      unit: material.baseUnit ?? material.unit,
+      sufficient: materialSufficient,
+    },
+    ink: {
+      required: inkRequired,
+      requiredMl,
+      requiredLitres,
+      availableLitres,
+      materialNames: inkMaterialNames,
+      sufficient: inkSufficient,
+      message: errors.find((error) => error.includes("ink") || error.includes("Ink")),
+    },
+  };
+}
+
 /**
  * Read-only preview of the automatic production assignment used by the confirm
  * step. Surfaces the machine, raw material, and Standard allocation that
@@ -655,6 +743,7 @@ export const previewAutoRouting = query({
       .withIndex("by_key", (q) => q.eq("key", CONFIG_KEY))
       .unique();
     const routed = await resolveAutoRouting(ctx, order, configRow ?? {});
+    const resources = await validateDispatchResources(ctx, order, routed, configRow ?? {});
     return {
       machineId: routed.machineId,
       machineName: routed.machineName,
@@ -667,6 +756,10 @@ export const previewAutoRouting = query({
       unit: routed.allocation.unit,
       standardWasteMargin: routed.allocation.wasteMarginPercent,
       maxAllowedScrapLimit: routed.allocation.maxScrapLimitPercent,
+      canDispatch: resources.canDispatch,
+      errors: resources.errors,
+      materialCheck: resources.material,
+      inkCheck: resources.ink,
     };
   },
 });
@@ -766,6 +859,26 @@ export const confirmOrderAndIssueJobCard = mutation({
         throw new Error("The auto-routed machine or material is no longer available.");
       }
       allocation = routed.allocation;
+    }
+
+    if (machine && material) {
+      const route = resolveRouteForService(order.serviceType) ?? {
+        serviceType: order.serviceType,
+        materialType: material.category,
+        preferredMaterialName: material.name,
+        machineCapabilities: [],
+        operatorRole: machine.operatorRole,
+      } as MaterialTypeRoute;
+      const resources = await validateDispatchResources(ctx, order, {
+        route,
+        machineId: machine._id,
+        machineName: machine.name,
+        materialId: material._id,
+        materialName: material.name,
+        materialType: material.category,
+        allocation,
+      }, config);
+      if (!resources.canDispatch) throw new Error(resources.errors.join(" "));
     }
 
     const now = Date.now();

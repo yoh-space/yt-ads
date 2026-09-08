@@ -341,6 +341,7 @@ export default defineSchema({
     isSolvent: v.optional(v.boolean()),
   })
     .index("by_category", ["category"])
+    .index("by_name", ["name"])
     .index("by_unit", ["unit"]),
 
   machines: defineTable({
