@@ -701,6 +701,11 @@ export const confirmOrderAndIssueJobCard = mutation({
       throw new Error(`Only orders awaiting review or payment can be confirmed (current status: ${order.status}).`);
     }
 
+    const amount = args.amount !== undefined ? args.amount : order.amount;
+    if (amount === undefined || !Number.isFinite(amount) || amount < 0) {
+      throw new Error("Confirm the final price before verifying payment.");
+    }
+
     // Automated Machine & Material resolution based on service catalog
     const routing = SERVICE_ROUTING_MAP[order.serviceType];
     const sysConfig = await ensureSystemConfig(ctx);
@@ -869,10 +874,10 @@ const bomRows = await ctx.db
       machineId: machine._id,
       updatedAt: now,
     });
-    if (targetMachine.status !== "Running") await ctx.db.patch(targetMachine._id, { status: "Running", activeJob: code });
-    await notifyRoles(ctx, [targetMachine.operatorRole, "owner", "manager", "admin"], {
+    if (machine.status !== "Running") await ctx.db.patch(machine._id, { status: "Running", activeJob: code });
+    await notifyRoles(ctx, [machine.operatorRole, "owner", "manager", "admin"], {
       title: "Paid order issued to production",
-      message: `${order.code} (${order.clientName}) is confirmed ${args.paymentDecision} and queued as ${code} on ${targetMachine.name}.`,
+      message: `${order.code} (${order.clientName}) is confirmed ${args.paymentDecision} and queued as ${code} on ${machine.name}.`,
       type: "order_status",
       actorAuthUserId: identity._id,
       relatedTable: "customerOrders",

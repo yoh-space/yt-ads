@@ -1,4 +1,4 @@
-import type { Role, Unit } from "@/lib/operations-types";
+import type { Role, Unit } from "../lib/operations-types";
 
 export type MachineCatalogDefinition = {
   name: string;

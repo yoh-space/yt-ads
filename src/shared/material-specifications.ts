@@ -11,6 +11,7 @@ export type MaterialSpecificationDefinition = {
   conversionRatio?: number;
   packageSize?: number;
   packageLabel?: string;
+  isSolvent?: boolean;
   displayUnit: string;
   specification?: string;
   specificationOptions?: readonly string[];
@@ -673,6 +674,7 @@ export const MATERIAL_SPECIFICATIONS: readonly MaterialSpecificationDefinition[]
     catalogVariant: "Banner Solvent",
     catalogDimensions: "Canister",
     compatibleMachineTypes: ["Banner Printer"],
+    isSolvent: true,
   },
   {
     name: "DTF Solvent",
@@ -685,6 +687,7 @@ export const MATERIAL_SPECIFICATIONS: readonly MaterialSpecificationDefinition[]
     catalogVariant: "DTF Solvent",
     catalogDimensions: "Canister",
     compatibleMachineTypes: ["DTF"],
+    isSolvent: true,
   },
   {
     name: "Print & Cut Solvent",
@@ -697,6 +700,7 @@ export const MATERIAL_SPECIFICATIONS: readonly MaterialSpecificationDefinition[]
     catalogVariant: "Print & Cut Solvent",
     catalogDimensions: "Canister",
     compatibleMachineTypes: ["Print and Cut"],
+    isSolvent: true,
   },
   {
     name: "Electric Wire",
@@ -738,11 +742,18 @@ export const materialNameOptions = MATERIAL_SPECIFICATIONS.map((material) => mat
 
 export function findMaterialSpecification(name: string): MaterialSpecificationDefinition | undefined {
   const normalized = name.trim().toLowerCase();
-  return MATERIAL_SPECIFICATIONS.find(
-    (material) =>
+  // Verified catalog definitions are appended after legacy aliases; prefer the
+  // latest canonical record when both generations match the same name.
+  for (let index = MATERIAL_SPECIFICATIONS.length - 1; index >= 0; index -= 1) {
+    const material = MATERIAL_SPECIFICATIONS[index];
+    if (
       material.name.toLowerCase() === normalized ||
-      material.aliases?.some((alias) => alias.toLowerCase() === normalized),
-  );
+      material.aliases?.some((alias) => alias.toLowerCase() === normalized)
+    ) {
+      return material;
+    }
+  }
+  return undefined;
 }
 
 export function materialSpecificationOptions(name: string): readonly string[] {

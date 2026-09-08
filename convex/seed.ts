@@ -9,7 +9,7 @@ import { requireAdmin } from "./users";
 import { convertToBase, type InputUnit } from "./units";
 import { api } from "./_generated/api";
 import { internal } from "./_generated/api";
-import { MATERIAL_SPECIFICATIONS, type MaterialCatalogFamily, type MaterialSpecificationDefinition } from "../src/shared/material-specifications";
+import { MATERIAL_SPECIFICATIONS, findMaterialSpecification, type MaterialCatalogFamily, type MaterialSpecificationDefinition } from "../src/shared/material-specifications";
 import { recordInventoryEvent } from "./inventoryLedger";
 import { classifyMaterialProductionType, effectiveConsumptionRate, resolveEtbValue } from "./materialUsage";
 import { assertServiceIdsMatchSchema } from "./services";
@@ -44,6 +44,7 @@ function materialMasterFields(material: MaterialSpecificationDefinition) {
     purchaseUnit: material.purchaseUnit,
     packageSize: material.packageSize,
     packageLabel: material.packageLabel,
+    isSolvent: material.isSolvent,
     conversionRatio: material.conversionRatio,
     rollEquivalent: material.purchaseUnit === "roll" ? material.conversionRatio : undefined,
     sheetEquivalent: material.purchaseUnit === "sheet" ? material.conversionRatio : undefined,
@@ -656,11 +657,11 @@ export const migrateYtAdvertisementMasterData = mutation({
           operatorRole: machine.operatorRole,
           materialUnit: machine.materialUnit,
           displayUnit: machine.displayUnit,
-          primaryMaterials: "primaryMaterials" in machine ? [...machine.primaryMaterials] : undefined,
-          compatibleInks: "compatibleInks" in machine ? [...machine.compatibleInks] : undefined,
-          solventNames: "solventNames" in machine ? [...machine.solventNames] : undefined,
-          defaultWasteMarginPercent: "defaultWasteMarginPercent" in machine ? machine.defaultWasteMarginPercent : undefined,
-          maxAllowedScrapLimitPercent: "maxAllowedScrapLimitPercent" in machine ? machine.maxAllowedScrapLimitPercent : undefined,
+          primaryMaterials: "primaryMaterials" in machine && Array.isArray(machine.primaryMaterials) ? [...machine.primaryMaterials] : undefined,
+          compatibleInks: "compatibleInks" in machine && Array.isArray(machine.compatibleInks) ? [...machine.compatibleInks] : undefined,
+          solventNames: "solventNames" in machine && Array.isArray(machine.solventNames) ? [...machine.solventNames] : undefined,
+          defaultWasteMarginPercent: "defaultWasteMarginPercent" in machine && typeof machine.defaultWasteMarginPercent === "number" ? machine.defaultWasteMarginPercent : undefined,
+          maxAllowedScrapLimitPercent: "maxAllowedScrapLimitPercent" in machine && typeof machine.maxAllowedScrapLimitPercent === "number" ? machine.maxAllowedScrapLimitPercent : undefined,
         });
         machinesPatched += 1;
       } else {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowUpRight, CalendarDays, Clock3, Plus, Search, Wrench, X, Copy, Check } from "lucide-react";
+import { ArrowUpRight, CalendarDays, Clock3, Plus, Search, Wrench, X, Copy, Check, Sparkles } from "lucide-react";
 import type { CustomerOrder, Machine, Material, OrderPriority, CustomerOrderStatus } from "@/lib/operations-types";
 import { formatQuantity } from "@/lib/units";
 import { getServiceLabel } from "@/constants/services";
@@ -415,6 +415,8 @@ export function OrderConfirmModal({ order, machines, materials, onClose, onSave 
   const machine = machines.find((entry) => entry.id === machineId);
   const parsedQuantity = Number(quantity);
   const hasQuantityError = !quantity.trim() || !quantityValid || !Number.isFinite(parsedQuantity) || parsedQuantity <= 0;
+  const autoMaterial = material;
+  const hasShortfall = Boolean(autoMaterial && parsedQuantity > autoMaterial.quantity);
 
   return (
     <ModalShell
