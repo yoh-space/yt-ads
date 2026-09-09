@@ -15,6 +15,12 @@ function formatNumber(value: number) {
   return value.toLocaleString("en-US", { maximumFractionDigits: 3 });
 }
 
+function stockGroup(entry: { materialFamily?: string; isSolvent?: boolean; baseUnit: string }) {
+  if (entry.materialFamily === "SOLVENT" || entry.isSolvent) return "Cleaning Supplies";
+  if (entry.materialFamily === "INK" || entry.baseUnit === "L" || entry.baseUnit === "ml") return "Ink & Fluids";
+  return "Materials for Work";
+}
+
 export default function OperatorReconciliationPage({
   params,
 }: {
@@ -102,6 +108,7 @@ export default function OperatorReconciliationPage({
                 <section key={batch._id} className="rounded-lg border border-border bg-card p-5">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
+                      <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-primary">{stockGroup(batch)}</p>
                       <h2 className="font-semibold text-foreground">{batch.materialName}</h2>
                       <p className="mt-1 text-xs text-muted-foreground">{machine?.name ?? machineParam} · Issued {formatNumber(batch.issuedQuantity)} {batch.baseUnit}</p>
                     </div>

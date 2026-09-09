@@ -14,6 +14,10 @@ export type OperatorStockEntry = {
   reorderAt?: number;
   conversionRatio?: number;
   lowStockThreshold?: number;
+  materialFamily?: "INK" | "SOLVENT" | "RAW_MATERIAL" | "HARDWARE";
+  isSolvent?: boolean;
+  inkColor?: string;
+  consumed?: number;
 };
 
 export type View = "overview" | "orders" | "inventory" | "jobs" | "machines" | "offcuts" | "reports" | "reconciliation" | "audit" | "financial" | "config" | "settings";
