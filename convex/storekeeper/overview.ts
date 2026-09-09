@@ -1,6 +1,7 @@
 import { query } from "../_generated/server";
 import { requireStorekeeper } from "../users";
 import { conversionFactorFor } from "../inventory";
+import { isPackageAtOrBelowReorderLevel, packageReorderThreshold } from "../lowStock";
 
 /**
  * Storekeeper workspace overview: central-store package totals by packaging
@@ -21,6 +22,7 @@ export const getOverview = query({
     const enriched = items.map((item) => {
       const material = materialById.get(item.materialId);
       const factor = conversionFactorFor(item);
+      const conversionRatio = factor ?? undefined;
       return {
         ...item,
         materialName: material?.name ?? "Unknown material",
@@ -28,17 +30,18 @@ export const getOverview = query({
         reorderAt: material?.reorderAt ?? 0,
         storageLocation: material?.storageLocation ?? "Central store",
         baseUnit: material?.baseUnit ?? material?.unit ?? "m²",
-        conversionFactor: factor,
+        conversionFactor: conversionRatio,
+        lowStock: isPackageAtOrBelowReorderLevel(item.totalStockQuantity, material?.reorderAt ?? 0, conversionRatio),
         baseUnitsInStock: factor ? Number((item.totalStockQuantity * factor).toFixed(3)) : undefined,
       };
     });
 
     const lowStockItems = enriched
       .map((item) => {
-        const threshold = item.conversionFactor && item.conversionFactor > 0 ? item.reorderAt / item.conversionFactor : item.reorderAt;
+        const threshold = packageReorderThreshold(item.reorderAt, item.conversionFactor ?? undefined);
         return { ...item, threshold };
       })
-      .filter((item) => item.threshold > 0 && item.totalStockQuantity <= item.threshold);
+      .filter((item) => isPackageAtOrBelowReorderLevel(item.totalStockQuantity, item.reorderAt, item.conversionFactor ?? undefined));
 
     const pendingRequests = requests.filter(
       (request) => request.status === "Requested" || request.status === "Partially Issued",

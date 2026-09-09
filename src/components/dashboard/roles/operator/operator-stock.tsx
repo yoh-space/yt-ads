@@ -19,8 +19,7 @@ function formatPercentage(value: number) {
 
 function isLowStock(batch: OperatorStockEntry): boolean {
   const threshold = batch.lowStockThreshold;
-  if (threshold !== undefined && threshold > 0) return batch.currentRemaining <= threshold;
-  return batch.usagePercent >= 85;
+  return threshold !== undefined && threshold > 0 && batch.currentRemaining <= threshold;
 }
 
 export function OperatorStockWidget({

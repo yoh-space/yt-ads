@@ -173,10 +173,7 @@ export function InventoryManagementInterface({ initialView }: { initialView: Inv
     liters: items.filter((item) => item.unitType === "LITER").reduce((sum, item) => sum + item.totalStockQuantity, 0),
   }), [items]);
 
-  const lowStock = useMemo(() => items.filter((item) => {
-    const threshold = item.conversionFactor ? item.reorderAt / item.conversionFactor : item.reorderAt;
-    return threshold > 0 && item.totalStockQuantity <= threshold;
-  }), [items]);
+  const lowStock = useMemo(() => items.filter((item) => item.lowStock), [items]);
 
   const machineCards = useMemo(() => {
     const groups = new Map<string, { machineId: string; machineName: string; operatorName: string; batches: typeof stock }>();
@@ -308,7 +305,7 @@ export function InventoryManagementInterface({ initialView }: { initialView: Inv
                 <tbody className="divide-y divide-border-token">
                   {filteredItems.map((item) => {
                     const threshold = item.conversionFactor ? item.reorderAt / item.conversionFactor : item.reorderAt;
-                    const isLow = threshold > 0 && item.totalStockQuantity <= threshold;
+                    const isLow = item.lowStock;
                     return <tr key={item._id} className="transition hover:bg-surface-elevated/60"><td className="px-5 py-4"><p className="font-semibold text-text-primary">{item.materialName}</p><p className="mt-1 text-xs text-text-dim">{item.storageLocation}</p></td><td className="px-4 py-4 text-text-secondary">{item.materialCategory}</td><td className="px-4 py-4"><span className="rounded-lg border border-border-token bg-surface-elevated px-2.5 py-1 font-mono text-[10px] font-bold text-text-secondary">{packageLabel(item.unitType)}</span></td><td className="px-4 py-4 text-right font-mono font-bold tabular-nums text-text-primary">{Number(item.totalStockQuantity.toFixed(1))}</td><td className="px-5 py-4 text-right"><TokenBadge tone={isLow ? "warning" : "success"}>{statusLabel(isLow ? "LOW STOCK" : "AVAILABLE")}</TokenBadge></td></tr>;
                   })}
                   {filteredItems.length === 0 ? <tr><td colSpan={5} className="px-5 py-14 text-center text-sm text-text-secondary">No inventory items match this filter.</td></tr> : null}

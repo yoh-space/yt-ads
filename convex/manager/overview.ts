@@ -1,6 +1,7 @@
 import { query } from "../_generated/server";
 import { requireManagerRole } from "../users";
 import { conversionFactorFor } from "../inventory";
+import { isPackageAtOrBelowReorderLevel, packageReorderThreshold } from "../lowStock";
 
 /**
  * Manager workspace operational snapshot for the /dashboard/manager namespace.
@@ -24,16 +25,19 @@ export const getOverview = query({
       .map((item) => {
         const material = materialById.get(item.materialId);
         const factor = conversionFactorFor(item);
-        const threshold = factor && factor > 0 ? (material?.reorderAt ?? 0) / factor : material?.reorderAt ?? 0;
+        const conversionRatio = factor ?? undefined;
+        const threshold = packageReorderThreshold(material?.reorderAt ?? 0, conversionRatio);
         return {
           materialName: material?.name ?? "Unknown material",
           unitType: item.unitType,
           totalStockQuantity: item.totalStockQuantity,
           storageLocation: material?.storageLocation ?? "Central store",
           threshold,
+          reorderAt: material?.reorderAt ?? 0,
+          conversionRatio,
         };
       })
-      .filter((item) => item.threshold > 0 && item.totalStockQuantity <= item.threshold)
+      .filter((item) => isPackageAtOrBelowReorderLevel(item.totalStockQuantity, item.reorderAt, item.conversionRatio))
       .sort((left, right) => left.totalStockQuantity - right.totalStockQuantity);
 
     const startOfDay = new Date();

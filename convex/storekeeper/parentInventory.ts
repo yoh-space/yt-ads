@@ -1,6 +1,7 @@
 import { query } from "../_generated/server";
 import { requireStorekeeper } from "../users";
 import { conversionFactorFor } from "../inventory";
+import { isPackageAtOrBelowReorderLevel } from "../lowStock";
 
 /**
  * Storekeeper-only parent inventory reads for the /dashboard/storekeeper
@@ -26,7 +27,8 @@ export const list = query({
           reorderAt: material?.reorderAt ?? 0,
           storageLocation: material?.storageLocation ?? "Central store",
           baseUnit: material?.baseUnit ?? material?.unit ?? "m²",
-          conversionFactor: factor,
+          conversionFactor: factor ?? undefined,
+          lowStock: isPackageAtOrBelowReorderLevel(item.totalStockQuantity, material?.reorderAt ?? 0, factor ?? undefined),
           baseUnitsInStock: factor ? Number((item.totalStockQuantity * factor).toFixed(3)) : undefined,
         };
       });
@@ -55,12 +57,11 @@ export const listReorderAlerts = query({
           materialCategory: material?.category ?? "—",
           reorderAt: material?.reorderAt ?? 0,
           storageLocation: material?.storageLocation ?? "Central store",
-          conversionFactor: factor,
+          conversionFactor: factor ?? undefined,
         };
       })
       .filter((item) => {
-        const threshold = item.conversionFactor && item.conversionFactor > 0 ? item.reorderAt / item.conversionFactor : item.reorderAt;
-        return threshold > 0 && item.totalStockQuantity <= threshold;
+        return isPackageAtOrBelowReorderLevel(item.totalStockQuantity, item.reorderAt, item.conversionFactor);
       });
   },
 });

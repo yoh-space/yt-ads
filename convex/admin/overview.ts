@@ -1,6 +1,7 @@
 import { query } from "../_generated/server";
 import { requireAdminRole } from "../users";
 import { resolveEtbValue } from "../materialUsage";
+import { isAtOrBelowReorderLevel } from "../lowStock";
 import { getStartOfDay } from "./common";
 
 /**
@@ -45,7 +46,7 @@ export const getOverviewSummary = query({
     const queuedJobs = jobs.filter((j) => j.status === "Queued").length;
     const runningMachines = machines.filter((m) => m.status === "Running").length;
     const pendingClearance = reconciliations.filter((r) => r.status === "Open").length;
-    const reorderMaterials = materials.filter((m) => m.reorderAt > 0 && m.quantity <= m.reorderAt).length;
+    const reorderMaterials = materials.filter((m) => isAtOrBelowReorderLevel(m.quantity, m.reorderAt)).length;
 
     return {
       todaysSales: Number(todaysSales.toFixed(2)),

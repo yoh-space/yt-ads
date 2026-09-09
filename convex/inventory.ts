@@ -5,6 +5,7 @@ import { requireActiveProfile, requireAnyPermission, requirePermission, requireR
 import { canAccessJob, canAccessMachine } from "./authorization";
 import { notifyRoles, notifyUser } from "./notificationHelpers";
 import { ensureSystemConfig } from "./systemConfigs";
+import { isPackageAtOrBelowReorderLevel, packageReorderThreshold } from "./lowStock";
 import { assertProductionQuantities } from "./validation";
 import { classifyMaterialProductionType, computeJobArea, resolveConversionRatio, resolveInkConsumptionRateFromConfig } from "./materialUsage";
 import { recordInventoryEvent } from "./inventoryLedger";
@@ -68,7 +69,8 @@ export const listParentInventory = query({
           reorderAt: material?.reorderAt ?? 0,
           storageLocation: material?.storageLocation ?? "Central store",
           baseUnit: material?.baseUnit ?? material?.unit ?? "m²",
-          conversionFactor: factor,
+          conversionFactor: factor ?? undefined,
+          lowStock: isPackageAtOrBelowReorderLevel(item.totalStockQuantity, material?.reorderAt ?? 0, factor ?? undefined),
           baseUnitsInStock: factor ? Number((item.totalStockQuantity * factor).toFixed(3)) : undefined,
         };
       });
@@ -481,9 +483,9 @@ export const listOperatorMachineStock = query({
           inkColor: material?.inkColor,
           isSolvent: material?.isSolvent ?? false,
           reorderAt: material?.reorderAt,
-          conversionRatio: material?.conversionRatio,
+          conversionRatio: material?.conversionRatio ?? undefined,
           lowStockThreshold: material?.reorderAt !== undefined
-            ? (material?.conversionRatio ? material.reorderAt / material.conversionRatio : material.reorderAt)
+            ? packageReorderThreshold(material.reorderAt, material.conversionRatio)
             : undefined,
           consumed: Number((batch.issuedQuantity - batch.currentRemaining).toFixed(3)),
           usagePercent: batch.issuedQuantity > 0

@@ -150,7 +150,7 @@ export default function StorekeeperInventoryPage() {
                 ) : (
                   filteredItems.map((item) => {
                     const threshold = item.conversionFactor ? Math.ceil(item.reorderAt / item.conversionFactor) : item.reorderAt;
-                    const low = threshold > 0 && item.totalStockQuantity <= threshold;
+                    const low = item.lowStock;
                     return (
                       <tr key={item._id} className="transition hover:bg-muted/30">
                         <td className="px-5 py-3">

@@ -2,6 +2,7 @@ import { query } from "./_generated/server";
 import { requireActiveProfile, requireRoles } from "./users";
 import { canViewFinancial } from "./authorization";
 import { resolveEtbValue } from "./materialUsage";
+import { isAtOrBelowReorderLevel } from "./lowStock";
 
 const MATERIAL_PULSE_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -169,7 +170,7 @@ export const getKpis = query({
     ).length;
 
     const activeMaterialsAtReorder = materials.filter(
-      (material) => material.active && material.reorderAt > 0 && material.quantity <= material.reorderAt,
+      (material) => material.active && isAtOrBelowReorderLevel(material.quantity, material.reorderAt),
     ).length;
     const depletedOperatorBatches = operatorStock.filter(
       (batch) => batch.status === "ACTIVE" && batch.currentRemaining <= 0,
@@ -347,14 +348,14 @@ export const getStockoutForecast = query({
         runwayDays = 0;
       } else if (dailyRate > 0) {
         runwayDays = Math.round(currentStock / dailyRate);
-      } else if (reorderAt > 0 && currentStock <= reorderAt) {
+      } else if (isAtOrBelowReorderLevel(currentStock, reorderAt)) {
         runwayDays = 1;
       } else {
         runwayDays = 999;
       }
 
       let urgency: "CRITICAL" | "WARNING" | "HEALTHY" = "HEALTHY";
-      if (currentStock <= 0 || runwayDays <= 2 || (reorderAt > 0 && currentStock <= reorderAt)) {
+      if (currentStock <= 0 || runwayDays <= 2 || isAtOrBelowReorderLevel(currentStock, reorderAt)) {
         urgency = "CRITICAL";
       } else if (runwayDays <= 7 || (reorderAt > 0 && currentStock <= reorderAt * 1.5)) {
         urgency = "WARNING";

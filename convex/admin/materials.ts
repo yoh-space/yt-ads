@@ -1,5 +1,6 @@
 import { query } from "../_generated/server";
 import { requireAdminRole } from "../users";
+import { isAtOrBelowReorderLevel } from "../lowStock";
 
 /**
  * Simple materials summary for the admin operational-configuration page.
@@ -15,7 +16,7 @@ export const getMaterialsSummary = query({
     for (const material of materials) {
       byCategory.set(material.category, (byCategory.get(material.category) ?? 0) + 1);
     }
-    const reorder = materials.filter((m) => m.reorderAt > 0 && m.quantity <= m.reorderAt);
+    const reorder = materials.filter((m) => isAtOrBelowReorderLevel(m.quantity, m.reorderAt));
     return {
       totalMaterials: materials.length,
       byCategory: Object.fromEntries(byCategory),
