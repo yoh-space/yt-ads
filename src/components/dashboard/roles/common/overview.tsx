@@ -24,9 +24,9 @@ import type {
   Role,
 } from "@/lib/operations-types";
 import { formatQuantity } from "@/lib/units";
-import { statusTone } from "../helpers";
+import { statusTone } from "@/utils/helpers";
 import type { View } from "@/types/dashboard-types";
-import { StockoutAlertWidget } from "./stockout-alert-widget";
+import { StockoutAlertWidget } from "../../widgets/stockout-alert-widget";
 import {
   Button,
   StatCard,

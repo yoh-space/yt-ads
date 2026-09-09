@@ -5,11 +5,11 @@ import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { WorkspacePageHeader } from "@/components/dashboard/workspace-page-header";
-import { InventoryLoader } from "@/components/dashboard/inventory-loader";
-import { OrdersView, OrderConfirmModal, OrderPriceModal } from "@/components/dashboard/shared/views/orders";
-import { useSafeMutation } from "@/components/dashboard/pending-store";
-import { useDashboardModal } from "@/components/dashboard/modal-context";
+import { WorkspacePageHeader } from "@/components/dashboard/shell/workspace-page-header";
+import { InventoryLoader } from "@/components/dashboard/widgets/inventory-loader";
+import { OrdersView, OrderConfirmModal, OrderPriceModal } from "@/components/dashboard/roles/common/orders";
+import { useSafeMutation } from "@/utils/pending-store";
+import { useDashboardModal } from "@/components/dashboard/modals/modal-context";
 import { hasPermission } from "@/lib/permissions";
 import type { CustomerOrder, CustomerOrderStatus, Machine, Material, Role } from "@/lib/operations-types";
 

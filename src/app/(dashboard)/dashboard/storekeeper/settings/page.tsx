@@ -2,8 +2,8 @@
 
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { SettingsView } from "@/components/dashboard/shared/views/settings";
-import { InventoryLoader } from "@/components/dashboard/inventory-loader";
+import { SettingsView } from "@/components/dashboard/roles/admin/settings";
+import { InventoryLoader } from "@/components/dashboard/widgets/inventory-loader";
 
 export default function StorekeeperSettingsPage() {
   const profile = useQuery(api.users.getCurrentProfile);

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ChevronDown, Save } from "lucide-react";
 import type { Machine, Role, Unit } from "@/lib/operations-types";
 import { roleLabels } from "@/lib/operations-types";
-import { baseUnitOptions } from "../nav-config";
+import { baseUnitOptions } from "@/components/dashboard/shell/nav-config";
 import { ModalShell } from "./modal-shell";
 import { Button } from "@/components/shared/ui";
 import { cn } from "@/lib/utils";

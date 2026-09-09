@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { canAccess, capabilitiesFor } from "./access-policy";
-import { routeForWorkspace, visibleModules, workspaceForRole } from "@/components/dashboard/workspace-registry";
+import { routeForWorkspace, visibleModules, workspaceForRole } from "@/components/dashboard/shell/workspace-registry";
 
 describe("workspace access policy", () => {
   it("keeps storekeepers in the physical inventory workflow", () => {

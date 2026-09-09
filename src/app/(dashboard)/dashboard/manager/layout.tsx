@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { WorkspaceShell } from "@/components/dashboard/workspace-shell";
+import { WorkspaceShell } from "@/components/dashboard/shell/workspace-shell";
 import { managerNavItems } from "@/components/dashboard/roles/manager/manager-nav";
 
 export const dynamic = "force-dynamic";

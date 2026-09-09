@@ -5,10 +5,10 @@ import { useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
 import { api } from "@/convex/_generated/api";
 import { Download, Package, Plus, Search, Truck } from "lucide-react";
-import { WorkspacePageHeader } from "@/components/dashboard/workspace-page-header";
-import { InventoryLoader } from "@/components/dashboard/inventory-loader";
-import { useDashboardModal } from "@/components/dashboard/modal-context";
-import { WorkspaceModuleGate } from "@/components/dashboard/workspace-renderer";
+import { WorkspacePageHeader } from "@/components/dashboard/shell/workspace-page-header";
+import { InventoryLoader } from "@/components/dashboard/widgets/inventory-loader";
+import { useDashboardModal } from "@/components/dashboard/modals/modal-context";
+import { WorkspaceModuleGate } from "@/components/dashboard/shell/workspace-renderer";
 import type { AccessContext } from "@/lib/access-policy";
 
 type PackagingTab = "ALL" | "ROLL" | "SHEET" | "LITER";

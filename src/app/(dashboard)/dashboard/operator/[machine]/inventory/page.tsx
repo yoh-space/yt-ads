@@ -5,9 +5,9 @@ import { useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Scale } from "lucide-react";
 import { api } from "@/convex/_generated/api";
-import { InventoryLoader } from "@/components/dashboard/inventory-loader";
-import { WorkspacePageHeader } from "@/components/dashboard/workspace-page-header";
-import { OperatorStockWidget } from "@/components/dashboard/views/operator-stock";
+import { InventoryLoader } from "@/components/dashboard/widgets/inventory-loader";
+import { WorkspacePageHeader } from "@/components/dashboard/shell/workspace-page-header";
+import { OperatorStockWidget } from "@/components/dashboard/roles/operator/operator-stock";
 import type { OperatorStockEntry } from "@/types/dashboard-types";
 
 export default function OperatorInventoryPage({

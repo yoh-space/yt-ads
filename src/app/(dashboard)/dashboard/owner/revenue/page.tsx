@@ -6,7 +6,7 @@ import { OwnerPageHeader } from "@/components/dashboard/roles/owner/owner-page-h
 import { StatCard } from "@/components/shared/ui/stat-card";
 import { Panel, PanelHeader } from "@/components/shared/ui/panel";
 import { SectionLabel, MetricValue } from "@/components/shared/ui/typography";
-import { InventoryLoader } from "@/components/dashboard/inventory-loader";
+import { InventoryLoader } from "@/components/dashboard/widgets/inventory-loader";
 import { CircleDollarSign, Wallet, Hourglass, CreditCard } from "lucide-react";
 
 const etb = (value: number) => `ETB ${value.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;

@@ -23,8 +23,8 @@ import {
   Sparkles,
   Warehouse,
 } from "lucide-react";
-import { InventoryLoader } from "./inventory-loader";
-import { useDashboardModal } from "./modal-context";
+import { InventoryLoader } from "../../widgets/inventory-loader";
+import { useDashboardModal } from "../../modals/modal-context";
 import { cn } from "@/lib/utils";
 
 type InventoryView = "main" | "substock";

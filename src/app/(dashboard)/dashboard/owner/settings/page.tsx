@@ -5,7 +5,7 @@ import { api } from "@/convex/_generated/api";
 import { OwnerPageHeader } from "@/components/dashboard/roles/owner/owner-page-header";
 import { Panel, PanelHeader } from "@/components/shared/ui/panel";
 import { SectionLabel } from "@/components/shared/ui/typography";
-import { InventoryLoader } from "@/components/dashboard/inventory-loader";
+import { InventoryLoader } from "@/components/dashboard/widgets/inventory-loader";
 import { Settings, Building2, UserRound, CalendarClock } from "lucide-react";
 
 function InformationalRow({ label, value }: { label: string; value: string }) {

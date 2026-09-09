@@ -14,7 +14,7 @@ import {
   UserRound,
   type LucideIcon,
 } from "lucide-react";
-import { ModalShell } from "./modals/modal-shell";
+import { ModalShell } from "@/components/dashboard/modals/modal-shell";
 import { cn } from "@/lib/utils";
 
 type NotificationType =

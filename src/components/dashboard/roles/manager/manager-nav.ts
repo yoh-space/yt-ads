@@ -1,4 +1,4 @@
-import type { WorkspaceNavItem } from "@/components/dashboard/workspace-shell";
+import type { WorkspaceNavItem } from "@/components/dashboard/shell/workspace-shell";
 
 export const managerNavItems: WorkspaceNavItem[] = [
   {

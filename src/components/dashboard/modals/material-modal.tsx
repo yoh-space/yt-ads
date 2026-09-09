@@ -6,7 +6,7 @@ import { z } from "zod";
 import { Plus, Sparkles } from "lucide-react";
 import type { Accent, PurchaseUnit, Unit } from "@/lib/operations-types";
 import { findMaterialSpecification } from "@/shared/material-specifications";
-import { baseUnitOptions, materialDefinitionOptions, purchaseUnitOptions } from "../nav-config";
+import { baseUnitOptions, materialDefinitionOptions, purchaseUnitOptions } from "@/components/dashboard/shell/nav-config";
 import { ModalShell } from "./modal-shell";
 
 export type NewMaterialInput = {

@@ -36,7 +36,7 @@ import {
   OperatorRankItem,
   StatusTag,
   type ExecutiveTone,
-} from "./report-atoms";
+} from "../../widgets/report-atoms";
 
 type PeriodOption = { id: ReportPeriod; label: string; english: string };
 
@@ -317,7 +317,7 @@ export function ReportsView({ canSeeFinancial = false }: { canSeeFinancial?: boo
           <HeaderTabs
             options={periods}
             value={selectedPeriod}
-            onChange={(id) => {
+            onChange={(id: string) => {
               setSelectedPeriod(id as ReportPeriod);
               setPage(0);
             }}

@@ -4,11 +4,11 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { ArrowRight, ClipboardCheck, Hourglass, Inbox, ShoppingCart, Wallet } from "lucide-react";
-import { WorkspacePageHeader } from "@/components/dashboard/workspace-page-header";
+import { WorkspacePageHeader } from "@/components/dashboard/shell/workspace-page-header";
 import { StatCard } from "@/components/shared/ui/stat-card";
 import { Panel, PanelHeader } from "@/components/shared/ui/panel";
 import { SectionLabel } from "@/components/shared/ui/typography";
-import { InventoryLoader } from "@/components/dashboard/inventory-loader";
+import { InventoryLoader } from "@/components/dashboard/widgets/inventory-loader";
 
 const ETB_FORMAT = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
 

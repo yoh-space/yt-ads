@@ -9,8 +9,8 @@ import type { CustomerOrder, Machine, Material, OrderPriority, CustomerOrderStat
 import { formatQuantity } from "@/lib/units";
 import { getServiceLabel } from "@/constants/services";
 import { Button, NumericInput, Panel, PanelHeader, StatusPill } from "@/components/shared/ui";
-import { ModalShell } from "../modals/modal-shell";
-import { OrderDetailsSheet } from "./order-details-sheet";
+import { ModalShell } from "../../modals/modal-shell";
+import { OrderDetailsSheet } from "../../widgets/order-details-sheet";
 import { cn } from "@/lib/utils";
 
 type DateRange = "all" | "today" | "yesterday" | "thisWeek" | "thisMonth";

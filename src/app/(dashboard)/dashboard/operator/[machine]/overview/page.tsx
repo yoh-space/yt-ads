@@ -14,16 +14,16 @@ import {
   Scissors,
   Trash2,
 } from "lucide-react";
-import { InventoryLoader } from "@/components/dashboard/inventory-loader";
-import { useSafeMutation } from "@/components/dashboard/pending-store";
-import { useDashboardModal } from "@/components/dashboard/modal-context";
+import { InventoryLoader } from "@/components/dashboard/widgets/inventory-loader";
+import { useSafeMutation } from "@/utils/pending-store";
+import { useDashboardModal } from "@/components/dashboard/modals/modal-context";
 import { MachineFluidGauge } from "@/components/dashboard/roles/operator/machine-fluid-gauge";
 import { NumericInput, StatusPill } from "@/components/shared/ui";
 import { formatQuantity } from "@/lib/units";
-import { OperatorStockWidget } from "@/components/dashboard/views/operator-stock";
+import { OperatorStockWidget } from "@/components/dashboard/roles/operator/operator-stock";
 import type { OperatorStockEntry } from "@/types/dashboard-types";
 import type { AccessContext } from "@/lib/access-policy";
-import { WorkspaceModuleGate } from "@/components/dashboard/workspace-renderer";
+import { WorkspaceModuleGate } from "@/components/dashboard/shell/workspace-renderer";
 
 type WithId<T extends { _id: string }> = Omit<T, "_id"> & { id: T["_id"] };
 

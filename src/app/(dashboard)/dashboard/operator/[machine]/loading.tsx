@@ -1,4 +1,4 @@
-import { InventoryLoader } from "@/components/dashboard/inventory-loader";
+import { InventoryLoader } from "@/components/dashboard/widgets/inventory-loader";
 
 export default function OperatorMachineLoading() {
   return (

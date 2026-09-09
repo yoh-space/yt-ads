@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { isAuthenticated, fetchAuthQuery } from "@/lib/auth-server";
 import { api } from "@/convex/_generated/api";
 import { isValidRole } from "@/lib/role-routing";
-import { routeForWorkspace } from "@/components/dashboard/workspace-registry";
+import { routeForWorkspace } from "@/components/dashboard/shell/workspace-registry";
 
 export const dynamic = "force-dynamic";
 

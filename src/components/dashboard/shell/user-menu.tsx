@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ChevronDown, LogOut, Settings } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import { roleLabels, type Profile } from "@/lib/operations-types";
-import { initials } from "./helpers";
+import { initials } from "@/utils/helpers";
 import { cn } from "@/lib/utils";
 
 export function UserMenu({ profile, onOpenSettings }: { profile: Profile | null; onOpenSettings: () => void }) {

@@ -6,7 +6,7 @@ import { OwnerPageHeader } from "@/components/dashboard/roles/owner/owner-page-h
 import { StatCard } from "@/components/shared/ui/stat-card";
 import { Panel, PanelHeader } from "@/components/shared/ui/panel";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/shared/ui/table";
-import { InventoryLoader } from "@/components/dashboard/inventory-loader";
+import { InventoryLoader } from "@/components/dashboard/widgets/inventory-loader";
 import { PackageOpen, AlertTriangle, Layers } from "lucide-react";
 
 export default function OwnerOperationalConfigurationPage() {

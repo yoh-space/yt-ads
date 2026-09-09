@@ -4,14 +4,14 @@ import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { WorkspacePageHeader } from "@/components/dashboard/workspace-page-header";
-import { InventoryLoader } from "@/components/dashboard/inventory-loader";
-import { MaterialRequestsPanel } from "@/components/dashboard/shared/material-requests-panel";
+import { WorkspacePageHeader } from "@/components/dashboard/shell/workspace-page-header";
+import { InventoryLoader } from "@/components/dashboard/widgets/inventory-loader";
+import { MaterialRequestsPanel } from "@/components/dashboard/widgets/material-requests-panel";
 import { StatusPill } from "@/components/shared/ui/status-pill";
-import { useSafeMutation } from "@/components/dashboard/pending-store";
+import { useSafeMutation } from "@/utils/pending-store";
 import type { MaterialRequest } from "@/lib/operations-types";
 import type { AccessContext } from "@/lib/access-policy";
-import { WorkspaceModuleGate } from "@/components/dashboard/workspace-renderer";
+import { WorkspaceModuleGate } from "@/components/dashboard/shell/workspace-renderer";
 
 type WithId<T extends { _id: string }> = Omit<T, "_id"> & { id: T["_id"] };
 

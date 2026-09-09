@@ -7,8 +7,8 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { cn } from "@/lib/utils";
 import { ownerNavItems } from "./owner-nav";
-import { InventoryLoader } from "../inventory-loader";
-import { DashboardAccessDenied } from "../access-denied";
+import { InventoryLoader } from "../../widgets/inventory-loader";
+import { DashboardAccessDenied } from "../../shell/access-denied";
 import { Crown, Menu, LogOut } from "lucide-react";
 
 function OwnerSidebar({

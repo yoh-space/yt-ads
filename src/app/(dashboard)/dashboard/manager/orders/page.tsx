@@ -3,8 +3,8 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { WorkspacePageHeader } from "@/components/dashboard/workspace-page-header";
-import { InventoryLoader } from "@/components/dashboard/inventory-loader";
+import { WorkspacePageHeader } from "@/components/dashboard/shell/workspace-page-header";
+import { InventoryLoader } from "@/components/dashboard/widgets/inventory-loader";
 import { Panel, PanelHeader } from "@/components/shared/ui/panel";
 import { StatCard } from "@/components/shared/ui/stat-card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/shared/ui/table";

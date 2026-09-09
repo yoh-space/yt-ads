@@ -7,7 +7,7 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { cn } from "@/lib/utils";
 import type { Profile, Role } from "@/lib/operations-types";
-import { InventoryLoader } from "./inventory-loader";
+import { InventoryLoader } from "../widgets/inventory-loader";
 import { DashboardAccessDenied } from "./access-denied";
 import { Topbar } from "./topbar";
 import {

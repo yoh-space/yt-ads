@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import type { Profile } from "@/lib/operations-types";
 import { can } from "@/lib/permissions";
-import type { SettingsCategory } from "../../nav-config";
+import type { SettingsCategory } from "@/components/dashboard/shell/nav-config";
 import type { SettingsCategoryEntry } from "./settings-sidebar";
 import { SettingsSidebar } from "./settings-sidebar";
 import { SettingsHeader } from "./settings-header";

@@ -2,9 +2,9 @@
 
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { WorkspacePageHeader } from "@/components/dashboard/workspace-page-header";
-import { InventoryLoader } from "@/components/dashboard/inventory-loader";
-import { JobsView } from "@/components/dashboard/views/jobs";
+import { WorkspacePageHeader } from "@/components/dashboard/shell/workspace-page-header";
+import { InventoryLoader } from "@/components/dashboard/widgets/inventory-loader";
+import { JobsView } from "@/components/dashboard/roles/common/jobs";
 import type { JobCard, Machine, Material } from "@/lib/operations-types";
 
 type WithId<T extends { _id: string }> = Omit<T, "_id"> & { id: T["_id"] };

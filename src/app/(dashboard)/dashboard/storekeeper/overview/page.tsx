@@ -4,12 +4,12 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { ArrowDownToLine, ArrowRight, Boxes, ClipboardList, Plus, Warehouse } from "lucide-react";
-import { WorkspacePageHeader } from "@/components/dashboard/workspace-page-header";
+import { WorkspacePageHeader } from "@/components/dashboard/shell/workspace-page-header";
 import { StatCard } from "@/components/shared/ui/stat-card";
 import { Panel, PanelHeader } from "@/components/shared/ui/panel";
-import { InventoryLoader } from "@/components/dashboard/inventory-loader";
-import { useDashboardModal } from "@/components/dashboard/modal-context";
-import { WorkspaceModuleGate } from "@/components/dashboard/workspace-renderer";
+import { InventoryLoader } from "@/components/dashboard/widgets/inventory-loader";
+import { useDashboardModal } from "@/components/dashboard/modals/modal-context";
+import { WorkspaceModuleGate } from "@/components/dashboard/shell/workspace-renderer";
 import type { AccessContext } from "@/lib/access-policy";
 
 function unitLabel(unitType: "ROLL" | "SHEET" | "LITER") {

@@ -9,7 +9,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { getNavItemHref, navItems } from "./nav-config";
 import type { View } from "@/types/dashboard-types";
 import { UserMenu } from "./user-menu";
-import { NotificationModal } from "./notification-modal";
+import { NotificationModal } from "../modals/notification-modal";
 import { SoundControl } from "./sound-control";
 import { TelemetryBar } from "@/components/shared/ui/telemetry-bar";
 import type { Profile } from "@/lib/operations-types";

@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, type ReactNode } from "react";
-import type { Modal } from "./nav-config";
+import type { Modal } from "../shell/nav-config";
 import type { CustomerOrder, Machine } from "@/lib/operations-types";
 
 type ModalContextType = {

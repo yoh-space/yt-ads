@@ -2,9 +2,9 @@
 
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { SettingsView } from "@/components/dashboard/shared/views/settings";
-import { InventoryLoader } from "@/components/dashboard/inventory-loader";
-import { WorkspacePageHeader } from "@/components/dashboard/workspace-page-header";
+import { SettingsView } from "@/components/dashboard/roles/admin/settings";
+import { InventoryLoader } from "@/components/dashboard/widgets/inventory-loader";
+import { WorkspacePageHeader } from "@/components/dashboard/shell/workspace-page-header";
 
 export default function ReceptionistSettingsPage() {
   const profile = useQuery(api.users.getCurrentProfile);

@@ -1,4 +1,4 @@
-import type { WorkspaceIconName } from "@/components/dashboard/workspace-shell";
+import type { WorkspaceIconName } from "@/components/dashboard/shell/workspace-shell";
 
 export interface AdminNavItem {
   href: string;

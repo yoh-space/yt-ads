@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { AlertTriangle, RefreshCw, LogIn } from "lucide-react";
-import { DashboardAccessDenied } from "@/components/dashboard/shared/access-denied";
+import { DashboardAccessDenied } from "@/components/dashboard/shell/access-denied";
 
 export default function Error({
   error,

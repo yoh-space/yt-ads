@@ -6,8 +6,8 @@ import { OwnerPageHeader } from "@/components/dashboard/roles/owner/owner-page-h
 import { StatCard } from "@/components/shared/ui/stat-card";
 import { Panel, PanelHeader } from "@/components/shared/ui/panel";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/shared/ui/table";
-import { InventoryLoader } from "@/components/dashboard/inventory-loader";
-import { OwnerPendingStockOuts } from "@/components/dashboard/shared/owner-pending-stock-outs";
+import { InventoryLoader } from "@/components/dashboard/widgets/inventory-loader";
+import { OwnerPendingStockOuts } from "@/components/dashboard/widgets/owner-pending-stock-outs";
 import { Boxes, Warehouse, PackageOpen, AlertTriangle } from "lucide-react";
 
 const etb = (value: number) => `ETB ${value.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;

@@ -5,8 +5,8 @@ import { useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { InventoryLoader } from "@/components/dashboard/inventory-loader";
-import { WorkspacePageHeader } from "@/components/dashboard/workspace-page-header";
+import { InventoryLoader } from "@/components/dashboard/widgets/inventory-loader";
+import { WorkspacePageHeader } from "@/components/dashboard/shell/workspace-page-header";
 import { StatusPill } from "@/components/shared/ui";
 import { formatQuantity } from "@/lib/units";
 

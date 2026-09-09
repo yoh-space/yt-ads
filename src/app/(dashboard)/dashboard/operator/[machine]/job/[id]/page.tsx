@@ -7,9 +7,9 @@ import { toast } from "sonner";
 import { CheckCircle2, ArrowLeft } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { InventoryLoader } from "@/components/dashboard/inventory-loader";
-import { WorkspacePageHeader } from "@/components/dashboard/workspace-page-header";
-import { useSafeMutation } from "@/components/dashboard/pending-store";
+import { InventoryLoader } from "@/components/dashboard/widgets/inventory-loader";
+import { WorkspacePageHeader } from "@/components/dashboard/shell/workspace-page-header";
+import { useSafeMutation } from "@/utils/pending-store";
 import { StatusPill } from "@/components/shared/ui";
 import { formatQuantity } from "@/lib/units";
 

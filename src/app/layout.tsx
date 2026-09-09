@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Script from "next/script";
 import { ConvexClientProvider } from "@/components/shared/providers/convex-client-provider";
 import { AutoUpdater } from "@/components/shared/desktop/auto-updater";
-import { DesktopConnectionBanner } from "@/components/dashboard/shared/desktop-connection-banner";
+import { DesktopConnectionBanner } from "@/components/shared/desktop/desktop-connection-banner";
 import "./globals.css";
 
 export const metadata: Metadata = {
