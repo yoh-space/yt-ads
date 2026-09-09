@@ -23,6 +23,7 @@ type SessionRecord = {
 export function SecurityPanel({ isOwner = false }: { isOwner?: boolean }) {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [message, setMessage] = useState("");
@@ -30,6 +31,7 @@ export function SecurityPanel({ isOwner = false }: { isOwner?: boolean }) {
   const [sessions, setSessions] = useState<SessionRecord[] | null>(null);
   const [currentToken, setCurrentToken] = useState<string | null>(null);
   const [sessionMessage, setSessionMessage] = useState("");
+  const passwordStrength = [newPassword.length >= 8, /[A-Z]/.test(newPassword), /[a-z]/.test(newPassword), /\d/.test(newPassword), /[^A-Za-z0-9]/.test(newPassword)].filter(Boolean).length;
 
   useEffect(() => {
     if (!isOwner) return;
@@ -64,6 +66,16 @@ export function SecurityPanel({ isOwner = false }: { isOwner?: boolean }) {
     event.preventDefault();
     setBusy(true);
     setMessage("");
+    if (newPassword !== confirmPassword) {
+      setMessage("New password and confirmation do not match.");
+      setBusy(false);
+      return;
+    }
+    if (passwordStrength < 4) {
+      setMessage("Use at least 8 characters with upper, lower, number, and symbol characters.");
+      setBusy(false);
+      return;
+    }
     try {
       const result = await authClient.changePassword({
         currentPassword,
@@ -73,6 +85,7 @@ export function SecurityPanel({ isOwner = false }: { isOwner?: boolean }) {
       if (result.error) throw new Error(result.error.message ?? "Unable to change password.");
       setCurrentPassword("");
       setNewPassword("");
+      setConfirmPassword("");
       setMessage("Password changed. Other sessions were signed out.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Unable to change password.");
@@ -95,6 +108,18 @@ export function SecurityPanel({ isOwner = false }: { isOwner?: boolean }) {
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Google linking is not configured yet.");
       setBusy(false);
+    }
+  }
+
+  async function revokeOtherSessions() {
+    if (!currentToken || !sessions) return;
+    setSessionMessage("");
+    try {
+      await Promise.all(sessions.filter((session) => session.token !== currentToken).map((session) => authClient.revokeSession({ token: session.token })));
+      setSessionMessage("All other sessions were signed out.");
+      await loadSessions();
+    } catch (error) {
+      setSessionMessage(error instanceof Error ? error.message : "Unable to revoke other sessions.");
     }
   }
 
@@ -146,6 +171,12 @@ export function SecurityPanel({ isOwner = false }: { isOwner?: boolean }) {
                 {showNewPassword ? <EyeOff size={15} /> : <Eye size={15} />}
               </button>
             </div>
+          </div>
+          <div className="sm:col-span-2">
+            <FieldLabel>Confirm new password</FieldLabel>
+            <Input required minLength={8} type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} autoComplete="new-password" className="w-full" />
+            <div className="mt-2 flex gap-1">{[0, 1, 2, 3, 4].map((level) => <span key={level} className={`h-1.5 flex-1 rounded-full ${level < passwordStrength ? (passwordStrength >= 4 ? "bg-success" : "bg-gold") : "bg-muted"}`} />)}</div>
+            <p className="mt-1 text-[10px] text-muted-foreground">Strength: {passwordStrength >= 4 ? "Enterprise-ready" : passwordStrength >= 2 ? "Needs improvement" : "Too weak"}</p>
           </div>
           <div className="sm:col-span-2 flex items-center gap-3">
             <Button variant="secondary" type="submit" disabled={busy}>
@@ -238,6 +269,11 @@ export function SecurityPanel({ isOwner = false }: { isOwner?: boolean }) {
           {sessionMessage ? (
             <div className="mt-4">
               <FormMessage tone={messageToneFromText(sessionMessage)}>{sessionMessage}</FormMessage>
+            </div>
+          ) : null}
+          {sessions && sessions.some((session) => session.token !== currentToken) ? (
+            <div className="mt-4">
+              <Button type="button" variant="secondary" onClick={() => void revokeOtherSessions()}>Log out all other devices</Button>
             </div>
           ) : null}
         </FormSection>

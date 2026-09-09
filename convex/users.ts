@@ -415,6 +415,18 @@ export const updateCompanySettings = mutation({
     industry: v.optional(v.string()),
     address: v.optional(v.string()),
     phone: v.optional(v.string()),
+    taxId: v.optional(v.string()),
+    timezone: v.optional(v.string()),
+    reportAutomationEnabled: v.optional(v.boolean()),
+    reportFrequency: v.optional(v.string()),
+    reportRecipients: v.optional(v.array(v.string())),
+    reportDeliveryTime: v.optional(v.string()),
+    notificationPreferences: v.optional(v.object({
+      inventoryInApp: v.boolean(), inventoryEmail: v.boolean(), inventoryTelegram: v.boolean(),
+      approvalsInApp: v.boolean(), approvalsEmail: v.boolean(), approvalsTelegram: v.boolean(),
+      reconciliationInApp: v.boolean(), reconciliationEmail: v.boolean(), reconciliationTelegram: v.boolean(),
+      financialInApp: v.boolean(), financialEmail: v.boolean(), financialTelegram: v.boolean(),
+    })),
   },
   handler: async (ctx, args) => {
     await requirePermission(ctx, "company_settings.update");
@@ -429,6 +441,13 @@ export const updateCompanySettings = mutation({
       industry: args.industry?.trim() || settings.industry,
       address: args.address?.trim() || settings.address,
       phone: args.phone?.trim() || settings.phone,
+      taxId: args.taxId?.trim() || settings.taxId,
+      timezone: args.timezone?.trim() || settings.timezone,
+      reportAutomationEnabled: args.reportAutomationEnabled ?? settings.reportAutomationEnabled,
+      reportFrequency: args.reportFrequency ?? settings.reportFrequency,
+      reportRecipients: args.reportRecipients ?? settings.reportRecipients,
+      reportDeliveryTime: args.reportDeliveryTime ?? settings.reportDeliveryTime,
+      notificationPreferences: args.notificationPreferences ?? settings.notificationPreferences,
     });
     return (await ctx.db.get(settings._id))!;
   },
