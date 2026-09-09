@@ -1,4 +1,3 @@
-import { Boxes, ClipboardList, Factory, LayoutDashboard, Settings, ShoppingCart } from "lucide-react";
 import type { WorkspaceNavItem } from "@/components/dashboard/workspace-shell";
 
 export const managerNavItems: WorkspaceNavItem[] = [
@@ -6,36 +5,36 @@ export const managerNavItems: WorkspaceNavItem[] = [
     href: "/dashboard/manager/overview",
     label: "Overview",
     english: "አጠቃላይ እይታ",
-    icon: LayoutDashboard,
+    icon: "layoutDashboard",
   },
   {
     href: "/dashboard/manager/orders",
     label: "Orders",
     english: "የእቃ ማዘዣዎች",
-    icon: ShoppingCart,
+    icon: "shoppingCart",
   },
   {
     href: "/dashboard/manager/jobs",
     label: "Job Cards",
     english: "የሥራ ካርዶች",
-    icon: ClipboardList,
+    icon: "clipboardList",
   },
   {
     href: "/dashboard/manager/machines",
     label: "Machines",
     english: "ማሽኖች",
-    icon: Factory,
+    icon: "factory",
   },
   {
     href: "/dashboard/manager/inventory",
     label: "Inventory",
     english: "እቃዎች",
-    icon: Boxes,
+    icon: "boxes",
   },
   {
     href: "/dashboard/manager/settings",
     label: "Settings",
     english: "ቅንብሮች",
-    icon: Settings,
+    icon: "settings",
   },
 ];

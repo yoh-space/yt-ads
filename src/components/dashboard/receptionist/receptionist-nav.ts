@@ -1,4 +1,3 @@
-import { LayoutDashboard, Settings, ShoppingCart } from "lucide-react";
 import type { WorkspaceNavItem } from "@/components/dashboard/workspace-shell";
 
 export const receptionistNavItems: WorkspaceNavItem[] = [
@@ -6,18 +5,18 @@ export const receptionistNavItems: WorkspaceNavItem[] = [
     href: "/dashboard/receptionist/overview",
     label: "Overview",
     english: "አጠቃላይ እይታ",
-    icon: LayoutDashboard,
+    icon: "layoutDashboard",
   },
   {
     href: "/dashboard/receptionist/orders",
     label: "Orders",
     english: "የደንበኞች ትዛዞች",
-    icon: ShoppingCart,
+    icon: "shoppingCart",
   },
   {
     href: "/dashboard/receptionist/settings",
     label: "Settings",
     english: "ማስተካከያ",
-    icon: Settings,
+    icon: "settings",
   },
 ];

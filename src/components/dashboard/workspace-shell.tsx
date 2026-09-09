@@ -9,13 +9,51 @@ import { cn } from "@/lib/utils";
 import type { Role } from "@/lib/operations-types";
 import { InventoryLoader } from "./inventory-loader";
 import { DashboardAccessDenied } from "./access-denied";
-import { Crown, Menu, LogOut, type LucideIcon } from "lucide-react";
+import {
+  Boxes,
+  ClipboardList,
+  Crown,
+  Factory,
+  FileBarChart,
+  FolderKanban,
+  History,
+  Inbox,
+  LayoutDashboard,
+  Menu,
+  LogOut,
+  Scale,
+  Scissors,
+  Settings,
+  ShoppingCart,
+  SlidersHorizontal,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
+
+const workspaceIcons = {
+  boxes: Boxes,
+  clipboardList: ClipboardList,
+  factory: Factory,
+  fileBarChart: FileBarChart,
+  folderKanban: FolderKanban,
+  history: History,
+  inbox: Inbox,
+  layoutDashboard: LayoutDashboard,
+  scale: Scale,
+  scissors: Scissors,
+  settings: Settings,
+  shoppingCart: ShoppingCart,
+  slidersHorizontal: SlidersHorizontal,
+  users: Users,
+} as const;
+
+export type WorkspaceIconName = keyof typeof workspaceIcons;
 
 export interface WorkspaceNavItem {
   href: string;
   label: string;
   english: string;
-  icon: LucideIcon;
+  icon: WorkspaceIconName;
 }
 
 function WorkspaceSidebar({
@@ -38,7 +76,7 @@ function WorkspaceSidebar({
   const nav = (
     <nav aria-label={`${brandLabel} navigation`} className="flex flex-1 flex-col gap-1 overflow-y-auto p-3">
       {navItems.map((item) => {
-        const Icon = item.icon;
+        const Icon = workspaceIcons[item.icon];
         const active = pathname === item.href;
         return (
           <Link
@@ -107,26 +145,11 @@ function WorkspaceSidebar({
 
 function WorkspaceTopbar({
   onOpenMenu,
-  profileName,
-  companyName,
-  consoleLabel,
-  workspaceTitle,
 }: {
   onOpenMenu: () => void;
-  profileName?: string;
-  companyName?: string;
-  consoleLabel: string;
-  workspaceTitle: string;
 }) {
-  const initials = (profileName ?? "U")
-    .split(/\s+/)
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-background/85 backdrop-blur px-4 md:px-6">
+    <header className="sticky top-0 z-30 flex h-14 items-center border-b border-border bg-background/85 px-4 backdrop-blur md:hidden">
       <button
         onClick={onOpenMenu}
         className="grid place-items-center rounded-md border border-border p-1.5 text-muted-foreground md:hidden"
@@ -134,20 +157,6 @@ function WorkspaceTopbar({
       >
         <Menu size={16} />
       </button>
-      <div className="min-w-0 flex-1">
-        <p className="text-[8px] font-mono uppercase tracking-[0.2em] text-muted-foreground truncate">
-          {companyName ?? "YT Advertisement"} · {consoleLabel}
-        </p>
-        <p className="text-[13px] font-semibold text-foreground truncate">{workspaceTitle}</p>
-      </div>
-      <div className="flex items-center gap-2 rounded-full border border-border bg-card px-2 py-1">
-        <span className="grid place-items-center w-6 h-6 rounded-full bg-primary/15 text-primary text-[10px] font-bold">
-          {initials}
-        </span>
-        <span className="hidden sm:block text-[11px] font-medium text-muted-foreground max-w-[140px] truncate">
-          {profileName ?? "User"}
-        </span>
-      </div>
     </header>
   );
 }
@@ -162,7 +171,6 @@ export function WorkspaceShell({
   roles,
   navItems,
   brandLabel,
-  workspaceTitle,
   consoleLabel,
   icon = Crown,
   accessDeniedReason,
@@ -171,7 +179,6 @@ export function WorkspaceShell({
   roles: Role[];
   navItems: WorkspaceNavItem[];
   brandLabel: string;
-  workspaceTitle: string;
   consoleLabel: string;
   icon?: LucideIcon;
   accessDeniedReason?: string;
@@ -214,10 +221,6 @@ export function WorkspaceShell({
       <div className="flex min-h-screen flex-col md:pl-64">
         <WorkspaceTopbar
           onOpenMenu={() => setMobileOpen(true)}
-          profileName={profile.name}
-          companyName={companySettings?.companyName}
-          consoleLabel={consoleLabel}
-          workspaceTitle={workspaceTitle}
         />
         <main className="flex-1 w-full max-w-[1700px] mx-auto p-4 md:p-6 lg:p-8">
           {children}

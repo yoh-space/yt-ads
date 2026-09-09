@@ -16,7 +16,6 @@ export default function AdminDashboardLayout({ children }: { children: ReactNode
       roles={["admin"]}
       navItems={adminNavItems}
       brandLabel="Admin"
-      workspaceTitle="የአስተዳዳሪ ዳሽቦርድ"
       consoleLabel="Admin console"
     >
       {children}

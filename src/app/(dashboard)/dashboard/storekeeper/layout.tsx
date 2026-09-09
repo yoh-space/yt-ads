@@ -16,7 +16,6 @@ export default function StorekeeperDashboardLayout({ children }: { children: Rea
       roles={["storekeeper"]}
       navItems={storekeeperNavItems}
       brandLabel="Storekeeper"
-      workspaceTitle="የመጋዘን ቁጥጥር"
       consoleLabel="Storekeeper console"
     >
       {children}

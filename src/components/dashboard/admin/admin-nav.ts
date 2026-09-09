@@ -1,36 +1,25 @@
-import {
-  Boxes,
-  Factory,
-  FileBarChart,
-  FolderKanban,
-  Inbox,
-  LayoutDashboard,
-  Scale,
-  Settings,
-  SlidersHorizontal,
-  type LucideIcon,
-} from "lucide-react";
+import type { WorkspaceIconName } from "@/components/dashboard/workspace-shell";
 
 export interface AdminNavItem {
   href: string;
   label: string;
   english: string;
-  icon: LucideIcon;
+  icon: WorkspaceIconName;
 }
 
 export const adminNavItems: AdminNavItem[] = [
-  { href: "/dashboard/admin/overview", label: "ዋና ማዕከል", english: "Overview", icon: LayoutDashboard },
-  { href: "/dashboard/admin/orders", label: "የደንበኛ ትዕዛዞች", english: "Orders", icon: Inbox },
-  { href: "/dashboard/admin/jobs", label: "የሥራ ካርዶች", english: "Job Cards", icon: FolderKanban },
-  { href: "/dashboard/admin/machines", label: "ማሽኖች", english: "Machines", icon: Factory },
-  { href: "/dashboard/admin/inventory", label: "ክምችት", english: "Stock Levels", icon: Boxes },
-  { href: "/dashboard/admin/reconciliation", label: "ክምችት ማረጋገጫ", english: "Reconciliation", icon: Scale },
-  { href: "/dashboard/admin/reports", label: "ሪፖርቶች", english: "Reports", icon: FileBarChart },
+  { href: "/dashboard/admin/overview", label: "ዋና ማዕከል", english: "Overview", icon: "layoutDashboard" },
+  { href: "/dashboard/admin/orders", label: "የደንበኛ ትዕዛዞች", english: "Orders", icon: "inbox" },
+  { href: "/dashboard/admin/jobs", label: "የሥራ ካርዶች", english: "Job Cards", icon: "folderKanban" },
+  { href: "/dashboard/admin/machines", label: "ማሽኖች", english: "Machines", icon: "factory" },
+  { href: "/dashboard/admin/inventory", label: "ክምችት", english: "Stock Levels", icon: "boxes" },
+  { href: "/dashboard/admin/reconciliation", label: "ክምችት ማረጋገጫ", english: "Reconciliation", icon: "scale" },
+  { href: "/dashboard/admin/reports", label: "ሪፖርቶች", english: "Reports", icon: "fileBarChart" },
   {
     href: "/dashboard/admin/config",
     label: "የሥራ ማስተካከያ",
     english: "Operational Configuration",
-    icon: SlidersHorizontal,
+    icon: "slidersHorizontal",
   },
-  { href: "/dashboard/admin/settings", label: "ማስተካከያ", english: "Settings", icon: Settings },
+  { href: "/dashboard/admin/settings", label: "ማስተካከያ", english: "Settings", icon: "settings" },
 ];

@@ -23,7 +23,6 @@ export default async function OperatorMachineLayout({
       roles={OPERATOR_ROLES}
       navItems={operatorNavItems(machine.toLowerCase())}
       brandLabel="Operator"
-      workspaceTitle="የማሽን ሥራ መቆጣጠሪያ"
       consoleLabel="Operator console"
     >
       {children}

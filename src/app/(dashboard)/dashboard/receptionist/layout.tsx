@@ -16,7 +16,6 @@ export default function ReceptionistDashboardLayout({ children }: { children: Re
       roles={["receptionist"]}
       navItems={receptionistNavItems}
       brandLabel="Reception"
-      workspaceTitle="የተቀበል ዴስክ"
       consoleLabel="Reception console"
     >
       {children}

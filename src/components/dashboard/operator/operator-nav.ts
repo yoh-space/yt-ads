@@ -1,4 +1,3 @@
-import { Boxes, ClipboardList, LayoutDashboard, Scale, Settings } from "lucide-react";
 import type { WorkspaceNavItem } from "@/components/dashboard/workspace-shell";
 import type { Role } from "@/lib/operations-types";
 
@@ -17,31 +16,31 @@ export function operatorNavItems(machineSlug: string): WorkspaceNavItem[] {
       href: `${base}/overview`,
       label: "Overview",
       english: "ዋና ማዕከል",
-      icon: LayoutDashboard,
+      icon: "layoutDashboard",
     },
     {
       href: `${base}/jobs`,
       label: "Jobs",
       english: "የሥራ ካርዶች",
-      icon: ClipboardList,
+      icon: "clipboardList",
     },
     {
       href: `${base}/inventory`,
       label: "Machine Stock",
       english: "የማሽን ዕቃ",
-      icon: Boxes,
+      icon: "boxes",
     },
     {
       href: `${base}/reconciliation`,
       label: "Reconciliation",
       english: "ማስታረቅ",
-      icon: Scale,
+      icon: "scale",
     },
     {
       href: "/settings",
       label: "Settings",
       english: "ቅንብሮች",
-      icon: Settings,
+      icon: "settings",
     },
   ];
 }

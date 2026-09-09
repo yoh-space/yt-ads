@@ -16,7 +16,6 @@ export default function ManagerDashboardLayout({ children }: { children: ReactNo
       roles={["manager"]}
       navItems={managerNavItems}
       brandLabel="Manager"
-      workspaceTitle="የኦፕሬሽን ማእከል"
       consoleLabel="Manager console"
     >
       {children}
