@@ -32,7 +32,11 @@ export const getExecutiveAnalytics = query({
     };
     const materialMap = new Map(materials.map((material) => [material._id, material]));
     const jobMap = new Map(jobs.map((job) => [job._id, job]));
-    const costEvents = new Set(["PRODUCTION_CONSUMPTION", "STORE_TO_OPERATOR_TRANSFER", "EXCEPTION_STOCK_OUT"]);
+    // Financial production cost is recognized only when an operator deduction
+    // records actual production consumption. Store transfers and exception
+    // stock-outs are inventory movements, not consumed production cost.
+    const costEvents = new Set(["PRODUCTION_CONSUMPTION"]);
+    const consumptionEvents = new Set(["PRODUCTION_CONSUMPTION", "STORE_TO_OPERATOR_TRANSFER", "EXCEPTION_STOCK_OUT"]);
     const inRange = (timestamp: number, start = from, end = to) => timestamp >= start && timestamp < end;
     const revenueAt = (start: number, end: number) => orders.filter((order) => inRange(order.createdAt, start, end) && isLiveOrder(order.status)).reduce((sum, order) => sum + (order.amount ?? 0), 0);
     const costAt = (start: number, end: number) => movements.filter((movement) => inRange(movement.createdAt, start, end) && costEvents.has(movement.eventType)).reduce((sum, movement) => {
@@ -54,7 +58,7 @@ export const getExecutiveAnalytics = query({
     const trend = [...buckets.values()].map((bucket) => ({ date: labelFor(bucket.timestamp), revenue: round(bucket.revenue), materialCost: round(bucket.materialCost), profit: round(bucket.revenue - bucket.materialCost - bucket.loss), margin: bucket.revenue ? round(((bucket.revenue - bucket.materialCost - bucket.loss) / bucket.revenue) * 100) : 0 }));
 
     const consumption = new Map<string, number>();
-    for (const movement of movements) if (movement.createdAt >= to - 30 * DAY && movement.createdAt < to && costEvents.has(movement.eventType)) consumption.set(movement.materialId, (consumption.get(movement.materialId) ?? 0) + Math.max(0, movement.baseQuantity));
+    for (const movement of movements) if (movement.createdAt >= to - 30 * DAY && movement.createdAt < to && consumptionEvents.has(movement.eventType)) consumption.set(movement.materialId, (consumption.get(movement.materialId) ?? 0) + Math.max(0, movement.baseQuantity));
     const runwayMaterials = materials.filter((material) => material.active).map((material) => { const consumed = consumption.get(material._id) ?? 0; const daily = consumed / 30; const stock = material.quantity ?? 0; const runway = daily > 0 ? Math.round(stock / daily) : stock <= 0 ? 0 : null; const health = stock <= 0 || (runway !== null && runway < 7) ? "Critical" : runway !== null && runway <= 14 ? "Warning" : "Healthy"; return { name: material.name, category: material.category ?? "Other", consumption: round(consumed), runway, health }; }).sort((a, b) => (a.runway ?? 9999) - (b.runway ?? 9999));
 
     const serviceRevenue = new Map<string, number>(); const serviceCost = new Map<string, number>();
