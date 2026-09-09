@@ -11,12 +11,6 @@ import { InventoryLoader } from "../inventory-loader";
 import { DashboardAccessDenied } from "../access-denied";
 import { Crown, Menu, LogOut } from "lucide-react";
 
-export function isOwnerWorkspacePath(pathname?: string): boolean {
-  if (!pathname) return false;
-  const segments = pathname.split("/").filter(Boolean);
-  return segments[0] === "dashboard" && segments[1] === "owner";
-}
-
 function OwnerSidebar({
   mobileOpen,
   onClose,
