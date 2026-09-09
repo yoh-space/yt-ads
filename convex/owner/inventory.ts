@@ -218,9 +218,16 @@ export const getOwnerFloorSummary = query({
     const machineById = new Map(machines.map((m) => [m._id, m]));
     const nameByUser = new Map(users.map((u) => [u.authUserId, u.name]));
     const assignedOperatorByMachine = new Map<string, { id: string; name: string }>();
-    for (const user of users) {
+    for (const user of users.filter((candidate) => candidate.assignedMachineIds?.length)) {
       for (const machineId of user.assignedMachineIds ?? []) {
         assignedOperatorByMachine.set(machineId as string, { id: user.authUserId, name: user.name });
+      }
+    }
+    for (const user of users.filter((candidate) => !candidate.assignedMachineIds?.length)) {
+      for (const machine of machines) {
+        if (machine.active && machine.operatorRole === user.role && !assignedOperatorByMachine.has(machine._id)) {
+          assignedOperatorByMachine.set(machine._id as string, { id: user.authUserId, name: user.name });
+        }
       }
     }
 
