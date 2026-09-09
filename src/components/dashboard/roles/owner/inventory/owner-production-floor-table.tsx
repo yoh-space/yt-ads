@@ -25,6 +25,16 @@ export interface FloorMachineRow {
   activeJob: { title: string; code: string; client: string } | null;
   batches: unknown[];
   inkBatches: unknown[];
+  stockSummary: Array<{
+    materialName: string;
+    kind: "raw_material" | "ink" | "solvent";
+    unit: string;
+    issued: number;
+    remaining: number;
+    consumed: number;
+    usagePercent: number;
+  }>;
+  configuredMaterials: Array<{ name: string; kind: "raw_material" | "ink" | "solvent" }>;
   recentMovements: unknown[];
 }
 

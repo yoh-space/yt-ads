@@ -12,6 +12,8 @@ import {
   CheckCircle,
   Eye,
   Clock,
+  Beaker,
+  Layers,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { FloorMachineRow } from "./owner-production-floor-table";
@@ -216,6 +218,16 @@ interface MachineInspectionDrawerProps {
   onClose: () => void;
 }
 
+interface AtomicStock {
+  materialName: string;
+  kind: "raw_material" | "ink" | "solvent";
+  unit: string;
+  issued: number;
+  remaining: number;
+  consumed: number;
+  usagePercent: number;
+}
+
 export function MachineInspectionDrawer({
   row,
   onClose,
@@ -235,6 +247,13 @@ export function MachineInspectionDrawer({
   const batches = (row.batches as BatchRow[]) ?? [];
   const inkBatches = (row.inkBatches as InkBatch[]) ?? [];
   const movements = (row.recentMovements as RecentMovement[]) ?? [];
+  const stockSummary = (row.stockSummary as AtomicStock[]) ?? [];
+  const configuredMaterials = row.configuredMaterials ?? [];
+  const stockGroups = [
+    { key: "raw_material", label: "Raw materials", icon: <Layers size={13} />, tone: "cyan" },
+    { key: "ink", label: "Ink", icon: <Droplets size={13} />, tone: "violet" },
+    { key: "solvent", label: "Cleaning solvent", icon: <Beaker size={13} />, tone: "gold" },
+  ] as const;
 
   const statusStyles: Record<string, string> = {
     Running: "border-success/30 bg-success/10 text-success",
@@ -307,7 +326,7 @@ export function MachineInspectionDrawer({
               </span>
             )}
             <span className="text-[11px] text-muted-foreground">
-              Operator: <strong className="text-foreground">{row.operatorName}</strong>
+              Assigned operator: <strong className="text-foreground">{row.operatorName}</strong>
             </span>
           </div>
         </header>
@@ -322,7 +341,51 @@ export function MachineInspectionDrawer({
             [&::-webkit-scrollbar-track]:bg-transparent"
         >
 
-          {/* ── Section 1: Material Batches ── */}
+          {/* ── Section 1: Atomic stock overview ── */}
+          <section aria-labelledby="atomic-stock-heading">
+            <SectionHeading icon={<Activity size={13} />} title="Live stock on this machine" />
+            <h4 id="atomic-stock-heading" className="sr-only">Live stock on this machine</h4>
+            <div className="space-y-3">
+              {stockGroups.map((group) => {
+                const items = stockSummary.filter((item) => item.kind === group.key);
+                const configured = configuredMaterials.filter((item) => item.kind === group.key);
+                return (
+                  <div key={group.key} className="rounded-lg border border-border/50 bg-background/30 p-3">
+                    <div className="mb-2 flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-[11px] font-semibold text-foreground">
+                        <span className={cn("text-muted-foreground", group.tone === "cyan" && "text-cyan-dark", group.tone === "violet" && "text-violet", group.tone === "gold" && "text-gold")}>{group.icon}</span>
+                        {group.label}
+                      </div>
+                      <span className="text-[9px] uppercase tracking-wide text-muted-foreground">Live balance</span>
+                    </div>
+                    {items.length > 0 ? (
+                      <div className="space-y-2">
+                        {items.map((item) => (
+                          <div key={`${item.materialName}-${item.unit}`} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-md border border-border/40 px-2.5 py-2">
+                            <div className="min-w-0">
+                              <p className="truncate text-[11px] font-medium text-foreground">{item.materialName}</p>
+                              <p className="text-[9px] text-muted-foreground">Used {fmtQty(item.consumed, item.unit)} · {item.usagePercent}% consumed</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-mono text-[12px] font-bold tabular-nums text-foreground">{fmtQty(item.remaining, item.unit)}</p>
+                              <p className="text-[9px] text-muted-foreground">remaining</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[11px] italic text-muted-foreground">No live stock issued.</p>
+                    )}
+                    {configured.length > 0 && items.length === 0 ? (
+                      <p className="mt-2 text-[10px] text-muted-foreground">Configured: {configured.map((item) => item.name).join(", ")}</p>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* ── Section 2: Material Batches ── */}
           <section aria-labelledby="batches-heading">
             <SectionHeading
               icon={<Activity size={13} />}

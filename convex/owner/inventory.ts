@@ -217,6 +217,12 @@ export const getOwnerFloorSummary = query({
     const materialById = new Map(materials.map((m) => [m._id, m]));
     const machineById = new Map(machines.map((m) => [m._id, m]));
     const nameByUser = new Map(users.map((u) => [u.authUserId, u.name]));
+    const assignedOperatorByMachine = new Map<string, { id: string; name: string }>();
+    for (const user of users) {
+      for (const machineId of user.assignedMachineIds ?? []) {
+        assignedOperatorByMachine.set(machineId as string, { id: user.authUserId, name: user.name });
+      }
+    }
 
     // Index job cards by machineId — pick the most recent "In production" one
     const activeJobByMachine = new Map<string, { title: string; code: string; client: string }>();
@@ -283,8 +289,9 @@ export const getOwnerFloorSummary = query({
       const machine = machineById.get(machineId as never);
       // Derive operator from the first batch that has one; fall back to empty
       const primaryBatch = machineBatches[0];
-      const operatorId = primaryBatch?.operatorId ?? "";
-      const operatorName = operatorId ? (nameByUser.get(operatorId) ?? operatorId) : "Unassigned";
+      const assignedOperator = assignedOperatorByMachine.get(machineId);
+      const operatorId = assignedOperator?.id ?? primaryBatch?.operatorId ?? "";
+      const operatorName = assignedOperator?.name ?? (operatorId ? (nameByUser.get(operatorId) ?? operatorId) : "Unassigned");
 
       // Aggregates across all batches for this machine
       let totalIssued = 0;
@@ -331,6 +338,37 @@ export const getOwnerFloorSummary = query({
 
       // Ink batches only (baseUnit === "L")
       const inkBatches = batchRows.filter((b) => b.baseUnit === "L");
+      const stockSummary: Array<{
+        materialName: string;
+        kind: "raw_material" | "ink" | "solvent";
+        unit: string;
+        issued: number;
+        remaining: number;
+        consumed: number;
+        usagePercent: number;
+      }> = batchRows.map((batch) => {
+        const material = materialById.get(machineBatches.find((b) => b._id === batch.id)?.materialId as never);
+        const kind = material?.isSolvent || material?.category === "Solvent"
+          ? "solvent"
+          : material?.category === "Ink" || batch.baseUnit === "L"
+            ? "ink"
+            : "raw_material";
+        return {
+          materialName: batch.materialName,
+          kind,
+          unit: batch.baseUnit,
+          issued: batch.issuedQuantity,
+          remaining: batch.currentRemaining,
+          consumed: batch.consumedQuantity,
+          usagePercent: batch.usagePercent,
+        };
+      });
+
+      const configuredMaterials = [
+        ...(machine?.primaryMaterials ?? []).map((name) => ({ name, kind: "raw_material" as const })),
+        ...(machine?.compatibleInks ?? []).map((name: string) => ({ name, kind: "ink" as const })),
+        ...(machine?.solventNames ?? []).map((name) => ({ name, kind: "solvent" as const })),
+      ];
 
       // Recent movements for this machine
       const recentMovements = (movementsByMachine.get(machineId) ?? []).map((mv) => {
@@ -367,6 +405,8 @@ export const getOwnerFloorSummary = query({
         activeJob: activeJob ?? null,
         batches: batchRows,
         inkBatches,
+        stockSummary,
+        configuredMaterials,
         recentMovements,
       };
     });
