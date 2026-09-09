@@ -63,6 +63,12 @@ export type SystemConfig = {
   standardWasteMargin?: number;
   /** Maximum approved scrap ceiling (%) a Standard Job Card may carry. */
   maxAllowedScrapLimit?: number;
+  /** Optional default applied only when creating a new material. */
+  defaultReorderLevel?: number;
+  /** Controls creation of low-stock notifications; dashboard calculations remain active. */
+  reorderAlertsEnabled?: boolean;
+  /** Prevents repeated alerts for the same low-stock condition. */
+  reorderAlertCooldownHours?: number;
   updatedAt: number;
   updatedBy?: string;
 };
@@ -176,6 +182,9 @@ export const DEFAULT_SYSTEM_CONFIG: Omit<SystemConfig, "updatedAt" | "updatedBy"
   defaultMarginSquareMetres: 0,
   standardWasteMargin: 3,
   maxAllowedScrapLimit: 5,
+  defaultReorderLevel: 0,
+  reorderAlertsEnabled: true,
+  reorderAlertCooldownHours: 24,
 };
 
 /** Resolves the currently governed purchase-to-base conversion for a material. */

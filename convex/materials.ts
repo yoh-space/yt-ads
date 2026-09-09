@@ -207,7 +207,11 @@ export const recordStockMovement = mutation({
     });
     const updatedMaterial = await ctx.db.get(args.materialId);
     const nextQuantity = updatedMaterial?.quantity ?? material.quantity;
-    if (args.direction === "out" && isAtOrBelowReorderLevel(nextQuantity, material.reorderAt)) {
+    if (
+      args.direction === "out" &&
+      config.reorderAlertsEnabled !== false &&
+      isAtOrBelowReorderLevel(nextQuantity, material.reorderAt)
+    ) {
       await notifyRoles(ctx, ["owner", "manager", "admin", "storekeeper"], {
         title: "Low stock alert",
         message: `${material.name} is at ${nextQuantity} ${material.unit}, at or below its reorder level.`,
@@ -215,6 +219,7 @@ export const recordStockMovement = mutation({
         actorAuthUserId: identity._id,
         relatedTable: "materials",
         relatedId: args.materialId,
+        cooldownHours: config.reorderAlertCooldownHours,
       });
     }
   },
