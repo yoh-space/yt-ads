@@ -49,7 +49,11 @@ export const getReconciliationSummary = query({
         createdAt: r.createdAt,
       }));
 
-    const shortages = reconciliations.filter((r) => r.variance < 0);
+    // Only count shortages that are still open/reviewed — resolved/accepted ones
+    // are cleared and should not appear as active shortages in the KPI card.
+    const shortages = reconciliations.filter(
+      (r) => r.variance < 0 && r.status !== "Resolved" && r.status !== "Accepted",
+    );
     const surpluses = reconciliations.filter((r) => r.variance > 0);
 
     return {

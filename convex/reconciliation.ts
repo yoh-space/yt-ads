@@ -207,7 +207,11 @@ export const summary = query({
     ]);
     const materialMap = new Map(materials.map((m) => [m._id, m]));
     const openCounts = records.filter((r) => r.status === "Open");
-    const shortages = records.filter((r) => r.variance < 0);
+    // Only count shortages that are still open/reviewed — resolved/accepted ones
+    // are cleared and must not inflate the shortage count or monetary loss total.
+    const shortages = records.filter(
+      (r) => r.variance < 0 && r.status !== "Resolved" && r.status !== "Accepted",
+    );
     const surpluses = records.filter((r) => r.variance > 0);
     const totalMonetaryLoss = shortages.reduce((sum, r) => sum + (r.monetaryLoss ?? 0), 0);
     const latestByMaterial = new Map<string, typeof records[number]>();

@@ -270,7 +270,10 @@ export const financialMetrics = query({
     let auditedStockLoss = 0;
     let auditedShortageCount = 0;
     for (const record of latestByMaterial.values()) {
+      // Skip shortages that have already been resolved or accepted by the admin —
+      // the discrepancy has been acknowledged and must no longer inflate the loss figure.
       if (record.variance >= 0) continue;
+      if (record.status === "Resolved" || record.status === "Accepted") continue;
       auditedShortageCount += 1;
       auditedStockLoss += record.monetaryLoss ?? Math.abs(record.variance) * (record.etbValue ?? resolveEtbValue(materialMap.get(record.materialId) ?? { name: "", unit: "m2" }));
     }

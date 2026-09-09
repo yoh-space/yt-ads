@@ -44,7 +44,10 @@ export const getReportSummary = query({
     let auditedStockLoss = 0;
     let auditedShortageCount = 0;
     for (const record of latestByMaterial.values()) {
+      // Skip shortages that have already been resolved or accepted —
+      // the discrepancy has been acknowledged and must not inflate the loss figure.
       if (record.variance >= 0) continue;
+      if (record.status === "Resolved" || record.status === "Accepted") continue;
       auditedShortageCount += 1;
       auditedStockLoss +=
         record.monetaryLoss ??
