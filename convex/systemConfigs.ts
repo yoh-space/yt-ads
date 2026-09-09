@@ -1,7 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import type { MutationCtx } from "./_generated/server";
-import { requirePermission } from "./users";
+import { requireOwner, requirePermission } from "./users";
 import { DEFAULT_SYSTEM_CONFIG, type SystemConfig } from "./materialUsage";
 import { unitConversionRule } from "./schema";
 
@@ -30,7 +30,7 @@ function validateNumber(value: number, label: string, options: { min?: number; m
 export const getSystemConfig = query({
   args: {},
   handler: async (ctx) => {
-    await requirePermission(ctx, "company_settings.update");
+    await requireOwner(ctx);
     const row = await ctx.db
       .query("systemConfigs")
       .withIndex("by_key", (q) => q.eq("key", CONFIG_KEY))
@@ -52,6 +52,18 @@ export const getStorekeeperConfig = query({
       .withIndex("by_key", (q) => q.eq("key", CONFIG_KEY))
       .unique();
     return { updatedAt: row?.updatedAt ?? null };
+  },
+});
+
+export const getConfigurationHistory = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireOwner(ctx);
+    return ctx.db
+      .query("configurationChanges")
+      .withIndex("by_config_created", (q) => q.eq("configKey", CONFIG_KEY))
+      .order("desc")
+      .take(20);
   },
 });
 
@@ -82,13 +94,16 @@ export const updateSystemConfig = mutation({
     defaultMarginSquareMetres: v.number(),
     standardWasteMargin: v.number(),
     maxAllowedScrapLimit: v.number(),
+    defaultReorderLevel: v.optional(v.number()),
+    reorderAlertsEnabled: v.optional(v.boolean()),
+    reorderAlertCooldownHours: v.optional(v.number()),
     materialScrapAllowances: v.array(v.object({
       materialId: v.id("materials"),
       allowancePercent: v.number(),
     })),
   },
   handler: async (ctx, args) => {
-    const { identity, profile } = await requirePermission(ctx, "company_settings.update");
+    const { identity, profile } = await requireOwner(ctx);
     validateNumber(args.etbPerSquareMetre, "Price per m²", { min: 0 });
     validateNumber(args.etbPerLitre, "Price per litre", { min: 0 });
     validateNumber(args.etbPerPiece, "Price per piece", { min: 0 });
@@ -103,6 +118,8 @@ export const updateSystemConfig = mutation({
     validateNumber(args.defaultMarginSquareMetres, "Default margin allowance", { min: 0 });
     validateNumber(args.standardWasteMargin, "Standard job-card waste margin", { min: 0, max: 100 });
     validateNumber(args.maxAllowedScrapLimit, "Maximum allowed scrap limit", { min: 0, max: 100 });
+    validateNumber(args.defaultReorderLevel ?? 0, "Default reorder level", { min: 0 });
+    validateNumber(args.reorderAlertCooldownHours ?? 24, "Reorder alert cooldown", { min: 0, max: 168 });
 
     const seenScrap = new Set<string>();
     const scrapAllowances = args.materialScrapAllowances
@@ -171,10 +188,21 @@ export const updateSystemConfig = mutation({
       defaultMarginSquareMetres: args.defaultMarginSquareMetres,
       standardWasteMargin: args.standardWasteMargin,
       maxAllowedScrapLimit: args.maxAllowedScrapLimit,
+      defaultReorderLevel: args.defaultReorderLevel ?? 0,
+      reorderAlertsEnabled: args.reorderAlertsEnabled ?? true,
+      reorderAlertCooldownHours: args.reorderAlertCooldownHours ?? 24,
       materialScrapAllowances: scrapAllowances,
       updatedAt: Date.now(),
       updatedBy: profile._id,
     };
+
+    const changedFields = Object.keys(payload).filter((field) => field !== "updatedAt" && field !== "updatedBy" && field !== "key");
+    await ctx.db.insert("configurationChanges", {
+      configKey: CONFIG_KEY,
+      changedFields,
+      actorAuthUserId: identity._id,
+      createdAt: Date.now(),
+    });
 
     if (existing) {
       await ctx.db.patch(existing._id, payload);
@@ -204,6 +232,9 @@ export async function ensureSystemConfig(ctx: MutationCtx, actorAuthUserId?: str
     if (existing.unitConversionDefaults === undefined) patch.unitConversionDefaults = DEFAULT_SYSTEM_CONFIG.unitConversionDefaults;
     if (existing.standardWasteMargin === undefined) patch.standardWasteMargin = DEFAULT_SYSTEM_CONFIG.standardWasteMargin;
     if (existing.maxAllowedScrapLimit === undefined) patch.maxAllowedScrapLimit = DEFAULT_SYSTEM_CONFIG.maxAllowedScrapLimit;
+    if (existing.defaultReorderLevel === undefined) patch.defaultReorderLevel = DEFAULT_SYSTEM_CONFIG.defaultReorderLevel;
+    if (existing.reorderAlertsEnabled === undefined) patch.reorderAlertsEnabled = DEFAULT_SYSTEM_CONFIG.reorderAlertsEnabled;
+    if (existing.reorderAlertCooldownHours === undefined) patch.reorderAlertCooldownHours = DEFAULT_SYSTEM_CONFIG.reorderAlertCooldownHours;
     if (Object.keys(patch).length > 0) {
       await ctx.db.patch(existing._id, { ...patch, updatedAt: Date.now() });
       existing = (await ctx.db.get(existing._id))!;

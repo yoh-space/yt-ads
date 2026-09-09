@@ -8,6 +8,7 @@ import { Panel, PanelHeader } from "@/components/shared/ui/panel";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/shared/ui/table";
 import { InventoryLoader } from "@/components/dashboard/widgets/inventory-loader";
 import { PackageOpen, AlertTriangle, Layers } from "lucide-react";
+import { OperationalPanel } from "@/components/dashboard/roles/admin/settings/operational/operational-panel";
 
 export default function OwnerOperationalConfigurationPage() {
   const summary = useQuery(api.owner.materials.getMaterialsSummary);
@@ -27,7 +28,7 @@ export default function OwnerOperationalConfigurationPage() {
       <OwnerPageHeader
         kicker="Operational Configuration · የሥራ ማስተካከያ"
         title="Operational Configuration"
-        subtitle="Material catalog and reorder settings."
+        subtitle="Configure the operational rules that govern inventory, production, orders, and approvals."
       />
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -93,6 +94,8 @@ export default function OwnerOperationalConfigurationPage() {
           </div>
         )}
       </Panel>
+
+      <OperationalPanel />
 
       <Panel>
         <PanelHeader

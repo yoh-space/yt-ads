@@ -36,6 +36,9 @@ export interface OperationalConfigState {
   minOffcutAreaSquareMetre: number;
   standardWasteMargin: number;
   maxAllowedScrapLimit: number;
+  defaultReorderLevel: number;
+  reorderAlertsEnabled: boolean;
+  reorderAlertCooldownHours: number;
   requireAdminPinForExceptions: boolean;
   maxDirectStockOutEtb: number;
   orderExpirationHours: number;
@@ -57,6 +60,9 @@ export interface OperationalConfigActions {
   setMinOffcutAreaSquareMetre: (n: number) => void;
   setStandardWasteMargin: (n: number) => void;
   setMaxAllowedScrapLimit: (n: number) => void;
+  setDefaultReorderLevel: (n: number) => void;
+  setReorderAlertsEnabled: (v: boolean) => void;
+  setReorderAlertCooldownHours: (n: number) => void;
   setRequireAdminPinForExceptions: (v: boolean) => void;
   setMaxDirectStockOutEtb: (n: number) => void;
   setOrderExpirationHours: (n: number) => void;
@@ -79,6 +85,9 @@ interface SystemConfigResponse {
   minOffcutAreaSquareMetre: number;
   standardWasteMargin?: number;
   maxAllowedScrapLimit?: number;
+  defaultReorderLevel?: number;
+  reorderAlertsEnabled?: boolean;
+  reorderAlertCooldownHours?: number;
   requireAdminPinForExceptions: boolean;
   maxDirectStockOutEtb: number;
   orderExpirationHours?: number;
@@ -107,6 +116,9 @@ export function useOperationalConfigState(
   const [minOffcutAreaSquareMetre, setMinOffcutAreaSquareMetre] = useState(0);
   const [standardWasteMargin, setStandardWasteMargin] = useState(3);
   const [maxAllowedScrapLimit, setMaxAllowedScrapLimit] = useState(5);
+  const [defaultReorderLevel, setDefaultReorderLevel] = useState(0);
+  const [reorderAlertsEnabled, setReorderAlertsEnabled] = useState(true);
+  const [reorderAlertCooldownHours, setReorderAlertCooldownHours] = useState(24);
   const [requireAdminPinForExceptions, setRequireAdminPinForExceptions] = useState(true);
   const [maxDirectStockOutEtb, setMaxDirectStockOutEtb] = useState(0);
   const [orderExpirationHours, setOrderExpirationHours] = useState(12);
@@ -129,6 +141,9 @@ export function useOperationalConfigState(
     setMinOffcutAreaSquareMetre(config.minOffcutAreaSquareMetre);
     setStandardWasteMargin(config.standardWasteMargin ?? 3);
     setMaxAllowedScrapLimit(config.maxAllowedScrapLimit ?? 5);
+    setDefaultReorderLevel(config.defaultReorderLevel ?? 0);
+    setReorderAlertsEnabled(config.reorderAlertsEnabled ?? true);
+    setReorderAlertCooldownHours(config.reorderAlertCooldownHours ?? 24);
     setRequireAdminPinForExceptions(config.requireAdminPinForExceptions);
     setMaxDirectStockOutEtb(config.maxDirectStockOutEtb);
     setOrderExpirationHours(config.orderExpirationHours ?? 12);
@@ -151,6 +166,9 @@ export function useOperationalConfigState(
     minOffcutAreaSquareMetre,
     standardWasteMargin,
     maxAllowedScrapLimit,
+    defaultReorderLevel,
+    reorderAlertsEnabled,
+    reorderAlertCooldownHours,
     requireAdminPinForExceptions,
     maxDirectStockOutEtb,
     orderExpirationHours,
@@ -169,6 +187,9 @@ export function useOperationalConfigState(
     setMinOffcutAreaSquareMetre,
     setStandardWasteMargin,
     setMaxAllowedScrapLimit,
+    setDefaultReorderLevel,
+    setReorderAlertsEnabled,
+    setReorderAlertCooldownHours,
     setRequireAdminPinForExceptions,
     setMaxDirectStockOutEtb,
     setOrderExpirationHours,

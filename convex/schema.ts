@@ -717,8 +717,21 @@ export default defineSchema({
     standardWasteMargin: v.optional(v.number()),
     /** Maximum approved scrap ceiling (%) a Standard Job Card may carry. */
     maxAllowedScrapLimit: v.optional(v.number()),
+    /** Default reorder level used only when creating new materials. */
+    defaultReorderLevel: v.optional(v.number()),
+    /** Whether low-stock notifications should be created. */
+    reorderAlertsEnabled: v.optional(v.boolean()),
+    /** Hours before the same low-stock condition may notify again. */
+    reorderAlertCooldownHours: v.optional(v.number()),
   })
     .index("by_key", ["key"]),
+  configurationChanges: defineTable({
+    configKey: v.string(),
+    changedFields: v.array(v.string()),
+    reason: v.optional(v.string()),
+    actorAuthUserId: v.string(),
+    createdAt: v.number(),
+  }).index("by_config_created", ["configKey", "createdAt"]),
 
   /**
    * Two-tier inventory, tier 1 — the central store. One row per tracked
