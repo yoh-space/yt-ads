@@ -22,22 +22,21 @@ export const getOrderSummary = query({
         o.preferredDueDate < now,
     ).length;
 
-    const recent = orders
-      .slice()
-      .sort((a, b) => b.createdAt - a.createdAt)
-      .slice(0, 12)
-      .map((o) => ({
+    const project = (o: typeof orders[number]) => ({
         id: o._id,
         code: o.code,
         clientName: o.clientName,
+        phone: o.phone,
         serviceType: o.serviceType,
         amount: o.amount ?? 0,
         status: o.status,
         priority: o.priority,
         preferredDueDate: o.preferredDueDate,
         createdAt: o.createdAt,
-      }));
+      });
+    const recent = orders.slice().sort((a, b) => b.createdAt - a.createdAt).slice(0, 12).map(project);
+    const allOrders = orders.slice().sort((a, b) => b.createdAt - a.createdAt).map(project);
 
-    return { totalOrders: orders.length, byStatus: Object.fromEntries(byStatus), overdue, recent };
+    return { totalOrders: orders.length, byStatus: Object.fromEntries(byStatus), overdue, recent, allOrders };
   },
 });

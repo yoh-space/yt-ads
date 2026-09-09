@@ -1,7 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useQuery } from "convex/react";
-import { useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { OwnerPageHeader } from "@/components/dashboard/roles/owner/owner-page-header";
@@ -9,109 +10,60 @@ import { StatCard } from "@/components/shared/ui/stat-card";
 import { Panel, PanelHeader } from "@/components/shared/ui/panel";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/shared/ui/table";
 import { InventoryLoader } from "@/components/dashboard/widgets/inventory-loader";
-import { Inbox, AlertTriangle, CalendarClock } from "lucide-react";
+import { AlertTriangle, ArrowDownAZ, ArrowDownUp, ArrowUpAZ, CalendarClock, ChevronDown, Filter, Inbox, Search, SlidersHorizontal, X } from "lucide-react";
 import { OrderDetailDrawer } from "@/components/dashboard/roles/common/order-detail-drawer";
+import { cn } from "@/lib/utils";
 
 const etb = (value: number) => `ETB ${value.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
+const statuses = ["JOB_CARD_CREATED", "IN_PRODUCTION", "READY_FOR_PICKUP", "COMPLETED", "EXPIRED_JUNK", "CANCELLED"];
+const priorities = ["High", "Medium", "Low"];
+const services = ["banner_print", "sticker_mesh", "neon_light", "lightbox_3d", "acrylic_cnc"];
+type SortKey = "code" | "clientName" | "serviceType" | "amount" | "status" | "preferredDueDate" | "priority";
+type OrderRow = { id: Id<"customerOrders">; code: string; clientName: string; phone: string; serviceType: string; amount: number; status: string; priority: string; preferredDueDate: number; createdAt: number };
 
-function makeDueDate(timestamp: number) {
-  const d = new Date(timestamp);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString();
-}
+function dueLabel(timestamp: number) { return new Date(timestamp).toLocaleDateString("en-GB"); }
+function isOverdue(order: OrderRow) { return !["COMPLETED", "READY_FOR_PICKUP", "EXPIRED", "EXPIRED_JUNK", "CANCELLED"].includes(order.status) && order.preferredDueDate < Date.now(); }
+function human(value: string) { return value.replaceAll("_", " ").toLowerCase().replace(/(^|\s)\S/g, (letter) => letter.toUpperCase()); }
+function sortLabel(key: SortKey) { return key === "preferredDueDate" ? "due" : key === "clientName" ? "client" : key; }
 
 export default function OwnerOrdersPage() {
   const summary = useQuery(api.owner.orders.getOrderSummary);
+  const router = useRouter(); const pathname = usePathname(); const params = useSearchParams();
   const [selectedOrderId, setSelectedOrderId] = useState<Id<"customerOrders"> | null>(null);
+  const [search, setSearch] = useState(() => params.get("q") ?? "");
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>(() => params.get("status")?.split(",").filter(Boolean) ?? []);
+  const [service, setService] = useState(() => params.get("service") ?? "all");
+  const [priority, setPriority] = useState(() => params.get("priority") ?? "all");
+  const [datePreset, setDatePreset] = useState(() => params.get("date") ?? "all");
+  const [dueFrom, setDueFrom] = useState(() => params.get("from") ?? "");
+  const [dueTo, setDueTo] = useState(() => params.get("to") ?? "");
+  const [minAmount, setMinAmount] = useState(() => params.get("min") ?? "");
+  const [maxAmount, setMaxAmount] = useState(() => params.get("max") ?? "");
+  const [sort, setSort] = useState<SortKey>(() => (params.get("sort")?.replace(/_(asc|desc)$/, "") as SortKey) || "preferredDueDate");
+  const [direction, setDirection] = useState<"asc" | "desc">(() => params.get("sort")?.endsWith("_asc") ? "asc" : "desc");
+  const [advancedOpen, setAdvancedOpen] = useState(() => params.has("status") || params.has("service") || params.has("priority") || params.has("date") || params.has("min") || params.has("max"));
 
-  if (summary === undefined) {
-    return (
-      <div className="flex h-[70vh] items-center justify-center">
-        <InventoryLoader label="Loading Orders…" />
-      </div>
-    );
-  }
+  useEffect(() => {
+    const next = new URLSearchParams();
+    if (search) next.set("q", search); if (selectedStatuses.length) next.set("status", selectedStatuses.join(",")); if (service !== "all") next.set("service", service); if (priority !== "all") next.set("priority", priority); if (datePreset !== "all") next.set("date", datePreset); if (dueFrom) next.set("from", dueFrom); if (dueTo) next.set("to", dueTo); if (minAmount) next.set("min", minAmount); if (maxAmount) next.set("max", maxAmount); next.set("sort", `${sort}_${direction}`);
+    router.replace(`${pathname}?${next.toString()}`, { scroll: false });
+  }, [search, selectedStatuses, service, priority, datePreset, dueFrom, dueTo, minAmount, maxAmount, sort, direction, pathname, router]);
 
-  const totalActive =
-    Object.entries(summary.byStatus)
-      .filter(([status]) => !["COMPLETED", "EXPIRED", "EXPIRED_JUNK", "CONFIRMED"].includes(status))
-      .reduce((sum, [, count]) => sum + count, 0);
+  if (summary === undefined) return <div className="flex h-[70vh] items-center justify-center"><InventoryLoader label="Loading Orders…" /></div>;
+  const orders = summary.allOrders as OrderRow[];
+  const activeCount = Object.entries(summary.byStatus).filter(([status]) => ["JOB_CARD_CREATED", "IN_PRODUCTION", "READY_FOR_PICKUP"].includes(status)).reduce((sum, [, count]) => sum + count, 0);
+  const overdueCount = summary.overdue + (summary.byStatus.EXPIRED_JUNK ?? 0);
+  const range = (() => { const now = new Date(); const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()); if (datePreset === "today") return { from: start.getTime(), to: start.getTime() + 86400000 }; if (datePreset === "week") { start.setDate(start.getDate() - start.getDay()); return { from: start.getTime(), to: Date.now() + 86400000 }; } if (datePreset === "month") return { from: new Date(now.getFullYear(), now.getMonth(), 1).getTime(), to: Date.now() + 86400000 }; if (datePreset === "overdue") return { from: undefined, to: Date.now() }; return { from: dueFrom ? new Date(`${dueFrom}T00:00:00`).getTime() : undefined, to: dueTo ? new Date(`${dueTo}T23:59:59.999`).getTime() : undefined }; })();
+  const filtered = orders.filter((order) => { const needle = search.trim().toLowerCase(); if (needle && !`${order.code} ${order.clientName} ${order.phone} ${order.serviceType}`.toLowerCase().includes(needle)) return false; if (selectedStatuses.length && !selectedStatuses.includes(order.status)) return false; if (service !== "all" && order.serviceType !== service) return false; if (priority !== "all" && order.priority !== priority) return false; if (range.from !== undefined && order.preferredDueDate < range.from) return false; if (range.to !== undefined && order.preferredDueDate >= range.to && datePreset !== "overdue") return false; if (datePreset === "overdue" && !isOverdue(order) && order.status !== "EXPIRED_JUNK") return false; if (minAmount && order.amount < Number(minAmount)) return false; if (maxAmount && order.amount > Number(maxAmount)) return false; return true; }).sort((a, b) => { const left = a[sort]; const right = b[sort]; const result = typeof left === "string" ? left.localeCompare(String(right)) : Number(left) - Number(right); return direction === "asc" ? result : -result; });
+  const activePills = [...selectedStatuses.map((value) => ({ key: `status-${value}`, label: `Status: ${human(value)}`, clear: () => setSelectedStatuses((current) => current.filter((item) => item !== value)) })), ...(service !== "all" ? [{ key: "service", label: `Service: ${human(service)}`, clear: () => setService("all") }] : []), ...(priority !== "all" ? [{ key: "priority", label: `Priority: ${priority}`, clear: () => setPriority("all") }] : []), ...(datePreset !== "all" ? [{ key: "date", label: `Due: ${human(datePreset)}`, clear: () => { setDatePreset("all"); setDueFrom(""); setDueTo(""); } }] : []), ...(minAmount ? [{ key: "min", label: `Min: ${etb(Number(minAmount))}`, clear: () => setMinAmount("") }] : []), ...(maxAmount ? [{ key: "max", label: `Max: ${etb(Number(maxAmount))}`, clear: () => setMaxAmount("") }] : [])];
+  const clearAll = () => { setSearch(""); setSelectedStatuses([]); setService("all"); setPriority("all"); setDatePreset("all"); setDueFrom(""); setDueTo(""); setMinAmount(""); setMaxAmount(""); };
+  const toggleSort = (key: SortKey) => { if (sort === key) setDirection((value) => value === "asc" ? "desc" : "asc"); else { setSort(key); setDirection(key === "preferredDueDate" || key === "priority" ? "asc" : "desc"); } };
+  const SortButton = ({ label, sortKey }: { label: string; sortKey: SortKey }) => <button type="button" onClick={() => toggleSort(sortKey)} className="inline-flex items-center gap-1 font-semibold hover:text-primary">{label}{sort === sortKey ? (direction === "asc" ? <ArrowUpAZ size={11} /> : <ArrowDownAZ size={11} />) : <ArrowDownUp size={10} className="opacity-40" />}</button>;
 
-  return (
-    <div className="space-y-6">
-      <OwnerPageHeader
-        kicker="Orders · የደንበኛ ትዕዛዞች"
-        title="Orders"
-        subtitle={`${summary.totalOrders} customer orders in the system.`}
-      />
-
-      <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard
-          icon={<Inbox size={16} />}
-          label="Total Orders"
-          subtitle="ጠቅላላ ትዕዛዞች"
-          value={summary.totalOrders}
-          variant="default"
-        />
-        <StatCard
-          icon={<CalendarClock size={16} />}
-          label="Active / In Progress"
-          subtitle="በሂደት ላይ"
-          value={totalActive}
-          variant="sales"
-        />
-        <StatCard
-          icon={<AlertTriangle size={16} />}
-          label="Overdue"
-          subtitle="ጊዜ ያለፈ"
-          value={summary.overdue}
-          description="Past their preferred due date and still open."
-          variant="alert"
-          isAlert={summary.overdue > 0}
-        />
-      </div>
-
-      <Panel>
-        <PanelHeader
-          title="Recent Orders"
-          subtitle="የቅርብ ትዕዛዞች"
-          kicker="Latest"
-          icon={<Inbox size={16} />}
-        />
-        {summary.recent.length === 0 ? (
-          <p className="p-[17px] text-[12px] text-muted-foreground">No orders yet.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <Table dense>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Code</TableHead>
-                  <TableHead>Client</TableHead>
-                  <TableHead>Service</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Due date</TableHead>
-                  <TableHead>Priority</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {summary.recent.map((order) => (
-                  <TableRow key={order.id} interactive selected={selectedOrderId === order.id} onClick={() => setSelectedOrderId(order.id)}>
-                    <TableCell mono>{order.code}</TableCell>
-                    <TableCell>{order.clientName}</TableCell>
-                    <TableCell muted>{order.serviceType}</TableCell>
-                    <TableCell mono>{etb(order.amount)}</TableCell>
-                    <TableCell muted>{order.status}</TableCell>
-                    <TableCell mono>{makeDueDate(order.preferredDueDate)}</TableCell>
-                    <TableCell muted>{order.priority}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </Panel>
-      <OrderDetailDrawer orderId={selectedOrderId} onClose={() => setSelectedOrderId(null)} />
-    </div>
-  );
+  return <div className="space-y-6"><OwnerPageHeader kicker="Orders · የደንበኛ ትዕዛዞች" title="Orders Control Center" subtitle={`${filtered.length} of ${summary.totalOrders} orders shown · Search, filter, and inspect without leaving context.`} />
+    <div className="grid gap-4 sm:grid-cols-3"><StatCard icon={<Inbox size={16} />} label="Total Orders" subtitle="ጠቅላላ ትዕዛዞች" value={summary.totalOrders} variant="default" /><StatCard icon={<CalendarClock size={16} />} label="Active / In Progress" subtitle="በሂደት ላይ" value={activeCount} variant="sales" /><StatCard icon={<AlertTriangle size={16} />} label="Overdue / Expired" subtitle="ጊዜ ያለፈ" value={overdueCount} description="Open overdue and expired junk orders." variant="alert" isAlert={overdueCount > 0} /></div>
+    <Panel><PanelHeader title="Advanced filters" subtitle="Find enterprise jobs quickly without losing the executive view." kicker={activePills.length ? `${activePills.length} active` : "All orders"} icon={<SlidersHorizontal size={16} />} /><div className="space-y-3 p-4"><div className="flex flex-wrap items-center gap-2"><div className="relative min-w-64 flex-1"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search code, client, phone, or service…" className="h-10 w-full rounded-md border border-border bg-background pl-9 pr-3 text-xs text-foreground outline-none focus:border-primary" /></div><button type="button" onClick={() => setAdvancedOpen((value) => !value)} className="inline-flex h-10 items-center gap-2 rounded-md border border-border px-3 text-xs font-semibold text-muted-foreground hover:text-foreground"><Filter size={13} /> Advanced <ChevronDown size={13} className={cn(advancedOpen && "rotate-180")} /></button>{activePills.length ? <button type="button" onClick={clearAll} className="inline-flex h-10 items-center gap-1 rounded-md border border-danger/30 px-3 text-xs font-semibold text-danger"><X size={13} /> Clear all</button> : null}</div>{advancedOpen ? <div className="grid gap-3 border-t border-border/60 pt-3 sm:grid-cols-2 lg:grid-cols-4"><div className="sm:col-span-2"><p className="mb-2 text-[10px] text-muted-foreground">Order status</p><div className="flex flex-wrap gap-2">{statuses.map((status) => <label key={status} className={cn("cursor-pointer rounded-full border px-2.5 py-1.5 text-[10px] font-semibold", selectedStatuses.includes(status) ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground")}><input type="checkbox" checked={selectedStatuses.includes(status)} onChange={() => setSelectedStatuses((current) => current.includes(status) ? current.filter((item) => item !== status) : [...current, status])} className="sr-only" />{human(status)}</label>)}</div></div><label className="text-[10px] text-muted-foreground">Service category<select value={service} onChange={(event) => setService(event.target.value)} className="mt-1 h-9 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground"><option value="all">All services</option>{services.map((item) => <option key={item} value={item}>{human(item)}</option>)}</select></label><label className="text-[10px] text-muted-foreground">Priority<select value={priority} onChange={(event) => setPriority(event.target.value)} className="mt-1 h-9 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground"><option value="all">All priorities</option>{priorities.map((item) => <option key={item} value={item}>{item} priority</option>)}</select></label><label className="text-[10px] text-muted-foreground">Due date preset<select value={datePreset} onChange={(event) => setDatePreset(event.target.value)} className="mt-1 h-9 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground"><option value="all">All dates</option><option value="today">Today</option><option value="week">This week</option><option value="month">This month</option><option value="overdue">Overdue orders</option><option value="custom">Custom range</option></select></label>{datePreset === "custom" ? <><label className="text-[10px] text-muted-foreground">Due from<input type="date" value={dueFrom} onChange={(event) => setDueFrom(event.target.value)} className="mt-1 h-9 w-full rounded-md border border-border bg-background px-2 text-xs" /></label><label className="text-[10px] text-muted-foreground">Due to<input type="date" value={dueTo} onChange={(event) => setDueTo(event.target.value)} className="mt-1 h-9 w-full rounded-md border border-border bg-background px-2 text-xs" /></label></> : null}<label className="text-[10px] text-muted-foreground">Minimum ETB<input type="number" min="0" value={minAmount} onChange={(event) => setMinAmount(event.target.value)} placeholder="0" className="mt-1 h-9 w-full rounded-md border border-border bg-background px-2 text-xs" /></label><label className="text-[10px] text-muted-foreground">Maximum ETB<input type="number" min="0" value={maxAmount} onChange={(event) => setMaxAmount(event.target.value)} placeholder="No limit" className="mt-1 h-9 w-full rounded-md border border-border bg-background px-2 text-xs" /></label></div> : null}{activePills.length ? <div className="flex flex-wrap gap-2 border-t border-border/60 pt-3">{activePills.map((pill) => <button key={pill.key} type="button" onClick={pill.clear} className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-semibold text-primary">{pill.label}<X size={11} /></button>)}</div> : null}</div></Panel>
+    <Panel><PanelHeader title="Orders" subtitle="Click any row to open the full lifecycle inspection drawer." kicker={`${filtered.length} results · sorted by ${sortLabel(sort)} ${direction}`} icon={<Inbox size={16} />} />{filtered.length === 0 ? <p className="p-8 text-center text-xs text-muted-foreground">No orders match the current filters.</p> : <div className="overflow-x-auto"><Table dense><TableHeader><TableRow><TableHead><SortButton label="Code" sortKey="code" /></TableHead><TableHead><SortButton label="Client" sortKey="clientName" /></TableHead><TableHead><SortButton label="Service" sortKey="serviceType" /></TableHead><TableHead><SortButton label="Amount" sortKey="amount" /></TableHead><TableHead><SortButton label="Status" sortKey="status" /></TableHead><TableHead><SortButton label="Due date" sortKey="preferredDueDate" /></TableHead><TableHead><SortButton label="Priority" sortKey="priority" /></TableHead></TableRow></TableHeader><TableBody>{filtered.map((order) => <TableRow key={order.id} interactive selected={selectedOrderId === order.id} onClick={() => setSelectedOrderId(order.id)}><TableCell mono>{order.code}</TableCell><TableCell><span className="font-medium text-foreground">{order.clientName}</span><span className="block text-[10px] text-muted-foreground">{order.phone}</span></TableCell><TableCell muted>{human(order.serviceType)}</TableCell><TableCell mono>{etb(order.amount)}</TableCell><TableCell><span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-medium", ["IN_PRODUCTION", "JOB_CARD_CREATED", "READY_FOR_PICKUP"].includes(order.status) ? "border-cyan/30 bg-cyan/10 text-cyan-dark" : order.status === "COMPLETED" ? "border-success/30 bg-success/10 text-success" : ["EXPIRED_JUNK", "CANCELLED"].includes(order.status) ? "border-danger/30 bg-danger/10 text-danger" : "border-gold/30 bg-gold/10 text-gold")}>{human(order.status)}</span></TableCell><TableCell mono className={isOverdue(order) ? "text-danger" : undefined}>{dueLabel(order.preferredDueDate)}</TableCell><TableCell muted>{order.priority}</TableCell></TableRow>)}</TableBody></Table></div>}</Panel>
+    <OrderDetailDrawer orderId={selectedOrderId} onClose={() => setSelectedOrderId(null)} />
+  </div>;
 }
