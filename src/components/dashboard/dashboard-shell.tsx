@@ -17,6 +17,13 @@ import { isOwnerWorkspacePath } from "./owner/owner-shell";
 import { resolveWorkspace } from "./workspace-registry";
 import { DashboardModalProvider } from "./modal-context";
 import { DashboardActionModals } from "./dashboard-action-modals";
+import { useNotification, type NotificationSummary } from "@/hooks/useNotification";
+
+function NotificationAudioBridge({ enabled }: { enabled: boolean }) {
+  const notifications = useQuery(api.notifications.list, enabled ? {} : "skip");
+  useNotification(notifications as NotificationSummary[] | undefined);
+  return null;
+}
 
 function DashboardShellInner({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -60,11 +67,13 @@ function DashboardShellInner({ children }: { children: ReactNode }) {
     return <DashboardAccessDenied />;
   }
 
+  const notificationAudio = <NotificationAudioBridge enabled={Boolean(profile)} />;
+
   // Owner workspace renders its own isolated shell inside owner/layout.tsx.
   // Branch here (client-side) so client navigations from shared pages also
   // bypass the shared shell correctly.
   if (isOwnerWorkspacePath(pathname)) {
-    return <>{children}</>;
+    return <>{notificationAudio}{children}</>;
   }
 
   const resolvedProfile: Profile | null = profile ? { ...profile, id: profile._id } : null;
@@ -73,6 +82,7 @@ function DashboardShellInner({ children }: { children: ReactNode }) {
     <div
       className="min-h-screen bg-[#0C0D10] text-[#E2E8F0]"
     >
+      {notificationAudio}
       <Sidebar
         mobileOpen={mobileNavOpen}
         onClose={() => setMobileNavOpen(false)}
