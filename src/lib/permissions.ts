@@ -102,7 +102,9 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
       permission !== "company_settings.update" &&
       permission !== "reports.view" &&
       permission !== "reconciliation.review" &&
-      permission !== "reconciliation.clearance",
+        permission !== "reconciliation.clearance" &&
+        permission !== "team.view" &&
+        permission !== "team.manage",
   ),
   admin: [
     "dashboard.view",

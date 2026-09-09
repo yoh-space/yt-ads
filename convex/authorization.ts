@@ -95,6 +95,8 @@ const EXCLUDED_FROM_MANAGER: Set<Permission> = new Set([
   "reconciliation.review",
   "reconciliation.clearance",
   "stock.record",
+  "team.view",
+  "team.manage",
 ]);
 
 /** Owners do not request or issue materials — the store handles handover. */
