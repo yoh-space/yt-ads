@@ -214,6 +214,7 @@ export const productionType = v.union(
 export const reconciliationStatus = v.union(
   v.literal("Open"),
   v.literal("Reviewed"),
+  v.literal("Accepted"),
   v.literal("Resolved"),
 );
 

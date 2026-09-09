@@ -4,6 +4,7 @@ import { packageUnit, unit } from "../schema";
 import { requireManagerRole } from "../users";
 import { canAccessMaterialRequest } from "../authorization";
 import { notifyRoles } from "../notificationHelpers";
+import { requireNoUnresolvedShortage } from "../reconciliation";
 
 /**
  * Manager requisition surface for the /dashboard/manager namespace. Strictly
@@ -99,6 +100,7 @@ export const create = mutation({
     if (args.unit !== (material.baseUnit ?? material.unit)) {
       throw new Error("Requested unit must match the material base unit.");
     }
+    await requireNoUnresolvedShortage(ctx, args.materialId);
 
     const requestGroupId = `${identity._id}-${Date.now()}`;
     const id = await ctx.db.insert("materialRequests", {

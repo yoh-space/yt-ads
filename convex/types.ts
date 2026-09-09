@@ -34,7 +34,7 @@ export type Accent = "cyan" | "gold" | "violet" | "blue" | "green";
 
 export type ProductionType = "area" | "linear" | "ink" | "unit";
 
-export type ReconciliationStatus = "Open" | "Reviewed" | "Resolved";
+export type ReconciliationStatus = "Open" | "Reviewed" | "Accepted" | "Resolved";
 
 export const ROLES: Role[] = [
   "owner",

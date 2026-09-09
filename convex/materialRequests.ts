@@ -5,6 +5,7 @@ import { requireActiveProfile, requirePermission } from "./users";
 import { canAccessMaterialRequest } from "./authorization";
 import { notifyRoles, notifyUser } from "./notificationHelpers";
 import { recordInventoryEvent } from "./inventoryLedger";
+import { requireNoUnresolvedShortage } from "./reconciliation";
 import type { Id } from "./_generated/dataModel";
 
 export const list = query({
@@ -141,6 +142,9 @@ export const create = mutation({
     const allowedMaterials = new Set([job.materialId, ...requirements.map((requirement) => requirement.materialId)]);
     if (requestLines.some((line) => !allowedMaterials.has(line.materialId))) {
       throw new Error("The requested material and unit must match the job card.");
+    }
+    for (const line of requestLines) {
+      await requireNoUnresolvedShortage(ctx, line.materialId);
     }
     const requestGroupId = `${identity._id}-${Date.now()}`;
     let firstId: Id<"materialRequests"> | undefined;

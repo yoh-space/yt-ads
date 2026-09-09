@@ -9,6 +9,7 @@ import { findMaterialSpecification } from "../src/shared/material-specifications
 import { classifyMaterialProductionType, resolveEtbValue, effectiveConsumptionRate, isRollMaterial, isSheetMaterial, resolveConversionRatio } from "./materialUsage";
 import { ensureSystemConfig } from "./systemConfigs";
 import { recordInventoryEvent } from "./inventoryLedger";
+import { requireNoUnresolvedShortage } from "./reconciliation";
 
 export const list = query({
   args: {},
@@ -143,6 +144,9 @@ export const recordStockMovement = mutation({
     }
     const material = await ctx.db.get(args.materialId);
     if (!material || !material.active) throw new Error("Active material not found.");
+    if (args.direction === "in") {
+      await requireNoUnresolvedShortage(ctx, args.materialId);
+    }
 
     const config = await ensureSystemConfig(ctx, identity._id);
     const governedRatio = resolveConversionRatio(material, config, args.inputUnit);

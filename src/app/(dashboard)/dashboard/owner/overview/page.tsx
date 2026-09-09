@@ -5,8 +5,9 @@ import { api } from "@/convex/_generated/api";
 import { OwnerPageHeader } from "@/components/dashboard/roles/owner/owner-page-header";
 import { StatCard } from "@/components/shared/ui/stat-card";
 import { Panel, PanelHeader } from "@/components/shared/ui/panel";
-import { SectionLabel, MetricValue } from "@/components/shared/ui/typography";
+import { MetricValue } from "@/components/shared/ui/typography";
 import { InventoryLoader } from "@/components/dashboard/widgets/inventory-loader";
+import { OwnerPendingStockOuts } from "@/components/dashboard/widgets/owner-pending-stock-outs";
 import { CircleDollarSign, Coins, TrendingUp, ClipboardList, Factory, Scale, PackageOpen, AlertTriangle } from "lucide-react";
 
 const etb = (value: number) => `ETB ${value.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
@@ -31,7 +32,7 @@ export default function OwnerOverviewPage() {
         subtitle="Today's business picture at a glance."
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 grid-cols-4">
         <StatCard
           icon={<CircleDollarSign size={16} />}
           label="Today's Sales"
@@ -75,18 +76,21 @@ export default function OwnerOverviewPage() {
             kicker="Machines"
             icon={<Factory size={16} />}
           />
-          <div className="grid gap-3 p-[17px] sm:grid-cols-3">
-            <div className="rounded-lg border border-border/60 bg-background/40 p-3">
-              <SectionLabel tone="cyan">Running · በሥራ ላይ</SectionLabel>
-              <MetricValue size="lg">{overview.runningMachines}</MetricValue>
+          <div className="flex items-stretch divide-x divide-border/40">
+            <div className="flex-1 px-5 py-4">
+              <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Running</p>
+              <p className="mt-1.5 text-2xl font-bold tabular-nums text-foreground">{overview.runningMachines}</p>
+              <p className="text-[10px] text-muted-foreground/70">በሥራ ላይ</p>
             </div>
-            <div className="rounded-lg border border-border/60 bg-background/40 p-3">
-              <SectionLabel tone="muted">Total machines · ጠቅላላ</SectionLabel>
-              <MetricValue size="lg">{overview.machinesCount}</MetricValue>
+            <div className="flex-1 px-5 py-4">
+              <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Total</p>
+              <p className="mt-1.5 text-2xl font-bold tabular-nums text-foreground">{overview.machinesCount}</p>
+              <p className="text-[10px] text-muted-foreground/70">ጠቅላላ</p>
             </div>
-            <div className="rounded-lg border border-border/60 bg-background/40 p-3">
-              <SectionLabel tone="amber">Queued jobs · ወረፋ</SectionLabel>
-              <MetricValue size="lg">{overview.queuedJobs}</MetricValue>
+            <div className="flex-1 px-5 py-4">
+              <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Queued jobs</p>
+              <p className="mt-1.5 text-2xl font-bold tabular-nums text-foreground">{overview.queuedJobs}</p>
+              <p className="text-[10px] text-muted-foreground/70">ወረፋ</p>
             </div>
           </div>
         </Panel>
@@ -94,7 +98,7 @@ export default function OwnerOverviewPage() {
         <Panel>
           <PanelHeader
             title="Pending Clearance"
-            subtitle="የጥበቃ ማረጋገጫ"
+            subtitle="የእቃ ማሳወቂያ Clearance"
             kicker="Approvals"
             icon={<Scale size={16} />}
           />
@@ -143,32 +147,7 @@ export default function OwnerOverviewPage() {
           </div>
         </Panel>
 
-        <Panel>
-          <PanelHeader
-            title="Today Summary"
-            subtitle="የዛሬ ማጠቃለያ"
-            kicker="Snapshot"
-            icon={<TrendingUp size={16} />}
-          />
-          <div className="p-[17px] grid grid-cols-2 gap-3">
-            <div className="rounded-lg border border-border/60 bg-background/40 px-3 py-2.5">
-              <SectionLabel tone="muted">Orders created</SectionLabel>
-              <MetricValue size="md">{overview.todaysOrderCount}</MetricValue>
-            </div>
-            <div className="rounded-lg border border-border/60 bg-background/40 px-3 py-2.5">
-              <SectionLabel tone="muted">Jobs in queue</SectionLabel>
-              <MetricValue size="md">{overview.queuedJobs}</MetricValue>
-            </div>
-            <div className="rounded-lg border border-border/60 bg-background/40 px-3 py-2.5">
-              <SectionLabel tone="muted">Running machines</SectionLabel>
-              <MetricValue size="md">{overview.runningMachines}</MetricValue>
-            </div>
-            <div className="rounded-lg border border-border/60 bg-background/40 px-3 py-2.5">
-              <SectionLabel tone="muted">Finished today</SectionLabel>
-              <MetricValue size="md">{financial.todaysJobCount}</MetricValue>
-            </div>
-          </div>
-        </Panel>
+        <OwnerPendingStockOuts />
       </div>
     </div>
   );

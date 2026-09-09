@@ -8,6 +8,7 @@ import { ensureSystemConfig } from "./systemConfigs";
 import { assertProductionQuantities } from "./validation";
 import { classifyMaterialProductionType, computeJobArea, resolveConversionRatio, resolveInkConsumptionRateFromConfig } from "./materialUsage";
 import { recordInventoryEvent } from "./inventoryLedger";
+import { requireNoUnresolvedShortage } from "./reconciliation";
 import type { Role } from "./types";
 
 /**
@@ -95,6 +96,12 @@ export const upsertParentInventoryItem = mutation({
       .query("parentInventory")
       .withIndex("by_material", (q) => q.eq("materialId", args.materialId))
       .unique();
+    const delta = existing
+      ? Number((args.totalStockQuantity - existing.totalStockQuantity).toFixed(3))
+      : args.totalStockQuantity;
+    if (delta > 0) {
+      await requireNoUnresolvedShortage(ctx, args.materialId);
+    }
     const patch = {
       unitType: args.unitType,
       lengthPerRoll: args.lengthPerRoll !== undefined && args.lengthPerRoll > 0 ? args.lengthPerRoll : undefined,
@@ -104,7 +111,6 @@ export const upsertParentInventoryItem = mutation({
     };
     if (existing) {
       await ctx.db.patch(existing._id, patch);
-      const delta = Number((args.totalStockQuantity - existing.totalStockQuantity).toFixed(3));
       if (delta !== 0) {
         const purchaseUnit = args.unitType === "ROLL" ? "roll" : args.unitType === "SHEET" ? "sheet" : "liter";
         const baseUnit = material.baseUnit ?? material.unit;
@@ -176,6 +182,7 @@ export const issueStockToOperator = mutation({
     if (!item) throw new Error("Parent inventory item not found.");
     const material = await ctx.db.get(item.materialId);
     if (!material || !material.active) throw new Error("Active material not found.");
+    await requireNoUnresolvedShortage(ctx, item.materialId);
     const machine = await ctx.db.get(args.machineId);
     if (!machine || !machine.active) throw new Error("Active machine not found.");
     if (!Number.isFinite(args.units) || args.units <= 0 || !Number.isInteger(args.units)) {

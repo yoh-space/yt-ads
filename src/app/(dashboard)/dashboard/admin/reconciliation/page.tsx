@@ -38,7 +38,7 @@ export default function AdminReconciliationPage() {
         <StatCard
           icon={<Hourglass size={16} />}
           label="Pending Clearance"
-          subtitle="በጥበቃ ላይ"
+          subtitle="በመጠባበቅ ላይ"
           value={summary.pendingCount}
           description="Batches awaiting review."
           variant="cost"

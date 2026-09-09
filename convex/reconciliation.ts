@@ -1,4 +1,5 @@
-import { mutation, query } from "./_generated/server";
+import { mutation, query, type QueryCtx, type MutationCtx } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 import { v } from "convex/values";
 import { requireActiveProfile, requirePermission, requireRoles } from "./users";
 import { canViewFinancial } from "./authorization";
@@ -36,9 +37,11 @@ export const countMaterial = mutation({
     const etbValue = resolveEtbValueFromConfig(material, config);
     const monetaryLoss = variance < 0 ? Number((-variance * etbValue).toFixed(2)) : 0;
 
+    const autoStatus = variance === 0 ? "Resolved" : "Reviewed";
+
     const id = await ctx.db.insert("reconciliations", {
       materialId: material._id,
-      status: "Open",
+      status: autoStatus,
       systemQuantity,
       countedQuantity,
       variance,
@@ -98,18 +101,19 @@ export const countParentInventory = mutation({
    const config = await ensureSystemConfig(ctx, identity._id);
    const etbValue = resolveEtbValueFromConfig(material, config);
    const monetaryLoss = variance < 0 ? Number((-variance * etbValue).toFixed(2)) : 0;
-   const id = await ctx.db.insert("reconciliations", {
-     materialId: material._id,
-     status: "Open",
-     systemQuantity,
-     countedQuantity,
-     variance,
-     etbValue,
-     monetaryLoss,
-     countedBy: identity._id,
-     note: args.note?.trim() || undefined,
-     createdAt: Date.now(),
-   });
+    const autoStatus = variance === 0 ? "Resolved" : "Reviewed";
+    const id = await ctx.db.insert("reconciliations", {
+      materialId: material._id,
+      status: autoStatus,
+      systemQuantity,
+      countedQuantity,
+      variance,
+      etbValue,
+      monetaryLoss,
+      countedBy: identity._id,
+      note: args.note?.trim() || undefined,
+      createdAt: Date.now(),
+    });
    if (variance !== 0) {
      await recordInventoryEvent(ctx, {
        materialId: material._id,
@@ -132,13 +136,23 @@ export const countParentInventory = mutation({
 export const review = mutation({
   args: {
     reconciliationId: v.id("reconciliations"),
-    status: v.union(v.literal("Reviewed"), v.literal("Resolved")),
+    status: v.union(v.literal("Reviewed"), v.literal("Accepted"), v.literal("Resolved")),
     note: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const { identity } = await requireRoles(ctx, ["owner"]);
+    const { identity } = await requireRoles(ctx, ["owner", "admin"]);
     const record = await ctx.db.get(args.reconciliationId);
     if (!record) throw new Error("Reconciliation record not found.");
+
+    const currentStatus = record.status ?? "Open";
+    if (currentStatus === "Resolved" || currentStatus === "Accepted") {
+      throw new Error(`Cannot change a record with status "${currentStatus}".`);
+    }
+    const isShortage = (record.variance ?? 0) < 0;
+    if (args.status === "Resolved" && isShortage && !args.note?.trim()) {
+      throw new Error("A note is required when resolving a shortage reconciliation.");
+    }
+
     await ctx.db.patch(args.reconciliationId, {
       status: args.status,
       reviewedBy: identity._id,
@@ -311,3 +325,36 @@ export const storekeeperOverview = query({
     };
   },
 });
+
+/**
+ * Check whether a material has any unresolved shortage reconciliation.
+ * Returns the blocking record if one exists, or null if the material is clear.
+ *
+ * A material is blocked when:
+ *  - It has a reconciliation with variance < 0 (shortage)
+ *  - That reconciliation has status "Reviewed" (not yet resolved)
+ *
+ * Materials with status "Resolved" are cleared and unblock operations.
+ * Materials with variance >= 0 (no shortage) are never blocked.
+ */
+export async function requireNoUnresolvedShortage(
+  ctx: QueryCtx | MutationCtx,
+  materialId: Id<"materials">,
+) {
+  const records = await ctx.db
+    .query("reconciliations")
+    .withIndex("by_material", (q) => q.eq("materialId", materialId))
+    .collect();
+
+  const blocking = records.find(
+    (r) => r.variance < 0 && r.status !== "Resolved",
+  );
+
+  if (blocking) {
+    const statusLabel = blocking.status ?? "Open";
+    throw new Error(
+      `Material "${materialId}" has an unresolved shortage reconciliation (${statusLabel}). ` +
+        `Resolve or accept the shortage before performing inventory movements.`,
+    );
+  }
+}

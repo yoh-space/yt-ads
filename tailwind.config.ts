@@ -148,8 +148,13 @@ const config: Config = {
         "inventory-loader-spin": "inventory-loader-spin 1.1s linear infinite",
         "pulse-dot": "pulseDot 1.6s ease-in-out infinite",
         "telemetry-scroll": "telemetryScroll 38s linear infinite",
+        "slide-in-right": "slideInRight 0.25s ease-out",
       },
       keyframes: {
+        slideInRight: {
+          "0%": { transform: "translateX(100%)" },
+          "100%": { transform: "translateX(0)" },
+        },
         mcSlideIn: {
           "0%": { opacity: "0", transform: "translateY(-4px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
