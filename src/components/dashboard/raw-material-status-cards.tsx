@@ -98,7 +98,7 @@ export function InventoryCategoryCard({
       </div>
 
       <div className="mt-5">
-        <p className="font-mono text-[9px] uppercase tracking-[0.16em] text-muted-foreground">Total stock</p>
+        <p className="font-mono text-[9px] uppercase tracking-[0.16em] text-muted-foreground">On hand</p>
         <p className="mt-1 text-3xl font-bold tracking-tight text-foreground">
           {total} <span className="text-sm font-semibold text-muted-foreground">{totalUnit}</span>
         </p>
@@ -125,7 +125,7 @@ export const rawMaterialCategories: RawMaterialCategory[] = [
   {
     id: "roll",
     label: "Roll",
-    description: "Roll-based media",
+    description: "Roll materials",
     icon: PanelsTopLeft,
     total: 14,
     totalUnit: "rolls",
@@ -139,7 +139,7 @@ export const rawMaterialCategories: RawMaterialCategory[] = [
   {
     id: "sheets",
     label: "Sheets",
-    description: "Boards and sheet stock",
+    description: "Boards and sheets",
     icon: Boxes,
     total: 25,
     totalUnit: "sheets",
@@ -152,7 +152,7 @@ export const rawMaterialCategories: RawMaterialCategory[] = [
   {
     id: "canisters",
     label: "Canisters",
-    description: "Inks and solvents",
+    description: "Ink and solvents",
     icon: FlaskConical,
     total: 18,
     totalUnit: "canisters",
@@ -165,7 +165,7 @@ export const rawMaterialCategories: RawMaterialCategory[] = [
   {
     id: "packages",
     label: "Packages / Pieces",
-    description: "Hardware and accessories",
+    description: "Hardware and parts",
     icon: Package,
     total: 150,
     totalUnit: "pcs",
@@ -175,7 +175,7 @@ export const rawMaterialCategories: RawMaterialCategory[] = [
   {
     id: "coil",
     label: "Coil / Meter",
-    description: "Wiring and length stock",
+    description: "Wire and cable",
     icon: Cable,
     total: 80,
     totalUnit: "m",
@@ -188,13 +188,10 @@ export function RawMaterialStatusGrid({ categories = rawMaterialCategories }: { 
   return (
     <section aria-labelledby="raw-material-status-title" className="space-y-3">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.2em] text-primary">Stock at a glance</p>
-          <h2 id="raw-material-status-title" className="text-base font-bold text-foreground">Raw Materials Inventory Status</h2>
-        </div>
-        <p className="text-[11px] text-muted-foreground">Five material groups across the main store.</p>
+
+        <p className="text-[11px] text-muted-foreground">Main Stock materials.</p>
       </div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         {categories.map((category) => (
           <InventoryCategoryCard
             key={category.id}

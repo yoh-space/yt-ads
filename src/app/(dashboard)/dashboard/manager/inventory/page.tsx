@@ -7,9 +7,9 @@ export default function ManagerInventoryPage() {
   return (
     <div className="space-y-4">
       <WorkspacePageHeader
-        kicker="Materials & Stock · እቃዎች"
-        title="Inventory"
-        subtitle="Read-only stock visibility across the main material categories."
+        kicker="Materials · እቃዎች"
+        title="Materials"
+        subtitle="See the main store material levels at a glance."
       />
       <RawMaterialStatusGrid />
     </div>

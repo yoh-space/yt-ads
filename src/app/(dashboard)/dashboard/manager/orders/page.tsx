@@ -72,9 +72,9 @@ export default function ManagerOrdersPage() {
   return (
     <div className="space-y-6">
       <WorkspacePageHeader
-        kicker="Operations Queue · የደንበኛ ማዘዣ"
-        title="Orders Overview"
-        subtitle="Monitor order flow, delivery commitments, and production readiness."
+        kicker="Orders · የደንበኛ ማዘዣ"
+        title="Orders"
+        subtitle="Keep track of customer requests, deadlines, and progress."
       />
 
       <div className="grid gap-3 sm:grid-cols-3">
@@ -84,7 +84,7 @@ export default function ManagerOrdersPage() {
       </div>
 
       <Panel>
-        <PanelHeader title="Operational order queue" subtitle="Client requirements and fulfillment status only." kicker="MANAGER VIEW" icon={<Inbox size={16} />} />
+        <PanelHeader title="Recent orders" subtitle="Customer details and progress." icon={<Inbox size={16} />} />
         <div className="flex flex-col gap-3 border-b border-border/60 p-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="relative w-full lg:max-w-sm">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
@@ -119,11 +119,11 @@ export default function ManagerOrdersPage() {
 
       {selectedOrder && (
         <Panel>
-          <PanelHeader title={`Order ${selectedOrder.code}`} subtitle="Operational detail" kicker="SELECTED ORDER" icon={<ClipboardList size={16} />} />
+          <PanelHeader title={`Order ${selectedOrder.code}`} subtitle="Order details" icon={<ClipboardList size={16} />} />
           <div className="grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4">
             <div><p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">Client</p><p className="mt-1 text-sm font-semibold text-foreground">{selectedOrder.clientName}</p></div>
             <div><p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">Service</p><p className="mt-1 text-sm font-semibold text-foreground">{selectedOrder.serviceType}</p></div>
-            <div><p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">Production route</p><p className="mt-1 text-sm font-semibold text-foreground">{selectedOrder.machineName ?? "Awaiting assignment"}</p></div>
+            <div><p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">Assigned machine</p><p className="mt-1 text-sm font-semibold text-foreground">{selectedOrder.machineName ?? "Awaiting assignment"}</p></div>
             <div><p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">Job card</p><p className="mt-1 text-sm font-semibold text-foreground">{selectedOrder.jobCardAssigned ? "Assigned" : "Not assigned"}</p></div>
           </div>
         </Panel>

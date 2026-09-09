@@ -11,11 +11,10 @@ export const getOverview = query({
   args: {},
   handler: async (ctx) => {
     await requireManagerRole(ctx);
-    const [machines, jobs, orders, requests, items, materials] = await Promise.all([
+    const [machines, jobs, orders, items, materials] = await Promise.all([
       ctx.db.query("machines").collect(),
       ctx.db.query("jobCards").collect(),
       ctx.db.query("customerOrders").collect(),
-      ctx.db.query("materialRequests").collect(),
       ctx.db.query("parentInventory").collect(),
       ctx.db.query("materials").collect(),
     ]);
@@ -41,6 +40,11 @@ export const getOverview = query({
     startOfDay.setHours(0, 0, 0, 0);
     const todayStart = startOfDay.getTime();
     const todaysOrderCount = orders.filter((order) => order.createdAt >= todayStart).length;
+    const dueOrderCount = orders.filter(
+      (order) =>
+        order.preferredDueDate <= Date.now() &&
+        !["COMPLETED", "EXPIRED", "EXPIRED_JUNK"].includes(order.status),
+    ).length;
 
     return {
       machinesCount: machines.length,
@@ -53,9 +57,7 @@ export const getOverview = query({
       completedJobs: jobs.filter((job) => job.status === "Completed").length,
       todaysOrderCount,
       activeOrderCount: orders.filter((order) => order.status === "IN_PRODUCTION").length,
-      pendingRequests: requests.filter(
-        (request) => request.status === "Requested" || request.status === "Partially Issued",
-      ).length,
+      dueOrderCount,
       lowStockCount: lowStockItems.length,
       lowStockItems,
     };
