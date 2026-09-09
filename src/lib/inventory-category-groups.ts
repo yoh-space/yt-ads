@@ -30,6 +30,8 @@ export interface ParentInventoryItem {
   baseUnitsInStock?: number;
   conversionFactor?: number | null;
   reorderAt?: number;
+  /** Resolved by the backend from the material reorder level and package conversion. */
+  lowStock: boolean;
 }
 
 export type CategoryTone = "cyan" | "gold" | "violet" | "blue" | "green" | "slate";
@@ -248,9 +250,7 @@ export function groupParentInventoryByCategory(
 
   return Object.values(groups).map(({ meta, rawItems }) => {
     const categoryItems: CategoryGroupItem[] = rawItems.map(({ item }) => {
-      const isLow =
-        (item.reorderAt ?? 0) > 0 &&
-        item.totalStockQuantity <= (item.reorderAt ?? 0);
+      const isLow = item.lowStock;
       return {
         name: item.materialName,
         quantity: Number(item.totalStockQuantity.toFixed(1)),
