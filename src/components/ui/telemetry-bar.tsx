@@ -33,7 +33,7 @@ export function TelemetryBar({ className, items, channel = "የማሽኖች ወ�
           key={`${keyPrefix}-${item.label}-${index}`}
           className="inline-flex items-center gap-[6px] px-[18px] font-mono text-[9px] font-medium uppercase tracking-[0.1em] whitespace-nowrap"
         >
-          <span className="text-slate-500">{item.label}:</span>
+          <span className="text-slate-200">{item.label}:</span>
           <span className={cn("font-bold tabular-nums", VALUE_TONES[item.tone ?? "cyan"])}>
             {item.value}
           </span>

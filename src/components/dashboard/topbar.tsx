@@ -53,8 +53,13 @@ export function Topbar({
   const clock = useClock();
   const notifications = useQuery(api.notifications.list, profile ? {} : "skip");
   const unreadCount = useQuery(api.notifications.unreadCount, profile ? {} : "skip");
+  const machines = useQuery(api.machines.listForTopbar, profile ? {} : "skip");
   const markRead = useMutation(api.notifications.markRead);
   const markAllRead = useMutation(api.notifications.markAllRead);
+  const runningMachines = machines?.filter((machine) => machine.status === "Running").length ?? 0;
+  const availableMachines = machines?.filter((machine) => machine.status === "Available").length ?? 0;
+  const maintenanceMachines = machines?.filter((machine) => machine.status === "Maintenance").length ?? 0;
+  const activityItems = (notifications ?? []).slice(0, 3);
 
   return (
     <>
@@ -119,12 +124,24 @@ export function Topbar({
 
       <TelemetryBar
         items={[
-          { label: "ማሽን ሁኔታ", value: "Running", tone: "green" },
-          { label: "የሙቀት መጠን", value: "22°C / 44%", tone: "cyan" },
-          { label: "ስቴሽን", value: "#4", tone: "green" },
+          { label: "በሥራ ላይ", value: machines ? String(runningMachines) : "…", tone: "green" },
+          { label: "ዝግጁ", value: machines ? String(availableMachines) : "…", tone: "cyan" },
+          { label: "ጥገና", value: machines ? String(maintenanceMachines) : "…", tone: maintenanceMachines > 0 ? "amber" : "muted" },
           { label: "የወቅቱ ሰዓት", value: clock, tone: "amber" },
         ]}
       />
+
+      <div className="flex min-h-8 items-center gap-3 overflow-hidden border-b border-line bg-white px-[34px] text-[10px] text-gray-500">
+        <span className="shrink-0 font-mono font-semibold uppercase tracking-[0.12em] text-gray-400">Recent activity</span>
+        <div className="flex min-w-0 items-center gap-4 overflow-hidden">
+          {activityItems.length > 0 ? activityItems.map((activity) => (
+            <span key={activity._id} className="truncate whitespace-nowrap">
+              <strong className="font-semibold text-navy">{activity.title}</strong>
+              {activity.relatedLabel ? ` · ${activity.relatedLabel}` : ""}
+            </span>
+          )) : <span className="truncate">No recent activity</span>}
+        </div>
+      </div>
 
       {notificationsOpen && notifications ? (
         <NotificationModal

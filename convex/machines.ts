@@ -2,7 +2,7 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { role, unit, machineStatus } from "./schema";
 import type { Infer } from "convex/values";
-import { requirePermission } from "./users";
+import { OPERATOR_ROLES, requireActiveProfile, requirePermission } from "./users";
 import { notifyRoles } from "./notificationHelpers";
 
 type Role = Infer<typeof role>;
@@ -17,6 +17,43 @@ export const list = query({
       .collect();
   },
 });
+
+export const listForTopbar = query({
+  args: {},
+  returns: v.array(v.object({
+    id: v.id("machines"),
+    name: v.string(),
+    code: v.string(),
+    status: machineStatus,
+    activeJob: v.optional(v.string()),
+  })),
+  handler: async (ctx) => {
+    const { profile } = await requireActiveProfile(ctx);
+    if (!hasMachineView(profile.role)) return [];
+
+    const machines = (await ctx.db.query("machines").order("desc").take(100)).filter((machine) => machine.active);
+    const scopedMachines = OPERATOR_ROLES.includes(profile.role)
+      ? machines.filter((machine) => {
+          const assigned = profile.assignedMachineIds;
+          return assigned?.length
+            ? assigned.includes(machine._id)
+            : machine.operatorRole === profile.role;
+        })
+      : machines;
+
+    return scopedMachines.map((machine) => ({
+      id: machine._id,
+      name: machine.name,
+      code: machine.code,
+      status: machine.status,
+      activeJob: machine.activeJob,
+    }));
+  },
+});
+
+function hasMachineView(role: Role) {
+  return role !== "receptionist";
+}
 
 export const create = mutation({
   args: {
