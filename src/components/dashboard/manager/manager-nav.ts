@@ -10,7 +10,7 @@ export const managerNavItems: WorkspaceNavItem[] = [
   {
     href: "/dashboard/manager/orders",
     label: "Orders",
-    english: "የእቃ ማዘዣዎች",
+    english: "የደንበኞች ትእዛዞች",
     icon: "shoppingCart",
   },
   {

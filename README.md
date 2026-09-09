@@ -13,7 +13,7 @@ The application uses the **Next.js App Router** for the web interface, **Convex*
 | Job cards | Job creation, machine assignment, queued/in-production/completed states, machine release, and planned-quantity validation. |
 | Production | Operator workspaces for laser, CNC, plotter, and printer workflows; production input, good output, waste, operator, machine, and timestamp logging. |
 | Machines | Active machine listing, administrator-only creation, unique machine codes, maintenance safeguards, status changes, and activation controls. |
-| Offcuts and scrap | Reusable sheet offcuts returned to inventory with rack locations, plus unusable scrap deducted from stock and recorded separately. |
+| Offcuts and scrap | Reusable sheet offcuts returned to inventory with rack locations, plus unusable scrap deducted from stock and recorded separately. Off-cut and scrap are also **auto-calculated** from material dimensions and net job size on dispatch and registered atomically with the job. |
 | Interface | Responsive desktop/mobile dashboard with Amharic-first labels, role-specific machine workspaces, live company branding, real-time unread notification badge/modal, account settings, loading states, and mutation error feedback. |
 | Tests | Vitest unit coverage for conversion, workflow validation, catalog metadata, routing, and access policy. |
 
@@ -90,6 +90,15 @@ The calculated allocation is deducted FIFO from operator floor stock and then ce
 
 Reception does not manually allocate raw materials. Machine compatibility, service BOM requirements, owner-configured margin, and scrap limits determine the planned material allocation. Operators may record an optional production log, but standard completion does not require manual intake values.
 
+### Automated Off-Cut & Scrap Registration
+
+Scrap and off-cut values are never entered by hand. When an order is confirmed and a job card is created, the identical deterministic engine in `src/shared/material-calc.ts` (used by both the dispatch preview and the `confirmOrderAndIssueJobCard` mutation) derives them from the material's catalog dimensions and the customer's net job dimensions:
+
+- **Roll stock** — `grossArea = rollWidth × jobLength × qty` is deducted as `PRODUCTION_CONSUMPTION`; `netArea = jobWidth × jobLength × qty` is the product area. Any unused side strip `(rollWidth − jobWidth) × jobLength × qty` becomes a **usable off-cut** (and is returned to inventory with an `OFFCUT_RETURN`) when the strip is ≥ 0.3 m wide, otherwise it is classified as **scrap**. Owner-configured setup margin is added to scrap.
+- **Rigid sheets** — the job cutout is nested on the standard sheet, `sheetsNeeded` and total sheet area are computed, and the leftover rectangular section is a reusable off-cut while any non-recoverable trim counts as scrap.
+
+The mutation persists the breakdown on the job card (`grossDeductedQuantity`, `netProductArea`, `offcutArea`, `scrapArea`, `scrapPercentage`), deducts the gross quantity from central inventory, inserts a usable off-cut record + `OFFCUT_RETURN` ledger event, and inserts a scrap record + `SCRAP_LOG` ledger event — all in the same atomic transaction. The dispatch modal renders this as a read-only **Auto-Calculated Production Breakdown** card. Minimum off-cut area and 0.3 m usable-width thresholds come from the owner-configured `systemConfigs`.
+
 ## Feature Checklist
 
 - Multiple design uploads per customer order.
@@ -100,6 +109,7 @@ Reception does not manually allocate raw materials. Machine compatibility, servi
 - Strict direct stock-out controls with permission, threshold, and audit requirements.
 - FIFO floor-stock deduction and central-stock fallback.
 - Auditable scrap, offcut, ink, and composite BOM consumption.
+- Deterministic, hand-off-free scrap & off-cut calculation (`src/shared/material-calc.ts`) shown in the dispatch preview and registered atomically on job creation.
 
 ## Design System Rule
 
@@ -113,7 +123,7 @@ src/components/ui/           Domain-neutral UI primitives (Panel, Button, Badge,
 src/components/dashboard/    Live dashboard shell, views, modals, and role workspaces
 src/components/public/       Order tracker and Telegram Mini App customer portal
 src/lib/                     Shared frontend types, auth clients, routing, and helpers
-src/shared/                  Service catalog, material specifications, and machine catalog
+src/shared/                  Service catalog, material specifications, machine catalog, and the deterministic scrap/off-cut engine (material-calc.ts)
 src/telegram/                grammY bot logic, keyboards, sessions, and i18n
 src/types/                   Shared TypeScript type definitions
 src/hooks/                   Frontend hooks (e.g. useNotification)

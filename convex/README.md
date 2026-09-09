@@ -36,6 +36,7 @@ The schema contains application profiles, materials, machines, stock movements, 
 | `users.ts` | Application profiles, active-profile checks, role changes, and administrator guards. |
 | `materials.ts` | Material creation, purchase-unit to base-unit conversion, validated stock movements, and audit rows. |
 | `jobs.ts` | Job creation, machine allocation, production logging, inventory deduction, and completion. |
+| `orders.ts` | Automated routing (`previewAutoRouting`), order→job-card confirmation, and deterministic scrap/off-cut registration on dispatch. |
 | `machines.ts` | Administrator-only creation, status changes, activation, and lifecycle safeguards. |
 | `offcuts.ts` | Reusable offcut returns and scrap deduction/audit records. |
 | `dashboard.ts` | Reactive aggregate state consumed by the live dashboard. |
@@ -47,6 +48,15 @@ Backend mutations enforce active profiles. Owners and delegated managers manage 
 Stock-in uses the material’s `purchaseUnit` and `conversionRatio` to update the normalized `baseUnit` balance. For example, two Banner rolls add `2 × 160 = 320 m²`; three LED packs add `3 × 20 = 60 pcs`. Production input is deducted directly from the selected material in its base unit and recorded in both `productionLogs` and `stockMovements`. A job can receive multiple production logs, but their total input cannot exceed the planned job quantity. Completing a job automatically logs any remaining planned input with zero waste, marks the job completed, and releases the machine.
 
 Reusable sheet offcuts increase square-meter inventory and create an `offcut_return` movement. Unusable scrap decreases material inventory and creates an outbound stock movement with the scrap reason. Stock-outs and scrap records are rejected when the available base-unit balance is insufficient.
+
+## Automated scrap & off-cut on dispatch
+
+Scrap and off-cut are derived, never hand-entered. `confirmOrderAndIssueJobCard` in `convex/orders.ts` computes them with the pure engine in `src/shared/material-calc.ts` (the same engine backing `previewAutoRouting`, so the dispatch modal's read-only **Auto-Calculated Production Breakdown** card always matches the ledger). The engine:
+
+- **Roll stock** — deducts `grossArea = rollWidth × jobLength × qty` as `PRODUCTION_CONSUMPTION`; a side strip ≥ 0.3 m wide becomes a usable off-cut (`OFFCUT_RETURN`), otherwise it is scrap, plus owner-configured setup margin.
+- **Rigid sheets** — nests cutouts on the sheet, derives `sheetsNeeded` and total area, and splits the leftover into reusable off-cut vs scrap.
+
+In one transaction the mutation persists the breakdown on the job card (`grossDeductedQuantity`, `netProductArea`, `offcutArea`, `scrapArea`, `scrapPercentage`), deducts the gross area from central inventory, inserts a usable off-cut record + `OFFCUT_RETURN` event, and inserts a scrap record + `SCRAP_LOG` event.
 
 ## Seeding
 

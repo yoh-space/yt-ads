@@ -1,7 +1,7 @@
 "use client";
 
 import { WorkspacePageHeader } from "@/components/dashboard/workspace-page-header";
-import { InventoryManagementInterface } from "@/components/dashboard/inventory-management-interface";
+import { RawMaterialStatusGrid } from "@/components/dashboard/raw-material-status-cards";
 
 export default function ManagerInventoryPage() {
   return (
@@ -9,9 +9,9 @@ export default function ManagerInventoryPage() {
       <WorkspacePageHeader
         kicker="Materials & Stock · እቃዎች"
         title="Inventory"
-        subtitle="Track material stock, unit conversions, reorder points, and stock movement history."
+        subtitle="Read-only stock visibility across the main material categories."
       />
-      <InventoryManagementInterface initialView="main" />
+      <RawMaterialStatusGrid />
     </div>
   );
 }

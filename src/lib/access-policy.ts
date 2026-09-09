@@ -60,6 +60,7 @@ const ROLE_CAPABILITY_OVERRIDES: Partial<Record<Role, Partial<Record<Capability,
     "reconciliation.review": false,
     "jobs.execute": false,
     "inventory.substock.view": false,
+    "inventory.stock-in": false,
   },
   admin: { "finance.view": true },
   receptionist: {

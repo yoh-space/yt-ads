@@ -1,90 +1,133 @@
 "use client";
 
-import { useMutation, useQuery } from "convex/react";
-import { toast } from "sonner";
+import { useMemo, useState } from "react";
+import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import type { Id } from "@/convex/_generated/dataModel";
 import { WorkspacePageHeader } from "@/components/dashboard/workspace-page-header";
-import { OrdersView } from "@/components/dashboard/views/orders";
 import { InventoryLoader } from "@/components/dashboard/inventory-loader";
-import { useSafeMutation } from "@/components/dashboard/pending-store";
-import { useDashboardModal } from "@/components/dashboard/modal-context";
-import { hasPermission } from "@/lib/permissions";
-import type { CustomerOrder, CustomerOrderStatus, Machine, Material, Role } from "@/lib/operations-types";
+import { Panel, PanelHeader } from "@/components/ui/panel";
+import { StatCard } from "@/components/ui/stat-card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
+import { CalendarClock, ClipboardList, Inbox, Search } from "lucide-react";
 
-type WithId<T extends { _id: string }> = Omit<T, "_id"> & { id: T["_id"] };
+type ManagerOrder = {
+  id: string;
+  code: string;
+  clientName: string;
+  serviceType: string;
+  dimensions: string;
+  quantity: string;
+  preferredDueDate: number;
+  status: string;
+  priority: string;
+  source: string;
+  machineName?: string;
+  jobCardAssigned: boolean;
+  overdue: boolean;
+  createdAt: number;
+};
 
-function withIds<T extends { _id: string }>(docs: T[]): WithId<T>[] {
-  return docs.map((doc) => {
-    const { _id, ...rest } = doc;
-    return { ...rest, id: _id };
-  });
+const statusOptions = ["ALL", "PENDING_REVIEW", "IN_REVIEW", "READY_FOR_PRODUCTION", "JOB_CARD_CREATED", "IN_PRODUCTION", "COMPLETED", "READY_FOR_PICKUP", "EXPIRED"];
+
+function formatStatus(status: string) {
+  return status.replaceAll("_", " ").toLowerCase().replace(/(^|\s)\S/g, (letter) => letter.toUpperCase());
+}
+
+function formatDate(timestamp: number) {
+  return new Date(timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function statusTone(status: string) {
+  if (status === "COMPLETED" || status === "READY_FOR_PICKUP") return "border-success/30 bg-success/10 text-success";
+  if (status === "EXPIRED" || status === "EXPIRED_JUNK") return "border-danger/30 bg-danger/10 text-danger";
+  if (status === "IN_PRODUCTION") return "border-cyan/30 bg-cyan/10 text-cyan-dark";
+  return "border-border bg-muted/20 text-muted-foreground";
 }
 
 export default function ManagerOrdersPage() {
-  const profile = useQuery(api.users.getCurrentProfile);
-  const ordersQuery = useQuery(api.orders.list, profile?.active ? {} : "skip");
+  const orderSnapshot = useQuery(api.manager.orders.getOrders);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const orders = (orderSnapshot?.orders ?? []) as ManagerOrder[];
+  const filteredOrders = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    return orders.filter((order) => {
+      const matchesStatus = statusFilter === "ALL" || order.status === statusFilter;
+      const matchesSearch = !query || [order.code, order.clientName, order.serviceType, order.machineName ?? ""].join(" ").toLowerCase().includes(query);
+      return matchesStatus && matchesSearch;
+    });
+  }, [orders, searchTerm, statusFilter]);
+  const selectedOrder = orders.find((order) => order.id === selectedOrderId) ?? filteredOrders[0];
 
-  const canViewMachines = Boolean(profile?.active && hasPermission(profile.role, "machine.view"));
-  const canViewMaterials = Boolean(profile?.active && hasPermission(profile.role, "material.view"));
-
-  const machinesQuery = useQuery(api.machines.list, canViewMachines ? {} : "skip");
-  const materialsQuery = useQuery(api.materials.list, canViewMaterials ? {} : "skip");
-
-  const { isPending, safeMutation } = useSafeMutation();
-  const { openModal, setConvertOrderTarget } = useDashboardModal();
-
-  const updateOrderStatus = useMutation(api.orders.setStatus);
-
-  if (
-    !profile ||
-    ordersQuery === undefined ||
-    (canViewMachines && machinesQuery === undefined) ||
-    (canViewMaterials && materialsQuery === undefined)
-  ) {
+  if (orderSnapshot === undefined) {
     return (
       <div className="flex min-h-[400px] items-center justify-center">
-        <InventoryLoader label="Loading Customer Orders Queue…" />
+        <InventoryLoader label="Loading manager orders…" />
       </div>
     );
   }
 
-  const role: Role = profile.role;
-  const orders = withIds(ordersQuery) as CustomerOrder[];
-  const machines = withIds(machinesQuery ?? []) as Machine[];
-  const materials = withIds(materialsQuery ?? []) as Material[];
-
-  const canManage = hasPermission(role, "order.manage");
-  const canCreateOrder = hasPermission(role, "order.create");
-
   return (
     <div className="space-y-6">
       <WorkspacePageHeader
-        kicker="Customer Intake & Fulfillment · የደንበኛ ማዘዣ"
-        title="Customer Orders Queue"
-        subtitle="Review client specifications, price orders, confirm payments, and issue job cards."
+        kicker="Operations Queue · የደንበኛ ማዘዣ"
+        title="Orders Overview"
+        subtitle="Monitor order flow, delivery commitments, and production readiness."
       />
 
-      <OrdersView
-        orders={orders}
-        machines={machines}
-        materials={materials}
-        canManage={canManage}
-        canCreateOrder={canCreateOrder}
-        onConvert={(order) => setConvertOrderTarget(order)}
-        onStatus={(orderId, status) => {
-          void safeMutation(
-            `order-status-${orderId}`,
-            updateOrderStatus({
-              orderId: orderId as Id<"customerOrders">,
-              status: status as CustomerOrderStatus,
-            }),
-            () => toast.success(`Order status changed to ${status}`),
-          );
-        }}
-        onCreateOrder={() => openModal("order")}
-        isPending={isPending}
-      />
+      <div className="grid gap-3 sm:grid-cols-3">
+        <StatCard icon={<Inbox size={16} />} label="Total Orders" subtitle="ጠቅላላ ትዕዛዞች" value={orderSnapshot.total} />
+        <StatCard icon={<ClipboardList size={16} />} label="Active Orders" subtitle="በሂደት ላይ" value={orderSnapshot.active} variant="sales" />
+        <StatCard icon={<CalendarClock size={16} />} label="Overdue" subtitle="ጊዜ ያለፈ" value={orderSnapshot.overdue} variant="alert" isAlert={orderSnapshot.overdue > 0} />
+      </div>
+
+      <Panel>
+        <PanelHeader title="Operational order queue" subtitle="Client requirements and fulfillment status only." kicker="MANAGER VIEW" icon={<Inbox size={16} />} />
+        <div className="flex flex-col gap-3 border-b border-border/60 p-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="relative w-full lg:max-w-sm">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Search code, client, service..." className="h-9 w-full rounded-md border border-border bg-background pl-9 pr-3 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-primary" />
+          </div>
+          <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="h-9 rounded-md border border-border bg-background px-3 text-xs text-foreground outline-none focus:border-primary">
+            {statusOptions.map((status) => <option key={status} value={status}>{status === "ALL" ? "All statuses" : formatStatus(status)}</option>)}
+          </select>
+        </div>
+        {filteredOrders.length === 0 ? (
+          <p className="p-8 text-center text-xs text-muted-foreground">No operational orders match the current filters.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader><TableRow><TableHead>Order</TableHead><TableHead>Client</TableHead><TableHead>Service / specs</TableHead><TableHead>Due date</TableHead><TableHead>Status</TableHead><TableHead>Priority</TableHead></TableRow></TableHeader>
+              <TableBody>
+                {filteredOrders.map((order) => (
+                  <TableRow key={order.id} interactive selected={selectedOrder?.id === order.id} onClick={() => setSelectedOrderId(order.id)}>
+                    <TableCell mono>{order.code}</TableCell>
+                    <TableCell>{order.clientName}</TableCell>
+                    <TableCell muted><span className="block">{order.serviceType}</span><span className="text-[10px]">{order.dimensions} · Qty {order.quantity}</span></TableCell>
+                    <TableCell mono>{formatDate(order.preferredDueDate)}</TableCell>
+                    <TableCell><span className={cn("inline-flex rounded-full border px-2 py-1 text-[9px] font-semibold", statusTone(order.status))}>{formatStatus(order.status)}</span></TableCell>
+                    <TableCell muted>{order.priority}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </Panel>
+
+      {selectedOrder && (
+        <Panel>
+          <PanelHeader title={`Order ${selectedOrder.code}`} subtitle="Operational detail" kicker="SELECTED ORDER" icon={<ClipboardList size={16} />} />
+          <div className="grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div><p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">Client</p><p className="mt-1 text-sm font-semibold text-foreground">{selectedOrder.clientName}</p></div>
+            <div><p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">Service</p><p className="mt-1 text-sm font-semibold text-foreground">{selectedOrder.serviceType}</p></div>
+            <div><p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">Production route</p><p className="mt-1 text-sm font-semibold text-foreground">{selectedOrder.machineName ?? "Awaiting assignment"}</p></div>
+            <div><p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">Job card</p><p className="mt-1 text-sm font-semibold text-foreground">{selectedOrder.jobCardAssigned ? "Assigned" : "Not assigned"}</p></div>
+          </div>
+        </Panel>
+      )}
     </div>
   );
 }

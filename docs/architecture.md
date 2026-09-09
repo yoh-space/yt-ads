@@ -90,6 +90,13 @@ The union is defined in `convex/schema.ts` (`stockEventType`) and exported from 
 | Weekly physical reconciliation | `RECONCILIATION_ADJUSTMENT` | `parent` or `operator` | `in`/`out` | Operator records a physical count (`convex/inventory.ts` performWeeklyReconciliation) or store records a central count (`convex/reconciliation.ts` countMaterial). | Either tier's balance is corrected, and a discrepancy row is written to `weeklyReconciliations` or `reconciliations`. |
 | Direct exception stock-out | `EXCEPTION_STOCK_OUT` | `parent` or `operator` | `out` | Owner/manager records a sample / repair / test cut (`convex/orders.ts` recordExceptionStockOut). | Catalog or sub-stock stock `↓`; a `stockExceptions` row is written. |
 
+**Automated dispatch registration.** On top of the operator-registered flows above, `confirmOrderAndIssueJobCard` (`convex/orders.ts:1018`) derives scrap and off-cut deterministically — never from client input — via the pure engine `src/shared/material-calc.ts` (shared with `previewAutoRouting`, so the dispatch modal's read-only **Auto-Calculated Production Breakdown** card matches the ledger exactly). In one transaction it:
+
+- writes a `PRODUCTION_CONSUMPTION` (custody `parent`, `out`) for the roll `grossArea` (`rollWidth × jobLength × qty`) or rigid total sheet area;
+- when a roll side strip ≥ 0.3 m wide (or a rigid-sheet leftover) is a usable off-cut, inserts an `offcuts` row and an `OFFCUT_RETURN` event (custody `parent`, `in`);
+- writes a `SCRAP_LOG` event plus a `scraps` row for the remainder (+ owner-configured setup margin);
+- persists the breakdown on the `jobCards` row (`grossDeductedQuantity`, `netProductArea`, `offcutArea`, `scrapArea`, `scrapPercentage`).
+
 ### 4.2 Invariants enforced by `recordInventoryEvent`
 
 The single helper that writes every ledger row enforces these invariants transactionally (`convex/inventoryLedger.ts:71`):
