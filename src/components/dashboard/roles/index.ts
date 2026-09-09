@@ -10,7 +10,6 @@ export * from "./operator/machine-fluid-gauge";
 export * from "./operator/operator-stock";
 
 export * from "./owner/owner-nav";
-export * from "./owner/owner-shell";
 export * from "./owner/owner-page-header";
 
 export * from "./receptionist/receptionist-nav";

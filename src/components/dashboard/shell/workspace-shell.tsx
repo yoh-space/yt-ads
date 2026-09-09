@@ -12,6 +12,7 @@ import { DashboardAccessDenied } from "./access-denied";
 import { Topbar } from "./topbar";
 import {
   Boxes,
+  CircleDollarSign,
   ClipboardList,
   ChevronLeft,
   ChevronRight,
@@ -35,6 +36,7 @@ import {
 
 const workspaceIcons = {
   boxes: Boxes,
+  circleDollarSign: CircleDollarSign,
   clipboardList: ClipboardList,
   factory: Factory,
   fileBarChart: FileBarChart,

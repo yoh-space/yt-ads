@@ -1,13 +1,29 @@
 import type { ReactNode } from "react";
-import { OwnerShell } from "@/components/dashboard/roles/owner/owner-shell";
+import { WorkspaceShell } from "@/components/dashboard/shell/workspace-shell";
+import { ownerNavItems } from "@/components/dashboard/roles/owner/owner-nav";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Owner-only workspace layout. Renders its own full shell (sidebar, topbar,
- * loading and access guards). Authorization is enforced again inside every
- * Convex owner-analytics query via `requireOwner`.
+ * Owner-only workspace layout.
+ *
+ * Uses the shared WorkspaceShell (collapsible sidebar + unified topbar) so the
+ * owner gets identical chrome to admin/manager while retaining full isolation:
+ *  - `roles={["owner"]}` means any non-owner profile is hard-blocked by the
+ *    shell before a single page component renders.
+ *  - Every Convex query under /dashboard/owner/* calls `requireOwner` on the
+ *    backend, giving defence-in-depth independent of this UI guard.
  */
 export default function OwnerDashboardLayout({ children }: { children: ReactNode }) {
-  return <OwnerShell>{children}</OwnerShell>;
+  return (
+    <WorkspaceShell
+      roles={["owner"]}
+      navItems={ownerNavItems}
+      brandLabel="Owner"
+      consoleLabel="Owner console"
+      accessDeniedReason="This area is reserved for the owner's profile only."
+    >
+      {children}
+    </WorkspaceShell>
+  );
 }
