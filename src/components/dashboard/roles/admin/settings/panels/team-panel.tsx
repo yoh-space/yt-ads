@@ -8,6 +8,7 @@ import { Users } from "lucide-react";
 import type { Profile, Role } from "@/lib/operations-types";
 import { FormMessage, FormSection } from "../chrome/form";
 import { TeamMemberTile } from "./team-member-tile";
+import { StaffDetailDrawer } from "@/components/dashboard/roles/owner/staff-detail-drawer";
 
 /**
  * Team Access: lists every application profile with role + activation controls.
@@ -21,6 +22,8 @@ export function TeamPanel({ profile }: { profile: Profile }) {
   const setActive = useMutation(api.users.setActive);
   const setMachineScope = useMutation(api.users.setMachineScope);
   const [message, setMessage] = useState("");
+  const [selectedUserId, setSelectedUserId] = useState<Id<"users"> | null>(null);
+  const selectedUser = users?.find((user) => user._id === selectedUserId);
 
   async function changeRole(userId: Id<"users">, nextRole: Role) {
     try {
@@ -69,6 +72,7 @@ export function TeamPanel({ profile }: { profile: Profile }) {
               onChangeRole={changeRole}
               onToggleActive={changeActive}
               onChangeMachineScope={changeMachineScope}
+              onOpen={() => setSelectedUserId(user._id)}
               />
           ))}
           {users?.length === 0 ? (
@@ -83,6 +87,26 @@ export function TeamPanel({ profile }: { profile: Profile }) {
           <FormMessage tone={message.includes("Unable") ? "error" : "success"}>{message}</FormMessage>
         </div>
       ) : null}
+      <StaffDetailDrawer
+        member={selectedUser ? {
+          id: selectedUser._id,
+          authUserId: selectedUser.authUserId,
+          name: selectedUser.name,
+          email: selectedUser.email,
+          role: selectedUser.role,
+          active: selectedUser.active,
+          assignedMachineIds: selectedUser.assignedMachineIds ?? [],
+        } : null}
+        machines={(machines ?? []).map((machine) => ({ id: machine._id, name: machine.name, code: machine.code, operatorRole: machine.operatorRole }))}
+        currentAuthUserId={profile.authUserId}
+        onSave={async (userId, values) => {
+          await setRole({ userId, role: values.role });
+          await setActive({ userId, active: values.active });
+          await setMachineScope({ userId, machineIds: values.machineIds });
+          setMessage("Profile updated.");
+        }}
+        onClose={() => setSelectedUserId(null)}
+      />
     </div>
   );
 }

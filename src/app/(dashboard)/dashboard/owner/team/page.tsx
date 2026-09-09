@@ -1,16 +1,24 @@
 "use client";
 
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
+import { useState } from "react";
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { OwnerPageHeader } from "@/components/dashboard/roles/owner/owner-page-header";
 import { StatCard } from "@/components/shared/ui/stat-card";
 import { Panel, PanelHeader } from "@/components/shared/ui/panel";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/shared/ui/table";
 import { InventoryLoader } from "@/components/dashboard/widgets/inventory-loader";
 import { Users, UserCheck, UserX, ShieldCheck } from "lucide-react";
+import { StaffDetailDrawer } from "@/components/dashboard/roles/owner/staff-detail-drawer";
+import type { Role } from "@/lib/operations-types";
 
 export default function OwnerTeamPage() {
   const summary = useQuery(api.owner.team.getTeamSummary);
+  const setRole = useMutation(api.users.setRole);
+  const setActive = useMutation(api.users.setActive);
+  const setMachineScope = useMutation(api.users.setMachineScope);
+  const [selectedId, setSelectedId] = useState<Id<"users"> | null>(null);
 
   if (summary === undefined) {
     return (
@@ -21,6 +29,13 @@ export default function OwnerTeamPage() {
   }
 
   const byRole = Object.entries(summary.byRole).sort((a, b) => b[1] - a[1]);
+  const selectedMember = summary.team.find((member) => member.id === selectedId) ?? null;
+
+  async function saveMember(userId: Id<"users">, values: { role: Role; active: boolean; machineIds: Id<"machines">[] }) {
+    await setRole({ userId, role: values.role });
+    await setActive({ userId, active: values.active });
+    await setMachineScope({ userId, machineIds: values.machineIds });
+  }
 
   return (
     <div className="space-y-6">
@@ -109,7 +124,7 @@ export default function OwnerTeamPage() {
                 </TableHeader>
                 <TableBody>
                   {summary.team.map((member) => (
-                    <TableRow key={member.id}>
+                    <TableRow key={member.id} interactive selected={selectedId === member.id} onClick={() => setSelectedId(member.id)}>
                       <TableCell className="font-medium text-foreground">{member.name}</TableCell>
                       <TableCell muted>{member.email}</TableCell>
                       <TableCell muted>{member.role}</TableCell>
@@ -132,6 +147,12 @@ export default function OwnerTeamPage() {
           )}
         </Panel>
       </div>
+      <StaffDetailDrawer
+        member={selectedMember}
+        machines={summary.machines}
+        onSave={saveMember}
+        onClose={() => setSelectedId(null)}
+      />
     </div>
   );
 }
