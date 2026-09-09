@@ -529,6 +529,16 @@ export default defineSchema({
     width: v.optional(v.number()),
     deductOnComplete: v.optional(v.boolean()),
     serviceType: v.optional(serviceType),
+    /** Gross material deducted from stock at dispatch (rollWidth × jobLength × qty). */
+    grossDeductedQuantity: v.optional(v.number()),
+    /** Net product area (jobWidth × jobLength × qty). */
+    netProductArea: v.optional(v.number()),
+    /** Usable off-cut area auto-registered into the off-cut inventory. */
+    offcutArea: v.optional(v.number()),
+    /** Total scrap area auto-registered for the job (side strip + setup waste). */
+    scrapArea: v.optional(v.number()),
+    /** Scrap expressed as a percentage of the gross material deducted. */
+    scrapPercentage: v.optional(v.number()),
   })
     .index("by_status", ["status"])
     .index("by_machine", ["machineId"])

@@ -19,6 +19,7 @@ import {
 import { recordInventoryEvent } from "./inventoryLedger";
 import { verifyTelegramInitData } from "./telegramAuth";
 import { loadActiveBomForService, resolveServiceRoute, resolveInkRequirements, resolveJobBOM } from "./bomResolver";
+import { calculateOffCutAndScrap, type OffCutScrapResult } from "../src/shared/material-calc";
 
 /** Statuses a customer may see through public tracking (EXPIRED stays internal). */
 const PUBLIC_TRACKING_STATUSES = new Set(["PENDING_REVIEW", "PRICED_AND_PENDING_PAYMENT", "CONFIRMED_PAID_OR_CREDIT", "JOB_CARD_CREATED", "IN_PRODUCTION", "COMPLETED", "READY_FOR_PICKUP"]);
@@ -827,6 +828,38 @@ async function validateDispatchResources(ctx: any, order: OrderDoc, routed: Awai
 }
 
 /**
+ * Resolves the deterministic scrap & off-cut breakdown for a material against
+ * the customer's net job dimensions. Uses the same pure engine that the
+ * dispatch mutation consumes so the preview and the registered ledger never
+ * diverge.
+ */
+function resolveMaterialBreakdown(material: any, order: OrderDoc, config: any): OffCutScrapResult {
+  const isRigidSheet =
+    material.materialFamily === "RIGID_SHEET" ||
+    material.catalogFamily === "RIGID_SHEET" ||
+    (material.sheetWidth && material.sheetLength) ||
+    (!material.rollWidth && (material.sheetWidth || material.sheetLength));
+  return calculateOffCutAndScrap(
+    {
+      rollWidth: material.rollWidth,
+      sheetWidth: material.sheetWidth,
+      sheetLength: material.sheetLength,
+      isRigidSheet,
+    },
+    {
+      width: order.width,
+      length: order.length,
+      quantity: order.quantity,
+    },
+    {
+      minUsableOffcutWidth: 0.3,
+      defaultMarginSquareMetres: config?.defaultMarginSquareMetres ?? 0,
+      standardWasteMargin: config?.standardWasteMargin ?? 0,
+    },
+  );
+}
+
+/**
  * Read-only preview of the automatic production assignment used by the confirm
  * step. Surfaces the machine, raw material, and Standard allocation that
  * `confirmOrderAndIssueJobCard` will issue so reception can review the routing
@@ -844,6 +877,8 @@ export const previewAutoRouting = query({
       .unique();
     const routed = await resolveAutoRouting(ctx, order, configRow ?? {});
     const resources = await validateDispatchResources(ctx, order, routed, configRow ?? {});
+    const material = await ctx.db.get(routed.materialId as Id<"materials">);
+    const breakdown = material ? resolveMaterialBreakdown(material, order, configRow ?? {}) : null;
     return {
       machineId: routed.machineId,
       machineName: routed.machineName,
@@ -860,6 +895,7 @@ export const previewAutoRouting = query({
       errors: resources.errors,
       materialCheck: resources.material,
       inkCheck: resources.ink,
+      breakdown,
     };
   },
 });
@@ -979,6 +1015,11 @@ export const confirmOrderAndIssueJobCard = mutation({
       if (!resources.canDispatch) throw new Error(resources.errors.join(" "));
     }
 
+    // Deterministic scrap & off-cut breakdown — never taken from client input.
+    const breakdown = material
+      ? resolveMaterialBreakdown(material, order, config)
+      : null;
+
     const now = Date.now();
     const roundedAmount = Number(amount.toFixed(2));
     const code = `JC-${String(430 + Math.floor(Math.random() * 500)).padStart(4, "0")}`;
@@ -1034,6 +1075,15 @@ export const confirmOrderAndIssueJobCard = mutation({
       length: order.length,
       width: order.width,
       serviceType: order.serviceType,
+      grossDeductedQuantity: breakdown ? Number(breakdown.grossArea.toFixed(3)) : undefined,
+      netProductArea: breakdown ? Number(breakdown.netArea.toFixed(3)) : undefined,
+      offcutArea: breakdown?.usableOffcut
+        ? Number(breakdown.usableOffcut.area.toFixed(3))
+        : undefined,
+      scrapArea: breakdown ? Number(breakdown.totalScrapArea.toFixed(3)) : undefined,
+      scrapPercentage: breakdown && breakdown.grossArea > 0
+        ? Number(((breakdown.totalScrapArea / breakdown.grossArea) * 100).toFixed(2))
+        : undefined,
     });
 
     for (const rId of reservationIds) {
@@ -1104,6 +1154,98 @@ export const confirmOrderAndIssueJobCard = mutation({
       updatedAt: now,
     });
     if (machine.status !== "Running") await ctx.db.patch(machine._id, { status: "Running", activeJob: code });
+
+    // ── Automated Scrap & Off-Cut registration (deterministic, dispatch-time) ──
+    // (A) Deduct the gross material from inventory/sub-stock ledger.
+    // (B) Register a usable off-cut into `offcuts` when the engine found one.
+    // (C) Write the calculated scrap into `scraps` + a SCRAP_LOG ledger entry.
+    // All values come from `breakdown`, never from client-submitted inputs.
+    if (material && breakdown) {
+      const baseUnit = (material.baseUnit ?? material.unit ?? "m²") as Unit;
+      const isAreaish = breakdown.kind === "roll" || breakdown.kind === "rigid_sheet";
+
+      // (A) Gross material deduction.
+      if (isAreaish && breakdown.grossArea > 0) {
+        await recordInventoryEvent(ctx, {
+          materialId: material._id,
+          eventType: "PRODUCTION_CONSUMPTION",
+          custody: "parent",
+          balanceEffect: "out",
+          quantity: Number(breakdown.grossArea.toFixed(3)),
+          unit: material.unit ?? baseUnit,
+          baseUnit,
+          baseQuantity: Number(breakdown.grossArea.toFixed(3)),
+          conversionRatio: material.conversionRatio && material.conversionRatio > 0 ? material.conversionRatio : undefined,
+          jobCardId: jobId,
+          note: `Automated gross stock deduction (${code} · ${order.dimensions} · ${order.clientName})`,
+          createdBy: identity._id,
+        });
+      }
+
+      // (B) Usable off-cut registration.
+      if (breakdown.usableOffcut && breakdown.usableOffcut.area >= (config.minOffcutAreaSquareMetre ?? DEFAULT_SYSTEM_CONFIG.minOffcutAreaSquareMetre)) {
+        const offcutId = await ctx.db.insert("offcuts", {
+          materialId: material._id,
+          label: `${material.name} offcut`,
+          width: breakdown.usableOffcut.width,
+          length: breakdown.usableOffcut.length,
+          area: Number(breakdown.usableOffcut.area.toFixed(2)),
+          location: "Auto · Side Roll",
+          usable: true,
+          status: "available",
+          createdBy: identity._id,
+          createdAt: new Date().toISOString(),
+          jobCardId: jobId,
+          machineId: machine._id,
+          source: "job_auto",
+        });
+        await recordInventoryEvent(ctx, {
+          materialId: material._id,
+          eventType: "OFFCUT_RETURN",
+          custody: "parent",
+          balanceEffect: "in",
+          quantity: Number(breakdown.usableOffcut.area.toFixed(2)),
+          unit: "m²",
+          baseUnit: "m²",
+          baseQuantity: Number(breakdown.usableOffcut.area.toFixed(2)),
+          jobCardId: jobId,
+          machineId: machine._id,
+          offcutId,
+          note: `Auto-registered usable side off-cut (${code})`,
+          createdBy: identity._id,
+        });
+      }
+
+      // (C) Scrap registration.
+      if (breakdown.totalScrapArea > 0) {
+        await ctx.db.insert("scraps", {
+          materialId: material._id,
+          label: material.name,
+          quantity: Number(breakdown.totalScrapArea.toFixed(3)),
+          unit: "m²" as Unit,
+          reason: `Automated scrap (${code} · net ${order.dimensions} · owner margin included)`,
+          createdBy: identity._id,
+          createdAt: new Date().toISOString(),
+          operatorId: identity._id,
+          machineId: machine._id,
+        });
+        await recordInventoryEvent(ctx, {
+          materialId: material._id,
+          eventType: "SCRAP_LOG",
+          custody: "parent",
+          balanceEffect: "out",
+          quantity: Number(breakdown.totalScrapArea.toFixed(3)),
+          unit: "m²",
+          baseUnit: "m²",
+          baseQuantity: Number(breakdown.totalScrapArea.toFixed(3)),
+          jobCardId: jobId,
+          machineId: machine._id,
+          note: `Auto-registered scrap (${code})`,
+          createdBy: identity._id,
+        });
+      }
+    }
+
     await notifyRoles(ctx, [machine.operatorRole, "owner", "manager", "admin"], {
       title: "Paid order issued to production",
       message: `${order.code} (${order.clientName}) is confirmed ${args.paymentDecision} and queued as ${code} on ${machine.name}.`,
@@ -1142,6 +1284,7 @@ export const confirmOrderAndIssueJobCard = mutation({
       unit: allocation.unit,
       approvedScrapQuantity: allocation.approvedScrapQuantity,
       standardWasteMargin: allocation.wasteMarginPercent,
+      breakdown,
     };
   },
 });

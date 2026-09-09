@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { ArrowUpRight, CalendarDays, Clock3, Plus, Search, Wrench, X, Copy, Check, Sparkles } from "lucide-react";
+import { ArrowUpRight, CalendarDays, Clock3, Plus, Search, Wrench, X, Copy, Check, Sparkles, Scissors, Trash2 } from "lucide-react";
 import type { CustomerOrder, Machine, Material, OrderPriority, CustomerOrderStatus } from "@/lib/operations-types";
 import { formatQuantity } from "@/lib/units";
 import { getServiceLabel } from "@/constants/services";
@@ -52,6 +52,11 @@ const priorities: Array<OrderPriority | "all"> = ["all", "High", "Medium", "Low"
 
 function formatDue(timestamp: number) {
   return new Date(timestamp).toLocaleString("en-ET", { dateStyle: "medium", timeStyle: "short" });
+}
+
+function formatNum(value: number | undefined): string {
+  if (value === undefined || !Number.isFinite(value)) return "—";
+  return value.toLocaleString("en-US", { maximumFractionDigits: 2, minimumFractionDigits: 2 });
 }
 
 function copyToClipboard(value: string, key: string, setCopiedKey: (key: string | null) => void) {
@@ -542,6 +547,57 @@ export function OrderConfirmModal({ order, machines, materials, onClose, onSave 
                   </span>
                 </div>
               </div>
+
+              {/* Auto-Calculated Production Breakdown Card */}
+              {dispatchPreview.breakdown ? (
+                <div className="space-y-2 rounded-lg border border-brand-primary-bg bg-surface-elevated p-3 text-xs">
+                  <div className="flex items-center justify-between border-b border-border-token pb-1.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-text-secondary">
+                      Auto-Calculated Production Breakdown
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-cyan">
+                      <Sparkles size={11} /> Deterministic
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-text-secondary">Gross Material Deducted</span>
+                    <span className="font-semibold text-text-primary">
+                      {formatNum(dispatchPreview.breakdown.grossArea)} m²
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-text-secondary">Net Job Area</span>
+                    <span className="font-semibold text-text-primary">
+                      {formatNum(dispatchPreview.breakdown.netArea)} m²
+                    </span>
+                  </div>
+
+                  {dispatchPreview.breakdown.usableOffcut ? (
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="flex items-center gap-1.5 text-text-secondary">
+                        <Scissors size={13} className="text-green flex-none" /> Auto-Registered Off-Cut
+                      </span>
+                      <span className="text-right font-semibold text-green">
+                        {dispatchPreview.breakdown.usableOffcut.label}
+                        <span className="block text-[11px] text-text-secondary">
+                          ({formatNum(dispatchPreview.breakdown.usableOffcut.area)} m² Usable Side Roll)
+                        </span>
+                      </span>
+                    </div>
+                  ) : null}
+
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-1.5 text-text-secondary">
+                      <Trash2 size={13} className="text-warning flex-none" /> Auto-Registered Scrap
+                    </span>
+                    <span className="font-semibold text-warning">
+                      {formatNum(dispatchPreview.breakdown.totalScrapArea)} m² (Owner Margin Included)
+                    </span>
+                  </div>
+                </div>
+              ) : null}
 
               {/* Section 2: Raw Material Status */}
               <div
