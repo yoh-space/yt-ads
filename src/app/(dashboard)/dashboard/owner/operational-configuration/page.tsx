@@ -9,11 +9,13 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import { InventoryLoader } from "@/components/dashboard/widgets/inventory-loader";
 import { PackageOpen, AlertTriangle, Layers } from "lucide-react";
 import { OperationalPanel } from "@/components/dashboard/roles/admin/settings/operational/operational-panel";
+import { RawMaterialReorderSection } from "@/components/dashboard/roles/owner/raw-material-reorder-section";
 
 export default function OwnerOperationalConfigurationPage() {
   const summary = useQuery(api.owner.materials.getMaterialsSummary);
+  const materials = useQuery(api.owner.materials.listForConfiguration);
 
-  if (summary === undefined) {
+  if (summary === undefined || materials === undefined) {
     return (
       <div className="flex h-[70vh] items-center justify-center">
         <InventoryLoader label="Loading Configuration…" />
@@ -28,20 +30,20 @@ export default function OwnerOperationalConfigurationPage() {
       <OwnerPageHeader
         kicker="Operational Configuration · የሥራ ማስተካከያ"
         title="Operational Configuration"
-        subtitle="Configure the operational rules that govern inventory, production, orders, and approvals."
+        subtitle="Set the simple rules your team follows every day."
       />
 
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard
           icon={<PackageOpen size={16} />}
-          label="Active Materials"
+          label="Raw materials"
           subtitle="ንቁ ዕቃዎች"
           value={summary.totalMaterials}
           variant="default"
         />
         <StatCard
           icon={<AlertTriangle size={16} />}
-          label="At or Below Reorder Point"
+          label="Need restocking"
           subtitle="መልሶ ለማዘዝ ደረጃ"
           value={summary.reorderMaterials.length}
           variant="alert"
@@ -49,7 +51,7 @@ export default function OwnerOperationalConfigurationPage() {
         />
         <StatCard
           icon={<Layers size={16} />}
-          label="Material Categories"
+          label="Material groups"
           subtitle="የዕቃ ዓይነቶች"
           value={categories.length}
           variant="sales"
@@ -58,7 +60,7 @@ export default function OwnerOperationalConfigurationPage() {
 
       <Panel>
         <PanelHeader
-          title="Materials at or Below Reorder Point"
+          title="Materials that need restocking"
           subtitle="መልሶ ለማዘዝ ደረጃ ላይ ያሉ"
           kicker="Restock"
           icon={<AlertTriangle size={16} />}
@@ -76,7 +78,7 @@ export default function OwnerOperationalConfigurationPage() {
                   <TableHead>Category</TableHead>
                   <TableHead>Unit</TableHead>
                   <TableHead>On hand</TableHead>
-                  <TableHead>Reorder at</TableHead>
+                  <TableHead>Restock when below</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -95,6 +97,7 @@ export default function OwnerOperationalConfigurationPage() {
         )}
       </Panel>
 
+      <RawMaterialReorderSection materials={materials} />
       <OperationalPanel />
 
       <Panel>

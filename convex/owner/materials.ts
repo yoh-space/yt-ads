@@ -1,4 +1,5 @@
-import { query } from "../_generated/server";
+import { mutation, query } from "../_generated/server";
+import { v } from "convex/values";
 import { requireOwner } from "../users";
 
 /**
@@ -28,5 +29,48 @@ export const getMaterialsSummary = query({
         reorderAt: m.reorderAt,
       })),
     };
+  },
+});
+
+export const listForConfiguration = query({
+  handler: async (ctx) => {
+    await requireOwner(ctx);
+    const materials = await ctx.db
+      .query("materials")
+      .filter((q) => q.eq(q.field("active"), true))
+      .collect();
+    return materials
+      .sort((left, right) => left.name.localeCompare(right.name))
+      .map((material) => ({
+        id: material._id,
+        name: material.name,
+        category: material.category,
+        unit: material.baseUnit ?? material.unit ?? "pcs",
+        reorderAt: material.reorderAt,
+      }));
+  },
+});
+
+export const updateReorderLevel = mutation({
+  args: {
+    materialId: v.id("materials"),
+    reorderAt: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const { profile } = await requireOwner(ctx);
+    if (!Number.isFinite(args.reorderAt) || args.reorderAt < 0) {
+      throw new Error("Choose a valid reorder level.");
+    }
+    const material = await ctx.db.get(args.materialId);
+    if (!material || !material.active) throw new Error("Material not found.");
+    await ctx.db.patch(material._id, { reorderAt: args.reorderAt });
+    await ctx.db.insert("configurationChanges", {
+      configKey: `material:${material._id}`,
+      changedFields: ["reorderAt"],
+      reason: `Reorder level updated for ${material.name}`,
+      actorAuthUserId: profile.authUserId,
+      createdAt: Date.now(),
+    });
+    return { id: material._id, reorderAt: args.reorderAt };
   },
 });

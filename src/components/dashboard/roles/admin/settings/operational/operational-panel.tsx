@@ -8,7 +8,6 @@ import { Button } from "@/components/shared/ui";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/shared/ui/tabs";
 import { FormMessage } from "../chrome/form";
 import { ConversionSection } from "./sections/conversion-section";
-import { InventoryPolicySection } from "./sections/inventory-policy-section";
 import { OrderExpirySection } from "./sections/order-expiry-section";
 import { OverrideSection, type MaterialOption } from "./sections/override-section";
 import { ProductionSection } from "./sections/production-section";
@@ -142,14 +141,6 @@ export function OperationalPanel() {
 
         {/* Tab 2: Production & Waste Rules */}
         <TabsContent value="production">
-          <InventoryPolicySection
-            defaultReorderLevel={form.defaultReorderLevel}
-            setDefaultReorderLevel={form.setDefaultReorderLevel}
-            reorderAlertsEnabled={form.reorderAlertsEnabled}
-            setReorderAlertsEnabled={form.setReorderAlertsEnabled}
-            reorderAlertCooldownHours={form.reorderAlertCooldownHours}
-            setReorderAlertCooldownHours={form.setReorderAlertCooldownHours}
-          />
           <ProductionSection
             inkMlPerSquareMetre={form.inkMlPerSquareMetre}
             setInkMlPerSquareMetre={form.setInkMlPerSquareMetre}
