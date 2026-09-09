@@ -54,6 +54,7 @@ import type * as orderDetails from "../orderDetails.js";
 import type * as orders from "../orders.js";
 import type * as overuseExceptions from "../overuseExceptions.js";
 import type * as owner_audit from "../owner/audit.js";
+import type * as owner_analytics from "../owner/analytics.js";
 import type * as owner_common from "../owner/common.js";
 import type * as owner_inventory from "../owner/inventory.js";
 import type * as owner_machines from "../owner/machines.js";
@@ -136,6 +137,7 @@ declare const fullApi: ApiFromModules<{
   orders: typeof orders;
   overuseExceptions: typeof overuseExceptions;
   "owner/audit": typeof owner_audit;
+  "owner/analytics": typeof owner_analytics;
   "owner/common": typeof owner_common;
   "owner/inventory": typeof owner_inventory;
   "owner/machines": typeof owner_machines;

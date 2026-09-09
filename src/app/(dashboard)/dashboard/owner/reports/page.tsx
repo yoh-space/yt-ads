@@ -1,176 +1,65 @@
 "use client";
 
+import { useMemo, useState, type ReactNode } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { OwnerPageHeader } from "@/components/dashboard/roles/owner/owner-page-header";
-import { StatCard } from "@/components/shared/ui/stat-card";
-import { Panel, PanelHeader } from "@/components/shared/ui/panel";
-import { SectionLabel, MetricValue } from "@/components/shared/ui/typography";
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/shared/ui/table";
 import { InventoryLoader } from "@/components/dashboard/widgets/inventory-loader";
-import { FileBarChart, AlertTriangle, History, Coins, TrendingUp, PackageOpen } from "lucide-react";
+import { Panel, PanelHeader } from "@/components/shared/ui/panel";
+import { AlertTriangle, BarChart3, CalendarDays, Download, FileBarChart, LineChart as LineChartIcon, PackageOpen, Printer, TrendingUp } from "lucide-react";
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { cn } from "@/lib/utils";
 
-const etb = (value: number) => `ETB ${value.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
+type Preset = "7d" | "14d" | "30d" | "custom";
+const DAY = 24 * 60 * 60 * 1000;
+const etb = (value: number) => `ETB ${value.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+const dateInput = (value: Date) => value.toISOString().slice(0, 10);
+
+function Card({ label, value, detail, tone = "cyan" }: { label: string; value: string; detail: ReactNode; tone?: "cyan" | "amber" | "green" | "rose" }) {
+  return <div className={cn("rounded-xl border p-4", tone === "cyan" ? "border-cyan/30 bg-cyan/5" : tone === "amber" ? "border-gold/30 bg-gold/5" : tone === "green" ? "border-success/30 bg-success/5" : "border-danger/30 bg-danger/5")}><p className="text-[9px] font-mono uppercase tracking-[0.16em] text-muted-foreground">{label}</p><p className="mt-2 text-xl font-bold tabular-nums text-foreground">{value}</p><p className="mt-1 text-[10px] text-muted-foreground">{detail}</p></div>;
+}
+
+function Change({ current, previous }: { current: number; previous?: number }) {
+  if (previous === undefined || previous === 0) return null;
+  const percent = ((current - previous) / Math.abs(previous)) * 100;
+  return <span className={cn("text-[10px] font-semibold", percent >= 0 ? "text-success" : "text-danger")}>{percent >= 0 ? "+" : ""}{percent.toFixed(1)}% vs previous period</span>;
+}
 
 export default function OwnerReportsPage() {
-  const financial = useQuery(api.dashboard.financialMetrics);
-  const forecast = useQuery(api.dashboard.getStockoutForecast);
+  const today = useMemo(() => new Date(), []);
+  const [preset, setPreset] = useState<Preset>("30d");
+  const [customFrom, setCustomFrom] = useState(dateInput(new Date(today.getTime() - 29 * DAY)));
+  const [customTo, setCustomTo] = useState(dateInput(today));
+  const [compare, setCompare] = useState(true);
+  const range = useMemo(() => {
+    const to = new Date(); to.setHours(24, 0, 0, 0);
+    const days = preset === "7d" ? 7 : preset === "14d" ? 14 : 30;
+    if (preset === "custom") return { from: new Date(`${customFrom}T00:00:00`).getTime(), to: new Date(`${customTo}T23:59:59.999`).getTime() };
+    return { from: to.getTime() - days * DAY, to: to.getTime() };
+  }, [preset, customFrom, customTo]);
+  const analytics = useQuery(api.owner.analytics.getExecutiveAnalytics, { ...range, compare });
+  const label = preset === "7d" ? "1 week" : preset === "14d" ? "2 weeks" : preset === "30d" ? "30 days" : "Custom range";
 
-  if (financial === undefined || forecast === undefined) {
-    return (
-      <div className="flex h-[70vh] items-center justify-center">
-        <InventoryLoader label="Loading Reports…" />
-      </div>
-    );
-  }
+  const exportCsv = () => {
+    if (!analytics) return;
+    const rows = [["Date", "Revenue", "Material Cost", "Profit", "Margin %"], ...analytics.trend.map((row) => [row.date, row.revenue, row.materialCost, row.profit, row.margin])];
+    const csv = rows.map((row) => row.join(",")).join("\n"); const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" })); const link = document.createElement("a"); link.href = url; link.download = `owner-analytics-${dateInput(new Date())}.csv`; link.click(); URL.revokeObjectURL(url);
+  };
 
-  const marginPercent =
-    financial.todaysSales > 0
-      ? Math.round((financial.todaysNetProfit / financial.todaysSales) * 100)
-      : 0;
+  if (analytics === undefined) return <div className="flex h-[70vh] items-center justify-center"><InventoryLoader label="Loading Executive Analytics…" /></div>;
+  const previous = analytics.previous;
+  return <div className="space-y-6 print:bg-white">
+    <OwnerPageHeader kicker="Reports · ሪፖርቶች" title="Executive Analytics" subtitle={`Financial and operational performance across the selected ${label}.`} />
+    <div className="sticky top-2 z-20 rounded-xl border border-border/70 bg-card/95 p-3 shadow-lg backdrop-blur print:hidden"><div className="flex flex-wrap items-center gap-2"><div className="mr-2 inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"><CalendarDays size={14} className="text-primary" /> Time horizon</div>{(["7d", "14d", "30d", "custom"] as Preset[]).map((item) => <button key={item} type="button" onClick={() => setPreset(item)} className={cn("rounded-md border px-3 py-2 text-[10px] font-semibold", preset === item ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground")}>{item === "7d" ? "1 Week" : item === "14d" ? "2 Weeks" : item === "30d" ? "Monthly" : "Custom Range"}</button>)}{preset === "custom" ? <div className="flex items-center gap-2"><input type="date" value={customFrom} onChange={(event) => setCustomFrom(event.target.value)} className="h-8 rounded-md border border-border bg-background px-2 text-[10px]" /><span className="text-[10px] text-muted-foreground">to</span><input type="date" value={customTo} onChange={(event) => setCustomTo(event.target.value)} className="h-8 rounded-md border border-border bg-background px-2 text-[10px]" /></div> : null}<span className="ml-auto flex items-center gap-2"><label className="flex items-center gap-2 text-[10px] text-muted-foreground"><input type="checkbox" checked={compare} onChange={(event) => setCompare(event.target.checked)} /> Compare previous</label><button type="button" onClick={exportCsv} className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-2 text-[10px] font-semibold text-muted-foreground hover:text-foreground"><Download size={12} /> CSV</button><button type="button" onClick={() => window.print()} className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-2 text-[10px] font-semibold text-muted-foreground hover:text-foreground"><Printer size={12} /> PDF / Print</button></span></div></div>
 
-  return (
-    <div className="space-y-6">
-      <OwnerPageHeader
-        kicker="Reports · ሪፖርቶች"
-        title="Reports"
-        subtitle="Daily performance, stock runway, and loss summaries."
-      />
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Card label="Total sales / revenue" value={etb(analytics.metrics.revenue)} detail={<><Change current={analytics.metrics.revenue} previous={previous?.revenue} />{!previous ? "Completed and active orders" : null}</>} tone="cyan" /><Card label="Material & production cost" value={etb(analytics.metrics.materialCost)} detail={<><Change current={analytics.metrics.materialCost} previous={previous?.materialCost} />{!previous ? "Consumed raw materials and ink" : null}</>} tone="amber" /><Card label="Net profit" value={etb(analytics.metrics.profit)} detail={<><span>{analytics.metrics.margin.toFixed(1)}% margin</span> <Change current={analytics.metrics.profit} previous={previous?.profit} /></>} tone="green" /><Card label="Audited stock loss" value={etb(analytics.metrics.loss)} detail={<><Change current={analytics.metrics.loss} previous={previous?.loss} />{!previous ? "Shortages and write-offs" : null}</>} tone="rose" /></div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          icon={<TrendingUp size={16} />}
-          label="Today's Sales"
-          subtitle="የዛሬ ሽያጭ"
-          value={etb(financial.todaysSales)}
-          variant="sales"
-        />
-        <StatCard
-          icon={<Coins size={16} />}
-          label="Today's Material Cost"
-          subtitle="የዛሬ ወጪ"
-          value={etb(financial.todaysMaterialCost)}
-          variant="cost"
-        />
-        <StatCard
-          icon={<TrendingUp size={16} />}
-          label="Net Profit Today"
-          subtitle={`የዛሬ ትርፍ · ${marginPercent}% margin`}
-          value={etb(financial.todaysNetProfit)}
-          variant="profit"
-          isNegative={financial.todaysNetProfit < 0}
-        />
-        <StatCard
-          icon={<History size={16} />}
-          label="Audited Stock Loss"
-          subtitle="የተረጋገጠ ኪሳራ"
-          value={etb(financial.auditedStockLoss)}
-          description={`${financial.auditedShortageCount} shortage records.`}
-          variant="alert"
-          isAlert={financial.auditedStockLoss > 0}
-        />
-      </div>
+    <div className="grid gap-4 xl:grid-cols-2"><Panel><PanelHeader title="Revenue vs. material cost" subtitle="Daily ETB movement across the selected range." kicker="Financial trend" icon={<TrendingUp size={16} />} /><div className="h-80 p-3"><ResponsiveContainer width="100%" height="100%"><AreaChart data={analytics.trend}><defs><linearGradient id="revenueFill" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#22d3ee" stopOpacity={0.35} /><stop offset="95%" stopColor="#22d3ee" stopOpacity={0} /></linearGradient><linearGradient id="costFill" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3} /><stop offset="95%" stopColor="#f59e0b" stopOpacity={0} /></linearGradient></defs><CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.45} /><XAxis dataKey="date" tick={{ fontSize: 10, fill: "#94a3b8" }} minTickGap={24} /><YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} tickFormatter={(value) => `${Math.round(value / 1000)}k`} /><Tooltip formatter={(value) => etb(Number(value ?? 0))} contentStyle={{ background: "#101827", border: "1px solid #334155", borderRadius: 8, fontSize: 11 }} /><Legend wrapperStyle={{ fontSize: 10 }} /><Area type="monotone" dataKey="revenue" name="Revenue" stroke="#22d3ee" fill="url(#revenueFill)" strokeWidth={2} animationDuration={500} /><Area type="monotone" dataKey="materialCost" name="Material cost" stroke="#f59e0b" fill="url(#costFill)" strokeWidth={2} animationDuration={500} /></AreaChart></ResponsiveContainer></div></Panel>
+      <Panel><PanelHeader title="Profitability & margin" subtitle="Net profit and margin movement over time." kicker="Performance" icon={<LineChartIcon size={16} />} /><div className="h-80 p-3"><ResponsiveContainer width="100%" height="100%"><LineChart data={analytics.trend}><CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.45} /><XAxis dataKey="date" tick={{ fontSize: 10, fill: "#94a3b8" }} minTickGap={24} /><YAxis yAxisId="money" tick={{ fontSize: 10, fill: "#94a3b8" }} tickFormatter={(value) => `${Math.round(value / 1000)}k`} /><YAxis yAxisId="percent" orientation="right" tick={{ fontSize: 10, fill: "#94a3b8" }} tickFormatter={(value) => `${value}%`} /><Tooltip formatter={(value, name) => [String(name) === "Margin" ? `${Number(value ?? 0)}%` : etb(Number(value ?? 0)), String(name)]} contentStyle={{ background: "#101827", border: "1px solid #334155", borderRadius: 8, fontSize: 11 }} /><Legend wrapperStyle={{ fontSize: 10 }} /><Line yAxisId="money" type="monotone" dataKey="profit" name="Net profit" stroke="#34d399" strokeWidth={2} dot={false} animationDuration={500} /><Line yAxisId="percent" type="monotone" dataKey="margin" name="Margin" stroke="#a78bfa" strokeWidth={2} dot={false} animationDuration={500} /></LineChart></ResponsiveContainer></div></Panel></div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Panel className="lg:col-span-2">
-          <PanelHeader
-            title="Stock Runway"
-            subtitle="የክምችት ጊዜ"
-            kicker="Forecast"
-            icon={<PackageOpen size={16} />}
-          />
-          <div className="grid gap-3 p-[17px] sm:grid-cols-3">
-            <div className="rounded-lg border border-danger/40 bg-danger/10 p-3">
-              <SectionLabel tone="muted">Critical · አሳሳቢ</SectionLabel>
-              <MetricValue size="lg" tone="negative">{forecast.criticalCount}</MetricValue>
-            </div>
-            <div className="rounded-lg border border-gold/40 bg-gold/10 p-3">
-              <SectionLabel tone="muted">Warning · ማስጠንቀቂያ</SectionLabel>
-              <MetricValue size="lg" tone="default">{forecast.warningCount}</MetricValue>
-            </div>
-            <div className="rounded-lg border border-green/40 bg-green/10 p-3">
-              <SectionLabel tone="muted">Healthy · ጥሩ</SectionLabel>
-              <MetricValue size="lg" tone="default">{forecast.items.length - forecast.criticalCount - forecast.warningCount}</MetricValue>
-            </div>
-          </div>
-        </Panel>
+    <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]"><Panel><PanelHeader title="Stock consumption & runway" subtitle="Recent consumption against remaining runway health." kicker="Inventory dynamics" icon={<BarChart3 size={16} />} /><div className="h-80 p-3"><ResponsiveContainer width="100%" height="100%"><BarChart data={analytics.runway.materials}><CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.45} /><XAxis dataKey="name" tick={{ fontSize: 9, fill: "#94a3b8" }} angle={-25} textAnchor="end" height={70} interval={0} /><YAxis yAxisId="consumption" tick={{ fontSize: 10, fill: "#94a3b8" }} /><YAxis yAxisId="runway" orientation="right" tick={{ fontSize: 10, fill: "#94a3b8" }} /><Tooltip contentStyle={{ background: "#101827", border: "1px solid #334155", borderRadius: 8, fontSize: 11 }} /><Legend wrapperStyle={{ fontSize: 10 }} /><Bar yAxisId="consumption" dataKey="consumption" name="30-day consumption" fill="#22d3ee" radius={[4, 4, 0, 0]} animationDuration={500} /><Bar yAxisId="runway" dataKey="runway" name="Runway days" fill="#f59e0b" radius={[4, 4, 0, 0]} animationDuration={500} /></BarChart></ResponsiveContainer></div></Panel><Panel><PanelHeader title="Stock runway health" subtitle="Critical under 7 days · Warning 7–14 · Healthy over 14." kicker="Runway" icon={<PackageOpen size={16} />} /><div className="grid grid-cols-3 gap-2 p-4">{[["Critical", analytics.runway.critical, "text-danger bg-danger/10 border-danger/30"], ["Warning", analytics.runway.warning, "text-gold bg-gold/10 border-gold/30"], ["Healthy", analytics.runway.healthy, "text-success bg-success/10 border-success/30"]].map(([name, count, style]) => <div key={String(name)} className={cn("rounded-lg border p-3 text-center", style as string)}><p className="text-[9px] uppercase tracking-wider">{name}</p><p className="mt-1 text-2xl font-bold">{count}</p></div>)}</div><div className="space-y-2 px-4 pb-4">{analytics.runway.materials.slice(0, 6).map((item) => <div key={item.name} className="flex items-center justify-between rounded-lg border border-border/60 px-3 py-2"><span className="min-w-0 truncate text-[11px] text-foreground">{item.name}</span><span className={cn("text-[10px] font-semibold", item.health === "Critical" ? "text-danger" : item.health === "Warning" ? "text-gold" : "text-success")}>{item.runway === null ? "14+ days" : `${item.runway} days`}</span></div>)}</div></Panel></div>
 
-        <Panel>
-          <PanelHeader
-            title="Margin Snapshot"
-            subtitle="የትርፍ ህዳግ"
-            kicker="Summary"
-            icon={<FileBarChart size={16} />}
-          />
-          <div className="p-[17px] space-y-3">
-            <div className="flex items-center justify-between rounded-lg border border-border/60 bg-background/40 px-3 py-2.5">
-              <span className="text-[12px] text-muted-foreground">Profit margin today</span>
-              <MetricValue size="sm">{marginPercent}%</MetricValue>
-            </div>
-            <div className="flex items-center justify-between rounded-lg border border-border/60 bg-background/40 px-3 py-2.5">
-              <span className="text-[12px] text-muted-foreground">Orders created today</span>
-              <MetricValue size="sm">{financial.todaysOrderCount}</MetricValue>
-            </div>
-            <div className="flex items-center justify-between rounded-lg border border-border/60 bg-background/40 px-3 py-2.5">
-              <span className="text-[12px] text-muted-foreground">Production logs today</span>
-              <MetricValue size="sm">{financial.todaysJobCount}</MetricValue>
-            </div>
-          </div>
-        </Panel>
-      </div>
-
-      <Panel>
-        <PanelHeader
-          title="Lowest Stock First"
-          subtitle="በጣም ዝቅተኛ ክምችት"
-          kicker="Reorder needs"
-          icon={<AlertTriangle size={16} />}
-        />
-        {forecast.items.length === 0 ? (
-          <p className="p-[17px] text-[12px] text-muted-foreground">No tracked materials.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <Table dense>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Material</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>On hand</TableHead>
-                  <TableHead>Reorder at</TableHead>
-                  <TableHead>Daily use</TableHead>
-                  <TableHead>Days left</TableHead>
-                  <TableHead>Urgency</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {forecast.items.slice(0, 12).map((item) => (
-                  <TableRow key={item.materialId}>
-                    <TableCell className="font-medium text-foreground">{item.materialName}</TableCell>
-                    <TableCell muted>{item.category}</TableCell>
-                    <TableCell mono>{item.currentStock}</TableCell>
-                    <TableCell mono muted>{item.reorderAt}</TableCell>
-                    <TableCell mono muted>{item.dailyRate}</TableCell>
-                    <TableCell mono>{item.runwayDays === null ? "—" : item.runwayDays}</TableCell>
-                    <TableCell>
-                      <span
-                        className={
-                          item.urgency === "CRITICAL"
-                            ? "rounded-full border border-danger/50 bg-danger/10 px-2 py-0.5 text-[10px] font-medium text-danger"
-                            : item.urgency === "WARNING"
-                              ? "rounded-full border border-gold/50 bg-gold/10 px-2 py-0.5 text-[10px] font-medium text-gold"
-                              : "rounded-full border border-green/50 bg-green/10 px-2 py-0.5 text-[10px] font-medium text-green"
-                        }
-                      >
-                        {item.urgency}
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </Panel>
-    </div>
-  );
+    <Panel><PanelHeader title="Margin by service" subtitle="Revenue, material cost, and contribution margin for the selected period." kicker="Service mix" icon={<FileBarChart size={16} />} />{analytics.services.length ? <div className="overflow-x-auto"><table className="w-full text-left"><thead><tr className="border-b border-border/60 text-[9px] uppercase tracking-wider text-muted-foreground"><th className="px-4 py-3">Service</th><th className="px-4 py-3">Revenue</th><th className="px-4 py-3">Cost</th><th className="px-4 py-3">Margin</th></tr></thead><tbody>{analytics.services.map((service) => <tr key={service.service} className="border-b border-border/40 last:border-0"><td className="px-4 py-3 text-xs font-medium text-foreground">{service.service}</td><td className="px-4 py-3 font-mono text-[11px] text-foreground">{etb(service.revenue)}</td><td className="px-4 py-3 font-mono text-[11px] text-muted-foreground">{etb(service.cost)}</td><td className={cn("px-4 py-3 font-mono text-[11px] font-semibold", service.margin >= 0 ? "text-success" : "text-danger")}>{service.margin.toFixed(1)}%</td></tr>)}</tbody></table></div> : <p className="p-5 text-xs text-muted-foreground">No service activity in this period.</p>}</Panel>
+    <p className="flex items-center gap-2 text-[10px] text-muted-foreground print:hidden"><AlertTriangle size={12} /> Cost estimates use the owner-configured material valuation rates. PDF export uses the browser print dialog.</p>
+  </div>;
 }
