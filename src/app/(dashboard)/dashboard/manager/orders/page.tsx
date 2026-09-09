@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { WorkspacePageHeader } from "@/components/dashboard/shell/workspace-page-header";
 import { InventoryLoader } from "@/components/dashboard/widgets/inventory-loader";
 import { Panel, PanelHeader } from "@/components/shared/ui/panel";
@@ -10,9 +11,10 @@ import { StatCard } from "@/components/shared/ui/stat-card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/shared/ui/table";
 import { cn } from "@/lib/utils";
 import { CalendarClock, ClipboardList, Inbox, Search } from "lucide-react";
+import { OrderDetailDrawer } from "@/components/dashboard/roles/common/order-detail-drawer";
 
 type ManagerOrder = {
-  id: string;
+  id: Id<"customerOrders">;
   code: string;
   clientName: string;
   serviceType: string;
@@ -49,7 +51,7 @@ export default function ManagerOrdersPage() {
   const orderSnapshot = useQuery(api.manager.orders.getOrders);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
-  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [selectedOrderId, setSelectedOrderId] = useState<Id<"customerOrders"> | null>(null);
   const orders = (orderSnapshot?.orders ?? []) as ManagerOrder[];
   const filteredOrders = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
@@ -59,7 +61,6 @@ export default function ManagerOrdersPage() {
       return matchesStatus && matchesSearch;
     });
   }, [orders, searchTerm, statusFilter]);
-  const selectedOrder = orders.find((order) => order.id === selectedOrderId) ?? filteredOrders[0];
 
   if (orderSnapshot === undefined) {
     return (
@@ -102,7 +103,7 @@ export default function ManagerOrdersPage() {
               <TableHeader><TableRow><TableHead>Order</TableHead><TableHead>Client</TableHead><TableHead>Service / specs</TableHead><TableHead>Due date</TableHead><TableHead>Status</TableHead><TableHead>Priority</TableHead></TableRow></TableHeader>
               <TableBody>
                 {filteredOrders.map((order) => (
-                  <TableRow key={order.id} interactive selected={selectedOrder?.id === order.id} onClick={() => setSelectedOrderId(order.id)}>
+                  <TableRow key={order.id} interactive selected={selectedOrderId === order.id} onClick={() => setSelectedOrderId(order.id)}>
                     <TableCell mono>{order.code}</TableCell>
                     <TableCell>{order.clientName}</TableCell>
                     <TableCell muted><span className="block">{order.serviceType}</span><span className="text-[10px]">{order.dimensions} · Qty {order.quantity}</span></TableCell>
@@ -117,17 +118,7 @@ export default function ManagerOrdersPage() {
         )}
       </Panel>
 
-      {selectedOrder && (
-        <Panel>
-          <PanelHeader title={`Order ${selectedOrder.code}`} subtitle="Order details" icon={<ClipboardList size={16} />} />
-          <div className="grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div><p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">Client</p><p className="mt-1 text-sm font-semibold text-foreground">{selectedOrder.clientName}</p></div>
-            <div><p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">Service</p><p className="mt-1 text-sm font-semibold text-foreground">{selectedOrder.serviceType}</p></div>
-            <div><p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">Assigned machine</p><p className="mt-1 text-sm font-semibold text-foreground">{selectedOrder.machineName ?? "Awaiting assignment"}</p></div>
-            <div><p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">Job card</p><p className="mt-1 text-sm font-semibold text-foreground">{selectedOrder.jobCardAssigned ? "Assigned" : "Not assigned"}</p></div>
-          </div>
-        </Panel>
-      )}
+      <OrderDetailDrawer orderId={selectedOrderId} onClose={() => setSelectedOrderId(null)} />
     </div>
   );
 }

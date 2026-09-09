@@ -1,13 +1,16 @@
 "use client";
 
 import { useQuery } from "convex/react";
+import { useState } from "react";
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { OwnerPageHeader } from "@/components/dashboard/roles/owner/owner-page-header";
 import { StatCard } from "@/components/shared/ui/stat-card";
 import { Panel, PanelHeader } from "@/components/shared/ui/panel";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/shared/ui/table";
 import { InventoryLoader } from "@/components/dashboard/widgets/inventory-loader";
 import { Inbox, AlertTriangle, CalendarClock } from "lucide-react";
+import { OrderDetailDrawer } from "@/components/dashboard/roles/common/order-detail-drawer";
 
 const etb = (value: number) => `ETB ${value.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
 
@@ -19,6 +22,7 @@ function makeDueDate(timestamp: number) {
 
 export default function OwnerOrdersPage() {
   const summary = useQuery(api.owner.orders.getOrderSummary);
+  const [selectedOrderId, setSelectedOrderId] = useState<Id<"customerOrders"> | null>(null);
 
   if (summary === undefined) {
     return (
@@ -92,7 +96,7 @@ export default function OwnerOrdersPage() {
               </TableHeader>
               <TableBody>
                 {summary.recent.map((order) => (
-                  <TableRow key={order.id}>
+                  <TableRow key={order.id} interactive selected={selectedOrderId === order.id} onClick={() => setSelectedOrderId(order.id)}>
                     <TableCell mono>{order.code}</TableCell>
                     <TableCell>{order.clientName}</TableCell>
                     <TableCell muted>{order.serviceType}</TableCell>
@@ -107,6 +111,7 @@ export default function OwnerOrdersPage() {
           </div>
         )}
       </Panel>
+      <OrderDetailDrawer orderId={selectedOrderId} onClose={() => setSelectedOrderId(null)} />
     </div>
   );
 }

@@ -50,6 +50,7 @@ import type * as operator_offcuts from "../operator/offcuts.js";
 import type * as operator_overview from "../operator/overview.js";
 import type * as operator_reconciliation from "../operator/reconciliation.js";
 import type * as orderAutomation from "../orderAutomation.js";
+import type * as orderDetails from "../orderDetails.js";
 import type * as orders from "../orders.js";
 import type * as overuseExceptions from "../overuseExceptions.js";
 import type * as owner_audit from "../owner/audit.js";
@@ -131,6 +132,7 @@ declare const fullApi: ApiFromModules<{
   "operator/overview": typeof operator_overview;
   "operator/reconciliation": typeof operator_reconciliation;
   orderAutomation: typeof orderAutomation;
+  orderDetails: typeof orderDetails;
   orders: typeof orders;
   overuseExceptions: typeof overuseExceptions;
   "owner/audit": typeof owner_audit;
