@@ -2,6 +2,7 @@
 
 import { WorkspacePageHeader } from "@/components/dashboard/workspace-page-header";
 import { RawMaterialStatusGrid } from "@/components/dashboard/raw-material-status-cards";
+import { ManagerDirectStockOut } from "@/components/dashboard/manager-direct-stock-out";
 
 export default function ManagerInventoryPage() {
   return (
@@ -12,6 +13,7 @@ export default function ManagerInventoryPage() {
         subtitle="See the main store material levels at a glance."
       />
       <RawMaterialStatusGrid />
+      <ManagerDirectStockOut />
     </div>
   );
 }

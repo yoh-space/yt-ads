@@ -7,6 +7,7 @@ import { StatCard } from "@/components/ui/stat-card";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { InventoryLoader } from "@/components/dashboard/inventory-loader";
+import { OwnerPendingStockOuts } from "@/components/dashboard/owner-pending-stock-outs";
 import { Boxes, Warehouse, PackageOpen, AlertTriangle } from "lucide-react";
 
 const etb = (value: number) => `ETB ${value.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
@@ -29,6 +30,8 @@ export default function OwnerInventoryPage() {
         title="Inventory"
         subtitle="Approximate stock value across the central store and production floor."
       />
+
+      <OwnerPendingStockOuts />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard

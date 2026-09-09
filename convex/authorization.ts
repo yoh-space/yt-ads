@@ -95,6 +95,7 @@ const EXCLUDED_FROM_MANAGER: Set<Permission> = new Set([
   "reconciliation.review",
   "reconciliation.clearance",
   "stock.record",
+  "stock.exception",
   "team.view",
   "team.manage",
 ]);

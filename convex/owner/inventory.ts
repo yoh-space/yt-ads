@@ -1,6 +1,8 @@
-import { query } from "../_generated/server";
+import { mutation, query } from "../_generated/server";
+import { v } from "convex/values";
 import { requireOwner } from "../users";
 import { resolveEtbValue } from "../materialUsage";
+import { recordInventoryEvent } from "../inventoryLedger";
 
 /**
  * High-level stock value & balance for the owner inventory page. Values are
@@ -72,5 +74,98 @@ export const getInventorySummary = query({
       unclearedValue: Number(unclearedValue.toFixed(2)),
       issues,
     };
+  },
+});
+
+const pendingException = v.object({
+  id: v.id("stockExceptions"),
+  materialId: v.id("materials"),
+  materialName: v.string(),
+  quantity: v.number(),
+  unit: v.string(),
+  reason: v.string(),
+  authorizationNote: v.optional(v.string()),
+  requestedBy: v.optional(v.string()),
+  requesterName: v.optional(v.string()),
+  requestedValue: v.number(),
+  createdAt: v.number(),
+});
+
+export const getPendingStockOuts = query({
+  args: {},
+  returns: v.array(pendingException),
+  handler: async (ctx) => {
+    await requireOwner(ctx);
+    const exceptions = (await ctx.db.query("stockExceptions").order("desc").take(100))
+      .filter((exception) => exception.status === "PENDING_OWNER_APPROVAL");
+    const [materials, users] = await Promise.all([
+      Promise.all(exceptions.map((exception) => ctx.db.get(exception.materialId))),
+      ctx.db.query("users").take(200),
+    ]);
+    const userNames = new Map(users.map((user) => [user.authUserId, user.name]));
+    return exceptions.flatMap((exception, index) => {
+      const material = materials[index];
+      if (!material || exception.requestedValue === undefined) return [];
+      return [{
+        id: exception._id,
+        materialId: exception.materialId,
+        materialName: material.name,
+        quantity: exception.quantity,
+        unit: exception.unit,
+        reason: exception.reason,
+        authorizationNote: exception.authorizationNote,
+        requestedBy: exception.requestedBy,
+        requesterName: exception.requestedBy ? userNames.get(exception.requestedBy) : undefined,
+        requestedValue: exception.requestedValue,
+        createdAt: exception.createdAt,
+      }];
+    });
+  },
+});
+
+export const approveStockOut = mutation({
+  args: { exceptionId: v.id("stockExceptions") },
+  returns: v.object({ remainingQuantity: v.number() }),
+  handler: async (ctx, args) => {
+    const { identity } = await requireOwner(ctx);
+    const exception = await ctx.db.get(args.exceptionId);
+    if (!exception || exception.status !== "PENDING_OWNER_APPROVAL") throw new Error("Pending stock-out request not found.");
+    const material = await ctx.db.get(exception.materialId);
+    if (!material || !material.active) throw new Error("Active material not found.");
+    if (exception.baseQuantity > material.quantity) throw new Error(`Insufficient ${material.name} stock for this request.`);
+    await recordInventoryEvent(ctx, {
+      materialId: material._id,
+      eventType: "EXCEPTION_STOCK_OUT",
+      custody: "parent",
+      balanceEffect: "out",
+      quantity: exception.quantity,
+      unit: exception.unit,
+      baseUnit: material.baseUnit ?? material.unit,
+      baseQuantity: exception.baseQuantity,
+      note: `Owner-approved exception stock-out · ${exception.reason}`,
+      createdBy: identity._id,
+    });
+    await ctx.db.patch(exception._id, { status: "APPROVED", approvedBy: identity._id, approvedAt: Date.now() });
+    const updatedMaterial = await ctx.db.get(material._id);
+    return { remainingQuantity: updatedMaterial?.quantity ?? 0 };
+  },
+});
+
+export const rejectStockOut = mutation({
+  args: { exceptionId: v.id("stockExceptions"), note: v.string() },
+  returns: v.object({ rejected: v.boolean() }),
+  handler: async (ctx, args) => {
+    const { identity } = await requireOwner(ctx);
+    const exception = await ctx.db.get(args.exceptionId);
+    if (!exception || exception.status !== "PENDING_OWNER_APPROVAL") throw new Error("Pending stock-out request not found.");
+    const note = args.note.trim();
+    if (!note) throw new Error("Add a reason for rejecting this request.");
+    await ctx.db.patch(exception._id, {
+      status: "REJECTED",
+      authorizationNote: exception.authorizationNote ? `${exception.authorizationNote} · Owner: ${note}` : `Owner: ${note}`,
+      approvedBy: identity._id,
+      approvedAt: Date.now(),
+    });
+    return { rejected: true };
   },
 });

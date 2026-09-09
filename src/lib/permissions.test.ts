@@ -5,8 +5,10 @@ import type { Profile } from "./operations-types";
 describe("frontend RBAC and ABAC mirror", () => {
   it("keeps management-only order and exception permissions out of operator roles", () => {
     expect(hasPermission("manager", "order.manage")).toBe(true);
+    expect(hasPermission("manager", "stock.exception")).toBe(false);
     expect(hasPermission("storekeeper", "order.view")).toBe(true);
     expect(hasPermission("storekeeper", "order.manage")).toBe(true);
+    expect(hasPermission("storekeeper", "stock.exception")).toBe(true);
     expect(hasPermission("printer_operator", "order.view")).toBe(false);
     expect(hasPermission("printer_operator", "stock.exception")).toBe(false);
     expect(hasPermission("printer_operator", "machine.create")).toBe(false);

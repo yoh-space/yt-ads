@@ -44,6 +44,7 @@ const ALL: Permission[] = [
   "material.edit",
   "material.delete",
   "stock.record",
+  "stock.exception",
   "machine.view",
   "machine.create",
   "machine.update",
@@ -102,6 +103,8 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
       permission !== "company_settings.update" &&
       permission !== "reports.view" &&
       permission !== "reconciliation.review" &&
+      permission !== "stock.record" &&
+      permission !== "stock.exception" &&
         permission !== "reconciliation.clearance" &&
         permission !== "team.view" &&
         permission !== "team.manage",
