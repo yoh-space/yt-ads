@@ -17,8 +17,8 @@ import {
 import { InventoryLoader } from "@/components/dashboard/inventory-loader";
 import { useSafeMutation } from "@/components/dashboard/pending-store";
 import { useDashboardModal } from "@/components/dashboard/modal-context";
-import { MachineFluidGauge } from "@/components/dashboard/operator/machine-fluid-gauge";
-import { NumericInput, StatusPill } from "@/components/ui";
+import { MachineFluidGauge } from "@/components/dashboard/roles/operator/machine-fluid-gauge";
+import { NumericInput, StatusPill } from "@/components/shared/ui";
 import { formatQuantity } from "@/lib/units";
 import { OperatorStockWidget } from "@/components/dashboard/views/operator-stock";
 import type { OperatorStockEntry } from "@/types/dashboard-types";

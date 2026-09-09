@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { OwnerShell } from "@/components/dashboard/owner/owner-shell";
+import { OwnerShell } from "@/components/dashboard/roles/owner/owner-shell";
 
 export const dynamic = "force-dynamic";
 

@@ -2,7 +2,7 @@
 
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { SettingsView } from "@/components/dashboard/views/settings";
+import { SettingsView } from "@/components/dashboard/shared/views/settings";
 import { InventoryLoader } from "@/components/dashboard/inventory-loader";
 
 export default function StorekeeperSettingsPage() {

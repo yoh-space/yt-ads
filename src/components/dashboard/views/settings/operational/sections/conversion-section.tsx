@@ -2,7 +2,7 @@
 
 import { Plus, Scale, Trash2 } from "lucide-react";
 import type { PurchaseUnit, Unit } from "@/lib/operations-types";
-import { Button, Input, NumericInput, Select } from "@/components/ui";
+import { Button, Input, NumericInput, Select } from "@/components/shared/ui";
 import { FormSection } from "../../chrome/form";
 import type { ConversionRuleRow } from "../state";
 

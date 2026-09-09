@@ -4,7 +4,7 @@ import { useState } from "react";
 import { DatabaseZap } from "lucide-react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { Button } from "@/components/ui";
+import { Button } from "@/components/shared/ui";
 import { FormMessage, FormSection } from "../chrome/form";
 import { messageToneFromText } from "./security-utils";
 

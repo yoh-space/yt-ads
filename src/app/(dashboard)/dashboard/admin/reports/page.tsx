@@ -3,10 +3,10 @@
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { WorkspacePageHeader } from "@/components/dashboard/workspace-page-header";
-import { StatCard } from "@/components/ui/stat-card";
-import { Panel, PanelHeader } from "@/components/ui/panel";
-import { SectionLabel, MetricValue } from "@/components/ui/typography";
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { StatCard } from "@/components/shared/ui/stat-card";
+import { Panel, PanelHeader } from "@/components/shared/ui/panel";
+import { SectionLabel, MetricValue } from "@/components/shared/ui/typography";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/shared/ui/table";
 import { InventoryLoader } from "@/components/dashboard/inventory-loader";
 import { FileBarChart, AlertTriangle, History, Coins, TrendingUp, PackageOpen } from "lucide-react";
 

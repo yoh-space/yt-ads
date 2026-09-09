@@ -6,7 +6,7 @@ import { api } from "@/convex/_generated/api";
 import { authClient } from "@/lib/auth-client";
 import type { Profile } from "@/lib/operations-types";
 import { Save, UserRound } from "lucide-react";
-import { Button, Input } from "@/components/ui";
+import { Button, Input } from "@/components/shared/ui";
 import { FieldLabel, FormMessage, FormSection } from "../chrome/form";
 
 /** Editable personal profile for the signed-in user (name + avatar URL). */

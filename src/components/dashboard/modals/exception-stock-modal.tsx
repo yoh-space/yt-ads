@@ -5,7 +5,7 @@ import { AlertTriangle, PackageMinus } from "lucide-react";
 import type { ExceptionReason, Material } from "@/lib/operations-types";
 import { formatQuantity } from "@/lib/units";
 import { ModalShell } from "./modal-shell";
-import { Button, Input, NumericInput, Select } from "@/components/ui";
+import { Button, Input, NumericInput, Select } from "@/components/shared/ui";
 
 const reasons: ExceptionReason[] = ["Sample Print", "Minor Repair", "Test Cut", "Internal Maintenance"];
 

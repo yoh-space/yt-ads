@@ -8,7 +8,7 @@ import type { InputUnit } from "@/lib/units";
 import type { Material } from "@/lib/operations-types";
 import { convertToBase, formatQuantity } from "@/lib/units";
 import { ModalShell } from "./modal-shell";
-import { Button } from "@/components/ui";
+import { Button } from "@/components/shared/ui";
 import { cn } from "@/lib/utils";
 
 function inputUnitsFor(material?: Material): InputUnit[] {

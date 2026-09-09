@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Cog, Plus, Trash2 } from "lucide-react";
-import { Button, Input, Select } from "@/components/ui";
+import { Button, Input, Select } from "@/components/shared/ui";
 import { FieldLabel, FormSection } from "../../chrome/form";
 import { NumericField } from "../../chrome/numeric-field";
 import type { OverrideRow } from "../state";

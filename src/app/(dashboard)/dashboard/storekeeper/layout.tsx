@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { WorkspaceShell } from "@/components/dashboard/workspace-shell";
-import { storekeeperNavItems } from "@/components/dashboard/storekeeper/storekeeper-nav";
+import { storekeeperNavItems } from "@/components/dashboard/roles/storekeeper/storekeeper-nav";
 
 export const dynamic = "force-dynamic";
 

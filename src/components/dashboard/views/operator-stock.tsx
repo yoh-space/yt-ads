@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { cn } from "@/lib/utils";
-import { Button, Panel, PanelHeader } from "@/components/ui";
+import { Button, Panel, PanelHeader } from "@/components/shared/ui";
 import { useState } from "react";
 import type { OperatorStockEntry } from "@/types/dashboard-types";
 

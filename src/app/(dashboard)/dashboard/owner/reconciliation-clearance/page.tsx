@@ -2,10 +2,10 @@
 
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { OwnerPageHeader } from "@/components/dashboard/owner/owner-page-header";
-import { StatCard } from "@/components/ui/stat-card";
-import { Panel, PanelHeader } from "@/components/ui/panel";
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { OwnerPageHeader } from "@/components/dashboard/roles/owner/owner-page-header";
+import { StatCard } from "@/components/shared/ui/stat-card";
+import { Panel, PanelHeader } from "@/components/shared/ui/panel";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/shared/ui/table";
 import { InventoryLoader } from "@/components/dashboard/inventory-loader";
 import { Scale, Hourglass, TrendingDown, TrendingUp } from "lucide-react";
 

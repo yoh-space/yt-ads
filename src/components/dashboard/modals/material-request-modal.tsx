@@ -5,7 +5,7 @@ import { AlertTriangle, BriefcaseBusiness, CheckCircle2, ClipboardPlus, FileText
 import type { JobCard, Material, PackageUnit, Unit } from "@/lib/operations-types";
 import { formatQuantity } from "@/lib/units";
 import { ModalShell } from "./modal-shell";
-import { Button, NumericInput } from "@/components/ui";
+import { Button, NumericInput } from "@/components/shared/ui";
 
 export type NewMaterialRequestInput = {
   jobCardId: string;

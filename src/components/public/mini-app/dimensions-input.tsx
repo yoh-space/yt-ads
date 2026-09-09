@@ -3,7 +3,7 @@
 import { Minus, Plus, Ruler } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { OrderFormState } from "./types";
-import { NumericInput } from "@/components/ui";
+import { NumericInput } from "@/components/shared/ui";
 
 const presets = [
   { label: "1m × 1m", width: "1", height: "1" },

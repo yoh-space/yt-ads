@@ -4,7 +4,7 @@ import { Edit3, Power, PowerOff, Trash2, Wrench } from "lucide-react";
 import type { Machine, MachineStatus } from "@/lib/operations-types";
 import { statusTone } from "../helpers";
 import { ModalShell } from "./modal-shell";
-import { Button, StatusPill } from "@/components/ui";
+import { Button, StatusPill } from "@/components/shared/ui";
 import { cn } from "@/lib/utils";
 
 const statusActions: Array<{ label: string; status: MachineStatus; tone: "success" | "neutral" | "warning" | "danger"; icon: "available" | "maintenance" | "wrench" }> = [

@@ -8,7 +8,7 @@ import { PackagePlus, Scale } from "lucide-react";
 import type { Material } from "@/lib/operations-types";
 import { formatQuantity } from "@/lib/units";
 import { ModalShell } from "./modal-shell";
-import { Button, Input, Select } from "@/components/ui";
+import { Button, Input, Select } from "@/components/shared/ui";
 import { cn } from "@/lib/utils";
 
 export type NewReconciliationInput = {

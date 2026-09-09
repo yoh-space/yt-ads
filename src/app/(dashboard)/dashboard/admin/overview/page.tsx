@@ -3,9 +3,9 @@
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { WorkspacePageHeader } from "@/components/dashboard/workspace-page-header";
-import { StatCard } from "@/components/ui/stat-card";
-import { Panel, PanelHeader } from "@/components/ui/panel";
-import { SectionLabel, MetricValue } from "@/components/ui/typography";
+import { StatCard } from "@/components/shared/ui/stat-card";
+import { Panel, PanelHeader } from "@/components/shared/ui/panel";
+import { SectionLabel, MetricValue } from "@/components/shared/ui/typography";
 import { InventoryLoader } from "@/components/dashboard/inventory-loader";
 import { CircleDollarSign, Coins, TrendingUp, ClipboardList, Factory, Scale, PackageOpen, AlertTriangle } from "lucide-react";
 

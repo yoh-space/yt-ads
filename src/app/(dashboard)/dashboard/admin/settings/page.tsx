@@ -3,8 +3,8 @@
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { WorkspacePageHeader } from "@/components/dashboard/workspace-page-header";
-import { Panel, PanelHeader } from "@/components/ui/panel";
-import { SectionLabel } from "@/components/ui/typography";
+import { Panel, PanelHeader } from "@/components/shared/ui/panel";
+import { SectionLabel } from "@/components/shared/ui/typography";
 import { InventoryLoader } from "@/components/dashboard/inventory-loader";
 import { Settings, Building2, UserRound, CalendarClock } from "lucide-react";
 

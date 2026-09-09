@@ -12,7 +12,7 @@ import {
 import type { MaterialRequest, MaterialRequestStatus, Role } from "@/lib/operations-types";
 import { hasPermission } from "@/lib/permissions";
 import { formatQuantity } from "@/lib/units";
-import { Panel, PanelHeader, Button, StatusPill, NumericInput } from "@/components/ui";
+import { Panel, PanelHeader, Button, StatusPill, NumericInput } from "@/components/shared/ui";
 
 const STATUS_TONE: Record<MaterialRequestStatus, "success" | "warning" | "info" | "neutral" | "danger"> = {
   Requested: "warning",

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { WorkspaceShell } from "@/components/dashboard/workspace-shell";
-import { receptionistNavItems } from "@/components/dashboard/receptionist/receptionist-nav";
+import { receptionistNavItems } from "@/components/dashboard/roles/receptionist/receptionist-nav";
 
 export const dynamic = "force-dynamic";
 

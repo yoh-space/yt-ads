@@ -3,9 +3,9 @@
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { WorkspacePageHeader } from "@/components/dashboard/workspace-page-header";
-import { StatCard } from "@/components/ui/stat-card";
-import { Panel, PanelHeader } from "@/components/ui/panel";
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { StatCard } from "@/components/shared/ui/stat-card";
+import { Panel, PanelHeader } from "@/components/shared/ui/panel";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/shared/ui/table";
 import { InventoryLoader } from "@/components/dashboard/inventory-loader";
 import { Inbox, AlertTriangle, CalendarClock } from "lucide-react";
 

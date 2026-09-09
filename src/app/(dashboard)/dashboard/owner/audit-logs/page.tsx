@@ -2,8 +2,8 @@
 
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { OwnerPageHeader } from "@/components/dashboard/owner/owner-page-header";
-import { Panel, PanelHeader } from "@/components/ui/panel";
+import { OwnerPageHeader } from "@/components/dashboard/roles/owner/owner-page-header";
+import { Panel, PanelHeader } from "@/components/shared/ui/panel";
 import { InventoryLoader } from "@/components/dashboard/inventory-loader";
 import { History, Activity } from "lucide-react";
 

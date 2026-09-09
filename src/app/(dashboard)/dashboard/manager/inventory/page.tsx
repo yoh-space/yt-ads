@@ -1,8 +1,8 @@
 "use client";
 
 import { WorkspacePageHeader } from "@/components/dashboard/workspace-page-header";
-import { RawMaterialStatusGrid } from "@/components/dashboard/raw-material-status-cards";
-import { ManagerDirectStockOut } from "@/components/dashboard/manager-direct-stock-out";
+import { RawMaterialStatusGrid } from "@/components/dashboard/shared/raw-material-status-cards";
+import { ManagerDirectStockOut } from "@/components/dashboard/shared/manager-direct-stock-out";
 
 export default function ManagerInventoryPage() {
   return (

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { authClient } from "@/lib/auth-client";
 import { Eye, EyeOff, Link2, Shield, ShieldCheck } from "lucide-react";
-import { Button, Input, StatusPill } from "@/components/ui";
+import { Button, Input, StatusPill } from "@/components/shared/ui";
 import { FieldLabel, FormMessage, FormSection } from "../chrome/form";
 import { formatSessionTime, messageToneFromText, summariseSessionUserAgent } from "./security-utils";
 

@@ -8,7 +8,7 @@ import { ArrowUpRight, CalendarDays, Clock3, Plus, Search, Wrench, X, Copy, Chec
 import type { CustomerOrder, Machine, Material, OrderPriority, CustomerOrderStatus } from "@/lib/operations-types";
 import { formatQuantity } from "@/lib/units";
 import { getServiceLabel } from "@/constants/services";
-import { Button, NumericInput, Panel, PanelHeader, StatusPill } from "@/components/ui";
+import { Button, NumericInput, Panel, PanelHeader, StatusPill } from "@/components/shared/ui";
 import { ModalShell } from "../modals/modal-shell";
 import { OrderDetailsSheet } from "./order-details-sheet";
 import { cn } from "@/lib/utils";

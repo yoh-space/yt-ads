@@ -39,7 +39,7 @@ import {
   StatusNode,
   SectionLabel,
   MetricValue,
-} from "@/components/ui";
+} from "@/components/shared/ui";
 import { cn } from "@/lib/utils";
 
 function machineUptime(status: Machine["status"]): number {

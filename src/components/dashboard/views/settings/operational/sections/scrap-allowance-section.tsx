@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { Plus, Recycle, Trash2 } from "lucide-react";
 import type { Id } from "@/convex/_generated/dataModel";
-import { Button, Select } from "@/components/ui";
+import { Button, Select } from "@/components/shared/ui";
 import { FieldLabel, FormSection } from "../../chrome/form";
 import { NumericField } from "../../chrome/numeric-field";
 import type { ScrapAllowanceRow } from "../state";

@@ -6,7 +6,7 @@ import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { OrderPriority } from "@/lib/operations-types";
-import { NumericInput } from "@/components/ui";
+import { NumericInput } from "@/components/shared/ui";
 import { ModalShell } from "./modal-shell";
 import { SERVICE_CATEGORIES, type ServiceId } from "@/constants/services";
 

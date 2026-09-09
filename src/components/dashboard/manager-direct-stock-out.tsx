@@ -7,7 +7,7 @@ import { AlertTriangle, Send } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { ExceptionReason, Unit } from "@/lib/operations-types";
-import { Panel, PanelHeader } from "@/components/ui/panel";
+import { Panel, PanelHeader } from "@/components/shared/ui/panel";
 
 const reasons: ExceptionReason[] = ["Sample Print", "Minor Repair", "Test Cut", "Internal Maintenance"];
 

@@ -8,7 +8,7 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { InventoryLoader } from "@/components/dashboard/inventory-loader";
 import { WorkspaceModuleGate } from "@/components/dashboard/workspace-renderer";
-import { NumericInput } from "@/components/ui";
+import { NumericInput } from "@/components/shared/ui";
 import type { AccessContext } from "@/lib/access-policy";
 
 function formatNumber(value: number) {

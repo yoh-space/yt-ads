@@ -11,7 +11,7 @@ import type { View } from "@/types/dashboard-types";
 import { UserMenu } from "./user-menu";
 import { NotificationModal } from "./notification-modal";
 import { SoundControl } from "./sound-control";
-import { TelemetryBar } from "@/components/ui/telemetry-bar";
+import { TelemetryBar } from "@/components/shared/ui/telemetry-bar";
 import type { Profile } from "@/lib/operations-types";
 import { cn } from "@/lib/utils";
 

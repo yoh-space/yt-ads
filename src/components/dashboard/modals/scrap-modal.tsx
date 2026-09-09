@@ -7,7 +7,7 @@ import { ArrowUpRight, Trash2 } from "lucide-react";
 import type { Material, Unit } from "@/lib/operations-types";
 import { formatQuantity } from "@/lib/units";
 import { ModalShell } from "./modal-shell";
-import { Button } from "@/components/ui";
+import { Button } from "@/components/shared/ui";
 
 export type NewScrapInput = {
   materialId: string;

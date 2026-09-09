@@ -6,8 +6,8 @@ import { api } from "@/convex/_generated/api";
 import { Activity, CheckCircle2, CircleAlert, Clock3, Factory, Search, Wrench } from "lucide-react";
 import { WorkspacePageHeader } from "@/components/dashboard/workspace-page-header";
 import { InventoryLoader } from "@/components/dashboard/inventory-loader";
-import { Panel, PanelHeader } from "@/components/ui/panel";
-import { StatCard } from "@/components/ui/stat-card";
+import { Panel, PanelHeader } from "@/components/shared/ui/panel";
+import { StatCard } from "@/components/shared/ui/stat-card";
 import { cn } from "@/lib/utils";
 
 type MachineStatus = "All" | "Running" | "Available" | "Maintenance" | "Unavailable";

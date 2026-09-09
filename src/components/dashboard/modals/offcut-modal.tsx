@@ -5,7 +5,7 @@ import { ArrowUpRight, Scissors } from "lucide-react";
 import type { Material } from "@/lib/operations-types";
 import { calculateOffcutArea } from "@/lib/units";
 import { ModalShell } from "./modal-shell";
-import { Button, NumericInput } from "@/components/ui";
+import { Button, NumericInput } from "@/components/shared/ui";
 
 export type NewOffcutInput = {
   materialId: string;

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { Id } from "@/convex/_generated/dataModel";
 import { roleLabels, type Profile, type Role } from "@/lib/operations-types";
-import { Button, Select, StatusPill } from "@/components/ui";
+import { Button, Select, StatusPill } from "@/components/shared/ui";
 
 const roleOptions = Object.keys(roleLabels) as Role[];
 

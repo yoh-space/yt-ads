@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Building2, Save } from "lucide-react";
-import { Button, Input } from "@/components/ui";
+import { Button, Input } from "@/components/shared/ui";
 import { FieldLabel, FormMessage, FormSection } from "../chrome/form";
 import { messageToneFromText } from "./security-utils";
 

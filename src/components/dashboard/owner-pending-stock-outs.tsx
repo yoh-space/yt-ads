@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Check, CircleAlert, X } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { Panel, PanelHeader } from "@/components/ui/panel";
+import { Panel, PanelHeader } from "@/components/shared/ui/panel";
 
 function formatDate(timestamp: number) {
   return new Date(timestamp).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });

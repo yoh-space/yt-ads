@@ -7,7 +7,7 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { WorkspacePageHeader } from "@/components/dashboard/workspace-page-header";
 import { InventoryLoader } from "@/components/dashboard/inventory-loader";
-import { OrdersView, OrderConfirmModal, OrderPriceModal } from "@/components/dashboard/views/orders";
+import { OrdersView, OrderConfirmModal, OrderPriceModal } from "@/components/dashboard/shared/views/orders";
 import { useSafeMutation } from "@/components/dashboard/pending-store";
 import { useDashboardModal } from "@/components/dashboard/modal-context";
 import { hasPermission } from "@/lib/permissions";

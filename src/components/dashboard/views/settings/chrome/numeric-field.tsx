@@ -1,4 +1,4 @@
-import { NumericInput } from "@/components/ui";
+import { NumericInput } from "@/components/shared/ui";
 
 export interface NumericFieldProps {
   label: string;

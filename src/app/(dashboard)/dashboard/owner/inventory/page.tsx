@@ -2,12 +2,12 @@
 
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { OwnerPageHeader } from "@/components/dashboard/owner/owner-page-header";
-import { StatCard } from "@/components/ui/stat-card";
-import { Panel, PanelHeader } from "@/components/ui/panel";
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { OwnerPageHeader } from "@/components/dashboard/roles/owner/owner-page-header";
+import { StatCard } from "@/components/shared/ui/stat-card";
+import { Panel, PanelHeader } from "@/components/shared/ui/panel";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/shared/ui/table";
 import { InventoryLoader } from "@/components/dashboard/inventory-loader";
-import { OwnerPendingStockOuts } from "@/components/dashboard/owner-pending-stock-outs";
+import { OwnerPendingStockOuts } from "@/components/dashboard/shared/owner-pending-stock-outs";
 import { Boxes, Warehouse, PackageOpen, AlertTriangle } from "lucide-react";
 
 const etb = (value: number) => `ETB ${value.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;

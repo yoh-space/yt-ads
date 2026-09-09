@@ -14,7 +14,7 @@ import {
   X,
 } from "lucide-react";
 import type { CustomerOrder, CustomerOrderStatus } from "@/lib/operations-types";
-import { Button, StatusPill } from "@/components/ui";
+import { Button, StatusPill } from "@/components/shared/ui";
 import { getServiceLabel } from "@/constants/services";
 import { cn } from "@/lib/utils";
 import { isDesktopShell } from "@/lib/desktop";
