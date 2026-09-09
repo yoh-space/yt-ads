@@ -28,6 +28,7 @@ import type * as inventory from "../inventory.js";
 import type * as inventoryLedger from "../inventoryLedger.js";
 import type * as jobConsumption from "../jobConsumption.js";
 import type * as jobs from "../jobs.js";
+import type * as lowStock from "../lowStock.js";
 import type * as machines from "../machines.js";
 import type * as manager_inventory from "../manager/inventory.js";
 import type * as manager_machines from "../manager/machines.js";
@@ -108,6 +109,7 @@ declare const fullApi: ApiFromModules<{
   inventoryLedger: typeof inventoryLedger;
   jobConsumption: typeof jobConsumption;
   jobs: typeof jobs;
+  lowStock: typeof lowStock;
   machines: typeof machines;
   "manager/inventory": typeof manager_inventory;
   "manager/machines": typeof manager_machines;

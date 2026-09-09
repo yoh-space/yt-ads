@@ -295,7 +295,7 @@ export function OwnerProductionFloorTable({
                       "transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-primary",
                     )}
                   >
-                    Inspect
+                    View detail
                     <ChevronRight size={13} aria-hidden="true" />
                   </button>
                 </td>
