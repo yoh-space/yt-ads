@@ -39,6 +39,8 @@ const priorityTone = {
 
 const paymentTone = {
   PAID: "success",
+  PARTIALLY_PAID: "warning",
+  FULLY_PAID: "success",
   APPROVED_CREDIT: "info",
   UNPAID: "danger",
 } as const;

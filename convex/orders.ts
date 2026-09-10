@@ -20,6 +20,7 @@ import { recordInventoryEvent } from "./inventoryLedger";
 import { verifyTelegramInitData } from "./telegramAuth";
 import { loadActiveBomForService, resolveServiceRoute, resolveInkRequirements, resolveJobBOM } from "./bomResolver";
 import { calculateOffCutAndScrap, type OffCutScrapResult } from "../src/shared/material-calc";
+import { assertPaymentAmount, paymentBreakdown, snapshotPaymentInstructions } from "./payment";
 
 /** Statuses a customer may see through public tracking (EXPIRED stays internal). */
 const PUBLIC_TRACKING_STATUSES = new Set(["PENDING_REVIEW", "PRICED_AND_PENDING_PAYMENT", "CONFIRMED_PAID_OR_CREDIT", "JOB_CARD_CREATED", "IN_PRODUCTION", "COMPLETED", "READY_FOR_PICKUP"]);
@@ -66,7 +67,11 @@ type OrderDoc = {
   width?: number;
   quantity: string;
   amount?: number;
-  paymentStatus?: "UNPAID" | "PAID" | "APPROVED_CREDIT";
+  paymentStatus?: "UNPAID" | "PARTIALLY_PAID" | "FULLY_PAID" | "PAID" | "APPROVED_CREDIT";
+  advanceDueAmount?: number;
+  advancePaidAmount?: number;
+  remainingDueAmount?: number;
+  paymentInstructionsSnapshot?: { version: number; capturedAt: number; accounts: Array<{ label: string; channel: string; name: string; identifier: string }> };
   paymentMethod?: string;
   paymentConfirmedAt?: number;
   paymentConfirmedBy?: string;
@@ -113,6 +118,11 @@ function publicOrder(order: OrderDoc) {
     preferredDueDate: order.preferredDueDate,
     status: order.status,
     paymentStatus: order.paymentStatus,
+    amount: order.amount,
+    advanceDueAmount: order.advanceDueAmount,
+    advancePaidAmount: order.advancePaidAmount,
+    remainingDueAmount: order.remainingDueAmount,
+    paymentInstructionsSnapshot: order.paymentInstructionsSnapshot,
     priority: order.priority,
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
@@ -148,6 +158,9 @@ async function pushCustomerOrderStatus(
     amount?: number;
     telegramChatId?: string;
     paymentStatus?: string;
+    advancePaidAmount?: number;
+    remainingDueAmount?: number;
+    paymentInstructionsSnapshot?: { accounts: Array<{ label: string; channel: string; name: string; identifier: string }> };
   },
   previousStatus: string,
 ) {
@@ -165,6 +178,9 @@ async function pushCustomerOrderStatus(
       `• የትዕዛዝ መለያ: <code>${order.code}</code>\n` +
       (order.amount !== undefined
         ? `• ጠቅላላ ዋጋ: <b>${order.amount.toFixed(2)} ብር</b>\n`
+        : "") +
+      (order.remainingDueAmount !== undefined
+        ? `• የመጀመሪያ ክፍያ: <b>${(order.advancePaidAmount ?? 0).toFixed(2)} ብር</b>\n• ቀሪ: <b>${order.remainingDueAmount.toFixed(2)} ብር</b>\n`
         : "") +
       `እባክዎ ክፍያዎን ያረጋግጡ ወይም ወደ ሪሴፕሽን ይላኩ።${tracking}`;
   } else if (order.status === "JOB_CARD_CREATED") {
@@ -195,7 +211,9 @@ async function pushCustomerOrderStatus(
     message =
       `📦 <b>ትዕዛዝዎ ለመረከብ ዝግጁ ነው!</b>\n\n` +
       `• የትዕዛዝ መለያ: <code>${order.code}</code>\n` +
-      `እባክዎ ወደ ሪሴፕሽን በመምጣት ትዕዛዝዎን ይረከቡ። እናመሰግናለን!${tracking}`;
+      (order.amount !== undefined ? `• ጠቅላላ: <b>${order.amount.toFixed(2)} ብር</b>\n• የተከፈለ: <b>${(order.advancePaidAmount ?? 0).toFixed(2)} ብር</b>\n• ቀሪ: <b>${(order.remainingDueAmount ?? 0).toFixed(2)} ብር</b>\n` : "") +
+      (order.paymentInstructionsSnapshot?.accounts.length ? `\n<b>የክፍያ መረጃ</b>\n${order.paymentInstructionsSnapshot.accounts.map((account) => `• ${account.label}: <code>${account.identifier}</code> (${account.name})`).join("\n")}\n` : "") +
+      `\nእባክዎ ቀሪውን ክፍያ በሪሴፕሽን ይክፈሉ ወይም በባንክ ያስተላልፉ።${tracking}`;
   }
 
   if (!message) return;
@@ -576,6 +594,9 @@ export async function setStatusInternal(
         amount: order.amount,
         telegramChatId: order.telegramChatId,
         paymentStatus: order.paymentStatus,
+        advancePaidAmount: order.advancePaidAmount,
+        remainingDueAmount: order.remainingDueAmount,
+        paymentInstructionsSnapshot: order.paymentInstructionsSnapshot,
       },
       previousStatus,
     );
@@ -613,11 +634,18 @@ export async function priceOrderInternal(
     if (!["PENDING_REVIEW", "PRICED_AND_PENDING_PAYMENT"].includes(order.status)) {
       throw new Error(`Only orders awaiting review or payment can be priced (current status: ${order.status}).`);
     }
-    if (!Number.isFinite(args.amount) || args.amount < 0) {
-      throw new Error("Order price must be zero or greater.");
+    if (!Number.isFinite(args.amount) || args.amount <= 0) {
+      throw new Error("Order price must be greater than zero.");
     }
+    const breakdown = paymentBreakdown(args.amount);
+    const settings = await ctx.db.query("companySettings").withIndex("by_key", (q: any) => q.eq("key", "yt-advertisement")).unique();
     await ctx.db.patch(args.orderId, {
-      amount: Number(args.amount.toFixed(2)),
+      amount: breakdown.total,
+      advanceDueAmount: breakdown.advanceDueAmount,
+      advancePaidAmount: 0,
+      remainingDueAmount: breakdown.remainingDueAmount,
+      paymentStatus: "UNPAID",
+      paymentInstructionsSnapshot: snapshotPaymentInstructions(settings),
       status: "PRICED_AND_PENDING_PAYMENT",
       updatedAt: Date.now(),
     });
@@ -912,8 +940,10 @@ export const confirmOrderAndIssueJobCard = mutation({
   args: {
     orderId: v.id("customerOrders"),
     amount: v.optional(v.number()),
-    paymentDecision: v.union(v.literal("PAID"), v.literal("APPROVED_CREDIT")),
+    paymentDecision: v.union(v.literal("ADVANCE_PAID"), v.literal("APPROVED_CREDIT")),
     paymentMethod: v.optional(v.string()),
+    paymentReference: v.optional(v.string()),
+    advancePaidAmount: v.optional(v.number()),
     machineId: v.optional(v.id("machines")),
     materialId: v.optional(v.id("materials")),
     quantity: v.optional(v.number()),
@@ -933,6 +963,11 @@ export const confirmOrderAndIssueJobCard = mutation({
     const amount = args.amount !== undefined ? args.amount : order.amount;
     if (amount === undefined || !Number.isFinite(amount) || amount < 0) {
       throw new Error("Confirm the final price before verifying payment.");
+    }
+    const paymentAmounts = paymentBreakdown(amount);
+    if (args.paymentDecision === "ADVANCE_PAID") {
+      if (!args.paymentMethod?.trim()) throw new Error("Advance payment method is required.");
+      assertPaymentAmount(args.advancePaidAmount ?? 0, order.advanceDueAmount ?? paymentAmounts.advanceDueAmount, "Advance payment");
     }
 
     // Automated Machine & Material resolution based on service catalog
@@ -1142,12 +1177,20 @@ export const confirmOrderAndIssueJobCard = mutation({
         updatedAt: now,
       });
     }
+    const paymentNow = Date.now();
     await ctx.db.patch(args.orderId, {
       amount: roundedAmount,
-      paymentStatus: args.paymentDecision,
+      paymentStatus: args.paymentDecision === "ADVANCE_PAID" ? "PARTIALLY_PAID" : "APPROVED_CREDIT",
       paymentMethod: args.paymentMethod?.trim() || undefined,
-      paymentConfirmedAt: now,
+      paymentConfirmedAt: paymentNow,
       paymentConfirmedBy: identity._id,
+      advanceDueAmount: paymentAmounts.advanceDueAmount,
+      advancePaidAmount: args.paymentDecision === "ADVANCE_PAID" ? paymentAmounts.advanceDueAmount : 0,
+      remainingDueAmount: paymentAmounts.remainingDueAmount,
+      advancePaymentMethod: args.paymentDecision === "ADVANCE_PAID" ? args.paymentMethod?.trim() : undefined,
+      advancePaymentReference: args.paymentDecision === "ADVANCE_PAID" ? args.paymentReference?.trim() || undefined : undefined,
+      advancePaymentConfirmedAt: args.paymentDecision === "ADVANCE_PAID" ? paymentNow : undefined,
+      advancePaymentConfirmedBy: args.paymentDecision === "ADVANCE_PAID" ? identity._id : undefined,
       status: "JOB_CARD_CREATED",
       jobCardId: jobId,
       machineId: machine._id,
@@ -1266,7 +1309,10 @@ export const confirmOrderAndIssueJobCard = mutation({
         status: "JOB_CARD_CREATED",
         amount: roundedAmount,
         telegramChatId: order.telegramChatId,
-        paymentStatus: args.paymentDecision,
+        paymentStatus: args.paymentDecision === "ADVANCE_PAID" ? "PARTIALLY_PAID" : "APPROVED_CREDIT",
+        advancePaidAmount: args.paymentDecision === "ADVANCE_PAID" ? paymentAmounts.advanceDueAmount : 0,
+        remainingDueAmount: paymentAmounts.remainingDueAmount,
+        paymentInstructionsSnapshot: order.paymentInstructionsSnapshot,
       },
       order.status,
     );
@@ -1286,6 +1332,47 @@ export const confirmOrderAndIssueJobCard = mutation({
       standardWasteMargin: allocation.wasteMarginPercent,
       breakdown,
     };
+  },
+});
+
+/** Records the remaining balance exactly once after production is ready for pickup. */
+export const settleOrder = mutation({
+  args: {
+    orderId: v.id("customerOrders"),
+    amount: v.number(),
+    paymentMethod: v.string(),
+    paymentReference: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { identity } = await requirePermission(ctx, "order.manage");
+    const order = await ctx.db.get(args.orderId);
+    if (!order) throw new Error("Order not found.");
+    if (order.paymentStatus === "FULLY_PAID") return { success: true as const, alreadySettled: true as const };
+    if (order.status !== "READY_FOR_PICKUP") throw new Error("Final settlement is available when the order is ready for pickup.");
+    if (!args.paymentMethod.trim()) throw new Error("Final payment method is required.");
+    const total = paymentBreakdown(order.amount ?? 0);
+    const remaining = order.remainingDueAmount ?? total.remainingDueAmount;
+    const paid = assertPaymentAmount(args.amount, remaining, "Final payment");
+    const now = Date.now();
+    await ctx.db.patch(args.orderId, {
+      paymentStatus: "FULLY_PAID",
+      finalPaidAmount: paid,
+      remainingDueAmount: 0,
+      finalPaymentMethod: args.paymentMethod.trim(),
+      finalPaymentReference: args.paymentReference?.trim() || undefined,
+      finalPaymentConfirmedAt: now,
+      finalPaymentConfirmedBy: identity._id,
+      updatedAt: now,
+    });
+    await notifyOrderRoles(ctx, {
+      title: "Order fully paid",
+      message: `${order.code} · ${order.clientName} final balance settled (${paid.toFixed(2)} ETB).`,
+      type: "order_status",
+      actorAuthUserId: identity._id,
+      relatedTable: "customerOrders",
+      relatedId: args.orderId,
+    });
+    return { success: true as const, alreadySettled: false as const, paymentStatus: "FULLY_PAID" as const };
   },
 });
 
@@ -1550,7 +1637,7 @@ export const expireOrdersInternal = internalMutation({
     
     for (const order of expiredOrders) {
       const canExpire = order.status === "PENDING_REVIEW" || order.status === "PRICED_AND_PENDING_PAYMENT";
-      if (!canExpire || order.paymentStatus === "PAID" || order.paymentStatus === "APPROVED_CREDIT" || !order.expiresAt || order.expiresAt >= now) {
+      if (!canExpire || order.paymentStatus === "PAID" || order.paymentStatus === "PARTIALLY_PAID" || order.paymentStatus === "FULLY_PAID" || order.paymentStatus === "APPROVED_CREDIT" || !order.expiresAt || order.expiresAt >= now) {
         continue;
       }
 

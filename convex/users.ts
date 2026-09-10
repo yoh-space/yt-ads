@@ -427,6 +427,12 @@ export const updateCompanySettings = mutation({
       reconciliationInApp: v.boolean(), reconciliationEmail: v.boolean(), reconciliationTelegram: v.boolean(),
       financialInApp: v.boolean(), financialEmail: v.boolean(), financialTelegram: v.boolean(),
     })),
+    paymentInstructions: v.optional(v.object({
+      cbe: v.optional(v.object({ accountName: v.string(), accountNumber: v.string(), enabled: v.boolean() })),
+      boa: v.optional(v.object({ accountName: v.string(), accountNumber: v.string(), enabled: v.boolean() })),
+      telebirr: v.optional(v.object({ displayName: v.string(), merchantId: v.string(), enabled: v.boolean() })),
+      cbeBirr: v.optional(v.object({ displayName: v.string(), merchantId: v.string(), enabled: v.boolean() })),
+    })),
   },
   handler: async (ctx, args) => {
     await requirePermission(ctx, "company_settings.update");
@@ -435,6 +441,17 @@ export const updateCompanySettings = mutation({
       .withIndex("by_key", (q) => q.eq("key", "yt-advertisement"))
       .unique();
     if (!settings) throw new Error("Company settings have not been seeded yet.");
+    if (args.paymentInstructions) {
+      const channels = Object.values(args.paymentInstructions);
+      for (const channel of channels) {
+        if (!channel) continue;
+        const identifier = "accountNumber" in channel ? channel.accountNumber : channel.merchantId;
+        const name = "accountName" in channel ? channel.accountName : channel.displayName;
+        if (channel.enabled && (!identifier.trim() || !name.trim())) throw new Error("Enabled payment channels require a name and identifier.");
+        if (identifier.length > 80 || name.length > 120) throw new Error("Payment channel details are too long.");
+      }
+      if (!channels.some((channel) => channel?.enabled)) throw new Error("Enable at least one customer payment channel.");
+    }
     await ctx.db.patch(settings._id, {
       companyName: args.companyName.trim() || settings.companyName,
       logoUrl: args.logoUrl?.trim() || undefined,
@@ -448,6 +465,8 @@ export const updateCompanySettings = mutation({
       reportRecipients: args.reportRecipients ?? settings.reportRecipients,
       reportDeliveryTime: args.reportDeliveryTime ?? settings.reportDeliveryTime,
       notificationPreferences: args.notificationPreferences ?? settings.notificationPreferences,
+      paymentInstructions: args.paymentInstructions ?? settings.paymentInstructions,
+      paymentInstructionsVersion: args.paymentInstructions ? (settings.paymentInstructionsVersion ?? 0) + 1 : settings.paymentInstructionsVersion,
     });
     return (await ctx.db.get(settings._id))!;
   },

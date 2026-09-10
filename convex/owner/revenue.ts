@@ -13,7 +13,8 @@ export const getRevenueSummary = query({
     const orders = await ctx.db.query("customerOrders").collect();
     const todayOrders = orders.filter((o) => o.createdAt >= startOfDay);
 
-    const paidOrders = orders.filter((o) => o.paymentStatus === "PAID");
+    const paidOrders = orders.filter((o) => o.paymentStatus === "PAID" || o.paymentStatus === "FULLY_PAID");
+    const partiallyPaidOrders = orders.filter((o) => o.paymentStatus === "PARTIALLY_PAID");
     const creditOrders = orders.filter((o) => o.paymentStatus === "APPROVED_CREDIT");
     const pendingPayment = orders.filter((o) =>
       o.status === "PRICED_AND_PENDING_PAYMENT" ||
@@ -22,7 +23,7 @@ export const getRevenueSummary = query({
 
     const totalRevenue = paidOrders.reduce((s, o) => s + (o.amount ?? 0), 0);
     const todayPaid = todayOrders
-      .filter((o) => o.paymentStatus === "PAID")
+      .filter((o) => o.paymentStatus === "PAID" || o.paymentStatus === "FULLY_PAID")
       .reduce((s, o) => s + (o.amount ?? 0), 0);
     const pendingPaymentTotal = pendingPayment.reduce((s, o) => s + (o.amount ?? 0), 0);
     const outstandingCredit = creditOrders.reduce((s, o) => s + (o.amount ?? 0), 0);
@@ -34,6 +35,8 @@ export const getRevenueSummary = query({
       pendingPaymentCount: pendingPayment.length,
       pendingPaymentTotal: Number(pendingPaymentTotal.toFixed(2)),
       outstandingCredit: Number(outstandingCredit.toFixed(2)),
+      partialPaymentCount: partiallyPaidOrders.length,
+      partialPaymentTotal: Number(partiallyPaidOrders.reduce((s, o) => s + (o.advancePaidAmount ?? 0), 0).toFixed(2)),
       paidOrderCount: paidOrders.length,
       generatedAt: Date.now(),
     };
