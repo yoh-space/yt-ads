@@ -21,6 +21,7 @@ import { verifyTelegramInitData } from "./telegramAuth";
 import { loadActiveBomForService, resolveServiceRoute, resolveInkRequirements, resolveJobBOM } from "./bomResolver";
 import { calculateOffCutAndScrap, type OffCutScrapResult } from "../src/shared/material-calc";
 import { assertPaymentAmount, paymentBreakdown, snapshotPaymentInstructions } from "./payment";
+import { validateServiceSpecifications } from "../src/shared/service-specifications";
 
 /** Statuses a customer may see through public tracking (EXPIRED stays internal). */
 const PUBLIC_TRACKING_STATUSES = new Set(["PENDING_REVIEW", "PRICED_AND_PENDING_PAYMENT", "CONFIRMED_PAID_OR_CREDIT", "JOB_CARD_CREATED", "IN_PRODUCTION", "COMPLETED", "READY_FOR_PICKUP"]);
@@ -62,6 +63,8 @@ type OrderDoc = {
   clientName: string;
   phone: string;
   serviceType: string;
+  serviceId?: string;
+  specifications?: Record<string, string>;
   dimensions: string;
   length?: number;
   width?: number;
@@ -113,6 +116,8 @@ function publicOrder(order: OrderDoc) {
     code: order.code,
     clientName: order.clientName,
     serviceType: order.serviceType,
+    serviceId: order.serviceId ?? order.serviceType,
+    specifications: order.specifications,
     dimensions: order.dimensions,
     quantity: order.quantity,
     preferredDueDate: order.preferredDueDate,
@@ -238,6 +243,8 @@ export const submit = mutation({
     telegramId: v.optional(v.string()),
     telegramInitData: v.optional(v.string()),
     serviceType: serviceType,
+    serviceId: v.optional(serviceType),
+    specifications: v.optional(v.record(v.string(), v.string())),
     dimensions: v.string(),
     quantity: v.string(),
     length: v.optional(v.number()),
@@ -254,6 +261,8 @@ export const submit = mutation({
     const clientName = args.clientName.trim();
     const serviceTypeRaw = (args.serviceType as string).trim();
     const serviceType = serviceTypeRaw as typeof args.serviceType;
+    const serviceId = (args.serviceId ?? serviceType) as string;
+    const specifications = validateServiceSpecifications(serviceId, args.specifications);
     const dimensions = args.dimensions.trim();
     const parsedDimensions = parseDimensions(dimensions);
     const quantity = args.quantity.trim();
@@ -317,6 +326,8 @@ export const submit = mutation({
       phone,
       serviceType,
       dimensions,
+      serviceId: serviceId as typeof serviceType,
+      specifications,
       length: args.length ?? parsedDimensions?.length,
       width: args.width ?? parsedDimensions?.width,
       quantity,
@@ -1422,6 +1433,8 @@ export const createTelegramOrder = mutation({
     telegramChatId: v.string(),
     customerName: v.string(),
     serviceType: serviceType,
+    serviceId: v.optional(serviceType),
+    specifications: v.optional(v.record(v.string(), v.string())),
     dimensions: v.optional(v.string()),
     quantity: v.optional(v.string()),
     phone: v.optional(v.string()),
@@ -1433,6 +1446,8 @@ export const createTelegramOrder = mutation({
     const customerName = args.customerName.trim();
     const serviceTypeRaw = (args.serviceType as string).trim();
     const serviceType = serviceTypeRaw as typeof args.serviceType;
+    const serviceId = (args.serviceId ?? serviceType) as string;
+    const specifications = validateServiceSpecifications(serviceId, args.specifications);
     if (!customerName || !serviceType) {
       throw new Error("Customer name and service type are required.");
     }
@@ -1455,6 +1470,8 @@ export const createTelegramOrder = mutation({
       clientName: customerName,
       phone: phone && phone.trim() !== "" ? phone.trim() : "telegram",
       serviceType,
+      serviceId: serviceId as typeof serviceType,
+      specifications,
       dimensions: args.dimensions?.trim() || "TBD",
       quantity: args.quantity?.trim() || "1",
       preferredDueDate: dueDate,
