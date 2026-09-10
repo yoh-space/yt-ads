@@ -65,6 +65,7 @@ import type * as owner_reconciliation from "../owner/reconciliation.js";
 import type * as owner_revenue from "../owner/revenue.js";
 import type * as owner_team from "../owner/team.js";
 import type * as payment from "../payment.js";
+import type * as receptionist_jobs from "../receptionist/jobs.js";
 import type * as receptionist_orders from "../receptionist/orders.js";
 import type * as receptionist_overview from "../receptionist/overview.js";
 import type * as receptionist_receipt from "../receptionist/receipt.js";
@@ -150,6 +151,7 @@ declare const fullApi: ApiFromModules<{
   "owner/revenue": typeof owner_revenue;
   "owner/team": typeof owner_team;
   payment: typeof payment;
+  "receptionist/jobs": typeof receptionist_jobs;
   "receptionist/orders": typeof receptionist_orders;
   "receptionist/overview": typeof receptionist_overview;
   "receptionist/receipt": typeof receptionist_receipt;
