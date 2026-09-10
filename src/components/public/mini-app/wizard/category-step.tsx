@@ -29,8 +29,8 @@ export function CategoryStep({ control, watch, setValue, errors, onNext, onBack 
   return (
     <section className="p-4 space-y-4">
       <div className="mb-4">
-        <h2 className="text-lg font-semibold text-white">አጠቃቀ አይነት</h2>
-        <p className="text-sm text-neutral-400 mt-1">የምርጫዎት አጠቃቀ አይነት መረጣት.</p>
+        <h2 className="text-lg font-semibold text-white">የምንሰጣቸው አገልግሎቶች</h2>
+        <p className="text-sm text-neutral-400 mt-1">የፈለጉትን የስራ አይነት ይምረጡ.</p>
       </div>
 
       <div className="space-y-3">

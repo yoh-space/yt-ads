@@ -86,7 +86,7 @@ export function SpecificationsStep({ control, watch, setValue, errors, serviceFi
                 className="w-full h-12 px-4 rounded-sm bg-[#131418] text-white text-sm border border-white/[0.12] outline-none focus:border-[#E5C07B] transition-colors appearance-none"
               >
                 <option value="" disabled>
-                  መረጣት...
+                  Choose an option...
                 </option>
                 {field.options.map((opt) => (
                   <option key={opt} value={opt}>
