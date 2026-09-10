@@ -13,6 +13,20 @@ type OperatorJob = Doc<"jobCards"> & {
   orderDueTimestamp?: number;
 };
 
+export function findStockShortages(
+  required: Array<{ materialId: string; quantity: number; materialName?: string; unit?: string }>,
+  batches: Array<{ materialId: string; currentRemaining: number; machineId: string; operatorId: string; status: string }>,
+  machineId: string,
+  operatorIds: string[],
+) {
+  return required.map((item) => ({
+    ...item,
+    available: Number(batches
+      .filter((batch) => batch.machineId === machineId && operatorIds.includes(batch.operatorId) && (batch.status === "ACTIVE" || batch.status === "PENDING_CLEARANCE") && batch.materialId === item.materialId)
+      .reduce((sum, batch) => sum + Math.max(0, batch.currentRemaining), 0).toFixed(3)),
+  })).filter((item) => item.available + 0.0005 < item.quantity);
+}
+
 async function enrichJobs(
   ctx: any,
   machineId: string,
@@ -36,6 +50,29 @@ async function enrichJobs(
     });
 }
 
+export async function auditJobMaterialAvailability(
+  ctx: any,
+  job: Doc<"jobCards">,
+  machineId: string,
+  operatorId: string,
+  operatorRole: string,
+) {
+  const [requirements, batches, materials] = await Promise.all([
+    ctx.db.query("jobMaterialRequirements").withIndex("by_job_card", (q: any) => q.eq("jobCardId", job._id)).collect(),
+    ctx.db.query("operatorSubStock").collect(),
+    ctx.db.query("materials").collect(),
+  ]);
+  const materialById = new Map<string, any>(materials.map((material: any) => [material._id as string, material]));
+  const required: Array<{ materialId: string; quantity: number }> = requirements.length > 0
+    ? requirements.map((requirement: any) => ({ materialId: requirement.materialId, quantity: Number((requirement.plannedBaseQuantity + requirement.approvedScrapQuantity).toFixed(3)) }))
+    : [{ materialId: job.materialId, quantity: job.quantity }];
+  const missing = findStockShortages(required, batches, machineId, [operatorId, operatorRole]).map((item) => {
+    const material = materialById.get(item.materialId);
+    return { materialId: item.materialId, materialName: material?.name ?? "Required material", required: item.quantity, available: item.available, unit: material?.baseUnit ?? material?.unit ?? job.unit };
+  });
+  return { sufficient: missing.length === 0, missing };
+}
+
 /** Machine-scoped job cards for the operator workspace. */
 export const list = query({
   args: { machineSlug: v.string() },
@@ -54,7 +91,7 @@ export const list = query({
 export const getJob = query({
   args: { machineSlug: v.string(), jobId: v.id("jobCards") },
   handler: async (ctx, args) => {
-    const { machine } = await resolveOperatorMachine(ctx, args.machineSlug);
+    const { machine, identity, profile } = await resolveOperatorMachine(ctx, args.machineSlug);
     const job = await ctx.db.get(args.jobId);
     if (!job || job.machineId !== machine._id) {
       throw new Error("Job card not found on this machine.");
@@ -70,6 +107,7 @@ export const getJob = query({
     const materialById = new Map(materials.map((material) => [material._id, material]));
     const order = job.orderId ? orderById.get(job.orderId) : undefined;
     const { _id, ...rest } = job;
+    const stockAudit = await auditJobMaterialAvailability(ctx, job, machine._id, identity._id, profile.role);
     return {
       job: {
         ...rest,
@@ -91,6 +129,7 @@ export const getJob = query({
           materialFamily: mat?.materialFamily,
         };
       }),
+      stockAudit,
     };
   },
 });
@@ -98,10 +137,15 @@ export const getJob = query({
 export const start = mutation({
   args: { machineSlug: v.string(), jobId: v.id("jobCards") },
   handler: async (ctx, args) => {
-    const { identity, machine } = await resolveOperatorMachine(ctx, args.machineSlug);
+    const { identity, profile, machine } = await resolveOperatorMachine(ctx, args.machineSlug);
     const job = await ctx.db.get(args.jobId);
     if (!job || job.machineId !== machine._id) throw new Error("This job is not assigned to your machine.");
     if (job.status === "Completed") throw new Error("A completed job cannot be started again.");
+    const stockAudit = await auditJobMaterialAvailability(ctx, job, machine._id, identity._id, profile.role);
+    if (!stockAudit.sufficient) {
+      const detail = stockAudit.missing.map((item: any) => `${item.materialName}: ${item.available}/${item.required} ${item.unit}`).join("; ");
+      throw new Error(`Insufficient Stock — Request required materials from the storekeeper before starting production. ${detail}`);
+    }
     const now = Date.now();
     await ctx.db.patch(job._id, { status: "In production", startedAt: job.startedAt ?? now, pausedAt: undefined, pauseReason: undefined });
     await ctx.db.patch(machine._id as Id<"machines">, { status: "Running", activeJob: job.code });
