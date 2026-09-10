@@ -25,7 +25,7 @@ type MaterialSpecification =
 type JobStatus = "Queued" | "In production" | "Completed" | "Paused";
 export type MachineStatus = "Running" | "Available" | "Maintenance" | "Unavailable";
 type Priority = "High" | "Medium" | "Low";
-export type CustomerOrderStatus = "PENDING_REVIEW" | "PRICED_AND_PENDING_PAYMENT" | "CONFIRMED_PAID_OR_CREDIT" | "JOB_CARD_CREATED" | "IN_PRODUCTION" | "COMPLETED" | "READY_FOR_PICKUP" | "EXPIRED" | "EXPIRED_JUNK";
+export type CustomerOrderStatus = "PENDING_REVIEW" | "RECEPTION_REVIEW" | "WAITING_FOR_MATERIAL" | "PRICED_AND_PENDING_PAYMENT" | "CONFIRMED_PAID_OR_CREDIT" | "JOB_CARD_CREATED" | "IN_PRODUCTION" | "COMPLETED" | "READY_FOR_PICKUP" | "EXPIRED" | "EXPIRED_JUNK";
 export type OrderPriority = "High" | "Medium" | "Low";
 type OrderSource = "public_portal" | "walk_in";
 export type ExceptionReason = "Sample Print" | "Minor Repair" | "Test Cut" | "Internal Maintenance";
@@ -36,6 +36,9 @@ export type CustomerOrder = {
   clientName: string;
   phone: string;
   serviceType: string;
+  serviceId?: string;
+  specifications?: Record<string, string>;
+  accountType?: "individual" | "corporate" | "government";
   dimensions: string;
   quantity: string;
   amount?: number;
@@ -59,6 +62,13 @@ export type CustomerOrder = {
   machineId?: string;
   machineName?: string;
   jobCardId?: string;
+    editRevision?: number;
+  customerEditable?: boolean;
+  customerEditLockedAt?: number;
+  customerEditLockedBy?: string;
+  reviewLockReason?: string;
+  lastCustomerEditedAt?: number;
+  lastCustomerEditedBy?: string;
   createdAt: number;
   updatedAt: number;
   expiresAt?: number;

@@ -9,6 +9,7 @@ import {
   FileImage,
   FileText,
   ImageIcon,
+  Lock,
   Printer,
   Wrench,
   X,
@@ -21,6 +22,8 @@ import { isDesktopShell } from "@/lib/desktop";
 
 const statusTone = {
   "PENDING_REVIEW": "warning",
+  "RECEPTION_REVIEW": "warning",
+  "WAITING_FOR_MATERIAL": "warning",
   "PRICED_AND_PENDING_PAYMENT": "warning",
   "CONFIRMED_PAID_OR_CREDIT": "info",
   "JOB_CARD_CREATED": "info",
@@ -61,6 +64,7 @@ export function OrderDetailsSheet({
   canManage,
   isPending,
   onConvert,
+  onLockReview,
   onStatus,
   onClose,
 }: {
@@ -69,6 +73,7 @@ export function OrderDetailsSheet({
   canManage: boolean;
   isPending: (key: string) => boolean;
   onConvert: (order: CustomerOrder) => void;
+  onLockReview: (order: CustomerOrder) => void;
   onStatus: (orderId: string, status: CustomerOrderStatus) => void;
   onClose: () => void;
 }) {
@@ -108,7 +113,8 @@ export function OrderDetailsSheet({
     document.body.removeChild(link);
   }
 
-  const canPrice = canManage && !order.jobCardId && order.status === "PENDING_REVIEW";
+  const canLockReview = canManage && !order.jobCardId && order.status === "PENDING_REVIEW";
+  const canPrice = canManage && !order.jobCardId && order.status === "RECEPTION_REVIEW" && Boolean(order.customerEditLockedAt);
   const canConfirm = canManage && !order.jobCardId && order.status === "PRICED_AND_PENDING_PAYMENT";
   const canComplete = canManage && order.jobCardId && order.status === "IN_PRODUCTION";
   const hasArtwork = Boolean(order.fileUrl && order.fileName);
@@ -160,6 +166,15 @@ export function OrderDetailsSheet({
               {order.priority} priority
             </span>
           </div>
+          {order.customerEditLockedAt ? (
+            <div className="flex items-center gap-2.5 rounded-lg border border-cyan/20 bg-cyan/5 px-3 py-2">
+              <Lock size={14} className="text-cyan flex-none" />
+              <span className="text-xs text-gray-700">
+                Review started {formatDue(order.customerEditLockedAt)} — customer editing is locked
+                {order.reviewLockReason ? <span className="block text-gray-500">Note: {order.reviewLockReason}</span> : null}
+              </span>
+            </div>
+          ) : null}
         </header>
 
         {/* Scrollable Body */}
@@ -351,8 +366,19 @@ export function OrderDetailsSheet({
         </div>
 
         {/* Sticky Footer (only when there are actionable workflow steps) */}
-         {canPrice || canConfirm || canComplete || hasArtwork || (isDesktopShell() && canManage) ? (
+         {canLockReview || canPrice || canConfirm || canComplete || hasArtwork || (isDesktopShell() && canManage) ? (
           <footer className="flex-shrink-0 flex items-center justify-end gap-3 p-6 border-t border-line bg-muted/30">
+            {canLockReview ? (
+              <Button
+                type="button"
+                variant="primary"
+                disabled={isPending(`lock-${order.id}`)}
+                onClick={() => onLockReview(order)}
+              >
+                <Lock size={14} />
+                {isPending(`lock-${order.id}`) ? "Locking…" : "Begin Review"}
+              </Button>
+            ) : null}
             {canPrice ? (
               <Button
                 type="button"

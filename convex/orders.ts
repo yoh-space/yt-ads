@@ -22,9 +22,10 @@ import { loadActiveBomForService, resolveServiceRoute, resolveInkRequirements, r
 import { calculateOffCutAndScrap, type OffCutScrapResult } from "../src/shared/material-calc";
 import { assertPaymentAmount, paymentBreakdown, snapshotPaymentInstructions } from "./payment";
 import { validateServiceSpecifications } from "../src/shared/service-specifications";
+import { normalizePhone as normalizePhoneUtil } from "../src/shared/phone-normalization";
 
 /** Statuses a customer may see through public tracking (EXPIRED stays internal). */
-const PUBLIC_TRACKING_STATUSES = new Set(["PENDING_REVIEW", "PRICED_AND_PENDING_PAYMENT", "CONFIRMED_PAID_OR_CREDIT", "JOB_CARD_CREATED", "IN_PRODUCTION", "COMPLETED", "READY_FOR_PICKUP"]);
+const PUBLIC_TRACKING_STATUSES = new Set(["PENDING_REVIEW", "RECEPTION_REVIEW", "WAITING_FOR_MATERIAL", "PRICED_AND_PENDING_PAYMENT", "CONFIRMED_PAID_OR_CREDIT", "JOB_CARD_CREATED", "IN_PRODUCTION", "COMPLETED", "READY_FOR_PICKUP"]);
 
 /**
  * Allowed forward transitions for manual status updates. The payment-gated
@@ -32,10 +33,12 @@ const PUBLIC_TRACKING_STATUSES = new Set(["PENDING_REVIEW", "PRICED_AND_PENDING_
  * only guards reception's manual progress actions.
  */
 const ALLOWED_STATUS_TRANSITIONS: Record<string, string[]> = {
-  PENDING_REVIEW: ["PRICED_AND_PENDING_PAYMENT", "EXPIRED"],
+  PENDING_REVIEW: ["RECEPTION_REVIEW", "PRICED_AND_PENDING_PAYMENT", "EXPIRED"],
+  RECEPTION_REVIEW: ["PRICED_AND_PENDING_PAYMENT", "EXPIRED"],
   PRICED_AND_PENDING_PAYMENT: ["CONFIRMED_PAID_OR_CREDIT", "EXPIRED"],
   CONFIRMED_PAID_OR_CREDIT: ["JOB_CARD_CREATED"],
-  JOB_CARD_CREATED: ["IN_PRODUCTION"],
+  JOB_CARD_CREATED: ["WAITING_FOR_MATERIAL", "IN_PRODUCTION"],
+  WAITING_FOR_MATERIAL: ["IN_PRODUCTION"],
   IN_PRODUCTION: ["COMPLETED"],
   COMPLETED: ["READY_FOR_PICKUP"],
   READY_FOR_PICKUP: [],
@@ -96,10 +99,17 @@ type OrderDoc = {
   lastOverdueNotifiedAt?: number;
   tinNumber?: string;
   companyLegalName?: string;
+  accountType?: "individual" | "corporate" | "government";
+  editRevision?: number;
+  customerEditLockedAt?: number;
+  customerEditLockedBy?: string;
+  reviewLockReason?: string;
+  lastCustomerEditedAt?: number;
+  lastCustomerEditedBy?: string;
 };
 
 function normalizePhone(phone: string) {
-  return phone.replace(/[^+\d]/g, "").trim();
+  return normalizePhoneUtil(phone) ?? phone.replace(/[^+\d]/g, "").trim();
 }
 
 function parseDimensions(dimensions: string): { length: number; width: number } | undefined {
@@ -131,6 +141,13 @@ function publicOrder(order: OrderDoc) {
     priority: order.priority,
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
+      accountType: order.accountType,
+      editRevision: order.editRevision,
+      customerEditable: order.status === "PENDING_REVIEW" && !order.customerEditLockedAt,
+      customerEditLockedAt: order.customerEditLockedAt,
+      customerEditLockedBy: order.customerEditLockedBy,
+      reviewLockReason: order.reviewLockReason,
+      lastCustomerEditedAt: order.lastCustomerEditedAt,
       overdue: !["COMPLETED", "READY_FOR_PICKUP", "EXPIRED", "EXPIRED_JUNK"].includes(order.status) && order.preferredDueDate < Date.now(),
   };
 }
@@ -252,6 +269,7 @@ export const submit = mutation({
     preferredDueDate: v.number(),
     priority: v.optional(orderPriority),
     notes: v.optional(v.string()),
+    accountType: v.optional(v.union(v.literal("individual"), v.literal("corporate"), v.literal("government"))),
     tinNumber: v.optional(v.string()),
     companyLegalName: v.optional(v.string()),
     fileStorageId: v.optional(v.id("_storage")),
@@ -276,7 +294,21 @@ export const submit = mutation({
     if (!/^[1-9]\d*$/.test(quantity) || Number(quantity) > 100000) {
       throw new Error("Quantity must be a positive whole number.");
     }
+    const accountType = (args.accountType ?? "") as "" | "individual" | "corporate" | "government";
     const normalizedTin = args.tinNumber?.trim();
+    const normalizedCompany = args.companyLegalName?.trim();
+    if (accountType === "corporate" || accountType === "government") {
+      if (!normalizedCompany || normalizedCompany.length < 2) {
+        throw new Error("Company/legal name is required for Corporate and Government accounts.");
+      }
+      if (!normalizedTin || !/^\d{10}$/.test(normalizedTin)) {
+        throw new Error("A valid 10-digit TIN number is required for Corporate and Government accounts.");
+      }
+    } else {
+      if (normalizedTin && !/^\d{10}$/.test(normalizedTin)) {
+        throw new Error("TIN must contain exactly 10 digits.");
+      }
+    }
     if (normalizedTin && !/^\d{10}$/.test(normalizedTin)) {
       throw new Error("TIN must contain exactly 10 digits.");
     }
@@ -336,8 +368,10 @@ export const submit = mutation({
       priority: args.priority ?? "Medium",
       source: "public_portal",
       notes: args.notes?.trim() || undefined,
-      tinNumber: normalizedTin || undefined,
-      companyLegalName: args.companyLegalName?.trim() || undefined,
+      accountType: accountType || undefined,
+      tinNumber: accountType === "individual" ? undefined : normalizedTin || undefined,
+      companyLegalName: accountType === "individual" ? undefined : normalizedCompany || undefined,
+      editRevision: 1,
       fileStorageId: args.fileStorageId,
       fileName: args.fileName?.trim() || undefined,
       createdBy: identity?._id,
@@ -358,6 +392,267 @@ export const submit = mutation({
   },
 });
 
+const accountTypeValidator = v.union(v.literal("individual"), v.literal("corporate"), v.literal("government"));
+
+/** Verifies the customer owns the order and returns the verified Telegram id. */
+async function assertCustomerOwnsOrder(
+  ctx: any,
+  args: { telegramId: string; initData: string; orderId: Id<"customerOrders"> },
+  order: { telegramChatId?: string },
+) {
+  const verified = await verifyTelegramInitData(args.initData);
+  const telegramId = args.telegramId.trim();
+  if (!telegramId || verified.telegramId !== telegramId) throw new Error("Telegram identity mismatch.");
+  if (!order.telegramChatId) {
+    throw new Error("This order cannot be edited from Telegram because it was not created through the Mini App.");
+  }
+  if (order.telegramChatId !== telegramId) {
+    throw new Error("You can only edit orders placed from your own Telegram account.");
+  }
+  return telegramId;
+}
+
+async function recordOrderEvent(
+  ctx: any,
+  input: {
+    orderId: Id<"customerOrders">;
+    actorId: string;
+    actorLabel: string;
+    action: "LOCKED_FOR_REVIEW" | "CUSTOMER_EDIT" | "EDIT_REJECTED_LOCKED" | "EDIT_REJECTED_STALE";
+    detail?: string;
+  },
+) {
+  await ctx.db.insert("orderEvents", {
+    orderId: input.orderId,
+    actorId: input.actorId,
+    actorLabel: input.actorLabel,
+    action: input.action,
+    detail: input.detail,
+    createdAt: Date.now(),
+  });
+}
+
+/**
+ * Reception's first review action. Atomically locks customer editing, records
+ * the receptionist and timestamp, bumps the edit revision, and moves the order
+ * to RECEPTION_REVIEW. All later pricing, payment, and Job Card actions are
+ * required to happen on an order that carries this lock.
+ */
+export const lockOrderForReview = mutation({
+  args: {
+    orderId: v.id("customerOrders"),
+    reviewLockReason: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { identity } = await requirePermission(ctx, "order.manage");
+    return lockOrderForReviewInternal(ctx, identity, args);
+  },
+});
+
+export async function lockOrderForReviewInternal(
+  ctx: any,
+  identity: { _id: string; name?: string },
+  args: { orderId: Id<"customerOrders">; reviewLockReason?: string },
+) {
+  const order = await ctx.db.get(args.orderId);
+  if (!order) throw new Error("Order not found.");
+  if (order.jobCardId) throw new Error("This order already has a job card and can no longer be reviewed.");
+  if (order.status !== "PENDING_REVIEW") {
+    throw new Error(`Only pending orders can be locked for review (current status: ${order.status}).`);
+  }
+  if (order.customerEditLockedAt) {
+    throw new Error("This order is already locked for review.");
+  }
+
+  const now = Date.now();
+  const nextRevision = (order.editRevision ?? 1) + 1;
+  await ctx.db.patch(args.orderId, {
+    status: "RECEPTION_REVIEW",
+    customerEditLockedAt: now,
+    customerEditLockedBy: identity._id,
+    reviewLockReason: args.reviewLockReason?.trim() || undefined,
+    editRevision: nextRevision,
+    updatedAt: now,
+  });
+
+  await recordOrderEvent(ctx, {
+    orderId: args.orderId,
+    actorId: identity._id,
+    actorLabel: `Reception · ${identity.name ?? "staff"}`,
+    action: "LOCKED_FOR_REVIEW",
+    detail: args.reviewLockReason?.trim() || undefined,
+  });
+
+  await notifyOrderRoles(ctx, {
+    title: "Order locked for review",
+    message: `${order.code} · ${order.clientName} review started; customer editing is now locked.`,
+    type: "order_status",
+    actorAuthUserId: identity._id,
+    relatedTable: "customerOrders",
+    relatedId: args.orderId,
+  });
+
+  if (order.telegramChatId) {
+    await ctx.scheduler.runAfter(0, internal.orders.sendTelegramNotificationInternal, {
+      chatId: order.telegramChatId,
+      message:
+        `📋 <b>ትዕዛዝዎ በግምገማ ላይ ነው</b>\n\n` +
+        `• የትዕዛዝ መለያ: <code>${order.code}</code>\n` +
+        `የእርስዎ ጥያቄ በአገልግሎት ሰጪው ቡድን እየተገመገመ ነው። እስከዚያው ድረስ ማስተካከያ ማድረግ አይቻልም።`,
+    });
+  }
+
+  return { success: true as const, order: publicOrder((await ctx.db.get(args.orderId)) as OrderDoc) };
+}
+
+/**
+ * Customer self-service edit while the order is still PENDING_REVIEW and not
+ * locked by Reception. Enforces ownership via verified Telegram initData and
+ * optimistic concurrency via `editRevision`. Only customer-intake fields are
+ * accepted — pricing, payment, machine, job card, and internal fields are not
+ * part of this mutation's argument validator.
+ */
+export const updateCustomerOrder = mutation({
+  args: {
+    orderId: v.id("customerOrders"),
+    telegramId: v.string(),
+    initData: v.string(),
+    editRevision: v.number(),
+    customerName: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    accountType: v.optional(accountTypeValidator),
+    companyLegalName: v.optional(v.string()),
+    tinNumber: v.optional(v.string()),
+    serviceId: v.optional(serviceType),
+    specifications: v.optional(v.record(v.string(), v.string())),
+    dimensions: v.optional(v.string()),
+    quantity: v.optional(v.string()),
+    length: v.optional(v.number()),
+    width: v.optional(v.number()),
+    notes: v.optional(v.string()),
+    fileStorageId: v.optional(v.id("_storage")),
+    fileName: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const order = await ctx.db.get(args.orderId);
+    if (!order) throw new Error("Order not found.");
+    const telegramId = await assertCustomerOwnsOrder(ctx, args, order);
+
+    if (order.customerEditLockedAt || order.status !== "PENDING_REVIEW") {
+      await recordOrderEvent(ctx, {
+        orderId: args.orderId,
+        actorId: telegramId,
+        actorLabel: `Customer · Telegram ${telegramId}`,
+        action: "EDIT_REJECTED_LOCKED",
+        detail: `Edit attempt rejected while status was ${order.status}`,
+      });
+      throw new Error("This order is under review and can no longer be edited. Contact Reception if you need to change something.");
+    }
+
+    const currentRevision = order.editRevision ?? 1;
+    if (args.editRevision !== currentRevision) {
+      await recordOrderEvent(ctx, {
+        orderId: args.orderId,
+        actorId: telegramId,
+        actorLabel: `Customer · Telegram ${telegramId}`,
+        action: "EDIT_REJECTED_STALE",
+        detail: `Stale revision ${args.editRevision} (current ${currentRevision})`,
+      });
+      throw new Error("This order was updated elsewhere. Please reload and try again.");
+    }
+
+    const nextServiceId = (args.serviceId ?? order.serviceId ?? order.serviceType) as string;
+    const nextSpecifications = validateServiceSpecifications(nextServiceId, args.specifications ?? order.specifications);
+
+    let nextPhone = order.phone;
+    if (args.phone !== undefined && args.phone.trim() !== "") {
+      const normalized = normalizePhone(args.phone);
+      if (!normalized) throw new Error("Enter a valid Ethiopian mobile number.");
+      nextPhone = normalized;
+    }
+
+    const nextAccountType = (args.accountType ?? order.accountType ?? "individual") as "individual" | "corporate" | "government";
+    const normalizedCompany = args.companyLegalName?.trim() ?? order.companyLegalName?.trim();
+    const normalizedTin = args.tinNumber?.trim() ?? order.tinNumber?.trim();
+    if (nextAccountType === "corporate" || nextAccountType === "government") {
+      if (!normalizedCompany || normalizedCompany.length < 2) {
+        throw new Error("Company/legal name is required for Corporate and Government accounts.");
+      }
+      if (!normalizedTin || !/^\d{10}$/.test(normalizedTin)) {
+        throw new Error("A valid 10-digit TIN number is required for Corporate and Government accounts.");
+      }
+    } else if (normalizedTin && !/^\d{10}$/.test(normalizedTin)) {
+      throw new Error("TIN must contain exactly 10 digits.");
+    }
+
+    const nextCustomerName = args.customerName?.trim() ?? order.clientName;
+    if (!nextCustomerName) throw new Error("Customer name is required.");
+let nextDimensions = order.dimensions;
+    let nextLength = order.length;
+    let nextWidth = order.width;
+    if (args.dimensions !== undefined) {
+      const trimmed = args.dimensions.trim();
+      const merged = parseDimensions(trimmed);
+      if (!merged) throw new Error("Dimensions must be positive width and height in meters.");
+      nextDimensions = trimmed;
+      nextLength = args.length ?? merged?.length;
+      nextWidth = args.width ?? merged?.width;
+    } else if (args.length !== undefined || args.width !== undefined) {
+      nextLength = args.length ?? order.length;
+      nextWidth = args.width ?? order.width;
+      if (!nextLength || !nextWidth || nextLength <= 0 || nextWidth <= 0) {
+        throw new Error("Length and width must be positive values.");
+      }
+    }
+
+    const nextQuantity = args.quantity?.trim() ?? order.quantity;
+    if (!/^[1-9]\d*$/.test(nextQuantity) || Number(nextQuantity) > 100000) {
+      throw new Error("Quantity must be a positive whole number.");
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(args.orderId, {
+      clientName: nextCustomerName,
+      phone: nextPhone,
+      serviceType: nextServiceId as typeof order.serviceType,
+      serviceId: nextServiceId as typeof order.serviceType,
+      specifications: nextSpecifications,
+      dimensions: nextDimensions,
+      length: nextLength,
+      width: nextWidth,
+      quantity: nextQuantity,
+      accountType: nextAccountType,
+      companyLegalName: nextAccountType === "individual" ? undefined : normalizedCompany || undefined,
+      tinNumber: nextAccountType === "individual" ? undefined : normalizedTin || undefined,
+      notes: args.notes !== undefined ? (args.notes.trim() || undefined) : order.notes,
+      fileStorageId: args.fileStorageId !== undefined ? args.fileStorageId : order.fileStorageId,
+      fileName: args.fileName !== undefined ? (args.fileName.trim() || undefined) : order.fileName,
+      editRevision: currentRevision + 1,
+      lastCustomerEditedAt: now,
+      lastCustomerEditedBy: `Telegram ${telegramId}`,
+      updatedAt: now,
+    });
+
+    await recordOrderEvent(ctx, {
+      orderId: args.orderId,
+      actorId: telegramId,
+      actorLabel: `Customer · Telegram ${telegramId}`,
+      action: "CUSTOMER_EDIT",
+      detail: `Revision ${currentRevision} → ${currentRevision + 1}`,
+    });
+
+    await notifyOrderRoles(ctx, {
+      title: "Customer edited their order",
+      message: `${order.code} · ${nextCustomerName} updated their request (revision ${currentRevision + 1}).`,
+      type: "order_status",
+      actorAuthUserId: order.createdBy,
+      relatedTable: "customerOrders",
+      relatedId: args.orderId,
+    });
+
+    return { success: true as const, order: publicOrder((await ctx.db.get(args.orderId)) as OrderDoc) };
+  },
+});
 export const generateUploadUrl = mutation({
   args: {},
   handler: async (ctx) => ctx.storage.generateUploadUrl(),
@@ -379,6 +674,7 @@ export const createWalkIn = mutation({
     notes: v.optional(v.string()),
     fileStorageId: v.optional(v.id("_storage")),
     fileName: v.optional(v.string()),
+    accountType: v.optional(v.union(v.literal("individual"), v.literal("corporate"), v.literal("government"))),
     tinNumber: v.optional(v.string()),
     companyLegalName: v.optional(v.string()),
   },
@@ -410,6 +706,7 @@ export async function createWalkInInternal(
     notes?: string;
     fileStorageId?: Id<"_storage">;
     fileName?: string;
+    accountType?: "individual" | "corporate" | "government";
     tinNumber?: string;
     companyLegalName?: string;
   },
@@ -431,6 +728,19 @@ export async function createWalkInInternal(
     if (args.amount !== undefined && (!Number.isFinite(args.amount) || args.amount < 0)) {
       throw new Error("Order value must be zero or greater.");
     }
+    const accountType = (args.accountType ?? "") as "" | "individual" | "corporate" | "government";
+    const normalizedTin = args.tinNumber?.trim();
+    const normalizedCompany = args.companyLegalName?.trim();
+    if (accountType === "corporate" || accountType === "government") {
+      if (!normalizedCompany || normalizedCompany.length < 2) {
+        throw new Error("Company/legal name is required for Corporate and Government accounts.");
+      }
+      if (!normalizedTin || !/^\d{10}$/.test(normalizedTin)) {
+        throw new Error("A valid 10-digit TIN number is required for Corporate and Government accounts.");
+      }
+    } else if (normalizedTin && !/^\d{10}$/.test(normalizedTin)) {
+      throw new Error("TIN must contain exactly 10 digits.");
+    }
 
     const code = `ORD-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
     const now = Date.now();
@@ -451,8 +761,10 @@ export async function createWalkInInternal(
       priority: args.priority ?? "Medium",
       source: "walk_in",
       notes: args.notes?.trim() || undefined,
-      tinNumber: args.tinNumber?.trim() || undefined,
-      companyLegalName: args.companyLegalName?.trim() || undefined,
+      accountType: accountType || undefined,
+      editRevision: 1,
+      tinNumber: accountType === "individual" ? undefined : normalizedTin || undefined,
+      companyLegalName: accountType === "individual" ? undefined : normalizedCompany || undefined,
       fileStorageId: args.fileStorageId,
       fileName: args.fileName?.trim() || undefined,
       createdBy: identity._id,
@@ -642,8 +954,14 @@ export async function priceOrderInternal(
 ) {
     const order = await ctx.db.get(args.orderId);
     if (!order) throw new Error("Order not found.");
-    if (!["PENDING_REVIEW", "PRICED_AND_PENDING_PAYMENT"].includes(order.status)) {
-      throw new Error(`Only orders awaiting review or payment can be priced (current status: ${order.status}).`);
+    // Review-lock gate: pricing is only allowed once Reception has started the
+    // review (customer editing locked). A bare PENDING_REVIEW order cannot be
+    // priced directly — the receptionist must run the first review action first.
+    if (!order.customerEditLockedAt) {
+      throw new Error("Begin the review of this order first — customer editing must be locked before pricing.");
+    }
+    if (!["RECEPTION_REVIEW", "PRICED_AND_PENDING_PAYMENT"].includes(order.status)) {
+      throw new Error(`Only orders under review or awaiting payment can be priced (current status: ${order.status}).`);
     }
     if (!Number.isFinite(args.amount) || args.amount <= 0) {
       throw new Error("Order price must be greater than zero.");
@@ -970,8 +1288,11 @@ export const confirmOrderAndIssueJobCard = mutation({
     const order = await ctx.db.get(args.orderId);
     if (!order) throw new Error("Order not found.");
     if (order.jobCardId) throw new Error("This order already has a job card.");
-    if (!["PENDING_REVIEW", "PRICED_AND_PENDING_PAYMENT"].includes(order.status)) {
-      throw new Error(`Only orders awaiting review or payment can be confirmed (current status: ${order.status}).`);
+    if (!order.customerEditLockedAt) {
+      throw new Error("Begin the review of this order first — customer editing must be locked before confirming.");
+    }
+    if (!["RECEPTION_REVIEW", "PRICED_AND_PENDING_PAYMENT"].includes(order.status)) {
+      throw new Error(`Only orders under review or awaiting payment can be confirmed (current status: ${order.status}).`);
     }
 
     const amount = args.amount !== undefined ? args.amount : order.amount;
@@ -1528,7 +1849,7 @@ export const expireOrdersInternal = internalMutation({
     let expiredCount = 0;
     
     for (const order of expiredOrders) {
-      const canExpire = order.status === "PENDING_REVIEW" || order.status === "PRICED_AND_PENDING_PAYMENT";
+      const canExpire = order.status === "PENDING_REVIEW" || order.status === "RECEPTION_REVIEW" || order.status === "PRICED_AND_PENDING_PAYMENT";
       if (!canExpire || order.paymentStatus === "PAID" || order.paymentStatus === "PARTIALLY_PAID" || order.paymentStatus === "FULLY_PAID" || order.paymentStatus === "APPROVED_CREDIT" || !order.expiresAt || order.expiresAt >= now) {
         continue;
       }

@@ -7,7 +7,7 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { WorkspacePageHeader } from "@/components/dashboard/shell/workspace-page-header";
 import { InventoryLoader } from "@/components/dashboard/widgets/inventory-loader";
-import { OrdersView, OrderConfirmModal, OrderPriceModal } from "@/components/dashboard/roles/common/orders";
+import { OrdersView, OrderConfirmModal, OrderPriceModal, OrderReviewLockModal } from "@/components/dashboard/roles/common/orders";
 import { OrderCreateModal, type NewOrderInput } from "@/components/dashboard/modals/order-create-modal";
 import { useSafeMutation } from "@/utils/pending-store";
 import { hasPermission } from "@/lib/permissions";
@@ -27,10 +27,12 @@ export default function ReceptionistOrdersPage() {
 
   const setOrderStatus = useMutation(api.receptionist.orders.setStatus);
   const priceOrder = useMutation(api.receptionist.orders.priceOrder);
+  const lockOrderForReview = useMutation(api.receptionist.orders.lockOrderForReview);
   const confirmOrderAndIssueJobCard = useMutation(api.orders.confirmOrderAndIssueJobCard);
   const settleOrder = useMutation(api.orders.settleOrder);
   const createWalkIn = useMutation(api.receptionist.orders.createWalkIn);
 
+  const [lockTarget, setLockTarget] = useState<CustomerOrder | null>(null);
   const [priceTarget, setPriceTarget] = useState<CustomerOrder | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<CustomerOrder | null>(null);
   const [createOrderOpen, setCreateOrderOpen] = useState(false);
@@ -70,12 +72,13 @@ export default function ReceptionistOrdersPage() {
           canManage={canManage}
           canCreateOrder={canCreateOrder}
           onConvert={(order) => {
-            if (order.status === "PENDING_REVIEW") {
+            if (order.status === "RECEPTION_REVIEW") {
               setPriceTarget(order);
             } else if (order.status === "PRICED_AND_PENDING_PAYMENT") {
               setConfirmTarget(order);
             }
           }}
+          onLockReview={(order) => setLockTarget(order)}
           onStatus={(orderId, status) => {
             void safeMutation(
               `receptionist-order-status-${orderId}`,
@@ -92,6 +95,25 @@ export default function ReceptionistOrdersPage() {
         {orders.some((order) => order.status === "READY_FOR_PICKUP" && order.paymentStatus !== "FULLY_PAID") ? <div className="rounded-xl border border-gold/30 bg-gold/5 p-4"><p className="mb-3 text-sm font-semibold text-foreground">Pickup settlement queue</p><div className="space-y-2">{orders.filter((order) => order.status === "READY_FOR_PICKUP" && order.paymentStatus !== "FULLY_PAID").map((order) => <div key={order.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card p-3"><div><p className="text-xs font-semibold text-foreground">{order.code} · {order.clientName}</p><p className="text-[11px] text-muted-foreground">Remaining balance: {(order.remainingDueAmount ?? order.amount ?? 0).toFixed(2)} ETB</p></div><button type="button" onClick={() => setSettlement({ id: order.id, code: order.code, amount: order.remainingDueAmount ?? order.amount ?? 0 })} className="rounded-md bg-primary px-3 py-2 text-[11px] font-semibold text-white">Record final payment</button></div>)}</div></div> : null}
       </div>
 
+{lockTarget ? (
+        <OrderReviewLockModal
+          order={lockTarget}
+          onClose={() => setLockTarget(null)}
+          onSave={(reason) =>
+            safeMutation(
+              `receptionist-lock-${lockTarget.id}`,
+              lockOrderForReview({
+                orderId: lockTarget.id as Id<"customerOrders">,
+                reviewLockReason: reason,
+              }).then((result) => {
+                setLockTarget(null);
+                return result;
+              }),
+              () => toast.success(`${lockTarget.code} locked · customer editing disabled`),
+            )
+          }
+        />
+      ) : null}
       {priceTarget ? (
         <OrderPriceModal
           order={priceTarget}

@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { ArrowUpRight, CalendarDays, Clock3, Plus, Search, Wrench, X, Copy, Check, Sparkles, Scissors, Trash2 } from "lucide-react";
+import { ArrowUpRight, CalendarDays, Clock3, Plus, Search, Wrench, X, Copy, Check, Lock, Sparkles, Scissors, Trash2 } from "lucide-react";
 import type { CustomerOrder, Machine, Material, OrderPriority, CustomerOrderStatus } from "@/lib/operations-types";
 import { formatQuantity } from "@/lib/units";
 import { getServiceLabel } from "@/constants/services";
@@ -47,7 +47,7 @@ function inRange(timestamp: number, range: DateRange): boolean {
   return date >= start;
 }
 
-const statuses: Array<CustomerOrderStatus | "all"> = ["all", "PENDING_REVIEW", "PRICED_AND_PENDING_PAYMENT", "CONFIRMED_PAID_OR_CREDIT", "JOB_CARD_CREATED", "IN_PRODUCTION", "COMPLETED", "READY_FOR_PICKUP", "EXPIRED", "EXPIRED_JUNK"];
+const statuses: Array<CustomerOrderStatus | "all"> = ["all", "PENDING_REVIEW", "RECEPTION_REVIEW", "PRICED_AND_PENDING_PAYMENT", "CONFIRMED_PAID_OR_CREDIT", "JOB_CARD_CREATED", "IN_PRODUCTION", "COMPLETED", "READY_FOR_PICKUP", "EXPIRED", "EXPIRED_JUNK"];
 const priorities: Array<OrderPriority | "all"> = ["all", "High", "Medium", "Low"];
 
 function formatDue(timestamp: number) {
@@ -74,6 +74,7 @@ export function OrdersView({
   canManage,
   canCreateOrder,
   onConvert,
+  onLockReview,
   onStatus,
   onCreateOrder,
   isPending,
@@ -84,6 +85,7 @@ export function OrdersView({
   machines: Machine[];
   materials: Material[];
   onConvert: (order: CustomerOrder) => void;
+  onLockReview: (order: CustomerOrder) => void;
   onStatus: (orderId: string, status: CustomerOrderStatus) => void;
   onCreateOrder: () => void;
   isPending: (key: string) => boolean;
@@ -297,6 +299,17 @@ export function OrdersView({
                   <Button 
                     size="small" 
                     variant="primary" 
+                    disabled={isPending(`lock-${order.id}`)} 
+                    onClick={(event) => { event.stopPropagation(); onLockReview(order); }}
+                  >
+                    <Wrench size={13} />
+                    {isPending(`lock-${order.id}`) ? "Locking…" : "Begin Review"}
+                  </Button>
+                ) : null}
+                {canManage && !order.jobCardId && order.status === "RECEPTION_REVIEW" ? (
+                  <Button 
+                    size="small" 
+                    variant="primary" 
                     disabled={isPending(`price-${order.id}`)} 
                     onClick={(event) => { event.stopPropagation(); onConvert(order); }}
                   >
@@ -341,6 +354,7 @@ export function OrdersView({
           canManage={canManage}
           isPending={isPending}
           onConvert={onConvert}
+          onLockReview={onLockReview}
           onStatus={onStatus}
           onClose={() => setSelected(null)}
         />
@@ -405,6 +419,64 @@ export function OrderPriceModal({ order, onClose, onSave }: { order: CustomerOrd
              onValidityChange={setAmountValid}
              className="w-full px-3 py-2 bg-white border border-line rounded-lg text-sm text-ink outline-none focus:border-cyan"
            />
+        </label>
+      </div>
+    </ModalShell>
+  );
+}
+
+export function OrderReviewLockModal({ order, onClose, onSave }: { order: CustomerOrder; onClose: () => void; onSave: (reason?: string) => void }) {
+  const [reason, setReason] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  return (
+    <ModalShell
+      title={`${order.code} · Start Review`}
+      subtitle="Lock the customer request so no further edits are accepted while you price and confirm it."
+      kicker="REVIEW LOCK"
+      onClose={onClose}
+      footer={
+        <div className="flex gap-3 justify-end">
+          <Button type="button" variant="tertiary" onClick={onClose} disabled={submitting}>Cancel</Button>
+          <Button
+            type="submit"
+            variant="primary"
+            disabled={submitting}
+            onClick={() => {
+              if (submitting) return;
+              setSubmitting(true);
+              onSave(reason.trim() || undefined);
+            }}
+          >
+            {submitting ? "Locking…" : "Lock & Start Review"}
+          </Button>
+        </div>
+      }
+    >
+      <div className="space-y-4">
+        <div className="flex items-center gap-3 p-3 bg-cyan/10 rounded-lg border border-cyan/20">
+          <Lock size={15} className="text-cyan flex-none" />
+          <span className="text-sm text-gray-600">
+            The customer will no longer be able to edit this request after this action. Pricing stays the next step.
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <div><small className="text-muted-foreground">Client</small><br /><strong className="text-navy">{order.clientName}</strong></div>
+          <div><small className="text-muted-foreground">Service</small><br /><strong className="text-navy">{getServiceLabel(order.serviceType) ?? order.serviceType}</strong></div>
+          <div><small className="text-muted-foreground">Dimensions</small><br /><strong className="text-navy">{order.dimensions}</strong></div>
+          <div><small className="text-muted-foreground">Quantity</small><br /><strong className="text-navy">{order.quantity}</strong></div>
+        </div>
+
+        <label className="block">
+          <span className="block text-sm font-semibold text-navy mb-2">Review note (optional)</span>
+          <textarea
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            rows={3}
+            placeholder="e.g. Waiting on the customer to confirm the LED color before pricing."
+            className="w-full px-3 py-2 bg-white border border-line rounded-lg text-sm text-ink outline-none focus:border-cyan resize-none"
+          />
         </label>
       </div>
     </ModalShell>

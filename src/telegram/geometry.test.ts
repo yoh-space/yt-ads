@@ -40,8 +40,9 @@ describe("phone helpers", () => {
     expect(looksLikePhone("not a phone")).toBe(false);
   });
 
-  it("normalises away formatting characters", () => {
+  it("normalises away formatting characters to E.164", () => {
     expect(normalizePhone("+251 91 122 33 44")).toBe("+251911223344");
-    expect(normalizePhone("0911223344")).toBe("0911223344");
+    expect(normalizePhone("0911223344")).toBe("+251911223344");
+    expect(normalizePhone("01234567890")).toBe("01234567890"); // non-mobile falls back to stripping
   });
 });

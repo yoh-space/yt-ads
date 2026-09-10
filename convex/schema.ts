@@ -51,15 +51,17 @@ export const jobStatus = v.union(
  * unconfirmed orders past their expiration window.
  */
 export const orderStatus = v.union(
-  v.literal("PENDING_REVIEW"),
-  v.literal("PRICED_AND_PENDING_PAYMENT"),
-  v.literal("CONFIRMED_PAID_OR_CREDIT"),
-  v.literal("JOB_CARD_CREATED"),
-  v.literal("IN_PRODUCTION"),
-  v.literal("COMPLETED"),
-  v.literal("READY_FOR_PICKUP"),
-  v.literal("EXPIRED"),
-  v.literal("EXPIRED_JUNK"),
+   v.literal("PENDING_REVIEW"),
+   v.literal("RECEPTION_REVIEW"),
+   v.literal("PRICED_AND_PENDING_PAYMENT"),
+   v.literal("CONFIRMED_PAID_OR_CREDIT"),
+   v.literal("JOB_CARD_CREATED"),
+   v.literal("WAITING_FOR_MATERIAL"),
+   v.literal("IN_PRODUCTION"),
+   v.literal("COMPLETED"),
+   v.literal("READY_FOR_PICKUP"),
+   v.literal("EXPIRED"),
+   v.literal("EXPIRED_JUNK"),
 );
 
 /** Payment verification result recorded by reception during checkout. */
@@ -488,10 +490,24 @@ export default defineSchema({
     status: orderStatus,
     priority: orderPriority,
     source: orderSource,
-    notes: v.optional(v.string()),
-    tinNumber: v.optional(v.string()),
-    companyLegalName: v.optional(v.string()),
-    machineId: v.optional(v.id("machines")),
+     notes: v.optional(v.string()),
+     tinNumber: v.optional(v.string()),
+     companyLegalName: v.optional(v.string()),
+     /** Customer account type for conditional TIN/company requirements. */
+     accountType: v.optional(v.union(v.literal("individual"), v.literal("corporate"), v.literal("government"))),
+     /** Edit state for customer self-service changes. */
+     editRevision: v.optional(v.number()),
+     /** When the order was locked by Reception's first review action. */
+     customerEditLockedAt: v.optional(v.number()),
+     /** Receptionist who locked the order. */
+     customerEditLockedBy: v.optional(v.string()),
+     /** Reason / note for the review lock. */
+     reviewLockReason: v.optional(v.string()),
+     /** When the customer last edited the order. */
+     lastCustomerEditedAt: v.optional(v.number()),
+     /** Telegram identity or customer ID who last edited. */
+     lastCustomerEditedBy: v.optional(v.string()),
+     machineId: v.optional(v.id("machines")),
     jobCardId: v.optional(v.id("jobCards")),
     createdBy: v.optional(v.string()),
     createdAt: v.number(),
@@ -509,6 +525,31 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_due_date", ["preferredDueDate"])
     .index("by_expires_at", ["expiresAt"]),
+
+  /**
+   * Append-only audit trail for customer order lifecycle events used by the
+   * review-lock and self-service edit workflow. Every lock, customer edit, and
+   * rejected edit attempt is recorded so Reception can see who did what and
+   * when — including attempts that failed because the order was already locked
+   * or carried a stale edit revision.
+   */
+  orderEvents: defineTable({
+    orderId: v.id("customerOrders"),
+    /** Auth user id (receptionist/owner) or the Telegram identity for customers. */
+    actorId: v.string(),
+    /** Human-readable actor label for dashboards. */
+    actorLabel: v.string(),
+    action: v.union(
+      v.literal("LOCKED_FOR_REVIEW"),
+      v.literal("CUSTOMER_EDIT"),
+      v.literal("EDIT_REJECTED_LOCKED"),
+      v.literal("EDIT_REJECTED_STALE"),
+    ),
+    detail: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_order", ["orderId"])
+    .index("by_actor", ["actorId"]),
 
   stockExceptions: defineTable({
     materialId: v.id("materials"),

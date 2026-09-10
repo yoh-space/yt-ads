@@ -5,9 +5,11 @@ import { orderPriority, orderStatus, serviceType } from "../schema";
 import { requireReceptionist } from "../users";
 import {
   createWalkInInternal,
+  lockOrderForReviewInternal,
   priceOrderInternal,
   setStatusInternal,
 } from "../orders";
+import { normalizePhone as normalizeSharedPhone } from "../../src/shared/phone-normalization";
 
 /**
  * Receptionist order surface for the /dashboard/receptionist namespace. Strictly
@@ -60,7 +62,7 @@ export const lookup = query({
       : [];
     const byPhone = byCode.length > 0
       ? []
-      : await ctx.db.query("customerOrders").withIndex("by_phone", (q) => q.eq("phone", term.replace(/[^+\d]/g, "").trim())).collect();
+      : await ctx.db.query("customerOrders").withIndex("by_phone", (q) => q.eq("phone", normalizeSharedPhone(term) ?? term.replace(/[^+\d]/g, "").trim())).collect();
     const results = [...byCode, ...byPhone]
       .sort((left, right) => right.updatedAt - left.updatedAt)
       .slice(0, 10);
@@ -84,6 +86,7 @@ export const createWalkIn = mutation({
     notes: v.optional(v.string()),
     fileStorageId: v.optional(v.id("_storage")),
     fileName: v.optional(v.string()),
+    accountType: v.optional(v.union(v.literal("individual"), v.literal("corporate"), v.literal("government"))),
     tinNumber: v.optional(v.string()),
     companyLegalName: v.optional(v.string()),
   },
@@ -108,5 +111,18 @@ export const priceOrder = mutation({
   handler: async (ctx, args) => {
     const { identity } = await requireReceptionist(ctx);
     return priceOrderInternal(ctx, identity, args);
+  },
+});
+
+/**
+ * First review action at the reception desk: atomically locks customer editing
+ * and moves the order to RECEPTION_REVIEW. Subsequent pricing and payment
+ * confirmation require this lock.
+ */
+export const lockOrderForReview = mutation({
+  args: { orderId: v.id("customerOrders"), reviewLockReason: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const { identity } = await requireReceptionist(ctx);
+    return lockOrderForReviewInternal(ctx, identity, args);
   },
 });

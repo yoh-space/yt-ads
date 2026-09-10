@@ -36,6 +36,8 @@ export function looksLikePhone(text: string): boolean {
   return /^\+?\d[\d\s()-]{7,18}$/.test(text.trim());
 }
 
+import { normalizePhone as normalizeSharedPhone } from "../shared/phone-normalization";
+
 export function normalizePhone(text: string): string {
-  return text.replace(/[^\d+]/g, "").trim();
+  return normalizeSharedPhone(text) ?? text.replace(/[^+\d]/g, "").trim();
 }
