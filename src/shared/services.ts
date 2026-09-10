@@ -116,7 +116,7 @@ export const AMHARIC_SERVICE_LABELS: Record<ServiceId, string> = {
   sticker_reflective: "አንጸባራቂ ስቲከር",
   sticker_mesh: "መሽ ስቲከር",
   sticker_frosted: "ፍሮስት ስቲከር",
-  hq_print_and_cut: "ከፍተኛ ጥራት ህትመት እና ቁረጥ",
+  hq_print_and_cut: "ከፍተኛ ጥራት ህትመት",
   light_box_a1: "ላይት ቦክስ - A1",
   light_box_a2: "ላይት ቦክስ - A2",
   neon_light: "ኒዮን መብራት",

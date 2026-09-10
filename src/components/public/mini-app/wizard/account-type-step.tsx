@@ -58,8 +58,8 @@ export function AccountTypeStep({ control, watch, errors, onNext, onBack }: Step
           <AlertCircle size={16} className="text-cyan-400 flex-none mt-0.5" />
           <p className="text-xs text-cyan-300">
             {selected === "corporate"
-              ? "የድርጅት ጽሑፍ ስም እና TIN ለመረጥ አለበት። ቀይሬ የሚያስፈልጉበት ነው።"
-              : "የየብሔረሰብ ጽሑፍ ስም እና TIN ለመረጥ አለበት።"}
+              ? "የድርጅት ስም እና TIN ማስገባት አለብዎ"
+              : "የመንግስት ድርጅት ስም እና TIN ማስገባት አለብዎ"}
           </p>
         </div>
       ) : null}
