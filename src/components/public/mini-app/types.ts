@@ -6,6 +6,7 @@ export type OrderFormState = {
   clientName: string;
   companyLegalName: string;
   tinNumber: string;
+  accountType: "individual" | "corporate" | "government";
   serviceType: ServiceId | null;
   specifications: Record<string, string>;
   width: string;
