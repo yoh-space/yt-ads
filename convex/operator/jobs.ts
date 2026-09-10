@@ -1,5 +1,6 @@
 import { mutation, query } from "../_generated/server";
 import type { Doc } from "../_generated/dataModel";
+import type { Id } from "../_generated/dataModel";
 import { v } from "convex/values";
 import { resolveOperatorMachine } from "./common";
 import { completeJobInternal } from "../jobs";
@@ -91,6 +92,36 @@ export const getJob = query({
         };
       }),
     };
+  },
+});
+
+export const start = mutation({
+  args: { machineSlug: v.string(), jobId: v.id("jobCards") },
+  handler: async (ctx, args) => {
+    const { identity, machine } = await resolveOperatorMachine(ctx, args.machineSlug);
+    const job = await ctx.db.get(args.jobId);
+    if (!job || job.machineId !== machine._id) throw new Error("This job is not assigned to your machine.");
+    if (job.status === "Completed") throw new Error("A completed job cannot be started again.");
+    const now = Date.now();
+    await ctx.db.patch(job._id, { status: "In production", startedAt: job.startedAt ?? now, pausedAt: undefined, pauseReason: undefined });
+    await ctx.db.patch(machine._id as Id<"machines">, { status: "Running", activeJob: job.code });
+    if (job.orderId) await ctx.db.patch(job.orderId, { status: "IN_PRODUCTION", updatedAt: now });
+    return { success: true, operatorId: identity._id };
+  },
+});
+
+export const pause = mutation({
+  args: { machineSlug: v.string(), jobId: v.id("jobCards"), reason: v.string() },
+  handler: async (ctx, args) => {
+    const { machine } = await resolveOperatorMachine(ctx, args.machineSlug);
+    const job = await ctx.db.get(args.jobId);
+    if (!job || job.machineId !== machine._id) throw new Error("This job is not assigned to your machine.");
+    if (job.status === "Completed") throw new Error("A completed job cannot be paused.");
+    const reason = args.reason.trim();
+    if (!reason) throw new Error("Please explain why the job is paused.");
+    await ctx.db.patch(job._id, { status: "Paused", pausedAt: Date.now(), pauseReason: reason });
+    await ctx.db.patch(machine._id as Id<"machines">, { status: "Available", activeJob: undefined });
+    return { success: true };
   },
 });
 

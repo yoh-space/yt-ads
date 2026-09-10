@@ -569,6 +569,9 @@ export default defineSchema({
     scrapArea: v.optional(v.number()),
     /** Scrap expressed as a percentage of the gross material deducted. */
     scrapPercentage: v.optional(v.number()),
+    startedAt: v.optional(v.number()),
+    pausedAt: v.optional(v.number()),
+    pauseReason: v.optional(v.string()),
   })
     .index("by_status", ["status"])
     .index("by_machine", ["machineId"])

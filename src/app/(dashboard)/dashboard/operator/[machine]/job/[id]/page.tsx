@@ -1,6 +1,6 @@
 "use client";
 
-import { use } from "react";
+import { use, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -25,7 +25,10 @@ export default function OperatorJobDetailPage({
 
   const detail = useQuery(api.operator.jobs.getJob, { machineSlug: machineParam, jobId });
   const completeJob = useMutation(api.operator.jobs.complete);
+  const startJob = useMutation(api.operator.jobs.start);
+  const pauseJob = useMutation(api.operator.jobs.pause);
   const { isPending, safeMutation } = useSafeMutation();
+  const [pauseReason, setPauseReason] = useState("");
 
   if (detail === undefined) {
     return (
@@ -37,6 +40,7 @@ export default function OperatorJobDetailPage({
 
   const { job, requirements } = detail;
   const isCompleted = job.status === "Completed";
+  const isInProduction = job.status === "In production";
   const jobDueTimestamp = job.orderDueTimestamp ?? (job.due ? Date.parse(job.due) : NaN);
   const isOverdue =
     !isCompleted && Number.isFinite(jobDueTimestamp) && jobDueTimestamp < Date.now();
@@ -126,7 +130,16 @@ export default function OperatorJobDetailPage({
             ይህ የስራ ካርድ ተጠናቅቋል። የተጠናቀቀ ስራ እንደገና አይጠናቀቅም።
           </div>
         ) : (
-          <div className="flex items-center justify-end gap-3 pt-2">
+          <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
+            {!isInProduction ? (
+              <button type="button" disabled={isPending(`start-${jobId}`)} onClick={() => void safeMutation(`start-${jobId}`, startJob({ machineSlug: machineParam, jobId }), () => toast.success("Job started"))} className="inline-flex items-center gap-1.5 rounded-sm border border-cyan-500/40 bg-cyan-950/30 px-3.5 py-1.5 text-xs font-semibold text-cyan-200 hover:bg-cyan-900/40 disabled:opacity-50">Start job</button>
+            ) : null}
+            {isInProduction ? (
+              <div className="flex items-center gap-2">
+                <input value={pauseReason} onChange={(event) => setPauseReason(event.target.value)} placeholder="Why is it paused?" className="h-8 w-44 rounded-sm border border-slate-700 bg-slate-950 px-2 text-xs text-white outline-none focus:border-cyan-500" />
+                <button type="button" disabled={!pauseReason.trim() || isPending(`pause-${jobId}`)} onClick={() => void safeMutation(`pause-${jobId}`, pauseJob({ machineSlug: machineParam, jobId, reason: pauseReason }), () => { setPauseReason(""); toast.success("Job paused"); })} className="inline-flex items-center gap-1.5 rounded-sm border border-amber-500/40 bg-amber-950/30 px-3.5 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-900/40 disabled:opacity-50">Pause job</button>
+              </div>
+            ) : null}
             <button
               type="button"
               disabled={isPending(`complete-${jobId}`)}

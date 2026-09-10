@@ -8,8 +8,8 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { WorkspacePageHeader } from "@/components/dashboard/shell/workspace-page-header";
 import { InventoryLoader } from "@/components/dashboard/widgets/inventory-loader";
 import { OrdersView, OrderConfirmModal, OrderPriceModal } from "@/components/dashboard/roles/common/orders";
+import { OrderCreateModal, type NewOrderInput } from "@/components/dashboard/modals/order-create-modal";
 import { useSafeMutation } from "@/utils/pending-store";
-import { useDashboardModal } from "@/components/dashboard/modals/modal-context";
 import { hasPermission } from "@/lib/permissions";
 import type { CustomerOrder, CustomerOrderStatus, Machine, Material, Role } from "@/lib/operations-types";
 
@@ -24,14 +24,15 @@ export default function ReceptionistOrdersPage() {
   const ordersQuery = useQuery(api.receptionist.orders.list, profile?.active ? {} : "skip");
 
   const { isPending, safeMutation } = useSafeMutation();
-  const { openModal } = useDashboardModal();
 
   const setOrderStatus = useMutation(api.receptionist.orders.setStatus);
   const priceOrder = useMutation(api.receptionist.orders.priceOrder);
   const confirmOrderAndIssueJobCard = useMutation(api.orders.confirmOrderAndIssueJobCard);
+  const createWalkIn = useMutation(api.receptionist.orders.createWalkIn);
 
   const [priceTarget, setPriceTarget] = useState<CustomerOrder | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<CustomerOrder | null>(null);
+  const [createOrderOpen, setCreateOrderOpen] = useState(false);
 
   if (!profile || ordersQuery === undefined) {
     return (
@@ -81,7 +82,7 @@ export default function ReceptionistOrdersPage() {
               () => toast.success(`Order status changed to ${status}`),
             );
           }}
-          onCreateOrder={() => openModal("order")}
+          onCreateOrder={() => setCreateOrderOpen(true)}
           isPending={isPending}
         />
       </div>
@@ -126,6 +127,21 @@ export default function ReceptionistOrdersPage() {
               () => toast.success("Order confirmed · job card issued"),
             )
           }
+        />
+      ) : null}
+      {createOrderOpen ? (
+        <OrderCreateModal
+          onClose={() => setCreateOrderOpen(false)}
+          onSave={(input: NewOrderInput) => {
+            void safeMutation(
+              "receptionist-create-order",
+              createWalkIn(input).then((result) => {
+                setCreateOrderOpen(false);
+                return result;
+              }),
+              (result) => toast.success(`${result.code} created and added to the reception queue`),
+            );
+          }}
         />
       ) : null}
     </>
