@@ -1,5 +1,5 @@
 # YT Advertising Operations Control
-
+ 
 YT Advertising Operations Control is an Amharic-first operations dashboard for an advertising-production team. It tracks raw materials, machine assignments, job cards, production activity, reusable offcuts, unusable scrap, and inventory movements in a single workflow.
 
 The application uses the **Next.js App Router** for the web interface, **Convex** for reactive persistence and backend mutations, and **Better Auth** for email/password authentication with optional Google OAuth. The active dashboard is implemented under `src/components/dashboard/`; the older local-state dashboard has been removed.
