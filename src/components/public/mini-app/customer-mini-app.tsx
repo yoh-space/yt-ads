@@ -36,6 +36,7 @@ import Image from "next/image";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
+import type { CompleteOrderPayloadInput } from "@/shared/order-schemas";
 import { cn } from "@/lib/utils";
 import { bootstrapTelegramWebApp, isTelegramMiniApp, sendTelegramOrderResult } from "@/lib/telegram-webapp";
 import { SERVICE_CATEGORIES, getServiceLabel, type ServiceId } from "@/constants/services";
@@ -165,6 +166,12 @@ export function TelegramMiniAppOrder() {
     quantity: "1",
     notes: "",
   });
+
+  // When editing an existing order, store the order values so the wizard can
+  // pre-populate the form. Cleared after the order is submitted or cancelled.
+  const [editInitialValues, setEditInitialValues] = useState<Partial<CompleteOrderPayloadInput> | null>(null);
+
+  const resetEditState = () => setEditInitialValues(null);
 
   const [file, setFile] = useState<File | null>(null);
   const [message, setMessage] = useState<{ tone: "success" | "error"; text: string; code?: string } | null>(null);
@@ -366,6 +373,7 @@ export function TelegramMiniAppOrder() {
             initialCompany={userProfile?.companyLegalName}
             initialTin={userProfile?.tinNumber}
             initialNotes={userProfile?.notes}
+            initialValues={editInitialValues ?? undefined}
             onSuccess={(code) => {
               setMessage({
                 tone: "success",
@@ -373,10 +381,30 @@ export function TelegramMiniAppOrder() {
                 text: `ትዕዛዝዎ ተመዝግቧል። መለያ፡ ${code}። ክፍያዎ በሪሴፕሽን ሲረጋገጥ በቴሌግራም ማረጋገጫ ይደርስዎታል።`,
               });
               setActiveTab("orders");
+              resetEditState();
             }}
+            onCancel={resetEditState}
           />
         ) : activeTab === "orders" ? (
-        <CustomerOrdersView orders={customerOrders as CustomerOrderSummary[] | undefined} />
+        <CustomerOrdersView
+           orders={customerOrders as CustomerOrderSummary[] | undefined}
+           onEditOrder={(order) => {
+             setEditInitialValues({
+               customerName: order.clientName,
+               phone: order.phone,
+               accountType: order.accountType ?? "individual",
+               serviceId: (order.serviceId as any) ?? undefined,
+               specifications: order.specifications,
+               dimensions: order.dimensions,
+               quantity: order.quantity,
+               notes: order.notes ?? "",
+               preferredDueDate: order.preferredDueDate,
+               length: undefined,
+               width: undefined,
+             });
+             setActiveTab("create");
+           }}
+         />
       ) : (
         <CustomerProfileForm initialName={launchName ?? userProfile?.name ?? ""} initialPhone={verifiedPhone ?? ""} initialCompany={userProfile?.companyLegalName ?? ""} initialTin={userProfile?.tinNumber ?? ""} initialNotes={userProfile?.notes ?? ""} onSave={saveProfile} />
       )}

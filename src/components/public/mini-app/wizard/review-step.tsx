@@ -22,8 +22,12 @@ export function ReviewStep({ watch, errors, allValues, busy, error, onSubmit, on
     { label: "ስም", value: allValues?.customerName },
     { label: "ስልክ", value: allValues?.phone },
     { label: "መለያ ዓይነት", value: allValues?.accountType === "individual" ? "ግለሰብ" : allValues?.accountType === "corporate" ? "ድርጅት" : "መንግስት" },
-    { label: "የድርጅት ስም", value: allValues?.companyLegalName || "—" },
-    { label: "TIN", value: allValues?.tinNumber || "—" },
+    ...(allValues?.accountType !== "individual"
+      ? [
+          { label: "የድርጅት ስም", value: allValues?.companyLegalName || "—" },
+          { label: "TIN", value: allValues?.tinNumber || "—" },
+        ]
+      : []),
     { label: "አጠቃቀ", value: serviceLabel },
     { label: "ስፋት", value: allValues?.width ? `${allValues.width}m` : "—" },
     { label: "ቁመት", value: allValues?.height ? `${allValues.height}m` : "—" },

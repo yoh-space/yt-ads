@@ -34,4 +34,5 @@ export type CustomerOrderSummary = {
   preferredDueDate: number;
   notes?: string;
   updatedAt: number;
+  accountType?: "individual" | "corporate" | "government";
 };

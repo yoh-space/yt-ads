@@ -39,6 +39,10 @@ export interface OrderWizardProps {
   initialCompany?: string;
   initialTin?: string;
   initialNotes?: string;
+  /** When editing an existing order, pre-populate the wizard form with these values.
+   *  If provided, they override the default values from launchName/etc.
+   */
+  initialValues?: Partial<CompleteOrderPayloadInput>;
   onSuccess?: (orderCode: string) => void;
   onCancel?: () => void;
 }
@@ -53,6 +57,7 @@ export function OrderWizard({
   initialCompany,
   initialTin,
   initialNotes,
+  initialValues,
   onSuccess,
   onCancel,
 }: OrderWizardProps) {
@@ -79,19 +84,19 @@ export function OrderWizard({
   const methods = useForm<CompleteOrderPayloadInput>({
     resolver: zodResolver(CompleteOrderPayloadSchema),
     defaultValues: {
-      customerName: launchName ?? "",
-      phone: verifiedPhone ?? "",
-      accountType: "individual" as const,
-      companyLegalName: initialCompany ?? "",
-      tinNumber: initialTin ?? "",
-      serviceId: undefined,
-      specifications: {},
-      dimensions: "",
-      quantity: "1",
-      notes: initialNotes ?? "",
-      preferredDueDate: Date.now() + 7 * 24 * 60 * 60 * 1000,
-      length: undefined,
-      width: undefined,
+      customerName: initialValues?.customerName ?? launchName ?? "",
+      phone: initialValues?.phone ?? verifiedPhone ?? "",
+      accountType: initialValues?.accountType ?? ("individual" as const),
+      companyLegalName: initialValues?.companyLegalName ?? initialCompany ?? "",
+      tinNumber: initialValues?.tinNumber ?? initialTin ?? "",
+      serviceId: initialValues?.serviceId,
+      specifications: initialValues?.specifications ?? {},
+      dimensions: initialValues?.dimensions ?? "",
+      quantity: initialValues?.quantity ?? "1",
+      notes: initialValues?.notes ?? initialNotes ?? "",
+      preferredDueDate: initialValues?.preferredDueDate ?? Date.now() + 7 * 24 * 60 * 60 * 1000,
+      length: initialValues?.length,
+      width: initialValues?.width,
     },
     mode: "onChange",
   });
@@ -245,8 +250,10 @@ export function OrderWizard({
         initData: telegramInitData!,
         phone: verifiedPhone!,
         name: values.customerName,
-        companyLegalName: values.companyLegalName,
-        tinNumber: values.tinNumber,
+        companyLegalName:
+          values.accountType === "individual" ? undefined : values.companyLegalName,
+        tinNumber:
+          values.accountType === "individual" ? undefined : values.tinNumber,
         notes: values.notes,
       });
 
@@ -262,8 +269,10 @@ export function OrderWizard({
         length: values.length,
         width: values.width,
         accountType: values.accountType,
-        companyLegalName: values.companyLegalName,
-        tinNumber: values.tinNumber,
+        companyLegalName:
+          values.accountType === "individual" ? undefined : values.companyLegalName,
+        tinNumber:
+          values.accountType === "individual" ? undefined : values.tinNumber,
         notes: values.notes,
         preferredDueDate: values.preferredDueDate,
         fileStorageId: storageId ? (storageId as any) : undefined,

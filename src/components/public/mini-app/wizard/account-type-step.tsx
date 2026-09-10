@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { Building2, User, Users, AlertCircle } from "lucide-react";
 import { useController } from "react-hook-form";
 
@@ -23,6 +24,14 @@ export function AccountTypeStep({ control, watch, errors, onNext, onBack }: Step
 
   const canProceed = Boolean(selected);
 
+  useEffect(() => {
+    if (selected === "individual" && control) {
+      const unsafe = control as any;
+      unsafe.setValue?.("companyLegalName", "");
+      unsafe.setValue?.("tinNumber", "");
+    }
+  }, [selected, control]);
+
   return (
     <section className="p-4 space-y-4">
       <div className="mb-4">
@@ -35,7 +44,14 @@ export function AccountTypeStep({ control, watch, errors, onNext, onBack }: Step
           <button
             key={value}
             type="button"
-            onClick={() => field.onChange(value)}
+            onClick={() => {
+              field.onChange(value);
+              if (value === "individual" && control) {
+                const unsafe = control as any;
+                unsafe.setValue?.("companyLegalName", "");
+                unsafe.setValue?.("tinNumber", "");
+              }
+            }}
             className={`w-full p-3 rounded-sm border transition-colors text-left ${
               selected === value
                 ? "border-[#E5C07B] bg-[#22232A] text-white"

@@ -23,9 +23,16 @@ type CustomerOrder = {
   preferredDueDate: number;
   notes?: string;
   updatedAt: number;
+  accountType?: "individual" | "corporate" | "government";
 };
 
-export function CustomerOrdersView({ orders }: { orders: CustomerOrder[] | undefined }) {
+export function CustomerOrdersView({
+  orders,
+  onEditOrder,
+}: {
+  orders: CustomerOrder[] | undefined;
+  onEditOrder?: (order: CustomerOrder) => void;
+}) {
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
   if (!orders) {
@@ -37,7 +44,7 @@ export function CustomerOrdersView({ orders }: { orders: CustomerOrder[] | undef
 
   const selectedOrder = selectedOrderId ? orders.find((o) => o.id === selectedOrderId) : null;
   if (selectedOrder) {
-    return <OrderDetail order={selectedOrder} onBack={() => setSelectedOrderId(null)} />;
+    return <OrderDetail order={selectedOrder} onBack={() => setSelectedOrderId(null)} onEditOrder={onEditOrder} />;
   }
 
   return (
@@ -68,7 +75,7 @@ export function CustomerOrdersView({ orders }: { orders: CustomerOrder[] | undef
   );
 }
 
-function OrderDetail({ order, onBack }: { order: CustomerOrder; onBack: () => void }) {
+function OrderDetail({ order, onBack, onEditOrder }: { order: CustomerOrder; onBack: () => void; onEditOrder?: (order: CustomerOrder) => void; }) {
   const specEntries = order.specifications ? Object.entries(order.specifications) : [];
 
   return (
@@ -115,9 +122,19 @@ function OrderDetail({ order, onBack }: { order: CustomerOrder; onBack: () => vo
         ) : null}
       </div>
       {order.customerEditable ? (
-        <a href="#create" className="block w-full h-11 rounded-sm border border-[#E5C07B] text-[#E5C07B] font-mono text-xs hover:bg-[#E5C07B]/10 transition-colors text-center leading-11">
-          ትዕዛዝ አስተካል
-        </a>
+        onEditOrder ? (
+          <button
+            type="button"
+            onClick={() => onEditOrder(order)}
+            className="block w-full h-11 rounded-sm border border-[#E5C07B] text-[#E5C07B] font-mono text-xs hover:bg-[#E5C07B]/10 transition-colors text-center leading-11"
+          >
+            ትዕዛዝ አስተካል
+          </button>
+        ) : (
+          <a href="#create" className="block w-full h-11 rounded-sm border border-[#E5C07B] text-[#E5C07B] font-mono text-xs hover:bg-[#E5C07B]/10 transition-colors text-center leading-11">
+            ትዕዛዝ አስተካል
+          </a>
+        )
       ) : null}
     </section>
   );
