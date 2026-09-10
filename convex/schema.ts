@@ -745,6 +745,10 @@ export default defineSchema({
     reorderAlertsEnabled: v.optional(v.boolean()),
     /** Hours before the same low-stock condition may notify again. */
     reorderAlertCooldownHours: v.optional(v.number()),
+    /** Irreversible owner-only fresh-state reset marker. */
+    dataResetExecuted: v.optional(v.boolean()),
+    dataResetExecutedAt: v.optional(v.number()),
+    dataResetExecutedBy: v.optional(v.string()),
   })
     .index("by_key", ["key"]),
   configurationChanges: defineTable({

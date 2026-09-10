@@ -18,6 +18,7 @@ import { ProfilePanel } from "./panels/profile-panel";
 import { SecurityPanel } from "./panels/security-panel";
 import { TeamPanel } from "./panels/team-panel";
 import { MigrationPanel } from "./panels/migration-panel";
+import { SystemResetPanel } from "./panels/system-reset-panel";
 
 /**
  * Top-level settings shell: chooses which settings category to show and
@@ -60,6 +61,15 @@ export function SettingsView({ profile }: { profile: Profile }) {
             badge: "Admin",
           } satisfies SettingsCategoryEntry]
         : []),
+      ...(isOwner
+        ? [{
+            id: "system-reset",
+            icon: <ShieldCheck size={20} />,
+            title: "System Data Reset",
+            description: "Start the ERP from a clean operational slate.",
+            badge: "Owner",
+          } satisfies SettingsCategoryEntry]
+        : []),
     ],
     [canManageTeam, canUpdateCompany, isOwner],
   );
@@ -84,6 +94,7 @@ export function SettingsView({ profile }: { profile: Profile }) {
             {selected.id === "team" && <TeamPanel profile={profile} />}
             {selected.id === "company" && <CompanyPanel />}
             {selected.id === "migration" && <MigrationPanel />}
+            {selected.id === "system-reset" && isOwner && <SystemResetPanel />}
           </div>
         </div>
       </div>

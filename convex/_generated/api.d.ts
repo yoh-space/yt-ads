@@ -69,6 +69,7 @@ import type * as receptionist_overview from "../receptionist/overview.js";
 import type * as receptionist_receipt from "../receptionist/receipt.js";
 import type * as reconciliation from "../reconciliation.js";
 import type * as reports from "../reports.js";
+import type * as resetSystemData from "../resetSystemData.js";
 import type * as security from "../security.js";
 import type * as seed from "../seed.js";
 import type * as serviceRecipes from "../serviceRecipes.js";
@@ -152,6 +153,7 @@ declare const fullApi: ApiFromModules<{
   "receptionist/receipt": typeof receptionist_receipt;
   reconciliation: typeof reconciliation;
   reports: typeof reports;
+  resetSystemData: typeof resetSystemData;
   security: typeof security;
   seed: typeof seed;
   serviceRecipes: typeof serviceRecipes;
