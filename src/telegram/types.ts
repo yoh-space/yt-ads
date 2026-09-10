@@ -17,6 +17,7 @@ export interface OrderDraft {
   serviceType?: string;
   /** Human label used in the chat summary for the chosen service. */
   serviceLabel?: string;
+  specifications?: Record<string, string>;
   /** Raw dimensions label, e.g. "2m × 3m". */
   dimensions?: string;
   /** Calculated area in m² for the summary. */
@@ -50,6 +51,7 @@ export interface MiniAppOrderPayload {
   serviceType: string;
   dimensions: string;
   quantity: string;
+  specifications?: Record<string, string>;
 }
 
 export type OrderStatus = "Received" | "In Production" | "Ready for Pickup" | "Completed";

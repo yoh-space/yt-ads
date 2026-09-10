@@ -67,6 +67,8 @@ export const get = query({
       phone: order.phone,
       clientType: order.companyLegalName ? "Company" : "Individual",
       serviceType: order.serviceType,
+      serviceId: order.serviceId ?? order.serviceType,
+      specifications: order.specifications,
       dimensions: order.dimensions,
       length: order.length,
       width: order.width,

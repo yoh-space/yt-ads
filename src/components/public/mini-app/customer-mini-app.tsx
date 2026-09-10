@@ -39,6 +39,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { cn } from "@/lib/utils";
 import { bootstrapTelegramWebApp, isTelegramMiniApp, sendTelegramOrderResult } from "@/lib/telegram-webapp";
 import { SERVICE_CATEGORIES, getServiceLabel, type ServiceId } from "@/constants/services";
+import { serviceSpecificationFields } from "@/shared/service-specifications";
 import { BottomNavigation } from "./bottom-navigation";
 import { CustomerOrdersView } from "./customer-orders-view";
 import { CustomerProfileForm } from "./customer-profile-form";
@@ -156,6 +157,7 @@ export function TelegramMiniAppOrder() {
     companyLegalName: "",
     tinNumber: "",
     serviceType: SERVICE_CATEGORIES[0]?.items[0]?.id ?? "banner_print",
+    specifications: {},
     width: "",
     height: "",
     quantity: "1",
@@ -221,6 +223,11 @@ export function TelegramMiniAppOrder() {
       setMessage({ tone: "error", text: "እባክዎ የሚፈልጉትን አገልግሎት ይምረጡ።" });
       return;
     }
+    const specificationFields = serviceSpecificationFields(form.serviceType);
+    if (specificationFields.some((field) => !form.specifications[field.key])) {
+      setMessage({ tone: "error", text: "እባክዎ ሁሉንም የእቃ መለያ ምርጫዎች ይሙሉ። (Select all material specifications.)" });
+      return;
+    }
 
     const width = Number(form.width);
     const height = Number(form.height);
@@ -247,6 +254,8 @@ export function TelegramMiniAppOrder() {
         telegramId,
         telegramInitData,
         serviceType: form.serviceType,
+        serviceId: form.serviceType,
+        specifications: form.specifications,
         dimensions,
         quantity: String(quantity),
         preferredDueDate: Date.now() + 7 * 24 * 60 * 60 * 1000,
@@ -276,6 +285,7 @@ export function TelegramMiniAppOrder() {
         companyLegalName: "",
         tinNumber: "",
         serviceType: null,
+        specifications: {},
         width: "",
         height: "",
         quantity: "1",
@@ -297,6 +307,10 @@ export function TelegramMiniAppOrder() {
     if (activeCategory === "ALL") return SERVICE_CATEGORIES;
     return SERVICE_CATEGORIES.filter((cat) => cat.categoryId === activeCategory);
   }, [activeCategory]);
+  const selectedSpecificationFields = useMemo(
+    () => form.serviceType ? serviceSpecificationFields(form.serviceType) : [],
+    [form.serviceType],
+  );
 
   async function saveProfile(profile: { name: string; phone: string; companyLegalName: string; tinNumber: string; notes: string }) {
     if (!telegramId || !telegramInitData) throw new Error("Telegram መለያ አልተገኘም።");
@@ -368,7 +382,8 @@ export function TelegramMiniAppOrder() {
           </div>
         ) : null}
 
-        <ServicePicker value={form.serviceType} onChange={(serviceType) => setForm({ ...form, serviceType })} onClear={() => setForm({ ...form, serviceType: null })} />
+        <ServicePicker value={form.serviceType} onChange={(serviceType) => setForm({ ...form, serviceType, specifications: {} })} onClear={() => setForm({ ...form, serviceType: null, specifications: {} })} />
+        {selectedSpecificationFields.length > 0 ? <section className="space-y-3 rounded-sm border border-[#E5C07B]/30 bg-[#131418] p-4"><div className="border-b border-white/[0.06] pb-2"><p className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-neutral-300">02. Material specifications</p><p className="mt-1 text-[10px] text-neutral-400">Select the exact catalog option used for costing and production.</p></div><div className="grid gap-3 sm:grid-cols-2">{selectedSpecificationFields.map((field) => <label key={field.key} className="block text-xs text-neutral-300"><span className="font-mono text-[10px] uppercase tracking-wider text-neutral-400">{field.label}</span><select required value={form.specifications[field.key] ?? ""} onChange={(event) => setForm({ ...form, specifications: { ...form.specifications, [field.key]: event.target.value } })} className="mt-1 h-10 w-full rounded-sm border border-white/[0.12] bg-[#0C0D10] px-3 text-xs text-neutral-100 outline-none focus:border-[#E5C07B]"><option value="">Select an option</option>{field.options.map((option) => <option key={option} value={option}>{option}</option>)}</select><span className="mt-1 block font-mono text-[9px] text-neutral-500">Catalog: {field.material}</span></label>)}</div></section> : null}
         <DimensionsInput form={form} setForm={setForm} estimatedArea={estimatedArea} />
         {false && <>
         {/* ── Section 1: Service Selection ─────────────────────────── */}

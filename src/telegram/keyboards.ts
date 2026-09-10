@@ -1,6 +1,7 @@
 import { InlineKeyboard, Keyboard } from "grammy";
 import type { Language } from "./types";
 import { getServiceLabel, SERVICE_CATEGORIES } from "@/constants/services";
+import type { ServiceSpecificationField } from "@/shared/service-specifications";
 
 export const REPLY_NEW_ORDER = "main.order";
 export const REPLY_MINI_APP = "main.miniapp";
@@ -92,6 +93,14 @@ export function servicePicker(lang: Language): InlineKeyboard {
     // Ensure a row break between categories
     keyboard.row();
   }
+  return keyboard.text("❌ " + (lang === "am" ? "ሰርዝ" : "Cancel"), "flow:cancel");
+}
+
+export function specificationPicker(field: ServiceSpecificationField, fieldIndex: number, lang: Language): InlineKeyboard {
+  const keyboard = new InlineKeyboard();
+  field.options.forEach((option, optionIndex) => {
+    keyboard.text(option, `spec:${fieldIndex}:${optionIndex}`).row();
+  });
   return keyboard.text("❌ " + (lang === "am" ? "ሰርዝ" : "Cancel"), "flow:cancel");
 }
 

@@ -764,7 +764,7 @@ export const MATERIAL_SPECIFICATIONS: readonly MaterialSpecificationDefinition[]
     catalogFamily: "HARDWARE",
     catalogVariant: "Digital Screen",
     specification: "Screen Size",
-    specificationOptions: ["A1", "A2"],
+    specificationOptions: ["A1 (594 × 841 mm)", "A2 (420 × 594 mm)"],
   },
 ];
 

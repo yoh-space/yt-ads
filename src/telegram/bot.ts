@@ -23,6 +23,7 @@ import {
   miniAppKeyboard,
   phoneNumberKeyboard,
   servicePicker,
+  specificationPicker,
   shareContactKeyboard,
   skipFileKeyboard,
 } from "./keyboards";
@@ -34,6 +35,7 @@ import {
   t,
 } from "./i18n";
 import type { ServiceId } from "@/constants/services";
+import { serviceSpecificationFields } from "@/shared/service-specifications";
 import {
   isOrderCode,
   looksLikePhone,
@@ -172,6 +174,8 @@ async function createOrder(ctx: MyContext, draft: OrderDraft): Promise<string> {
     telegramChatId: String(ctx.chat!.id),
     customerName: customerDisplayName(ctx).slice(0, 200),
     serviceType: (draft.serviceType ?? "banner_print") as ServiceId,
+    serviceId: (draft.serviceType ?? "banner_print") as ServiceId,
+    specifications: draft.specifications,
     dimensions: draft.dimensions,
     quantity: draft.area !== undefined ? String(draft.area) : undefined,
     phone: draft.phone,
@@ -276,6 +280,32 @@ async function handleReceptionCallback(ctx: MyContext, data: string) {
 async function startNewOrder(ctx: MyContext) {
   ctx.session.draft = {};
   await ctx.reply(t(ctx.session.language, "serviceChoice"), { reply_markup: servicePicker(ctx.session.language) });
+}
+
+async function promptNextSpecification(ctx: MyContext, fieldIndex: number) {
+  const draft = ctx.session.draft ?? {};
+  const fields = serviceSpecificationFields(draft.serviceType ?? "");
+  const field = fields[fieldIndex];
+  if (!field) {
+    ctx.session.step = "dimensions";
+    await ctx.reply(t(ctx.session.language, "dimensionsPrompt"));
+    return;
+  }
+  await ctx.reply(`${field.label}:`, { reply_markup: specificationPicker(field, fieldIndex, ctx.session.language) });
+}
+
+async function handleSpecificationSelection(ctx: MyContext, data: string) {
+  const [, fieldIndexRaw, optionIndexRaw] = data.split(":");
+  const fieldIndex = Number(fieldIndexRaw);
+  const optionIndex = Number(optionIndexRaw);
+  const draft = ctx.session.draft ?? {};
+  const fields = serviceSpecificationFields(draft.serviceType ?? "");
+  const field = fields[fieldIndex];
+  const option = field?.options[optionIndex];
+  if (!field || !option) return;
+  draft.specifications = { ...(draft.specifications ?? {}), [field.key]: option };
+  ctx.session.draft = draft;
+  await promptNextSpecification(ctx, fieldIndex + 1);
 }
 
 async function showMiniApp(ctx: MyContext) {
@@ -726,9 +756,13 @@ function createBot(token: string): Bot<MyContext> {
       // If the user picked a specific service id, store it and advance to dimensions
       draft.serviceType = serviceId;
       draft.serviceLabel = serviceLabel(lang, serviceId);
+      draft.specifications = {};
       ctx.session.draft = draft;
-      ctx.session.step = "dimensions";
-      await ctx.reply(t(lang, "dimensionsPrompt"));
+      await promptNextSpecification(ctx, 0);
+      return;
+    }
+    if (data.startsWith("spec:")) {
+      await handleSpecificationSelection(ctx, data);
       return;
     }
 

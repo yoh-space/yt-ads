@@ -448,6 +448,10 @@ export default defineSchema({
     clientName: v.string(),
     phone: v.string(),
     serviceType: serviceType,
+    /** Canonical intake identifier retained separately for downstream integrations. */
+    serviceId: v.optional(serviceType),
+    /** Validated selections from the canonical material specification catalog. */
+    specifications: v.optional(v.record(v.string(), v.string())),
     dimensions: v.string(),
     /** Parsed order dimensions in metres for deterministic job allocation. */
     length: v.optional(v.number()),

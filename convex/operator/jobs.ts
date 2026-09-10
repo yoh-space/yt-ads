@@ -112,6 +112,8 @@ export const getJob = query({
       job: {
         ...rest,
         id: _id,
+        serviceId: order?.serviceId ?? order?.serviceType,
+        specifications: order?.specifications,
         orderStatus: order?.status,
         orderOverdue: Boolean(
           order &&
