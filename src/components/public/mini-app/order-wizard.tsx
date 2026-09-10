@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { CompleteOrderPayloadSchema, type CompleteOrderPayloadInput } from "@/shared/order-schemas";
-import { type WizardStep, nextStep, prevStep, stepNumber, stepLabel, WIZARD_TOTAL_STEPS } from "@/shared/wizard-steps";
+import { type WizardStep, nextStep, prevStep, stepNumber, stepLabel, stepOrder } from "@/shared/wizard-steps";
 import { WelcomeStep } from "./wizard/welcome-step";
 import { ProfileStep } from "./wizard/profile-step";
 import { AccountTypeStep } from "./wizard/account-type-step";
@@ -18,7 +18,7 @@ import { DimensionsStep } from "./wizard/dimensions-step";
 import { ArtworkStep } from "./wizard/artwork-step";
 import { ReviewStep } from "./wizard/review-step";
 
-const STEP_COMPONENTS: Record<WizardStep, (props: any) => ReactNode> = {
+const StepRegistry: Record<WizardStep, (props: any) => ReactNode> = {
   welcome: WelcomeStep,
   profile: ProfileStep,
   "account-type": AccountTypeStep,
@@ -159,7 +159,8 @@ export function OrderWizard({
     return serviceSpecificationFields(currentValues.serviceId as string);
     }, [currentValues.serviceId]);
 
-  const currentStepIdx = stepNumber(step);
+  const currentStepIdx = stepNumber(step, currentValues.accountType);
+  const totalSteps = stepOrder(currentValues.accountType).length;
 
   const goNext = async () => {
     setError(null);
@@ -167,7 +168,7 @@ export function OrderWizard({
     const ok = await trigger(fieldsToValidate);
     if (!ok) return;
 
-    const next = nextStep(step);
+    const next = nextStep(step, currentValues.accountType);
     if (next) {
       // When changing service selection, warn about clearing incompatible specs
       if (step === "service") {
@@ -192,7 +193,7 @@ export function OrderWizard({
   };
 
   const goBack = () => {
-    const prev = prevStep(step);
+    const prev = prevStep(step, currentValues.accountType);
     if (prev) setStep(prev);
   };
 
@@ -288,20 +289,20 @@ export function OrderWizard({
     }
   }
 
-  const StepComponent = STEP_COMPONENTS[step];
+  const StepComponent = StepRegistry[step];
 
   return (
     <form className="flex flex-col min-h-[calc(100vh-64px)]">
       {/* Progress bar */}
       <div className="px-4 pt-4 pb-2">
         <div className="flex justify-between text-xs font-mono text-neutral-500 mb-1">
-          <span>Step {currentStepIdx} of {WIZARD_TOTAL_STEPS}</span>
+          <span>Step {currentStepIdx} of {totalSteps}</span>
           <span>{stepLabel(step)}</span>
         </div>
         <div className="h-1.5 bg-[#1C1D24] rounded-full overflow-hidden">
           <div
             className="h-full bg-[#E5C07B] transition-all duration-300"
-            style={{ width: `${(currentStepIdx / WIZARD_TOTAL_STEPS) * 100}%` }}
+            style={{ width: `${(currentStepIdx / totalSteps) * 100}%` }}
           />
         </div>
       </div>
