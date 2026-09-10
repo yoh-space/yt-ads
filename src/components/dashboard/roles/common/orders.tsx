@@ -208,7 +208,7 @@ export function OrdersView({
 
           {filtered.length === 0 ? (
             <div className="p-8 text-center text-gray-500 text-sm">No orders match the current filters.</div>
-          ) : filtered.map((order) => (
+          ) : filtered.reverse().map((order) => (
             <div
               className={cn(
                 "grid grid-cols-[2fr_1.5fr_1fr_1.2fr_1fr_1.2fr] gap-4 px-4 py-3 items-center transition-colors cursor-pointer",
