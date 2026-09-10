@@ -18,9 +18,20 @@ export type OrderFormState = {
 export type CustomerOrderSummary = {
   id: string;
   code: string;
+  clientName: string;
+  phone: string;
   serviceType: string;
+  serviceId?: string;
+  specifications?: Record<string, string>;
   dimensions: string;
   quantity: string;
   status: string;
+  editRevision?: number;
+  customerEditable?: boolean;
+  customerEditLockedAt?: number;
+  reviewLockReason?: string;
+  lastCustomerEditedAt?: number;
+  preferredDueDate: number;
+  notes?: string;
   updatedAt: number;
 };
