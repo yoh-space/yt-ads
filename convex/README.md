@@ -29,19 +29,19 @@ The Next.js application can render its sign-in and sign-up routes before a real 
 
 ## Data model and operations
 
-The schema contains application profiles, materials, machines, stock movements, job cards, production logs, reusable offcuts, and unusable scrap. The principal backend modules are:
+The schema contains application profiles, materials, machines, stock movements, job cards, production logs, reusable offcuts, unusable scrap, customer orders, and order audit events (`orderEvents`). The principal backend modules are:
 
 | Module | Responsibility |
 |---|---|
 | `users.ts` | Application profiles, active-profile checks, role changes, and administrator guards. |
 | `materials.ts` | Material creation, purchase-unit to base-unit conversion, validated stock movements, and audit rows. |
 | `jobs.ts` | Job creation, machine allocation, production logging, inventory deduction, and completion. |
-| `orders.ts` | Automated routing (`previewAutoRouting`), order→job-card confirmation, and deterministic scrap/off-cut registration on dispatch. |
+| `orders.ts` | Intake, customer editing (`updateCustomerOrder`), review lock (`lockOrderForReview`), automated routing, order→job-card confirmation, and deterministic scrap/off-cut registration. |
 | `machines.ts` | Administrator-only creation, status changes, activation, and lifecycle safeguards. |
 | `offcuts.ts` | Reusable offcut returns and scrap deduction/audit records. |
 | `dashboard.ts` | Reactive aggregate state consumed by the live dashboard. |
 
-Backend mutations enforce active profiles. Owners and delegated managers manage administrative surfaces; storekeepers issue stock and manage inventory; assigned operators may record production for their machine role. Authorization is enforced in Convex rather than only by hidden UI controls.
+Backend mutations enforce active profiles. Owners and delegated managers manage administrative surfaces; storekeepers issue stock and manage inventory; assigned operators may record production for their machine role. Authorization is enforced in Convex rather than only by hidden UI controls. Orders in `PENDING_REVIEW` allow customer edits; the first review action by Reception atomically locks customer editing (`lockOrderForReview`), appending an event to `orderEvents`. Subsequent customer updates are verified with optimistic concurrency (`editRevision`).
 
 ## Data accounting rules
 

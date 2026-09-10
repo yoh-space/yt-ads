@@ -629,6 +629,7 @@ export default defineSchema({
     width: v.optional(v.number()),
     deductOnComplete: v.optional(v.boolean()),
     serviceType: v.optional(serviceType),
+    specifications: v.optional(v.record(v.string(), v.string())),
     /** Gross material deducted from stock at dispatch (rollWidth × jobLength × qty). */
     grossDeductedQuantity: v.optional(v.number()),
     /** Net product area (jobWidth × jobLength × qty). */

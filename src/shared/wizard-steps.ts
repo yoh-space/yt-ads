@@ -14,12 +14,18 @@ export type WizardStep =
   | "artwork"
   | "review";
 
-export function nextStep(current: WizardStep): WizardStep | null {
-  const order: WizardStep[] = [
+export interface WizardNavigationOptions {
+  accountType?: "individual" | "corporate" | "government";
+  isEdit?: boolean;
+}
+
+export function getActiveWizardSteps(options?: WizardNavigationOptions): WizardStep[] {
+  const isIndividual = !options?.accountType || options.accountType === "individual";
+  const steps: WizardStep[] = [
     "welcome",
     "profile",
     "account-type",
-    "company-tin",
+    ...(isIndividual ? [] : (["company-tin"] as WizardStep[])),
     "category",
     "service",
     "specifications",
@@ -27,29 +33,37 @@ export function nextStep(current: WizardStep): WizardStep | null {
     "artwork",
     "review",
   ];
-  const idx = order.indexOf(current);
-  return idx >= 0 && idx < order.length - 1 ? order[idx + 1] : null;
+  return steps;
 }
 
-export function prevStep(current: WizardStep): WizardStep | null {
-  const order: WizardStep[] = [
-    "welcome",
-    "profile",
-    "account-type",
-    "company-tin",
-    "category",
-    "service",
-    "specifications",
-    "dimensions",
-    "artwork",
-    "review",
-  ];
-  const idx = order.indexOf(current);
-  return idx > 0 ? order[idx - 1] : null;
+export function nextStep(current: WizardStep, options?: WizardNavigationOptions): WizardStep | null {
+  const steps = getActiveWizardSteps(options);
+  const idx = steps.indexOf(current);
+  if (idx === -1) {
+    if (current === "company-tin") return "category";
+    return null;
+  }
+  return idx < steps.length - 1 ? steps[idx + 1] : null;
 }
 
-export function stepNumber(step: WizardStep): number {
-  return ["welcome", "profile", "account-type", "company-tin", "category", "service", "specifications", "dimensions", "artwork", "review"].indexOf(step) + 1;
+export function prevStep(current: WizardStep, options?: WizardNavigationOptions): WizardStep | null {
+  const steps = getActiveWizardSteps(options);
+  const idx = steps.indexOf(current);
+  if (idx === -1) {
+    if (current === "company-tin") return "account-type";
+    return null;
+  }
+  return idx > 0 ? steps[idx - 1] : null;
+}
+
+export function stepNumber(step: WizardStep, options?: WizardNavigationOptions): number {
+  const steps = getActiveWizardSteps(options);
+  const idx = steps.indexOf(step);
+  return idx >= 0 ? idx + 1 : 1;
+}
+
+export function totalSteps(options?: WizardNavigationOptions): number {
+  return getActiveWizardSteps(options).length;
 }
 
 export function stepLabel(step: WizardStep): string {
