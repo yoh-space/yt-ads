@@ -39,8 +39,12 @@ export type CustomerOrder = {
   dimensions: string;
   quantity: string;
   amount?: number;
-  paymentStatus?: "UNPAID" | "PAID" | "APPROVED_CREDIT";
+  paymentStatus?: "UNPAID" | "PARTIALLY_PAID" | "FULLY_PAID" | "PAID" | "APPROVED_CREDIT";
   paymentMethod?: string;
+  advanceDueAmount?: number;
+  advancePaidAmount?: number;
+  remainingDueAmount?: number;
+  finalPaidAmount?: number;
   paymentConfirmedAt?: number;
   paymentConfirmedBy?: string;
   fileName?: string;

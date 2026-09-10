@@ -411,9 +411,10 @@ export function OrderPriceModal({ order, onClose, onSave }: { order: CustomerOrd
   );
 }
 
-export function OrderConfirmModal({ order, machines, materials, onClose, onSave }: { order: CustomerOrder; machines: Machine[]; materials: Material[]; onClose: () => void; onSave: (input: { paymentDecision: "PAID" | "APPROVED_CREDIT"; paymentMethod?: string; priority?: OrderPriority }) => void }) {
-  const [paymentDecision, setPaymentDecision] = useState<"PAID" | "APPROVED_CREDIT">("PAID");
+export function OrderConfirmModal({ order, machines, materials, onClose, onSave }: { order: CustomerOrder; machines: Machine[]; materials: Material[]; onClose: () => void; onSave: (input: { paymentDecision: "ADVANCE_PAID" | "APPROVED_CREDIT"; paymentMethod?: string; advancePaidAmount?: number; priority?: OrderPriority }) => void }) {
+  const [paymentDecision, setPaymentDecision] = useState<"ADVANCE_PAID" | "APPROVED_CREDIT">("ADVANCE_PAID");
   const [paymentMethod, setPaymentMethod] = useState("");
+  const [advancePaidAmount, setAdvancePaidAmount] = useState(String(order.advanceDueAmount ?? (order.amount ? order.amount / 2 : "")));
   const [submitting, setSubmitting] = useState(false);
   const dispatchPreview = useQuery(api.orders.previewAutoRouting, { orderId: order.id as Id<"customerOrders"> });
   const dispatchBlocked = !dispatchPreview || !dispatchPreview.canDispatch;
@@ -430,14 +431,15 @@ export function OrderConfirmModal({ order, machines, materials, onClose, onSave 
           <Button 
             type="submit" 
             variant="primary" 
-             disabled={submitting || dispatchBlocked || (paymentDecision === "PAID" && !paymentMethod.trim())}
+             disabled={submitting || dispatchBlocked || (paymentDecision === "ADVANCE_PAID" && (!paymentMethod.trim() || !advancePaidAmount))}
             onClick={() => {
                 if (submitting || dispatchBlocked) return;
-              if (paymentDecision === "PAID" && !paymentMethod.trim()) return;
+              if (paymentDecision === "ADVANCE_PAID" && (!paymentMethod.trim() || !advancePaidAmount)) return;
               setSubmitting(true);
               onSave({ 
                 paymentDecision, 
-                paymentMethod: paymentDecision === "PAID" ? paymentMethod.trim() : undefined,
+                paymentMethod: paymentDecision === "ADVANCE_PAID" ? paymentMethod.trim() : undefined,
+                advancePaidAmount: paymentDecision === "ADVANCE_PAID" ? Number(advancePaidAmount) : undefined,
                  priority: order.priority 
               });
             }}
@@ -476,9 +478,9 @@ export function OrderConfirmModal({ order, machines, materials, onClose, onSave 
               <input 
                 type="radio" 
                 name="paymentDecision" 
-                value="PAID" 
-                checked={paymentDecision === "PAID"}
-                onChange={(e) => setPaymentDecision(e.target.value as "PAID" | "APPROVED_CREDIT")}
+                value="ADVANCE_PAID"
+                checked={paymentDecision === "ADVANCE_PAID"}
+                onChange={() => setPaymentDecision("ADVANCE_PAID")}
                 className="w-4 h-4"
               />
               <span className="text-sm text-gray-700">Advance Payment Received ✅</span>
@@ -489,14 +491,16 @@ export function OrderConfirmModal({ order, machines, materials, onClose, onSave 
                 name="paymentDecision" 
                 value="APPROVED_CREDIT" 
                 checked={paymentDecision === "APPROVED_CREDIT"}
-                onChange={(e) => setPaymentDecision(e.target.value as "PAID" | "APPROVED_CREDIT")}
+                onChange={() => setPaymentDecision("APPROVED_CREDIT")}
                 className="w-4 h-4"
               />
               <span className="text-sm text-gray-700">Approved Credit 📒</span>
             </label>
           </div>
-          {paymentDecision === "PAID" && (
+          {paymentDecision === "ADVANCE_PAID" && (
             <label className="block mt-2">
+              <span className="block text-xs font-semibold text-navy mb-1">Required advance ({(order.advanceDueAmount ?? (order.amount ? order.amount / 2 : 0)).toFixed(2)} ETB)</span>
+              <input type="number" min="0" step="0.01" value={advancePaidAmount} onChange={(e) => setAdvancePaidAmount(e.target.value)} className="mb-2 w-full px-3 py-2 bg-white border border-line rounded-lg text-sm text-ink outline-none focus:border-cyan" />
               <span className="block text-xs font-semibold text-navy mb-1">Payment Method</span>
               <input 
                 type="text" 

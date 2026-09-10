@@ -65,6 +65,8 @@ export const orderStatus = v.union(
 /** Payment verification result recorded by reception during checkout. */
 export const paymentStatus = v.union(
   v.literal("UNPAID"),
+  v.literal("PARTIALLY_PAID"),
+  v.literal("FULLY_PAID"),
   v.literal("PAID"),
   v.literal("APPROVED_CREDIT"),
 );
@@ -285,6 +287,13 @@ export default defineSchema({
       financialEmail: v.boolean(),
       financialTelegram: v.boolean(),
     })),
+    paymentInstructionsVersion: v.optional(v.number()),
+    paymentInstructions: v.optional(v.object({
+      cbe: v.optional(v.object({ accountName: v.string(), accountNumber: v.string(), enabled: v.boolean() })),
+      boa: v.optional(v.object({ accountName: v.string(), accountNumber: v.string(), enabled: v.boolean() })),
+      telebirr: v.optional(v.object({ displayName: v.string(), merchantId: v.string(), enabled: v.boolean() })),
+      cbeBirr: v.optional(v.object({ displayName: v.string(), merchantId: v.string(), enabled: v.boolean() })),
+    })),
     active: v.boolean(),
   })
     .index("by_key", ["key"]),
@@ -451,6 +460,22 @@ export default defineSchema({
     paymentMethod: v.optional(v.string()),
     paymentConfirmedAt: v.optional(v.number()),
     paymentConfirmedBy: v.optional(v.string()),
+    advanceDueAmount: v.optional(v.number()),
+    advancePaidAmount: v.optional(v.number()),
+    remainingDueAmount: v.optional(v.number()),
+    finalPaidAmount: v.optional(v.number()),
+    advancePaymentMethod: v.optional(v.string()),
+    advancePaymentReference: v.optional(v.string()),
+    advancePaymentConfirmedAt: v.optional(v.number()),
+    advancePaymentConfirmedBy: v.optional(v.string()),
+    finalPaymentMethod: v.optional(v.string()),
+    finalPaymentReference: v.optional(v.string()),
+    finalPaymentConfirmedAt: v.optional(v.number()),
+    finalPaymentConfirmedBy: v.optional(v.string()),
+    paymentInstructionsSnapshot: v.optional(v.object({
+      version: v.number(), capturedAt: v.number(),
+      accounts: v.array(v.object({ label: v.string(), channel: v.string(), name: v.string(), identifier: v.string() })),
+    })),
     fileStorageId: v.optional(v.id("_storage")),
     fileName: v.optional(v.string()),
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
