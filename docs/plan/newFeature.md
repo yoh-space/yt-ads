@@ -3,7 +3,7 @@
 **Project**: YT Advertisement Operations Platform
 **Feature**: Customer Onboarding, Order Edit, and Automated Material Deduction
 **Date**: 2025-09-10
-**Status**: In Progress — Phase 2 integration remaining, Phases 4–9 pending
+**Status**: Phases 0–3 Complete (Customer Onboarding Wizard, Review Lock & Concurrency Verified), Phases 4–9 Pending
 
 ---
 
@@ -75,18 +75,18 @@ Customer intake records the requested specification. Reception validates and loc
 
 ---
 
-### Phase 2 — Customer Onboarding Wizard 🔄 IN PROGRESS
+### Phase 2 — Customer Onboarding Wizard ✅ COMPLETED
 
 **Objective**: Replace flat Mini App intake with a stateful, multi-step wizard using React Hook Form + Zod.
 
 **Deliverables**:
-- ✅ `src/shared/wizard-steps.ts` — step definitions, navigation helpers
-- ✅ `src/components/public/mini-app/order-wizard.tsx` — main wizard shell (RHF+Zod, draft persistence, file upload, submit)
+- ✅ `src/shared/wizard-steps.ts` — step definitions, navigation helpers with dynamic `accountType` step progression (skips `company-tin` for individuals)
+- ✅ `src/components/public/mini-app/order-wizard.tsx` — main wizard shell (RHF+Zod, draft persistence, file upload, submit, and `updateCustomerOrder` edit mutation)
 - ✅ Wizard step components (welcome, profile, account-type, company-tin, category, service, specifications, dimensions, artwork, review)
-- ❌ Wire wizard into `customer-mini-app.tsx` as "create" tab
-- ❌ Update `customer-orders-view.tsx` for edit flow
-- ❌ Wizard unit tests
-- ❌ Commit Phase 2
+- ✅ Wire wizard into `customer-mini-app.tsx` as "create" tab with legacy dead-code removal
+- ✅ Update `customer-orders-view.tsx` for edit flow passing full order state
+- ✅ Wizard unit tests (`src/components/public/mini-app/wizard.test.ts` — 15 tests)
+- ✅ Commit Phase 2
 
 ---
 
@@ -267,10 +267,10 @@ The feature is complete when all of the following are true:
 1. ✅ Customers can onboard through a guided Mini App wizard
 2. ✅ Phone numbers are normalized and validated in both client and server layers
 3. ✅ Corporate and government accounts require valid company and TIN information
-4. ❌ Service-specific material specifications are dynamically rendered from the canonical catalog
+4. ✅ Service-specific material specifications are dynamically rendered from the canonical catalog
 5. ✅ Orders remain editable in `PENDING_REVIEW`
 6. ✅ Reception's first review action locks customer editing atomically
-7. ❌ Job Card issuance uses the locked specification snapshot
+7. ✅ Job Card issuance uses the locked specification snapshot
 8. ❌ LED quantities come from Owner-configured recipes
 9. ❌ Rigid-sheet quantities use deterministic nesting rather than only area division
 10. ✅ Reception can issue Job Cards even when material is unavailable
@@ -281,4 +281,4 @@ The feature is complete when all of the following are true:
 15. ❌ Every calculation is reproducible from its stored catalog and configuration versions
 16. ❌ The complete workflow is covered by unit, integration, and end-to-end tests
 
-**Progress**: 6/16 acceptance criteria fully complete, 3 partially complete (wizard built but not integrated).
+**Progress**: 8/16 acceptance criteria fully complete (Phases 0–3 completed).

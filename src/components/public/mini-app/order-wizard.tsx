@@ -43,7 +43,10 @@ export interface OrderWizardProps {
    *  If provided, they override the default values from launchName/etc.
    */
   initialValues?: Partial<CompleteOrderPayloadInput>;
-  onSuccess?: (orderCode: string) => void;
+  editingOrderId?: string | null;
+  editRevision?: number | null;
+  editingOrderCode?: string | null;
+  onSuccess?: (orderCode: string, isEdit?: boolean) => void;
   onCancel?: () => void;
 }
 
@@ -58,11 +61,16 @@ export function OrderWizard({
   initialTin,
   initialNotes,
   initialValues,
+  editingOrderId,
+  editRevision,
+  editingOrderCode,
   onSuccess,
   onCancel,
 }: OrderWizardProps) {
+  const isEdit = Boolean(editingOrderId);
   const generateUploadUrl = useMutation(api.orders.generateUploadUrl);
   const submitOrder = useMutation(api.orders.submit);
+  const updateCustomerOrder = useMutation(api.orders.updateCustomerOrder);
   const updateTelegramProfile = useMutation(api.users.updateTelegramProfile);
   const userProfile = useQuery(
     api.users.getByTelegramId,
@@ -74,12 +82,12 @@ export function OrderWizard({
   const verifiedPhone = launchPhone ?? userProfile?.phone ?? null;
   const phoneReady = Boolean(verifiedPhone);
 
-  const [step, setStep] = useState<WizardStep>("welcome");
+  const [step, setStep] = useState<WizardStep>(isEdit ? "category" : "welcome");
   const [file, setFile] = useState<File | null>(null);
   const [fileUrl, setFileUrl] = useState<string | null>(null);
   const [fileStorageId, setFileStorageId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const methods = useForm<CompleteOrderPayloadInput>({
     resolver: zodResolver(CompleteOrderPayloadSchema),
@@ -107,21 +115,21 @@ export function OrderWizard({
     setValue,
     trigger,
     getValues,
-        formState: { errors },
+    formState: { errors },
   } = methods;
 
-  // Sync profile data when it loads
+  // Sync profile data when it loads (only for new orders)
   useEffect(() => {
-    if (userProfile) {
+    if (userProfile && !isEdit) {
       setValue("customerName", userProfile.name || launchName || "", { shouldValidate: false });
       setValue("companyLegalName", userProfile.companyLegalName ?? initialCompany ?? "", { shouldValidate: false });
       setValue("tinNumber", userProfile.tinNumber ?? initialTin ?? "", { shouldValidate: false });
     }
-  }, [userProfile, setValue, launchName, initialCompany, initialTin]);
+  }, [userProfile, setValue, launchName, initialCompany, initialTin, isEdit]);
 
-  // Draft session persistence
+  // Draft session persistence (only for new orders)
   useEffect(() => {
-    if (step === "welcome") {
+    if (!isEdit && step === "welcome") {
       const saved = sessionStorage.getItem(DRAFT_STORAGE_KEY);
       if (saved) {
         try {
@@ -132,17 +140,18 @@ export function OrderWizard({
         } catch {}
       }
     }
-  }, [step, setValue]);
+  }, [step, setValue, isEdit]);
 
   const currentValues = watch();
   useEffect(() => {
+    if (isEdit) return;
     const timeout = setTimeout(() => {
       const draft = { ...currentValues };
       delete (draft as any).fileStorageId;
       sessionStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
     }, 300);
     return () => clearTimeout(timeout);
-  }, [currentValues]);
+  }, [currentValues, isEdit]);
 
   const estimatedArea = useMemo(() => {
     const qty = parseInt(currentValues.quantity || "1");
@@ -157,14 +166,14 @@ export function OrderWizard({
     if (!currentValues.serviceId) return [];
     const { serviceSpecificationFields } = require("@/shared/service-specifications");
     return serviceSpecificationFields(currentValues.serviceId as string);
-    }, [currentValues.serviceId]);
+  }, [currentValues.serviceId]);
 
   const currentStepIdx = stepNumber(step, currentValues.accountType);
   const totalSteps = stepOrder(currentValues.accountType).length;
 
   const goNext = async () => {
     setError(null);
-    const fieldsToValidate = stepFieldsToValidate(step);
+    const fieldsToValidate = stepFieldsToValidate(step, currentValues.accountType);
     const ok = await trigger(fieldsToValidate);
     if (!ok) return;
 
@@ -197,7 +206,7 @@ export function OrderWizard({
     if (prev) setStep(prev);
   };
 
-    const handleCancel = () => {
+  const handleCancel = () => {
     sessionStorage.removeItem(DRAFT_STORAGE_KEY);
     onCancel?.();
   };
@@ -224,21 +233,19 @@ export function OrderWizard({
 
   async function handleSubmit() {
     setError(null);
-    const ok = await trigger([
+    const fieldsToValidate: (keyof CompleteOrderPayloadInput)[] = [
       "customerName",
       "phone",
       "accountType",
-      "companyLegalName",
-      "tinNumber",
+      ...(currentValues.accountType !== "individual" ? (["companyLegalName", "tinNumber"] as (keyof CompleteOrderPayloadInput)[]) : []),
       "serviceId",
       "specifications",
       "dimensions",
-      "length",
-      "width",
       "quantity",
       "preferredDueDate",
       "notes",
-    ]);
+    ];
+    const ok = await trigger(fieldsToValidate);
     if (!ok) return;
 
     setBusy(true);
@@ -246,44 +253,74 @@ export function OrderWizard({
       const storageId = await uploadSelectedFile();
       const values = getValues();
 
-      await updateTelegramProfile({
-        telegramId: telegramId!,
-        initData: telegramInitData!,
-        phone: verifiedPhone!,
-        name: values.customerName,
-        companyLegalName:
-          values.accountType === "individual" ? undefined : values.companyLegalName,
-        tinNumber:
-          values.accountType === "individual" ? undefined : values.tinNumber,
-        notes: values.notes,
-      });
+      if (telegramId && telegramInitData && verifiedPhone) {
+        await updateTelegramProfile({
+          telegramId,
+          initData: telegramInitData,
+          phone: verifiedPhone,
+          name: values.customerName,
+          companyLegalName:
+            values.accountType === "individual" ? undefined : values.companyLegalName,
+          tinNumber:
+            values.accountType === "individual" ? undefined : values.tinNumber,
+          notes: values.notes,
+        });
+      }
 
-      const result = await submitOrder({
-        clientName: values.customerName,
-        phone: values.phone,
-        telegramId: telegramId ?? undefined,
-        serviceType: values.serviceId as any,
-        serviceId: values.serviceId as any,
-        specifications: values.specifications as Record<string, string> | undefined,
-        dimensions: values.dimensions,
-        quantity: values.quantity,
-        length: values.length,
-        width: values.width,
-        accountType: values.accountType,
-        companyLegalName:
-          values.accountType === "individual" ? undefined : values.companyLegalName,
-        tinNumber:
-          values.accountType === "individual" ? undefined : values.tinNumber,
-        notes: values.notes,
-        preferredDueDate: values.preferredDueDate,
-        fileStorageId: storageId ? (storageId as any) : undefined,
-        fileName: file?.name || undefined,
-      });
+      if (isEdit && editingOrderId) {
+        await updateCustomerOrder({
+          orderId: editingOrderId as any,
+          telegramId: telegramId ?? "",
+          initData: telegramInitData ?? "",
+          editRevision: editRevision ?? 1,
+          customerName: values.customerName,
+          phone: values.phone,
+          accountType: values.accountType,
+          companyLegalName:
+            values.accountType === "individual" ? undefined : values.companyLegalName,
+          tinNumber:
+            values.accountType === "individual" ? undefined : values.tinNumber,
+          serviceId: values.serviceId as any,
+          specifications: values.specifications as Record<string, string> | undefined,
+          dimensions: values.dimensions,
+          quantity: values.quantity,
+          length: values.length,
+          width: values.width,
+          notes: values.notes,
+          fileStorageId: storageId ? (storageId as any) : undefined,
+          fileName: file?.name || undefined,
+        });
 
-      sessionStorage.removeItem(DRAFT_STORAGE_KEY);
-      onSuccess?.(result.order?.code ?? "");
+        sessionStorage.removeItem(DRAFT_STORAGE_KEY);
+        onSuccess?.(editingOrderCode ?? editingOrderId, true);
+      } else {
+        const result = await submitOrder({
+          clientName: values.customerName,
+          phone: values.phone,
+          telegramId: telegramId ?? undefined,
+          serviceType: values.serviceId as any,
+          serviceId: values.serviceId as any,
+          specifications: values.specifications as Record<string, string> | undefined,
+          dimensions: values.dimensions,
+          quantity: values.quantity,
+          length: values.length,
+          width: values.width,
+          accountType: values.accountType,
+          companyLegalName:
+            values.accountType === "individual" ? undefined : values.companyLegalName,
+          tinNumber:
+            values.accountType === "individual" ? undefined : values.tinNumber,
+          notes: values.notes,
+          preferredDueDate: values.preferredDueDate,
+          fileStorageId: storageId ? (storageId as any) : undefined,
+          fileName: file?.name || undefined,
+        });
+
+        sessionStorage.removeItem(DRAFT_STORAGE_KEY);
+        onSuccess?.(result.order?.code ?? "", false);
+      }
     } catch (err) {
-      setError((err as Error)?.message ?? "Failed to submit order. Please try again.");
+      setError((err as Error)?.message ?? "Failed to save order. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -331,6 +368,7 @@ export function OrderWizard({
           onCancel={handleCancel}
           busy={busy}
           error={error}
+          isEdit={isEdit}
           allValues={currentValues}
         />
       </div>
@@ -338,29 +376,29 @@ export function OrderWizard({
   );
 }
 
-function stepFieldsToValidate(step: WizardStep): (keyof CompleteOrderPayloadInput)[] {
+function stepFieldsToValidate(step: WizardStep, accountType?: string): (keyof CompleteOrderPayloadInput)[] {
   switch (step) {
     case "welcome":
     case "category":
       return [];
     case "profile":
-      return ["phone"];
+      return ["phone", "customerName"];
     case "account-type":
       return ["accountType"];
     case "company-tin":
-      return ["companyLegalName", "tinNumber"];
+      return accountType === "individual" ? [] : ["companyLegalName", "tinNumber"];
     case "service":
       return ["serviceId"];
     case "specifications":
       return ["specifications"];
     case "dimensions":
-      return ["dimensions", "length", "width", "quantity"];
+      return ["dimensions", "quantity"];
     case "artwork":
       return ["notes"];
     case "review":
       return [
         "customerName", "phone", "accountType", "serviceId",
-        "specifications", "dimensions", "length", "width", "quantity",
+        "specifications", "dimensions", "quantity",
         "preferredDueDate", "notes",
       ];
     default:

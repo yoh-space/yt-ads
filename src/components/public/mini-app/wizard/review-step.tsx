@@ -10,13 +10,16 @@ interface StepProps {
   allValues: any;
   busy: boolean;
   error: string | null;
+  isEdit?: boolean;
   onSubmit: () => void;
   onBack?: () => void;
 }
 
-export function ReviewStep({ watch, errors, allValues, busy, error, onSubmit, onBack }: StepProps) {
+export function ReviewStep({ watch, errors, allValues, busy, error, isEdit, onSubmit, onBack }: StepProps) {
   const serviceId = allValues?.serviceId as string | undefined;
   const serviceLabel = serviceId ? getServiceLabel(serviceId, "am") ?? getServiceLabel(serviceId) ?? serviceId : "—";
+
+  const lengthVal = allValues?.length ?? allValues?.height;
 
   const sections = [
     { label: "ስም", value: allValues?.customerName },
@@ -30,7 +33,7 @@ export function ReviewStep({ watch, errors, allValues, busy, error, onSubmit, on
       : []),
     { label: "አጠቃቀ", value: serviceLabel },
     { label: "ስፋት", value: allValues?.width ? `${allValues.width}m` : "—" },
-    { label: "ቁመት", value: allValues?.height ? `${allValues.height}m` : "—" },
+    { label: "ቁመት", value: lengthVal ? `${lengthVal}m` : "—" },
     { label: "ብዛት", value: allValues?.quantity },
     { label: "ማስታወሻ", value: allValues?.notes || "—" },
   ];
@@ -100,11 +103,11 @@ export function ReviewStep({ watch, errors, allValues, busy, error, onSubmit, on
           {busy ? (
             <>
               <span className="w-4 h-4 border-2 border-[#0C0D10]/30 border-t-[#0C0D10] rounded-full animate-spin" />
-              በመላክ ላይ...
+              {isEdit ? "በማስተካከል ላይ..." : "በመላክ ላይ..."}
             </>
           ) : (
             <>
-              <Send size={13} /> ትዕዛዝ ላክ
+              <Send size={13} /> {isEdit ? "ትዕዛዝ አዘምን" : "ትዕዛዝ ላክ"}
             </>
           )}
         </button>

@@ -13,6 +13,8 @@ type CustomerOrder = {
   serviceId?: string;
   specifications?: Record<string, string>;
   dimensions: string;
+  length?: number;
+  width?: number;
   quantity: string;
   status: string;
   editRevision?: number;
@@ -24,6 +26,8 @@ type CustomerOrder = {
   notes?: string;
   updatedAt: number;
   accountType?: "individual" | "corporate" | "government";
+  companyLegalName?: string;
+  tinNumber?: string;
 };
 
 export function CustomerOrdersView({

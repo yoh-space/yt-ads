@@ -24,18 +24,31 @@ const DIMENSION_PRESETS = [
 
 export function DimensionsStep({ control, watch, setValue, errors, estimatedArea, onNext, onBack }: StepProps) {
   useController({ control, name: "width", defaultValue: undefined });
-  useController({ control, name: "height", defaultValue: undefined });
+  useController({ control, name: "length", defaultValue: undefined });
+  useController({ control, name: "dimensions", defaultValue: "" });
   useController({ control, name: "quantity", defaultValue: "1" });
 
   const width = watch("width") as number | undefined;
-  const height = watch("height") as number | undefined;
+  const length = (watch("length") ?? watch("height")) as number | undefined;
   const quantity = watch("quantity") as string | undefined;
 
-  const canProceed = width && height && width > 0 && height > 0 && quantity && parseInt(quantity) > 0;
+  const updateDimensions = (w: number | undefined, l: number | undefined) => {
+    setValue("width", w, { shouldValidate: true });
+    setValue("length", l, { shouldValidate: true });
+    setValue("height" as any, l, { shouldValidate: false });
+    if (w && l && w > 0 && l > 0) {
+      setValue("dimensions", `${w}m x ${l}m`, { shouldValidate: true });
+    } else {
+      setValue("dimensions", "", { shouldValidate: true });
+    }
+  };
+
+  const canProceed = Boolean(width && length && width > 0 && length > 0 && quantity && parseInt(quantity) > 0);
 
   const handlePreset = (preset: { width: string; height: string }) => {
-    setValue("width", parseFloat(preset.width) as any, { shouldValidate: true });
-    setValue("height", parseFloat(preset.height) as any, { shouldValidate: true });
+    const w = parseFloat(preset.width);
+    const l = parseFloat(preset.height);
+    updateDimensions(w, l);
   };
 
   return (
@@ -63,12 +76,35 @@ export function DimensionsStep({ control, watch, setValue, errors, estimatedArea
       <div className="grid grid-cols-3 gap-2.5 pt-1">
         <div className="space-y-1">
           <label className="font-mono text-[10px] uppercase text-neutral-400 block">ስፋት (m)</label>
-          <input type="number" min="0.01" step="0.01" value={width ?? ""} onChange={(e) => setValue("width", e.target.value ? parseFloat(e.target.value) : undefined, { shouldValidate: true })} placeholder="2" className="w-full h-10 px-3 text-xs font-mono bg-[#0C0D10] text-neutral-100 border border-white/[0.12] rounded-sm focus:outline-none focus:border-[#E5C07B]" />
+          <input
+            type="number"
+            min="0.01"
+            step="0.01"
+            value={width ?? ""}
+            onChange={(e) => {
+              const val = e.target.value ? parseFloat(e.target.value) : undefined;
+              updateDimensions(val, length);
+            }}
+            placeholder="2"
+            className="w-full h-10 px-3 text-xs font-mono bg-[#0C0D10] text-neutral-100 border border-white/[0.12] rounded-sm focus:outline-none focus:border-[#E5C07B]"
+          />
           {errors.width && <p className="text-xs text-rose-400">{errors.width.message}</p>}
         </div>
         <div className="space-y-1">
           <label className="font-mono text-[10px] uppercase text-neutral-400 block">ቁመት (m)</label>
-          <input type="number" min="0.01" step="0.01" value={height ?? ""} onChange={(e) => setValue("height", e.target.value ? parseFloat(e.target.value) : undefined, { shouldValidate: true })} placeholder="3" className="w-full h-10 px-3 text-xs font-mono bg-[#0C0D10] text-neutral-100 border border-white/[0.12] rounded-sm focus:outline-none focus:border-[#E5C07B]" />
+          <input
+            type="number"
+            min="0.01"
+            step="0.01"
+            value={length ?? ""}
+            onChange={(e) => {
+              const val = e.target.value ? parseFloat(e.target.value) : undefined;
+              updateDimensions(width, val);
+            }}
+            placeholder="3"
+            className="w-full h-10 px-3 text-xs font-mono bg-[#0C0D10] text-neutral-100 border border-white/[0.12] rounded-sm focus:outline-none focus:border-[#E5C07B]"
+          />
+          {errors.length && <p className="text-xs text-rose-400">{errors.length.message}</p>}
           {errors.height && <p className="text-xs text-rose-400">{errors.height.message}</p>}
         </div>
         <div className="space-y-1">

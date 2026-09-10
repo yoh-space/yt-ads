@@ -12,40 +12,56 @@ export type WizardStep =
   | "artwork"
   | "review";
 
-const FULL_STEP_ORDER: WizardStep[] = [
-  "welcome",
-  "profile",
-  "account-type",
-  "company-tin",
-  "category",
-  "service",
-  "specifications",
-  "dimensions",
-  "artwork",
-  "review",
-];
+export interface WizardNavigationOptions {
+  accountType?: "individual" | "corporate" | "government";
+  isEdit?: boolean;
+}
 
-export function stepOrder(accountType?: string | null): WizardStep[] {
-  if (accountType === "individual") {
-    return FULL_STEP_ORDER.filter((s) => s !== "company-tin");
+export function getActiveWizardSteps(options?: WizardNavigationOptions): WizardStep[] {
+  const isIndividual = !options?.accountType || options.accountType === "individual";
+  const steps: WizardStep[] = [
+    "welcome",
+    "profile",
+    "account-type",
+    ...(isIndividual ? [] : (["company-tin"] as WizardStep[])),
+    "category",
+    "service",
+    "specifications",
+    "dimensions",
+    "artwork",
+    "review",
+  ];
+  return steps;
+}
+
+export function nextStep(current: WizardStep, options?: WizardNavigationOptions): WizardStep | null {
+  const steps = getActiveWizardSteps(options);
+  const idx = steps.indexOf(current);
+  if (idx === -1) {
+    if (current === "company-tin") return "category";
+    return null;
   }
-  return FULL_STEP_ORDER;
+  return idx < steps.length - 1 ? steps[idx + 1] : null;
 }
 
-export function nextStep(current: WizardStep, accountType?: string | null): WizardStep | null {
-  const order = stepOrder(accountType);
-  const idx = order.indexOf(current);
-  return idx >= 0 && idx < order.length - 1 ? order[idx + 1] : null;
+export function prevStep(current: WizardStep, options?: WizardNavigationOptions): WizardStep | null {
+  const steps = getActiveWizardSteps(options);
+  const idx = steps.indexOf(current);
+  if (idx === -1) {
+    if (current === "company-tin") return "account-type";
+    return null;
+  }
+  return idx > 0 ? steps[idx - 1] : null;
 }
 
-export function prevStep(current: WizardStep, accountType?: string | null): WizardStep | null {
-  const order = stepOrder(accountType);
-  const idx = order.indexOf(current);
-  return idx > 0 ? order[idx - 1] : null;
+export function stepNumber(step: WizardStep, options?: WizardNavigationOptions): number {
+  const steps = getActiveWizardSteps(options);
+  const idx = steps.indexOf(step);
+  return idx >= 0 ? idx + 1 : 1;
 }
 
-export function stepNumber(step: WizardStep, accountType?: string | null): number {
-  return stepOrder(accountType).indexOf(step) + 1;
+export function totalSteps(options?: WizardNavigationOptions): number {
+  return getActiveWizardSteps(options).length;
 }
 
 export function stepLabel(step: WizardStep): string {
