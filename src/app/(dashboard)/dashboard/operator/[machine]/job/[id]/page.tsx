@@ -26,9 +26,13 @@ export default function OperatorJobDetailPage({
   const detail = useQuery(api.operator.jobs.getJob, { machineSlug: machineParam, jobId });
   const completeJob = useMutation(api.operator.jobs.complete);
   const startJob = useMutation(api.operator.jobs.start);
+  const requestMaterial = useMutation(api.materialRequests.create);
   const pauseJob = useMutation(api.operator.jobs.pause);
   const { isPending, safeMutation } = useSafeMutation();
   const [pauseReason, setPauseReason] = useState("");
+  const [startError, setStartError] = useState("");
+  const [requestOpen, setRequestOpen] = useState(false);
+  const [requestQuantity, setRequestQuantity] = useState("");
 
   if (detail === undefined) {
     return (
@@ -38,7 +42,7 @@ export default function OperatorJobDetailPage({
     );
   }
 
-  const { job, requirements } = detail;
+  const { job, requirements, stockAudit } = detail;
   const isCompleted = job.status === "Completed";
   const isInProduction = job.status === "In production";
   const jobDueTimestamp = job.orderDueTimestamp ?? (job.due ? Date.parse(job.due) : NaN);
@@ -125,6 +129,16 @@ export default function OperatorJobDetailPage({
           </div>
         ) : null}
 
+        {!stockAudit.sufficient ? (
+          <div className="rounded-lg border border-amber-500/40 bg-amber-950/20 p-3 text-xs text-amber-100">
+            <p className="font-semibold">Insufficient Stock — Request required materials from the storekeeper before starting production.</p>
+            <div className="mt-2 space-y-1 text-[11px] text-amber-200/80">{stockAudit.missing.map((item: { materialId: string; materialName: string; available: number; required: number; unit: string }) => <p key={item.materialId}>{item.materialName}: {item.available} / {item.required} {item.unit} loaded</p>)}</div>
+            <button type="button" onClick={() => { setRequestOpen((value) => !value); setRequestQuantity(String(Math.max(0, stockAudit.missing[0]?.required - stockAudit.missing[0]?.available))); }} className="mt-3 rounded-md border border-amber-400/40 px-3 py-1.5 text-[11px] font-semibold text-amber-100 hover:bg-amber-900/30">+ Request Material</button>
+            {requestOpen && stockAudit.missing[0] ? <div className="mt-3 flex flex-wrap items-end gap-2 border-t border-amber-500/20 pt-3"><label className="text-[10px] text-amber-100">Quantity<input type="number" min="0.001" step="0.001" value={requestQuantity} onChange={(event) => setRequestQuantity(event.target.value)} className="mt-1 h-8 w-28 rounded border border-amber-500/30 bg-black/20 px-2 text-xs text-white" /></label><button type="button" disabled={isPending(`request-${jobId}`)} onClick={() => { const missing = stockAudit.missing[0]; const requirement = requirements.find((item: any) => item.materialId === missing.materialId); const quantity = Number(requestQuantity); const ratio = requirement?.conversionRatioSnapshot ?? 1; void safeMutation(`request-${jobId}`, requestMaterial({ jobCardId: jobId, materialId: missing.materialId as Id<"materials">, requestedQuantity: quantity, unit: missing.unit as any, requestedPackages: Math.max(0.001, Number((quantity / ratio).toFixed(3))), packageUnit: requirement?.packageUnit ?? "PACKAGE" as any, note: `Required for ${job.code}` }).then(() => { setRequestOpen(false); return true; }), () => toast.success("Material request sent to the storekeeper"), (error) => setStartError(error instanceof Error ? error.message : "Unable to request material")); }} className="h-8 rounded border border-cyan-500/40 bg-cyan-950/30 px-3 text-[11px] font-semibold text-cyan-100 disabled:opacity-50">Send request</button></div> : null}
+          </div>
+        ) : null}
+        {startError ? <div className="rounded-lg border border-rose-500/40 bg-rose-950/20 p-3 text-xs text-rose-200">{startError}</div> : null}
+
         {isCompleted ? (
           <div className="rounded-sm border border-emerald-500/30 bg-emerald-950/20 p-4 text-sm text-emerald-200">
             ይህ የስራ ካርድ ተጠናቅቋል። የተጠናቀቀ ስራ እንደገና አይጠናቀቅም።
@@ -132,7 +146,7 @@ export default function OperatorJobDetailPage({
         ) : (
           <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
             {!isInProduction ? (
-              <button type="button" disabled={isPending(`start-${jobId}`)} onClick={() => void safeMutation(`start-${jobId}`, startJob({ machineSlug: machineParam, jobId }), () => toast.success("Job started"))} className="inline-flex items-center gap-1.5 rounded-sm border border-cyan-500/40 bg-cyan-950/30 px-3.5 py-1.5 text-xs font-semibold text-cyan-200 hover:bg-cyan-900/40 disabled:opacity-50">Start job</button>
+              <button type="button" disabled={isPending(`start-${jobId}`) || !stockAudit.sufficient} onClick={() => { setStartError(""); void safeMutation(`start-${jobId}`, startJob({ machineSlug: machineParam, jobId }), () => toast.success("Job started"), (error) => setStartError(error instanceof Error ? error.message : "Unable to start job")); }} className="inline-flex items-center gap-1.5 rounded-sm border border-cyan-500/40 bg-cyan-950/30 px-3.5 py-1.5 text-xs font-semibold text-cyan-200 hover:bg-cyan-900/40 disabled:cursor-not-allowed disabled:opacity-50">Start job</button>
             ) : null}
             {isInProduction ? (
               <div className="flex items-center gap-2">

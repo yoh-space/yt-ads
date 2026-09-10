@@ -919,8 +919,11 @@ export const previewAutoRouting = query({
       unit: routed.allocation.unit,
       standardWasteMargin: routed.allocation.wasteMarginPercent,
       maxAllowedScrapLimit: routed.allocation.maxScrapLimitPercent,
-      canDispatch: resources.canDispatch,
-      errors: resources.errors,
+      // Reception assigns and queues work even when inventory is empty. The
+      // operator start mutation performs the authoritative machine-stock gate.
+      canDispatch: true,
+      errors: [],
+      stockWarnings: resources.errors,
       materialCheck: resources.material,
       inkCheck: resources.ink,
       breakdown,
@@ -1029,27 +1032,6 @@ export const confirmOrderAndIssueJobCard = mutation({
       allocation = routed.allocation;
     }
 
-    let resources: DispatchResourceCheck | null = null;
-    if (machine && material) {
-      const route = await resolveServiceRoute(ctx, order.serviceType) ?? {
-        serviceType: order.serviceType,
-        materialType: material.category,
-        preferredMaterialName: material.name,
-        machineCapabilities: [],
-        operatorRole: machine.operatorRole,
-      } as MaterialTypeRoute;
-      resources = await validateDispatchResources(ctx, order, {
-        route,
-        machineId: machine._id,
-        machineName: machine.name,
-        materialId: material._id,
-        materialName: material.name,
-        materialType: material.category,
-        allocation,
-      }, config);
-      if (!resources.canDispatch) throw new Error(resources.errors.join(" "));
-    }
-
     // Deterministic scrap & off-cut breakdown — never taken from client input.
     const breakdown = material
       ? resolveMaterialBreakdown(material, order, config)
@@ -1073,24 +1055,6 @@ export const confirmOrderAndIssueJobCard = mutation({
       });
       reservationIds.push(rawRes);
     }
-    if (resources?.ink.required && resources.ink.items.length > 0) {
-      for (const item of resources.ink.items) {
-        if (item.materialId) {
-          const inkRes = await ctx.db.insert("reservations", {
-            orderId: args.orderId,
-            materialId: item.materialId as Id<"materials">,
-            reservedQuantity: item.requiredLitres,
-            unit: "L",
-            inkColor: item.inkColor,
-            status: "RESERVED",
-            createdAt: now,
-            updatedAt: now,
-          });
-          reservationIds.push(inkRes);
-        }
-      }
-    }
-
     // Step 40: Insert jobCards only after reservation succeeds
     const jobId = await ctx.db.insert("jobCards", {
       code,
@@ -1196,98 +1160,9 @@ export const confirmOrderAndIssueJobCard = mutation({
       machineId: machine._id,
       updatedAt: now,
     });
-    if (machine.status !== "Running") await ctx.db.patch(machine._id, { status: "Running", activeJob: code });
-
-    // ── Automated Scrap & Off-Cut registration (deterministic, dispatch-time) ──
-    // (A) Deduct the gross material from inventory/sub-stock ledger.
-    // (B) Register a usable off-cut into `offcuts` when the engine found one.
-    // (C) Write the calculated scrap into `scraps` + a SCRAP_LOG ledger entry.
-    // All values come from `breakdown`, never from client-submitted inputs.
-    if (material && breakdown) {
-      const baseUnit = (material.baseUnit ?? material.unit ?? "m²") as Unit;
-      const isAreaish = breakdown.kind === "roll" || breakdown.kind === "rigid_sheet";
-
-      // (A) Gross material deduction.
-      if (isAreaish && breakdown.grossArea > 0) {
-        await recordInventoryEvent(ctx, {
-          materialId: material._id,
-          eventType: "PRODUCTION_CONSUMPTION",
-          custody: "parent",
-          balanceEffect: "out",
-          quantity: Number(breakdown.grossArea.toFixed(3)),
-          unit: material.unit ?? baseUnit,
-          baseUnit,
-          baseQuantity: Number(breakdown.grossArea.toFixed(3)),
-          conversionRatio: material.conversionRatio && material.conversionRatio > 0 ? material.conversionRatio : undefined,
-          jobCardId: jobId,
-          note: `Automated gross stock deduction (${code} · ${order.dimensions} · ${order.clientName})`,
-          createdBy: identity._id,
-        });
-      }
-
-      // (B) Usable off-cut registration.
-      if (breakdown.usableOffcut && breakdown.usableOffcut.area >= (config.minOffcutAreaSquareMetre ?? DEFAULT_SYSTEM_CONFIG.minOffcutAreaSquareMetre)) {
-        const offcutId = await ctx.db.insert("offcuts", {
-          materialId: material._id,
-          label: `${material.name} offcut`,
-          width: breakdown.usableOffcut.width,
-          length: breakdown.usableOffcut.length,
-          area: Number(breakdown.usableOffcut.area.toFixed(2)),
-          location: "Auto · Side Roll",
-          usable: true,
-          status: "available",
-          createdBy: identity._id,
-          createdAt: new Date().toISOString(),
-          jobCardId: jobId,
-          machineId: machine._id,
-          source: "job_auto",
-        });
-        await recordInventoryEvent(ctx, {
-          materialId: material._id,
-          eventType: "OFFCUT_RETURN",
-          custody: "parent",
-          balanceEffect: "in",
-          quantity: Number(breakdown.usableOffcut.area.toFixed(2)),
-          unit: "m²",
-          baseUnit: "m²",
-          baseQuantity: Number(breakdown.usableOffcut.area.toFixed(2)),
-          jobCardId: jobId,
-          machineId: machine._id,
-          offcutId,
-          note: `Auto-registered usable side off-cut (${code})`,
-          createdBy: identity._id,
-        });
-      }
-
-      // (C) Scrap registration.
-      if (breakdown.totalScrapArea > 0) {
-        await ctx.db.insert("scraps", {
-          materialId: material._id,
-          label: material.name,
-          quantity: Number(breakdown.totalScrapArea.toFixed(3)),
-          unit: "m²" as Unit,
-          reason: `Automated scrap (${code} · net ${order.dimensions} · owner margin included)`,
-          createdBy: identity._id,
-          createdAt: new Date().toISOString(),
-          operatorId: identity._id,
-          machineId: machine._id,
-        });
-        await recordInventoryEvent(ctx, {
-          materialId: material._id,
-          eventType: "SCRAP_LOG",
-          custody: "parent",
-          balanceEffect: "out",
-          quantity: Number(breakdown.totalScrapArea.toFixed(3)),
-          unit: "m²",
-          baseUnit: "m²",
-          baseQuantity: Number(breakdown.totalScrapArea.toFixed(3)),
-          jobCardId: jobId,
-          machineId: machine._id,
-          note: `Auto-registered scrap (${code})`,
-          createdBy: identity._id,
-        });
-      }
-    }
+    // Reception only assigns and queues the work. Inventory consumption,
+    // off-cut registration, and scrap accounting happen during operator
+    // execution/completion after the machine-stock gate succeeds.
 
     await notifyRoles(ctx, [machine.operatorRole, "owner", "manager", "admin"], {
       title: "Paid order issued to production",
