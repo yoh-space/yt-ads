@@ -85,12 +85,12 @@ export const DimensionsSchema = z
   .string()
   .trim()
   .refine(
-    (value) => /^([0-9]+(?:\.[0-9]{1,2})?)\s*m?\s*[x×]\s*([0-9]+(?:\.[0-9]{1,2})?)\s*m?$/i.test(value),
+    (value) => /^([0-9]+(?:\.[0-9]+)?)\s*m?\s*[x×]\s*([0-9]+(?:\.[0-9]+)?)\s*m?$/i.test(value),
     { message: "Dimensions must be in the format WIDTH x HEIGHT (e.g. 2m x 3m)." },
   )
   .refine(
     (value) => {
-      const match = value.match(/^([0-9]+(?:\.[0-9]{1,2})?)\s*m?\s*[x×]\s*([0-9]+(?:\.[0-9]{1,2})?)\s*m?$/i);
+      const match = value.match(/^([0-9]+(?:\.[0-9]+)?)\s*m?\s*[x×]\s*([0-9]+(?:\.[0-9]+)?)\s*m?$/i);
       if (!match) return false;
       const width = Number(match[1]);
       const height = Number(match[2]);

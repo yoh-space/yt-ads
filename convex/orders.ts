@@ -1406,6 +1406,7 @@ export const confirmOrderAndIssueJobCard = mutation({
       length: order.length,
       width: order.width,
       serviceType: order.serviceType,
+      specifications: order.specifications,
       grossDeductedQuantity: breakdown ? Number(breakdown.grossArea.toFixed(3)) : undefined,
       netProductArea: breakdown ? Number(breakdown.netArea.toFixed(3)) : undefined,
       offcutArea: breakdown?.usableOffcut
