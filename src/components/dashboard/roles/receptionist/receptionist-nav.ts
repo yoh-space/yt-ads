@@ -14,6 +14,12 @@ export const receptionistNavItems: WorkspaceNavItem[] = [
     icon: "shoppingCart",
   },
   {
+    href: "/dashboard/receptionist/jobs",
+    label: "Job Cards",
+    english: "የሥራ ካርዶች",
+    icon: "clipboardList",
+  },
+  {
     href: "/dashboard/receptionist/settings",
     label: "Settings",
     english: "ማስተካከያ",
