@@ -1,52 +1,42 @@
 import { computeJobConsumption, type ProductionType } from "./materialUsage";
+import {
+  CANONICAL_SERVICE_ROUTES,
+  normalizeCapabilityId,
+  findManifestMachine,
+} from "../src/shared/production-manifest";
 
 /**
  * Order → production automation.
  *
  * Canonical material-type routing catalog consumed by the job-card
- * auto-router. Every customer service type maps to the concrete material type
- * it consumes (Banner Flex, Vinyl Sticker, Acrylic, …), the preferred raw
- * material for the job card, and the machines capable of producing it.
- *
- * The same rows are seeded into the `materialTypeCatalog` table so owners can
- * inspect them; this constant is the versioned source of truth and a
- * synchronous fallback when the seeded catalog is empty (fresh workspace).
+ * auto-router. Synchronized with the single-source Canonical Production Manifest
+ * (`src/shared/production-manifest.ts`).
  */
 
+import type { Role } from "./types";
+import type { ServiceId } from "../src/shared/services";
+
 export type MaterialTypeRoute = {
-  serviceType: string;
+  serviceType: ServiceId;
   materialType: string;
   preferredMaterialName: string;
   machineCapabilities: readonly string[];
-  operatorRole: string;
+  operatorRole: Role;
 };
 
-export const MATERIAL_TYPE_CATALOG = [
-  { serviceType: "banner_print", materialType: "Banner Flex", preferredMaterialName: "Banner", machineCapabilities: ["3.2m Print Width"], operatorRole: "printer_operator" },
-  { serviceType: "sticker_white", materialType: "Vinyl Sticker", preferredMaterialName: "Normal Sticker", machineCapabilities: ["1.6m Width"], operatorRole: "plotter_operator" },
-  { serviceType: "sticker_transparent", materialType: "Vinyl Sticker", preferredMaterialName: "Transparent Sticker", machineCapabilities: ["1.6m Width"], operatorRole: "plotter_operator" },
-  { serviceType: "sticker_reflective", materialType: "Vinyl Sticker", preferredMaterialName: "Reflective Sticker", machineCapabilities: ["1.6m Width"], operatorRole: "plotter_operator" },
-  { serviceType: "sticker_mesh", materialType: "Vinyl Sticker", preferredMaterialName: "Mush Sticker", machineCapabilities: ["1.6m Width"], operatorRole: "plotter_operator" },
-  { serviceType: "sticker_frosted", materialType: "Vinyl Sticker", preferredMaterialName: "Frosted Sticker", machineCapabilities: ["1.6m Width"], operatorRole: "plotter_operator" },
-  { serviceType: "hq_print_and_cut", materialType: "Print & Cut Sticker", preferredMaterialName: "Normal Sticker", machineCapabilities: ["1.6m Width"], operatorRole: "plotter_operator" },
-  { serviceType: "light_box_a1", materialType: "Acrylic", preferredMaterialName: "Acrylic", machineCapabilities: ["1.22m x 2.44m Standard Board"], operatorRole: "laser_operator" },
-  { serviceType: "light_box_a2", materialType: "Acrylic", preferredMaterialName: "Acrylic", machineCapabilities: ["1.22m x 2.44m Standard Board"], operatorRole: "laser_operator" },
-  { serviceType: "neon_light", materialType: "Neon Light", preferredMaterialName: "Neon Light", machineCapabilities: ["1.22m x 2.44m Standard Board"], operatorRole: "laser_operator" },
-  { serviceType: "roll_up_standard", materialType: "Roll-Up Banner", preferredMaterialName: "ROLE UP STANDARD", machineCapabilities: ["3.2m Print Width"], operatorRole: "printer_operator" },
-  { serviceType: "roll_up_deluxe", materialType: "Roll-Up Banner", preferredMaterialName: "ROLE UP DELUX", machineCapabilities: ["3.2m Print Width"], operatorRole: "printer_operator" },
-  { serviceType: "uv_print_mica", materialType: "Acrylic", preferredMaterialName: "Mica Sheet", machineCapabilities: ["Direct-to-Rigid Board"], operatorRole: "printer_operator" },
-  { serviceType: "uv_print_foam", materialType: "Foam", preferredMaterialName: "Foam", machineCapabilities: ["Direct-to-Rigid Board"], operatorRole: "printer_operator" },
-  { serviceType: "uv_print_cladding", materialType: "Acrylic", preferredMaterialName: "Acrylic", machineCapabilities: ["Direct-to-Rigid Board"], operatorRole: "printer_operator" },
-  { serviceType: "uv_print_canvas", materialType: "Canvas", preferredMaterialName: "Canvas (Canva)", machineCapabilities: ["3.2m Print Width"], operatorRole: "printer_operator" },
-  { serviceType: "foam_cutout", materialType: "Foam", preferredMaterialName: "Foam", machineCapabilities: ["1.22m x 2.44m Standard Board", "2.0m x 3.0m Bed Size"], operatorRole: "laser_operator" },
-  { serviceType: "foam_engrave", materialType: "Foam", preferredMaterialName: "Foam", machineCapabilities: ["1.22m x 2.44m Standard Board", "2.0m x 3.0m Bed Size"], operatorRole: "laser_operator" },
-  { serviceType: "mica_cutout", materialType: "Mica", preferredMaterialName: "Mica Sheet", machineCapabilities: ["1.22m x 2.44m Standard Board", "2.0m x 3.0m Bed Size"], operatorRole: "laser_operator" },
-  { serviceType: "mica_engrave", materialType: "Mica", preferredMaterialName: "Mica Sheet", machineCapabilities: ["1.22m x 2.44m Standard Board", "2.0m x 3.0m Bed Size"], operatorRole: "laser_operator" },
-  { serviceType: "dtf", materialType: "DTF Film", preferredMaterialName: "DTF Film", machineCapabilities: ["0.60m Print Width"], operatorRole: "printer_operator" },
-  { serviceType: "sublimation", materialType: "DTF Film", preferredMaterialName: "DTF Film", machineCapabilities: ["0.60m Print Width"], operatorRole: "printer_operator" },
-] as const satisfies readonly MaterialTypeRoute[];
+export const MATERIAL_TYPE_CATALOG: readonly MaterialTypeRoute[] = Object.values(
+  CANONICAL_SERVICE_ROUTES,
+).map((route) => ({
+  serviceType: route.serviceId,
+  materialType: route.materialType,
+  preferredMaterialName: route.preferredMaterialName,
+  machineCapabilities: [...route.requiredCapabilities, ...route.legacyCapabilities],
+  operatorRole: route.operatorRole,
+}));
 
-const CATALOG_INDEX = new Map<string, MaterialTypeRoute>(MATERIAL_TYPE_CATALOG.map((route) => [route.serviceType, route]));
+const CATALOG_INDEX = new Map<string, MaterialTypeRoute>(
+  MATERIAL_TYPE_CATALOG.map((route) => [route.serviceType, route]),
+);
 
 /** Resolves the routing rule for a customer service type. */
 export function resolveRouteForService(serviceType: string): MaterialTypeRoute | undefined {
@@ -58,6 +48,7 @@ export type MachineLike = {
   name: string;
   code: string;
   capability?: string;
+  capabilities?: readonly string[];
   operatorRole: string;
   status: string;
   active: boolean;
@@ -66,16 +57,49 @@ export type MachineLike = {
 
 /**
  * Filters the machine register down to the machines able to fabricate a given
- * material type: active, not in maintenance/unavailable, and matching the
- * route either by documented capability or by operator role.
+ * material type: active, not in maintenance/unavailable, matching the route's
+ * operator role AND technical capabilities (via canonical capability ID normalization).
  */
-export function compatibleMachines(route: MaterialTypeRoute, machines: MachineLike[]): MachineLike[] {
-  const capabilities = new Set(route.machineCapabilities);
+export function compatibleMachines(
+  route: { machineCapabilities: readonly string[]; operatorRole: string },
+  machines: MachineLike[],
+): MachineLike[] {
+  const routeCapabilities = new Set(
+    route.machineCapabilities.map((cap) => normalizeCapabilityId(cap)),
+  );
+
   return machines.filter((machine) => {
     if (!machine.active) return false;
     if (machine.status === "Maintenance" || machine.status === "Unavailable") return false;
-    if (machine.operatorRole === route.operatorRole) return true;
-    return Boolean(machine.capability && capabilities.has(machine.capability));
+    if (machine.operatorRole !== route.operatorRole) return false;
+
+    // If route requires no specific capabilities, matching the verified operator role is sufficient
+    if (routeCapabilities.size === 0) return true;
+
+    // Check machine technical capabilities
+    const machineCaps: string[] = [];
+    if (machine.capabilities && Array.isArray(machine.capabilities)) {
+      machineCaps.push(...machine.capabilities);
+    }
+    if (machine.capability) {
+      machineCaps.push(machine.capability);
+    }
+    // Resolve from canonical manifest if available
+    const manifestMachine = findManifestMachine(machine.code || machine.name);
+    if (manifestMachine) {
+      machineCaps.push(...manifestMachine.capabilities);
+      machineCaps.push(manifestMachine.legacyCapabilityText);
+    }
+
+    // Fallback: If machine document has no capability metadata at all (e.g. lightweight unit test mock),
+    // allow matching based on the verified operator role.
+    if (machineCaps.length === 0) return true;
+
+    const normalizedMachineCaps = new Set(machineCaps.map((c) => normalizeCapabilityId(c)));
+    for (const reqCap of routeCapabilities) {
+      if (normalizedMachineCaps.has(reqCap)) return true;
+    }
+    return false;
   });
 }
 

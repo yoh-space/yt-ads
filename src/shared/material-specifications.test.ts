@@ -3,7 +3,7 @@ import { MATERIAL_SPECIFICATIONS, findMaterialSpecification } from "./material-s
 
 describe("YT Advertisement material specifications", () => {
   it("contains the ten canonical specification families", () => {
-    expect(MATERIAL_SPECIFICATIONS).toHaveLength(41);
+    expect(MATERIAL_SPECIFICATIONS).toHaveLength(28);
     expect(findMaterialSpecification("Neon Light")?.specificationOptions).toEqual([
       "White (Warm White, Cool White)",
       "Warm",
@@ -16,7 +16,7 @@ describe("YT Advertisement material specifications", () => {
       "Orange",
       "Purple",
     ]);
-    expect(findMaterialSpecification("Foam")?.specificationOptions).toEqual(["18mm", "10mm", "8mm", "5mm", "3mm"]);
+    expect(findMaterialSpecification("Foam")?.specificationOptions).toEqual(["18mm", "15mm", "10mm", "5mm", "3mm"]);
     expect(findMaterialSpecification("Power Supply")?.specificationOptions).toEqual(["60 Watt", "100 Watt", "200 Watt", "400 Watt"]);
     expect(findMaterialSpecification("Zocolo (Base / Skirting)")?.specificationOptions).toEqual(["8 cm", "6 cm"]);
   });

@@ -7,8 +7,10 @@ import { hasPermission, hasAnyPermission, type Permission } from "./authorizatio
 import { notifyUser } from "./notificationHelpers";
 import { verifyTelegramInitData } from "./telegramAuth";
 
+import { CANONICAL_OPERATOR_ROLES } from "../src/shared/production-manifest";
+
 const MANAGEMENT_ROLES: Role[] = ["owner", "manager", "admin"];
-export const OPERATOR_ROLES: Role[] = ["laser_operator", "cnc_operator", "plotter_operator", "printer_operator"];
+export const OPERATOR_ROLES: Role[] = [...CANONICAL_OPERATOR_ROLES];
 
 type AuthIdentity = NonNullable<Awaited<ReturnType<typeof authComponent.safeGetAuthUser>>>;
 
