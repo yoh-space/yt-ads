@@ -27,15 +27,17 @@ export function isOperatorRole(role: Role): boolean {
 
 /**
  * Pure machine-scoping rule shared by every operator handler. A machine matches
- * the URL slug by either type or code, and the caller's operator role must equal
- * the machine's `operatorRole` (the same contract `canAccessMachine` enforces).
- * Throws so handlers fail closed when an operator tries to scope to a machine
- * they are not assigned to.
+ * the URL slug by either type or code, the caller's operator role must equal
+ * the machine's `operatorRole` (the same contract `canAccessMachine` enforces),
+ * and — when the profile carries an explicit `assignedMachineIds` scope — the
+ * machine must be within that per-user assignment. Throws so handlers fail
+ * closed when an operator tries to scope to a machine they are not assigned to.
  */
 export function resolveMachineForRole(
   machines: ReadonlyArray<OperatorMachine>,
   machineSlug: string,
   role: Role,
+  assignedMachineIds?: ReadonlyArray<string>,
 ): OperatorMachine {
   const normalized = machineSlug.toLowerCase();
   const machine = machines.find(
@@ -47,6 +49,9 @@ export function resolveMachineForRole(
   if (machine.operatorRole !== role) {
     throw new Error("This machine is not assigned to your operator role.");
   }
+  if (assignedMachineIds?.length && !assignedMachineIds.includes(machine._id)) {
+    throw new Error("This machine is outside your assigned machine scope.");
+  }
   return machine;
 }
 
@@ -54,14 +59,14 @@ type OperatorScope = Awaited<ReturnType<typeof requireOperator>> & { machine: Op
 
 /**
  * Operator namespace scope guard: requires one of the production operator roles
- * and resolves the `machineSlug` from the operator's own role. All operator
- * queries and mutations go through this so reads are machine-scoped, never
- * broad queries filtered client-side.
+ * and resolves the `machineSlug` from the operator's own role and per-user
+ * machine assignment. All operator queries and mutations go through this so
+ * reads are machine-scoped, never broad queries filtered client-side.
  */
 export async function resolveOperatorMachine(ctx: QueryCtx, machineSlug: string): Promise<OperatorScope> {
   const { identity, profile } = await requireOperator(ctx);
   const machines = await ctx.db.query("machines").collect();
-  const machine = resolveMachineForRole(machines, machineSlug, profile.role);
+  const machine = resolveMachineForRole(machines, machineSlug, profile.role, profile.assignedMachineIds);
   return { identity, profile, machine };
 }
 

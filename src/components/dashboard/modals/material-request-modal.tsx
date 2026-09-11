@@ -3,19 +3,20 @@
 import { useMemo, useState } from "react";
 import { AlertTriangle, BriefcaseBusiness, CheckCircle2, ClipboardPlus, FileText, Package, Plus, Ruler, Trash2 } from "lucide-react";
 import type { JobCard, Material, PackageUnit, Unit } from "@/lib/operations-types";
+import type { Id } from "@/convex/_generated/dataModel";
 import { formatQuantity } from "@/lib/units";
 import { ModalShell } from "./modal-shell";
 import { Button, NumericInput } from "@/components/shared/ui";
 
 export type NewMaterialRequestInput = {
-  jobCardId: string;
-  materialId: string;
+  jobCardId: Id<"jobCards">;
+  materialId: Id<"materials">;
   requestedQuantity: number;
   unit: Unit;
-  requestedPackages?: number;
+  requestedPackages: number;
   packageUnit?: PackageUnit;
   lines?: Array<{
-    materialId: string;
+    materialId: Id<"materials">;
     requestedPackages: number;
     packageUnit: PackageUnit;
     requestedQuantity: number;
@@ -94,7 +95,7 @@ export function MaterialRequestModal({
               const packages = Number(line.packages);
               const ratio = material?.conversionRatio && material.conversionRatio > 0 ? material.conversionRatio : 1;
               return material && Number.isFinite(packages) && packages > 0 ? {
-                materialId: material.id,
+                materialId: material.id as Id<"materials">,
                 requestedPackages: packages,
                 packageUnit: packageUnitFor(material),
                 requestedQuantity: Number((packages * ratio).toFixed(3)),
@@ -104,7 +105,7 @@ export function MaterialRequestModal({
             if (requestLines.length !== lines.length) return;
             const first = requestLines[0];
             onSave({
-              jobCardId: selectedJob.id,
+              jobCardId: selectedJob.id as Id<"jobCards">,
               materialId: first.materialId,
               requestedQuantity: first.requestedQuantity,
               unit: first.unit,

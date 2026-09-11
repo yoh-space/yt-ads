@@ -140,7 +140,6 @@ export function InventoryManagementInterface({ initialView }: { initialView: Inv
   const isActive = profile?.active === true;
   const canViewMain = Boolean(profile && ["owner", "manager", "admin", "storekeeper"].includes(profile.role));
   const isOperator = Boolean(profile && OPERATOR_ROLES.includes(profile.role));
-  const canRequest = isOperator && profile?.active === true;
   const canReconcile = isOperator && profile?.active === true;
   const { openModal } = useDashboardModal();
   const exhaustStock = useMutation(api.inventory.exhaustOperatorStock);
@@ -151,7 +150,6 @@ export function InventoryManagementInterface({ initialView }: { initialView: Inv
 
   const parentInventory = useQuery(api.inventory.listParentInventory, canViewMain && isActive ? {} : "skip");
   const floorStock = useQuery(api.inventory.listOperatorMachineStock, isActive ? {} : "skip");
-  const unclearedStock = useQuery(api.inventory.myUnclearedStock, isActive ? {} : "skip");
   const items = parentInventory ?? [];
   const stock = floorStock ?? [];
 
@@ -327,7 +325,7 @@ export function InventoryManagementInterface({ initialView }: { initialView: Inv
             <KpiCard label="Pending Clearances" value={pendingClearances.toString()} unit="UNVERIFIED LOGS" detail={pendingClearances > 0 ? "Reconciliation action required" : "No pending verification"} icon={CircleAlert} tone={pendingClearances > 0 ? "warning" : "success"} />
           </div>
 
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><div className="flex items-center gap-2 text-brand-primary-light"><Factory size={15} /><span className="font-mono text-[10px] font-bold uppercase tracking-[0.18em]">Tier 2 Production Floor</span></div><h2 className="mt-2 text-xl font-extrabold text-text-primary">የማሽን ኦፕሬተር ስቶክ (Machine Floor Stock)</h2><p className="mt-1 text-sm text-text-secondary">Live material custody at each production workstation.</p></div>{canRequest ? <button type="button" disabled={(unclearedStock ?? []).length > 0} onClick={() => openModal("request")} className="inline-flex items-center justify-center gap-2 rounded-xl border border-brand-primary/40 bg-brand-primary-bg px-4 py-2.5 text-xs font-bold text-brand-primary-light transition hover:bg-brand-primary/20 disabled:cursor-not-allowed disabled:opacity-40"><Plus size={14} /> አዲስ ቀለም መድብ</button> : null}</div>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><div className="flex items-center gap-2 text-brand-primary-light"><Factory size={15} /><span className="font-mono text-[10px] font-bold uppercase tracking-[0.18em]">Tier 2 Production Floor</span></div><h2 className="mt-2 text-xl font-extrabold text-text-primary">የማሽን ኦፕሬተር ስቶክ (Machine Floor Stock)</h2><p className="mt-1 text-sm text-text-secondary">Live material custody at each production workstation.</p></div></div>
 
           <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
             {machineCards.map((card) => {

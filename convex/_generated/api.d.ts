@@ -49,6 +49,7 @@ import type * as operator_machines from "../operator/machines.js";
 import type * as operator_offcuts from "../operator/offcuts.js";
 import type * as operator_overview from "../operator/overview.js";
 import type * as operator_reconciliation from "../operator/reconciliation.js";
+import type * as operator_requests from "../operator/requests.js";
 import type * as orderAutomation from "../orderAutomation.js";
 import type * as orderDetails from "../orderDetails.js";
 import type * as orders from "../orders.js";
@@ -135,6 +136,7 @@ declare const fullApi: ApiFromModules<{
   "operator/offcuts": typeof operator_offcuts;
   "operator/overview": typeof operator_overview;
   "operator/reconciliation": typeof operator_reconciliation;
+  "operator/requests": typeof operator_requests;
   orderAutomation: typeof orderAutomation;
   orderDetails: typeof orderDetails;
   orders: typeof orders;

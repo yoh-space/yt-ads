@@ -31,6 +31,12 @@ export function operatorNavItems(machineSlug: string): WorkspaceNavItem[] {
       icon: "boxes",
     },
     {
+      href: `${base}/requests`,
+      label: "Requests",
+      english: "የዕቃ ጥያቄዎች",
+      icon: "inbox",
+    },
+    {
       href: `${base}/reconciliation`,
       label: "Reconciliation",
       english: "ማስታረቅ",

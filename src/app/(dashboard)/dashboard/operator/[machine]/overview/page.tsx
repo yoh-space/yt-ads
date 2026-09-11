@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -17,6 +17,7 @@ import {
 import { InventoryLoader } from "@/components/dashboard/widgets/inventory-loader";
 import { useSafeMutation } from "@/utils/pending-store";
 import { useDashboardModal } from "@/components/dashboard/modals/modal-context";
+import { MaterialRequestModal } from "@/components/dashboard/modals/material-request-modal";
 import { MachineFluidGauge } from "@/components/dashboard/roles/operator/machine-fluid-gauge";
 import { NumericInput, StatusPill } from "@/components/shared/ui";
 import { formatQuantity } from "@/lib/units";
@@ -24,6 +25,7 @@ import { OperatorStockWidget } from "@/components/dashboard/roles/operator/opera
 import type { OperatorStockEntry } from "@/types/dashboard-types";
 import type { AccessContext } from "@/lib/access-policy";
 import { WorkspaceModuleGate } from "@/components/dashboard/shell/workspace-renderer";
+import type { JobCard, Material } from "@/lib/operations-types";
 
 type WithId<T extends { _id: string }> = Omit<T, "_id"> & { id: T["_id"] };
 
@@ -45,19 +47,22 @@ export default function OperatorMachineOverview({
 
   const profile = useQuery(api.users.getCurrentProfile);
   const overview = useQuery(api.operator.overview.getMachineOverview, { machineSlug: machineParam });
+  const materials = useQuery(api.materials.list);
 
   const { openModal, setFloorMachineId, setFloorSubStockId } = useDashboardModal();
   const { isPending, safeMutation } = useSafeMutation();
 
   const completeJobMutation = useMutation(api.operator.jobs.complete);
   const recordProductionMutation = useMutation(api.jobs.recordProduction);
+  const createRequest = useMutation(api.operator.requests.create);
 
+  const [requestOpen, setRequestOpen] = useState(false);
   const [inputQuantity, setInputQuantity] = useState("");
   const [outputQuantity, setOutputQuantity] = useState("");
   const [wasteQuantity, setWasteQuantity] = useState("");
   const [productionInputsValid, setProductionInputsValid] = useState({ input: true, output: true, waste: true });
 
-  if (!profile || overview === undefined) {
+  if (!profile || overview === undefined || materials === undefined) {
     return (
       <div className="flex min-h-[400px] items-center justify-center">
         <InventoryLoader label={`የ${machineParam.toUpperCase()} ኦፕሬተር ገጽ በመጫን ላይ…`} />
@@ -71,6 +76,31 @@ export default function OperatorMachineOverview({
   const jobRequirements = overview.jobRequirements;
   const floorStock = overview.floorStock as OperatorStockEntry[];
   const hasPendingClearance = overview.pendingClearance;
+
+  const jobOptions = useMemo(
+    () => machineJobs as unknown as JobCard[],
+    [machineJobs],
+  );
+
+  const materialOptions = useMemo(
+    () => (materials ? materials.map((material) => ({ ...material, id: material._id })) as Material[] : []),
+    [materials],
+  );
+
+  const unclearedStock = useMemo(
+    () =>
+      floorStock
+        .filter((batch) => batch.status === "ACTIVE" || batch.status === "PENDING_CLEARANCE")
+        .map((batch) => ({
+          id: batch._id,
+          status: batch.status as "ACTIVE" | "PENDING_CLEARANCE",
+          materialName: batch.materialName,
+          machineName: batch.machineName ?? currentMachine?.name ?? "Floor stock",
+          currentRemaining: batch.currentRemaining,
+          baseUnit: batch.baseUnit,
+        })),
+    [floorStock, currentMachine],
+  );
 
   const isCompletedJob = displayedJob?.status === "Completed";
 
@@ -203,7 +233,7 @@ export default function OperatorMachineOverview({
               disabled={hasPendingClearance}
               onClick={() => {
                 if (currentMachine) setFloorMachineId(currentMachine.id);
-                openModal("request");
+                setRequestOpen(true);
               }}
               title={
                 hasPendingClearance
@@ -511,6 +541,25 @@ export default function OperatorMachineOverview({
           ) : null}
         </div>
       </div>
+
+      {requestOpen ? (
+        <MaterialRequestModal
+          jobs={jobOptions}
+          materials={materialOptions}
+          unclearedStock={unclearedStock}
+          onClose={() => setRequestOpen(false)}
+          onSave={(input) => {
+            void safeMutation(
+              `create-${Date.now()}`,
+              createRequest({ machineSlug: machineParam, ...input }),
+              () => {
+                setRequestOpen(false);
+                toast.success("Material request sent to the storekeeper");
+              },
+            );
+          }}
+        />
+      ) : null}
     </div>
     </WorkspaceModuleGate>
   );

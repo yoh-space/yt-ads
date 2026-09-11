@@ -25,7 +25,6 @@ export type Modal =
   | "scrap"
   | "material"
   | "machine"
-  | "request"
   | "exception"
   | "order"
   | "reconciliation"

@@ -1,12 +1,17 @@
-import { mutation, query } from "./_generated/server";
+import { mutation, query, type MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
+import type { Infer } from "convex/values";
 import { packageUnit, unit } from "./schema";
-import { requireActiveProfile, requirePermission } from "./users";
+import { requireActiveProfile, requirePermission, OPERATOR_ROLES } from "./users";
 import { canAccessMaterialRequest } from "./authorization";
 import { notifyRoles, notifyUser } from "./notificationHelpers";
 import { recordInventoryEvent } from "./inventoryLedger";
 import { requireNoUnresolvedShortage } from "./reconciliation";
 import type { Id } from "./_generated/dataModel";
+import type { Role } from "./types";
+
+type Unit = Infer<typeof unit>;
+type PackageUnit = Infer<typeof packageUnit>;
 
 export const list = query({
   args: {},
@@ -82,119 +87,169 @@ export const markShortStock = mutation({
   },
 });
 
+const createMaterialRequestArgs = {
+  jobCardId: v.id("jobCards"),
+  materialId: v.id("materials"),
+  requestedQuantity: v.number(),
+  unit,
+  note: v.optional(v.string()),
+  packageUnit: v.optional(packageUnit),
+  requestedPackages: v.number(),
+  lines: v.optional(
+    v.array(
+      v.object({
+        materialId: v.id("materials"),
+        requestedQuantity: v.number(),
+        unit,
+        requestedPackages: v.number(),
+        packageUnit,
+      }),
+    ),
+  ),
+};
+
+type CreateMaterialRequestArgs = {
+  jobCardId: Id<"jobCards">;
+  materialId: Id<"materials">;
+  requestedQuantity: number;
+  unit: Unit;
+  note?: string;
+  packageUnit?: PackageUnit;
+  requestedPackages: number;
+  lines?: Array<{
+    materialId: Id<"materials">;
+    requestedQuantity: number;
+    unit: Unit;
+    requestedPackages: number;
+    packageUnit: PackageUnit;
+  }>;
+};
+
+/**
+ * Shared transaction that validates and persists a material request. Operators
+ * reach it through the generic `create` mutation or the machine-scoped
+ * `operator.requests.create` surface. When `scopeMachineId` is supplied the job
+ * is locked to that machine; otherwise the job's own machine operator role must
+ * equal the caller's role (attribute isolation), so an operator can never open
+ * a request against another role's job card.
+ */
+export async function createMaterialRequestInternal(
+  ctx: MutationCtx,
+  identity: { _id: string },
+  profile: { role: Role },
+  args: CreateMaterialRequestArgs,
+  scopeMachineId?: string,
+) {
+  if (!OPERATOR_ROLES.includes(profile.role)) {
+    throw new Error("Only machine operators can request materials for active production tasks.");
+  }
+  if (!Number.isFinite(args.requestedQuantity) || args.requestedQuantity <= 0) {
+    throw new Error("Requested quantity must be greater than zero.");
+  }
+  const unclearedBatches = await ctx.db
+    .query("operatorSubStock")
+    .withIndex("by_operator", (q) => q.eq("operatorId", identity._id))
+    .filter((q) => q.or(q.eq(q.field("status"), "ACTIVE"), q.eq(q.field("status"), "PENDING_CLEARANCE")))
+    .collect();
+  if (unclearedBatches.length > 0) {
+    throw new Error("Cannot request new materials until previous stock cycle clearance is approved by Owner.");
+  }
+  const [job, material] = await Promise.all([
+    ctx.db.get(args.jobCardId),
+    ctx.db.get(args.materialId),
+  ]);
+  if (!job || job.status === "Completed") throw new Error("An active job is required for a material request.");
+  if (!material || !material.active) throw new Error("Active material not found.");
+  const scopeMachine =
+    scopeMachineId !== undefined ? await ctx.db.get(scopeMachineId as Id<"machines">) : await ctx.db.get(job.machineId);
+  if (!scopeMachine) throw new Error("The job's machine is unavailable.");
+  if (job.machineId !== scopeMachine._id) {
+    throw new Error("This job is not assigned to your machine.");
+  }
+  if (scopeMachine.operatorRole !== profile.role) {
+    throw new Error("This job belongs to a different operator role.");
+  }
+
+  const requestLines: CreateMaterialRequestArgs["lines"] = args.lines?.length ? args.lines : [{
+    materialId: args.materialId,
+    requestedQuantity: args.requestedQuantity,
+    unit: args.unit,
+    requestedPackages: args.requestedPackages,
+    packageUnit: args.packageUnit ?? "PACKAGE",
+  }];
+  if (requestLines.some((line) => !Number.isFinite(line.requestedQuantity) || line.requestedQuantity <= 0)) {
+    throw new Error("Each material line must contain a positive converted quantity.");
+  }
+  if (requestLines.some((line) => !Number.isFinite(line.requestedPackages) || line.requestedPackages <= 0)) {
+    throw new Error("Each material line must contain a positive package quantity.");
+  }
+  const requirements = await ctx.db
+    .query("jobMaterialRequirements")
+    .withIndex("by_job_card", (q) => q.eq("jobCardId", args.jobCardId))
+    .collect();
+  const allowedMaterials = new Set([job.materialId, ...requirements.map((requirement) => requirement.materialId)]);
+  if (requestLines.some((line) => !allowedMaterials.has(line.materialId))) {
+    throw new Error("The requested material and unit must match the job card.");
+  }
+  for (const line of requestLines) {
+    await requireNoUnresolvedShortage(ctx, line.materialId);
+  }
+  const requestGroupId = `${identity._id}-${Date.now()}`;
+  let firstId: Id<"materialRequests"> | undefined;
+  for (const line of requestLines) {
+    const lineMaterial = line.materialId === material._id ? material : await ctx.db.get(line.materialId);
+    if (!lineMaterial || !lineMaterial.active) throw new Error("Every requested material must be active.");
+    if (line.unit !== (lineMaterial.baseUnit ?? lineMaterial.unit)) throw new Error("Requested unit must match the material base unit.");
+    const id = await ctx.db.insert("materialRequests", {
+      jobCardId: args.jobCardId,
+      materialId: line.materialId,
+      requestedQuantity: Number(line.requestedQuantity.toFixed(3)),
+      issuedQuantity: 0,
+      unit: line.unit,
+      status: "Requested",
+      requestedBy: identity._id,
+      requestedAt: Date.now(),
+      note: args.note?.trim() || undefined,
+      requestGroupId,
+      packageUnit: line.packageUnit,
+      requestedPackages: line.requestedPackages,
+      conversionRatioSnapshot: lineMaterial.conversionRatio ?? 1,
+      issuedPackages: 0,
+    });
+    firstId ??= id;
+    await ctx.db.insert("materialRequestLines", {
+      requestGroupId,
+      jobCardId: args.jobCardId,
+      materialId: line.materialId,
+      packageUnit: line.packageUnit,
+      requestedPackages: line.requestedPackages,
+      issuedPackages: 0,
+      baseUnit: line.unit,
+      requestedBaseQuantity: Number(line.requestedQuantity.toFixed(3)),
+      issuedBaseQuantity: 0,
+      conversionRatioSnapshot: lineMaterial.conversionRatio ?? 1,
+      status: "Requested",
+      note: args.note?.trim() || undefined,
+      requestedBy: identity._id,
+      requestedAt: Date.now(),
+    });
+  }
+  await notifyRoles(ctx, ["owner", "manager", "admin", "storekeeper"], {
+    title: "New material request",
+    message: `${requestLines.length} material line(s) requested for ${job.code}.`,
+    type: "material_request",
+    actorAuthUserId: identity._id,
+    relatedTable: "materialRequests",
+    relatedId: firstId,
+  });
+  return (await ctx.db.get(firstId!))!;
+}
+
 export const create = mutation({
-  args: {
-    jobCardId: v.id("jobCards"),
-    materialId: v.id("materials"),
-    requestedQuantity: v.number(),
-    unit,
-    note: v.optional(v.string()),
-    packageUnit: v.optional(packageUnit),
-    requestedPackages: v.optional(v.number()),
-    lines: v.optional(v.array(v.object({
-      materialId: v.id("materials"),
-      requestedQuantity: v.number(),
-      unit,
-      requestedPackages: v.number(),
-      packageUnit,
-    }))),
-  },
+  args: createMaterialRequestArgs,
   handler: async (ctx, args) => {
     const { identity, profile } = await requirePermission(ctx, "request.create");
-    const OPERATOR_ROLES: string[] = ["laser_operator", "cnc_operator", "plotter_operator", "printer_operator"];
-    if (!OPERATOR_ROLES.includes(profile.role)) {
-      throw new Error("Only machine operators can request materials for active production tasks.");
-    }
-    if (!Number.isFinite(args.requestedQuantity) || args.requestedQuantity <= 0) {
-      throw new Error("Requested quantity must be greater than zero.");
-    }
-    if (args.requestedPackages !== undefined && (!Number.isFinite(args.requestedPackages) || args.requestedPackages <= 0)) {
-      throw new Error("Requested package quantity must be greater than zero.");
-    }
-    const unclearedBatches = await ctx.db
-      .query("operatorSubStock")
-      .withIndex("by_operator", (q) => q.eq("operatorId", identity._id))
-      .filter((q) => q.or(q.eq(q.field("status"), "ACTIVE"), q.eq(q.field("status"), "PENDING_CLEARANCE")))
-      .collect();
-    if (unclearedBatches.length > 0) {
-      throw new Error("Cannot request new materials until previous stock cycle clearance is approved by Owner.");
-    }
-    const [job, material] = await Promise.all([
-      ctx.db.get(args.jobCardId),
-      ctx.db.get(args.materialId),
-    ]);
-    if (!job || job.status === "Completed") throw new Error("An active job is required for a material request.");
-    if (!material || !material.active) throw new Error("Active material not found.");
-    const requestLines = args.lines?.length ? args.lines : [{
-      materialId: args.materialId,
-      requestedQuantity: args.requestedQuantity,
-      unit: args.unit,
-      requestedPackages: args.requestedPackages ?? 0,
-      packageUnit: args.packageUnit ?? "PACKAGE" as const,
-    }];
-    if (requestLines.some((line) => !Number.isFinite(line.requestedQuantity) || line.requestedQuantity <= 0 || !Number.isFinite(line.requestedPackages) || line.requestedPackages <= 0)) {
-      throw new Error("Each material line must contain positive package and converted quantities.");
-    }
-    const requirements = await ctx.db
-      .query("jobMaterialRequirements")
-      .withIndex("by_job_card", (q) => q.eq("jobCardId", args.jobCardId))
-      .collect();
-    const allowedMaterials = new Set([job.materialId, ...requirements.map((requirement) => requirement.materialId)]);
-    if (requestLines.some((line) => !allowedMaterials.has(line.materialId))) {
-      throw new Error("The requested material and unit must match the job card.");
-    }
-    for (const line of requestLines) {
-      await requireNoUnresolvedShortage(ctx, line.materialId);
-    }
-    const requestGroupId = `${identity._id}-${Date.now()}`;
-    let firstId: Id<"materialRequests"> | undefined;
-    for (const line of requestLines) {
-      const lineMaterial = line.materialId === material._id ? material : await ctx.db.get(line.materialId);
-      if (!lineMaterial || !lineMaterial.active) throw new Error("Every requested material must be active.");
-      if (line.unit !== (lineMaterial.baseUnit ?? lineMaterial.unit)) throw new Error("Requested unit must match the material base unit.");
-      const id = await ctx.db.insert("materialRequests", {
-        jobCardId: args.jobCardId,
-        materialId: line.materialId,
-        requestedQuantity: Number(line.requestedQuantity.toFixed(3)),
-        issuedQuantity: 0,
-        unit: line.unit,
-        status: "Requested",
-        requestedBy: identity._id,
-        requestedAt: Date.now(),
-        note: args.note?.trim() || undefined,
-        requestGroupId,
-        packageUnit: line.packageUnit,
-        requestedPackages: line.requestedPackages,
-        conversionRatioSnapshot: lineMaterial.conversionRatio ?? 1,
-        issuedPackages: 0,
-      });
-      firstId ??= id;
-      await ctx.db.insert("materialRequestLines", {
-        requestGroupId,
-        jobCardId: args.jobCardId,
-        materialId: line.materialId,
-        packageUnit: line.packageUnit,
-        requestedPackages: line.requestedPackages,
-        issuedPackages: 0,
-        baseUnit: line.unit,
-        requestedBaseQuantity: Number(line.requestedQuantity.toFixed(3)),
-        issuedBaseQuantity: 0,
-        conversionRatioSnapshot: lineMaterial.conversionRatio ?? 1,
-        status: "Requested",
-        note: args.note?.trim() || undefined,
-        requestedBy: identity._id,
-        requestedAt: Date.now(),
-      });
-    }
-    await notifyRoles(ctx, ["owner", "manager", "admin", "storekeeper"], {
-      title: "New material request",
-      message: `${requestLines.length} material line(s) requested for ${job.code}.`,
-      type: "material_request",
-      actorAuthUserId: identity._id,
-      relatedTable: "materialRequests",
-      relatedId: firstId,
-    });
-    return (await ctx.db.get(firstId!))!;
+    return await createMaterialRequestInternal(ctx, identity, profile, args);
   },
 });
 
@@ -264,11 +319,18 @@ export async function issueMaterialRequestInternal(
       ? parentInventory.areaPerSheet
       : parentInventory.volumePerContainer ?? 1;
   if (!packageFactor || packageFactor <= 0) throw new Error("Central package conversion factor is not configured.");
-  const expectedBaseQuantity = Number((packageQuantity * packageFactor).toFixed(3));
+  // Prefer the conversion ratio captured when the request was created so partial
+  // issues and the ledger stay consistent with what the operator was quoted;
+  // fall back to the current package factor only for legacy requests without a
+  // snapshot. Otherwise a ratio change between request and issue would drift the
+  // package-to-base derivation.
+  const conversionRatio = request.conversionRatioSnapshot && request.conversionRatioSnapshot > 0
+    ? request.conversionRatioSnapshot
+    : packageFactor;
+  const expectedBaseQuantity = Number((packageQuantity * conversionRatio).toFixed(3));
   if (Math.abs(expectedBaseQuantity - args.issuedQuantity) > 0.001) {
     throw new Error(`Issued quantity must equal ${expectedBaseQuantity} ${request.unit} for ${packageQuantity} package(s).`);
   }
-  const conversionRatio = packageFactor;
   const ledgerPackageUnit = requestedPackageUnit === "ROLL"
     ? "ROLL"
     : requestedPackageUnit === "SHEET"
