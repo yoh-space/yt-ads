@@ -20,7 +20,7 @@ import { recordInventoryEvent } from "./inventoryLedger";
 import { verifyTelegramInitData } from "./telegramAuth";
 import { loadActiveBomForService, resolveServiceRoute, resolveInkRequirements, resolveJobBOM } from "./bomResolver";
 import { calculateOffCutAndScrap, type OffCutScrapResult } from "../src/shared/material-calc";
-import { assertPaymentAmount, paymentBreakdown, snapshotPaymentInstructions } from "./payment";
+import { assertPaymentAmount, paymentBreakdown, snapshotPaymentInstructions, type PaymentInstructions } from "./payment";
 import { validateServiceSpecifications } from "../src/shared/service-specifications";
 import { resolveRollSubstrate, type RollResolution } from "../src/shared/roll-width";
 import { normalizePhone as normalizePhoneUtil } from "../src/shared/phone-normalization";
@@ -195,18 +195,88 @@ const CUSTOMER_PUSH_STATUSES = new Set([
   "READY_FOR_PICKUP",
 ]);
 
+export interface CustomerStatusOrder {
+  code: string;
+  status: string;
+  amount?: number;
+  telegramChatId?: string;
+  paymentStatus?: string;
+  advanceDueAmount?: number;
+  advancePaidAmount?: number;
+  remainingDueAmount?: number;
+  paymentInstructionsSnapshot?: PaymentInstructions;
+}
+
+/**
+ * Builds the customer-facing Telegram status message for a given order state.
+ * Pure and exported so the exact copy (amounts, half-payment, account numbers)
+ * can be asserted in tests without a Convex context.
+ */
+export function buildCustomerStatusMessage(order: CustomerStatusOrder, tracking = ""): string {
+  if (order.status === "PRICED_AND_PENDING_PAYMENT") {
+    const paymentAccounts = order.paymentInstructionsSnapshot?.accounts ?? [];
+    return (
+      `💰 <b>የትዕዛዝ ዋጋ ተቀምጧል</b>\n\n` +
+      `• የትዕዛዝ መለያ: <code>${order.code}</code>\n` +
+      (order.amount !== undefined
+        ? `• ጠቅላላ ዋጋ: <b>${order.amount.toFixed(2)} ብር</b>\n`
+        : "") +
+      (order.advanceDueAmount !== undefined
+        ? `• የመጀመሪያ ክፍያ (50%): <b>${order.advanceDueAmount.toFixed(2)} ብር</b>\n`
+        : "") +
+      (order.remainingDueAmount !== undefined
+        ? `• ቀሪ ክፍያ: <b>${order.remainingDueAmount.toFixed(2)} ብር</b>\n`
+        : "") +
+      (paymentAccounts.length
+        ? `\n<b>የክፍያ መረጃ</b>\n${paymentAccounts.map((account) => `• ${account.label}: <code>${account.identifier}</code> (${account.name})`).join("\n")}\n`
+        : "") +
+      `\nእባክዎ ክፍያዎን ያረጋግጡ ወይም ወደ ሪሴፕሽን ይላኩ።${tracking}`
+    );
+  }
+  if (order.status === "JOB_CARD_CREATED") {
+    const paymentLine =
+      order.paymentStatus === "APPROVED_CREDIT" || order.paymentStatus === "APPROVED"
+        ? "ብዕር ደንበኛ ተገድዷል 📒 (APPROVED_CREDIT)"
+        : "ተከፍሏል ✅ (PAID)";
+    return (
+      `✅ <b>የእርስዎ ትዕዛዝ ተረጋግጧል!</b>\n\n` +
+      `• የትዕዛዝ መለያ: <code>${order.code}</code>\n` +
+      (order.amount !== undefined
+        ? `• ጠቅላላ ዋጋ: <b>${order.amount.toFixed(2)} ብር</b>\n`
+        : "") +
+      `• ክፍያ: ${paymentLine}\n` +
+      `ስራው አሁን ወደ ምርት ሂደት ገብቷል።${tracking}`
+    );
+  }
+  if (order.status === "IN_PRODUCTION") {
+    return (
+      `🖨️ <b>ህትመት ተጀምሯል</b>\n\n` +
+      `• የትዕዛዝ መለያ: <code>${order.code}</code>\n` +
+      `ስራው የማተራተር/የህትመት ሂደት ላይ ይገኛል።${tracking}`
+    );
+  }
+  if (order.status === "COMPLETED") {
+    return (
+      `🎉 <b>ስራው ተጠናቋል!</b>\n\n` +
+      `• የትዕዛዝ መለያ: <code>${order.code}</code>\n` +
+      `የመጨረሻ ማጠናቀቂያ ተከናውኗል። ሲዘጋጅ የመረከቢያ ማሳወቂያ ይደርስዎታል።${tracking}`
+    );
+  }
+  if (order.status === "READY_FOR_PICKUP") {
+    return (
+      `📦 <b>ትዕዛዝዎ ለመረከብ ዝግጁ ነው!</b>\n\n` +
+      `• የትዕዛዝ መለያ: <code>${order.code}</code>\n` +
+      (order.amount !== undefined ? `• ጠቅላላ: <b>${order.amount.toFixed(2)} ብር</b>\n• የተከፈለ: <b>${(order.advancePaidAmount ?? 0).toFixed(2)} ብር</b>\n• ቀሪ: <b>${(order.remainingDueAmount ?? 0).toFixed(2)} ብር</b>\n` : "") +
+      (order.paymentInstructionsSnapshot?.accounts.length ? `\n<b>የክፍያ መረጃ</b>\n${order.paymentInstructionsSnapshot.accounts.map((account) => `• ${account.label}: <code>${account.identifier}</code> (${account.name})`).join("\n")}\n` : "") +
+      `\nእባክዎ ቀሪውን ክፍያ በሪሴፕሽን ይክፈሉ ወይም በባንክ ያስተላልፉ።${tracking}`
+    );
+  }
+  return "";
+}
+
 async function pushCustomerOrderStatus(
   ctx: { scheduler: { runAfter: (delay: number, fn: any, args: any) => Promise<unknown> } },
-  order: {
-    code: string;
-    status: string;
-    amount?: number;
-    telegramChatId?: string;
-    paymentStatus?: string;
-    advancePaidAmount?: number;
-    remainingDueAmount?: number;
-    paymentInstructionsSnapshot?: { accounts: Array<{ label: string; channel: string; name: string; identifier: string }> };
-  },
+  order: CustomerStatusOrder,
   previousStatus: string,
 ) {
   if (!order.telegramChatId) return;
@@ -216,50 +286,7 @@ async function pushCustomerOrderStatus(
   const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
   const tracking = appUrl ? `\n\n📍 የትዕዛዝ ክትትል፦ ${appUrl}/track` : "";
 
-  let message = "";
-  if (order.status === "PRICED_AND_PENDING_PAYMENT") {
-    message =
-      `💰 <b>የትዕዛዝ ዋጋ ተቀምጧል</b>\n\n` +
-      `• የትዕዛዝ መለያ: <code>${order.code}</code>\n` +
-      (order.amount !== undefined
-        ? `• ጠቅላላ ዋጋ: <b>${order.amount.toFixed(2)} ብር</b>\n`
-        : "") +
-      (order.remainingDueAmount !== undefined
-        ? `• የመጀመሪያ ክፍያ: <b>${(order.advancePaidAmount ?? 0).toFixed(2)} ብር</b>\n• ቀሪ: <b>${order.remainingDueAmount.toFixed(2)} ብር</b>\n`
-        : "") +
-      `እባክዎ ክፍያዎን ያረጋግጡ ወይም ወደ ሪሴፕሽን ይላኩ።${tracking}`;
-  } else if (order.status === "JOB_CARD_CREATED") {
-    const paymentLine =
-      order.paymentStatus === "APPROVED_CREDIT" || order.paymentStatus === "APPROVED"
-        ? "ብዕር ደንበኛ ተገድዷል 📒 (APPROVED_CREDIT)"
-        : "ተከፍሏል ✅ (PAID)";
-    const code = order.code;
-    message =
-      `✅ <b>የእርስዎ ትዕዛዝ ተረጋግጧል!</b>\n\n` +
-      `• የትዕዛዝ መለያ: <code>${code}</code>\n` +
-      (order.amount !== undefined
-        ? `• ጠቅላላ ዋጋ: <b>${order.amount.toFixed(2)} ብር</b>\n`
-        : "") +
-      `• ክፍያ: ${paymentLine}\n` +
-      `ስራው አሁን ወደ ምርት ሂደት ገብቷል።${tracking}`;
-  } else if (order.status === "IN_PRODUCTION") {
-    message =
-      `🖨️ <b>ህትመት ተጀምሯል</b>\n\n` +
-      `• የትዕዛዝ መለያ: <code>${order.code}</code>\n` +
-      `ስራው የማተራተር/የህትመት ሂደት ላይ ይገኛል።${tracking}`;
-  } else if (order.status === "COMPLETED") {
-    message =
-      `🎉 <b>ስራው ተጠናቋል!</b>\n\n` +
-      `• የትዕዛዝ መለያ: <code>${order.code}</code>\n` +
-      `የመጨረሻ ማጠናቀቂያ ተከናውኗል። ሲዘጋጅ የመረከቢያ ማሳወቂያ ይደርስዎታል።${tracking}`;
-  } else if (order.status === "READY_FOR_PICKUP") {
-    message =
-      `📦 <b>ትዕዛዝዎ ለመረከብ ዝግጁ ነው!</b>\n\n` +
-      `• የትዕዛዝ መለያ: <code>${order.code}</code>\n` +
-      (order.amount !== undefined ? `• ጠቅላላ: <b>${order.amount.toFixed(2)} ብር</b>\n• የተከፈለ: <b>${(order.advancePaidAmount ?? 0).toFixed(2)} ብር</b>\n• ቀሪ: <b>${(order.remainingDueAmount ?? 0).toFixed(2)} ብር</b>\n` : "") +
-      (order.paymentInstructionsSnapshot?.accounts.length ? `\n<b>የክፍያ መረጃ</b>\n${order.paymentInstructionsSnapshot.accounts.map((account) => `• ${account.label}: <code>${account.identifier}</code> (${account.name})`).join("\n")}\n` : "") +
-      `\nእባክዎ ቀሪውን ክፍያ በሪሴፕሽን ይክፈሉ ወይም በባንክ ያስተላልፉ።${tracking}`;
-  }
+  const message = buildCustomerStatusMessage(order, tracking);
 
   if (!message) return;
   await ctx.scheduler.runAfter(0, internal.orders.sendTelegramNotificationInternal, {
@@ -1001,13 +1028,14 @@ export async function priceOrderInternal(
     }
     const breakdown = paymentBreakdown(args.amount);
     const settings = await ctx.db.query("companySettings").withIndex("by_key", (q: any) => q.eq("key", "yt-advertisement")).unique();
+    const paymentInstructionsSnapshot = snapshotPaymentInstructions(settings);
     await ctx.db.patch(args.orderId, {
       amount: breakdown.total,
       advanceDueAmount: breakdown.advanceDueAmount,
       advancePaidAmount: 0,
       remainingDueAmount: breakdown.remainingDueAmount,
       paymentStatus: "UNPAID",
-      paymentInstructionsSnapshot: snapshotPaymentInstructions(settings),
+      paymentInstructionsSnapshot,
       status: "PRICED_AND_PENDING_PAYMENT",
       updatedAt: Date.now(),
     });
@@ -1019,6 +1047,10 @@ export async function priceOrderInternal(
         amount: Number(args.amount.toFixed(2)),
         telegramChatId: order.telegramChatId,
         paymentStatus: order.paymentStatus,
+        advanceDueAmount: breakdown.advanceDueAmount,
+        advancePaidAmount: 0,
+        remainingDueAmount: breakdown.remainingDueAmount,
+        paymentInstructionsSnapshot,
       },
       order.status,
     );
