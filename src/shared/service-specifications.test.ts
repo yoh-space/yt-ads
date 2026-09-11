@@ -4,7 +4,7 @@ import { serviceSpecificationFields, validateServiceSpecifications } from "./ser
 describe("service specification intake", () => {
   it("exposes the exact Digital Screen catalog labels for light boxes", () => {
     const field = serviceSpecificationFields("light_box_a1").find((item) => item.key === "screenSize");
-    expect(field?.options).toEqual(["A1 (594 × 841 mm)", "A2 (420 × 594 mm)"]);
+    expect(field?.options).toEqual(["A1 (594 × 841 mm)", "A2 (420 × 594 mm)", "Digital Screen A1", "Digital Screen A2"]);
   });
 
   it("accepts a complete canonical light-box payload", () => {

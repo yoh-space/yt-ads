@@ -6,6 +6,7 @@ describe("YT Advertisement material specifications", () => {
     expect(MATERIAL_SPECIFICATIONS).toHaveLength(28);
     expect(findMaterialSpecification("Neon Light")?.specificationOptions).toEqual([
       "White (Warm White, Cool White)",
+      "White",
       "Warm",
       "Yellow",
       "Red",
@@ -17,8 +18,8 @@ describe("YT Advertisement material specifications", () => {
       "Purple",
     ]);
     expect(findMaterialSpecification("Foam")?.specificationOptions).toEqual(["18mm", "15mm", "10mm", "5mm", "3mm"]);
-    expect(findMaterialSpecification("Power Supply")?.specificationOptions).toEqual(["60 Watt", "100 Watt", "200 Watt", "400 Watt"]);
-    expect(findMaterialSpecification("Zocolo (Base / Skirting)")?.specificationOptions).toEqual(["8 cm", "6 cm"]);
+    expect(findMaterialSpecification("Power Supply")?.specificationOptions).toEqual(["60 Watt", "100 Watt", "200 Watt", "400 Watt", "60 watt", "100 watt", "200 watt", "400 watt"]);
+    expect(findMaterialSpecification("Zocolo (Base / Skirting)")?.specificationOptions).toEqual(["8 cm", "6 cm", "8 cm thickness", "6 cm thickness"]);
   });
 
   it("resolves earlier material names and aliases to canonical records", () => {
