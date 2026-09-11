@@ -108,8 +108,8 @@ describe("materialRequests issuance and acknowledgement invariants", () => {
         _id: "id_machines_1",
         __table: "machines",
         name: "Polaris 3.2m",
-        code: "M-POLARIS",
-        operatorRole: "operator_printer",
+                code: "M-POLARIS",
+        operatorRole: "printer_operator",
         active: true,
       },
       id_jobCards_1: {
@@ -122,8 +122,8 @@ describe("materialRequests issuance and acknowledgement invariants", () => {
       id_profiles_operator: {
         _id: "id_profiles_operator",
         __table: "profiles",
-        authUserId: "user_operator_printer",
-        role: "operator_printer",
+                authUserId: "user_operator_printer",
+        role: "printer_operator",
         active: true,
       },
       id_materialRequests_1: {
@@ -235,9 +235,9 @@ describe("materialRequests issuance and acknowledgement invariants", () => {
     ).rejects.toThrow("Insufficient central package stock");
   });
 
-  it("rejects issuance when requesting operator role does not match machine role", async () => {
+      it("rejects issuance when requesting operator role does not match machine role", async () => {
     const state = buildValidState();
-    state.id_profiles_operator.role = "operator_laser"; // Mismatch with operator_printer machine
+    state.id_profiles_operator.role = "laser_operator"; // Mismatch with printer_operator machine
     const { mockCtx } = createMockCtx(state);
 
     await expect(
@@ -259,12 +259,12 @@ describe("materialRequests issuance and acknowledgement invariants", () => {
     state.id_materialRequests_1.issuedQuantity = 20; // requested is 50
     const { mockCtx } = createMockCtx(state);
 
-    await expect(
+                  await expect(
       acknowledgeMaterialRequestInternal(
         mockCtx,
         { requestId: "id_materialRequests_1" as any },
         baseOperator,
-        "operator_printer"
+        "printer_operator"
       )
     ).rejects.toThrow("Cannot acknowledge receipt while request is still partially issued.");
   });
@@ -275,11 +275,11 @@ describe("materialRequests issuance and acknowledgement invariants", () => {
     state.id_materialRequests_1.issuedQuantity = 50;
     const { mockCtx } = createMockCtx(state);
 
-    const result = await acknowledgeMaterialRequestInternal(
+                const result = await acknowledgeMaterialRequestInternal(
       mockCtx,
       { requestId: "id_materialRequests_1" as any },
       baseOperator,
-      "operator_printer"
+      "printer_operator"
     );
 
     expect(result.status).toBe("Received");

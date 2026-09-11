@@ -296,7 +296,7 @@ export async function issueMaterialRequestInternal(
     .query("profiles")
     .withIndex("by_auth_user_id", (q: any) => q.eq("authUserId", request.requestedBy))
     .unique();
-  if (requesterProfile && requesterProfile.role.startsWith("operator_") && requesterProfile.role !== machine.operatorRole) {
+    if (requesterProfile && OPERATOR_ROLES.includes(requesterProfile.role) && requesterProfile.role !== machine.operatorRole) {
     throw new Error(`Requesting operator role (${requesterProfile.role}) does not match the machine operator role (${machine.operatorRole}).`);
   }
 

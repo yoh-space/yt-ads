@@ -25,13 +25,12 @@ import {
 } from "lucide-react";
 import { InventoryLoader } from "../../widgets/inventory-loader";
 import { useDashboardModal } from "../../modals/modal-context";
+import { OPERATOR_ROLES } from "../operator/operator-nav";
 import { cn } from "@/lib/utils";
 
 type InventoryView = "main" | "substock";
 type PackageFilter = "ALL" | "ROLL" | "SHEET" | "LITER";
 type BadgeTone = "success" | "warning" | "neutral" | "info";
-
-const OPERATOR_ROLES = ["laser_operator", "cnc_operator", "plotter_operator", "printer_operator"];
 
 function packageLabel(unitType: string) {
   if (unitType === "ROLL") return "ROLLS";

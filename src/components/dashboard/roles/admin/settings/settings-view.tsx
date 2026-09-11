@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
   Building2,
   Shield,
@@ -31,8 +31,7 @@ export function SettingsView({ profile }: { profile: Profile }) {
 
   const [activeCategory, setActiveCategory] = useState<SettingsCategory>("profile");
 
-  const categories = useMemo<SettingsCategoryEntry[]>(
-    () => [
+  const categories: SettingsCategoryEntry[] = [
       { id: "profile", icon: <UserRound size={20} />, title: "Personal Profile", description: "Update your name, profile image, and display information." },
       { id: "security", icon: <ShieldCheck size={20} />, title: "Security", description: "Change your password and manage sign-in methods." },
       ...(canManageTeam
@@ -70,9 +69,7 @@ export function SettingsView({ profile }: { profile: Profile }) {
             badge: "Owner",
           } satisfies SettingsCategoryEntry]
         : []),
-    ],
-    [canManageTeam, canUpdateCompany, isOwner],
-  );
+    ];
 
   const selected = categories.find((entry) => entry.id === activeCategory) ?? categories[0];
 

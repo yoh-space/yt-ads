@@ -1,7 +1,7 @@
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { v } from "convex/values";
-import { requireActiveProfile } from "./users";
+import { requireActiveProfile, OPERATOR_ROLES } from "./users";
 import { notificationType } from "./schema";
 import type { Role } from "./types";
 
@@ -44,7 +44,6 @@ type NotificationContext = {
 };
 
 const MANAGEMENT_ROLES: Role[] = ["owner", "manager", "admin"];
-const OPERATOR_ROLES: Role[] = ["laser_operator", "cnc_operator", "plotter_operator", "printer_operator"];
 const INVENTORY_TYPES: NotificationType[] = [
   "material_request",
   "material_issue",
