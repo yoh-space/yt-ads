@@ -168,13 +168,25 @@ describe("Wizard Form and Payload Schemas", () => {
 
   it("verifies service specification requirements match canonical definitions", () => {
     const bannerSpecs = serviceSpecificationFields("banner_print");
-    expect(bannerSpecs.length).toBeGreaterThan(0);
-    expect(bannerSpecs[0].key).toBe("rollWidth");
+    expect(bannerSpecs).toEqual([]);
 
     const lightBoxSpecs = serviceSpecificationFields("light_box_a1");
     expect(lightBoxSpecs.length).toBeGreaterThan(0);
     const specKeys = lightBoxSpecs.map((s) => s.key);
     expect(specKeys).toContain("powerSupply");
     expect(specKeys).toContain("ledColor");
+  });
+
+  it("orders dimensions before specifications and skips specs for roll services", () => {
+    const rollSteps = getActiveWizardSteps({ accountType: "individual", serviceId: "banner_print" });
+    expect(rollSteps.indexOf("dimensions")).toBeLessThan(rollSteps.indexOf("artwork"));
+    expect(rollSteps).not.toContain("specifications");
+    expect(nextStep("dimensions", { accountType: "individual", serviceId: "banner_print" })).toBe("artwork");
+    expect(prevStep("artwork", { accountType: "individual", serviceId: "banner_print" })).toBe("dimensions");
+
+    const specSteps = getActiveWizardSteps({ accountType: "individual", serviceId: "light_box_a1" });
+    expect(specSteps).toContain("specifications");
+    expect(specSteps.indexOf("dimensions")).toBeLessThan(specSteps.indexOf("specifications"));
+    expect(specSteps.indexOf("specifications")).toBeLessThan(specSteps.indexOf("artwork"));
   });
 });

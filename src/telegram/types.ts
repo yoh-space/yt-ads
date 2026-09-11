@@ -20,7 +20,11 @@ export interface OrderDraft {
   specifications?: Record<string, string>;
   /** Raw dimensions label, e.g. "2m × 3m". */
   dimensions?: string;
-  /** Calculated area in m² for the summary. */
+  /** Parsed job width in metres (used to derive the roll substrate). */
+  width?: number;
+  /** Parsed job length/height in metres. */
+  length?: number;
+  /** Calculated area in m2 for the summary. */
   area?: number;
   fileStorageId?: string;
   fileName?: string;

@@ -6,6 +6,7 @@ import { requirePermission, requireActiveProfile } from "./users";
 import { canViewFinancial } from "./authorization";
 import { notifyRoles } from "./notificationHelpers";
 import { findMaterialSpecification } from "../src/shared/material-specifications";
+import { parseRollOptionWidth } from "../src/shared/roll-width";
 import { classifyMaterialProductionType, resolveEtbValue, effectiveConsumptionRate, isRollMaterial, isSheetMaterial, resolveConversionRatio } from "./materialUsage";
 import { ensureSystemConfig } from "./systemConfigs";
 import { isAtOrBelowReorderLevel } from "./lowStock";
@@ -122,7 +123,14 @@ export const create = mutation({
       productionType: classifyMaterialProductionType({ name: canonicalName, category: catalog?.category, baseUnit }),
       consumptionRate: effectiveConsumptionRate({ name: canonicalName, category: catalog?.category, baseUnit }),
       etbValue: resolveEtbValue({ name: canonicalName, category: catalog?.category, baseUnit }),
-      rollWidth: isRollMaterial({ name: canonicalName, category: catalog?.category }) ? catalog?.specificationOptions?.some((o) => /meter/i.test(o)) ? 3.2 : undefined : undefined,
+      rollWidth: isRollMaterial({ name: canonicalName, category: catalog?.category })
+        ? (catalog?.rollWidth
+          ?? catalog?.specificationOptions
+            ?.map((option) => parseRollOptionWidth(option))
+            .filter((value): value is number => value !== null)
+            .sort((left, right) => left - right)[0]
+          ?? undefined)
+        : undefined,
       sheetWidth: isSheetMaterial({ name: canonicalName, category: catalog?.category }) ? catalog?.specificationOptions?.includes("18mm") ? 1.22 : undefined : undefined,
       sheetLength: isSheetMaterial({ name: canonicalName, category: catalog?.category }) ? catalog?.specificationOptions?.includes("18mm") ? 2.44 : undefined : undefined,
     });

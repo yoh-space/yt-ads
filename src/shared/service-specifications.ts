@@ -18,13 +18,13 @@ const colorOptions = (material: string) => catalogOptions(material, (option) => 
 const field = (key: string, label: string, material: string, options = catalogOptions(material)): ServiceSpecificationField => ({ key, label, material, options });
 
 export const SERVICE_SPECIFICATION_FIELDS: Record<ServiceId, readonly ServiceSpecificationField[]> = {
-  banner_print: [field("rollWidth", "Roll substrate", "Banner Flex")],
-  sticker_white: [field("rollWidth", "Roll substrate", "Frosted Sticker")],
-  sticker_transparent: [field("rollWidth", "Roll substrate", "Transparent Sticker")],
-  sticker_reflective: [field("rollWidth", "Roll substrate", "Reflective Sticker")],
-  sticker_mesh: [field("rollWidth", "Roll substrate", "Mesh Sticker")],
-  sticker_frosted: [field("rollWidth", "Roll substrate", "Frosted Sticker")],
-  hq_print_and_cut: [field("rollWidth", "Roll substrate", "Banner Flex")],
+  banner_print: [],
+  sticker_white: [],
+  sticker_transparent: [],
+  sticker_reflective: [],
+  sticker_mesh: [],
+  sticker_frosted: [],
+  hq_print_and_cut: [],
   light_box_a1: [
     field("screenSize", "Digital screen size", "Digital Screen"),
     field("faceMaterial", "Face material", "Mica Sheet", (catalogOptions("Mica Sheet").length ? ["Mica Sheet"] : ["Mica"])),
@@ -49,7 +49,7 @@ export const SERVICE_SPECIFICATION_FIELDS: Record<ServiceId, readonly ServiceSpe
   uv_print_mica: [field("thickness", "Mica thickness", "Mica", thicknessOptions("Mica")), field("color", "Mica color", "Mica", colorOptions("Mica"))],
   uv_print_foam: [field("thickness", "Foam thickness", "Foam Board")],
   uv_print_cladding: [field("color", "Cladding color", "Cladding")],
-  uv_print_canvas: [field("rollWidth", "Canvas width", "Canvas")],
+  uv_print_canvas: [],
   foam_cutout: [field("thickness", "Foam thickness", "Foam Board")],
   foam_engrave: [field("thickness", "Foam thickness", "Foam Board")],
   mica_cutout: [field("thickness", "Mica thickness", "Mica", thicknessOptions("Mica")), field("color", "Mica color", "Mica", colorOptions("Mica"))],

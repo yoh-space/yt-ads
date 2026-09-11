@@ -22,6 +22,7 @@ import { loadActiveBomForService, resolveServiceRoute, resolveInkRequirements, r
 import { calculateOffCutAndScrap, type OffCutScrapResult } from "../src/shared/material-calc";
 import { assertPaymentAmount, paymentBreakdown, snapshotPaymentInstructions } from "./payment";
 import { validateServiceSpecifications } from "../src/shared/service-specifications";
+import { resolveRollSubstrate, type RollResolution } from "../src/shared/roll-width";
 import { normalizePhone as normalizePhoneUtil } from "../src/shared/phone-normalization";
 
 /** Statuses a customer may see through public tracking (EXPIRED stays internal). */
@@ -33,7 +34,7 @@ const PUBLIC_TRACKING_STATUSES = new Set(["PENDING_REVIEW", "RECEPTION_REVIEW", 
  * only guards reception's manual progress actions.
  */
 const ALLOWED_STATUS_TRANSITIONS: Record<string, string[]> = {
-  PENDING_REVIEW: ["RECEPTION_REVIEW", "PRICED_AND_PENDING_PAYMENT", "EXPIRED"],
+  PENDING_REVIEW: ["RECEPTION_REVIEW", "EXPIRED"],
   RECEPTION_REVIEW: ["PRICED_AND_PENDING_PAYMENT", "EXPIRED"],
   PRICED_AND_PENDING_PAYMENT: ["CONFIRMED_PAID_OR_CREDIT", "EXPIRED"],
   CONFIRMED_PAID_OR_CREDIT: ["JOB_CARD_CREATED"],
@@ -45,6 +46,10 @@ const ALLOWED_STATUS_TRANSITIONS: Record<string, string[]> = {
   EXPIRED: [],
   EXPIRED_JUNK: [],
 };
+
+export function canTransitionOrderStatus(from: string, to: string): boolean {
+  return (ALLOWED_STATUS_TRANSITIONS[from] ?? []).includes(to);
+}
 // convex/orders.ts
 
 export const fixStatusCasing = mutation({
@@ -118,6 +123,24 @@ function parseDimensions(dimensions: string): { length: number; width: number } 
   const length = Number(match[1]);
   const width = Number(match[2]);
   return Number.isFinite(length) && length > 0 && Number.isFinite(width) && width > 0 ? { length, width } : undefined;
+}
+
+/**
+ * Resolves the roll substrate from the job width and merges it into the
+ * customer's validated specifications. This runs transactionally on the
+ * backend so operators always receive the exact raw material the job consumes;
+ * the customer never selects a roll. Returns the (possibly annotated)
+ * specification record.
+ */
+function withDerivedRollSubstrate(
+  serviceId: string,
+  specifications: Record<string, string> | undefined,
+  widthM: number | undefined,
+): Record<string, string> | undefined {
+  if (widthM === undefined || !Number.isFinite(widthM) || widthM <= 0) return specifications;
+  const resolved: RollResolution | null = resolveRollSubstrate(serviceId, widthM);
+  if (!resolved) return specifications;
+  return { ...(specifications ?? {}), rollWidth: resolved.option };
 }
 
 function publicOrder(order: OrderDoc) {
@@ -280,9 +303,14 @@ export const submit = mutation({
     const serviceTypeRaw = (args.serviceType as string).trim();
     const serviceType = serviceTypeRaw as typeof args.serviceType;
     const serviceId = (args.serviceId ?? serviceType) as string;
-    const specifications = validateServiceSpecifications(serviceId, args.specifications);
     const dimensions = args.dimensions.trim();
     const parsedDimensions = parseDimensions(dimensions);
+    const orderWidth = args.width ?? parsedDimensions?.width;
+    const specifications = withDerivedRollSubstrate(
+      serviceId,
+      validateServiceSpecifications(serviceId, args.specifications),
+      orderWidth,
+    );
     const quantity = args.quantity.trim();
     if (!clientName || clientName.length > 160 || !serviceType || !dimensions || !quantity) {
       throw new Error("Client, service, dimensions, and quantity are required.");
@@ -562,7 +590,6 @@ export const updateCustomerOrder = mutation({
     }
 
     const nextServiceId = (args.serviceId ?? order.serviceId ?? order.serviceType) as string;
-    const nextSpecifications = validateServiceSpecifications(nextServiceId, args.specifications ?? order.specifications);
 
     let nextPhone = order.phone;
     if (args.phone !== undefined && args.phone.trim() !== "") {
@@ -609,6 +636,12 @@ let nextDimensions = order.dimensions;
     if (!/^[1-9]\d*$/.test(nextQuantity) || Number(nextQuantity) > 100000) {
       throw new Error("Quantity must be a positive whole number.");
     }
+
+    const nextSpecifications = withDerivedRollSubstrate(
+      nextServiceId,
+      validateServiceSpecifications(nextServiceId, args.specifications ?? order.specifications),
+      nextWidth,
+    );
 
     const now = Date.now();
     await ctx.db.patch(args.orderId, {
@@ -1021,8 +1054,26 @@ async function resolveAutoRouting(
      ctx.db.query("materials").withIndex("by_category", (q: any) => q.eq("category", route.materialType)).take(100),
    ]);
    const materials = [...namedMaterials, ...categoryMaterials.filter((candidate: any) => !namedMaterials.some((named: any) => named._id === candidate._id))];
-   const preferred = materials.find((m: any) => m.active && m.name === route.preferredMaterialName)
-     ?? materials.find((m: any) => m.active);
+   const activeMaterials = materials.filter((m: any) => m.active);
+
+   // When the order carries an auto-derived roll width, prefer the registered
+   // material whose roll width matches it so the operator receives the exact
+   // raw material the job was sized against. Routing never throws on oversize
+   // legacy orders; it falls back to the preferred material.
+   let matchedRoll: any;
+   if (order.width !== undefined) {
+     try {
+       const derivedRoll = resolveRollSubstrate(order.serviceId ?? order.serviceType, order.width);
+       if (derivedRoll) {
+         matchedRoll = activeMaterials.find((m: any) => m.rollWidth !== undefined && Math.abs(m.rollWidth - derivedRoll.rollWidth) < 0.001);
+       }
+     } catch {
+       matchedRoll = undefined;
+     }
+   }
+   const preferred = matchedRoll
+     ?? materials.find((m: any) => m.active && m.name === route.preferredMaterialName)
+     ?? activeMaterials[0];
   if (!preferred) {
     throw new Error(`No active raw material is registered for ${route.materialType}.`);
   }
@@ -1196,9 +1247,23 @@ function resolveMaterialBreakdown(material: any, order: OrderDoc, config: any): 
     material.catalogFamily === "RIGID_SHEET" ||
     (material.sheetWidth && material.sheetLength) ||
     (!material.rollWidth && (material.sheetWidth || material.sheetLength));
+
+  // Prefer the roll width the order was actually sized against (derived from
+  // the job width) so off-cut/scrap math matches the assigned roll even when a
+  // single generic material row is registered.
+  let rollWidth = material.rollWidth;
+  if (!isRigidSheet && order.width !== undefined) {
+    try {
+      const derived = resolveRollSubstrate(order.serviceId ?? order.serviceType, order.width);
+      if (derived) rollWidth = derived.rollWidth;
+    } catch {
+      // Oversize legacy order: keep the material's registered roll width.
+    }
+  }
+
   return calculateOffCutAndScrap(
     {
-      rollWidth: material.rollWidth,
+      rollWidth,
       sheetWidth: material.sheetWidth,
       sheetLength: material.sheetLength,
       isRigidSheet,
@@ -1759,6 +1824,8 @@ export const createTelegramOrder = mutation({
     specifications: v.optional(v.record(v.string(), v.string())),
     dimensions: v.optional(v.string()),
     quantity: v.optional(v.string()),
+    length: v.optional(v.number()),
+    width: v.optional(v.number()),
     phone: v.optional(v.string()),
     fileStorageId: v.optional(v.id("_storage")),
     fileName: v.optional(v.string()),
@@ -1769,7 +1836,12 @@ export const createTelegramOrder = mutation({
     const serviceTypeRaw = (args.serviceType as string).trim();
     const serviceType = serviceTypeRaw as typeof args.serviceType;
     const serviceId = (args.serviceId ?? serviceType) as string;
-    const specifications = validateServiceSpecifications(serviceId, args.specifications);
+    const orderWidth = args.width ?? (args.dimensions ? parseDimensions(args.dimensions)?.width : undefined);
+    const specifications = withDerivedRollSubstrate(
+      serviceId,
+      validateServiceSpecifications(serviceId, args.specifications),
+      orderWidth,
+    );
     if (!customerName || !serviceType) {
       throw new Error("Customer name and service type are required.");
     }
@@ -1795,6 +1867,8 @@ export const createTelegramOrder = mutation({
       serviceId: serviceId as typeof serviceType,
       specifications,
       dimensions: args.dimensions?.trim() || "TBD",
+      length: args.length,
+      width: args.width,
       quantity: args.quantity?.trim() || "1",
       preferredDueDate: dueDate,
       status: "PENDING_REVIEW",

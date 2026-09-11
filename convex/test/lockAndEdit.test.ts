@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { canTransitionOrderStatus } from "../orders";
 
 /**
  * Phase 3 — Customer Onboarding → Lock/Edit Lifecycle state-machine invariants.
@@ -230,6 +231,26 @@ describe("Phase 3 — Lock & Edit State Machine", () => {
         editRevision: 1,
       };
       expect(canLockForReview(priced)).toBe(false);
+    });
+  });
+
+  describe("review-lock transition guard", () => {
+    it("does not allow skipping straight from PENDING_REVIEW to PRICED_AND_PENDING_PAYMENT", () => {
+      expect(canTransitionOrderStatus("PENDING_REVIEW", "PRICED_AND_PENDING_PAYMENT")).toBe(false);
+    });
+
+    it("does not allow skipping straight from PENDING_REVIEW to CONFIRMED_PAID_OR_CREDIT", () => {
+      expect(canTransitionOrderStatus("PENDING_REVIEW", "CONFIRMED_PAID_OR_CREDIT")).toBe(false);
+    });
+
+    it("requires the RECEPTION_REVIEW intermediate step before pricing", () => {
+      expect(canTransitionOrderStatus("PENDING_REVIEW", "RECEPTION_REVIEW")).toBe(true);
+      expect(canTransitionOrderStatus("RECEPTION_REVIEW", "PRICED_AND_PENDING_PAYMENT")).toBe(true);
+    });
+
+    it("requires the CONFIRMED_PAID_OR_CREDIT intermediate step before the job card", () => {
+      expect(canTransitionOrderStatus("PRICED_AND_PENDING_PAYMENT", "CONFIRMED_PAID_OR_CREDIT")).toBe(true);
+      expect(canTransitionOrderStatus("CONFIRMED_PAID_OR_CREDIT", "JOB_CARD_CREATED")).toBe(true);
     });
   });
 });

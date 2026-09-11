@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { CompleteOrderPayloadSchema, type CompleteOrderPayloadInput } from "@/shared/order-schemas";
-import { type WizardStep, nextStep, prevStep, stepNumber, stepLabel, stepOrder } from "@/shared/wizard-steps";
+import { type WizardStep, nextStep, prevStep, stepLabel, stepNumber, totalSteps } from "@/shared/wizard-steps";
 import { WelcomeStep } from "./wizard/welcome-step";
 import { ProfileStep } from "./wizard/profile-step";
 import { AccountTypeStep } from "./wizard/account-type-step";
@@ -168,8 +168,8 @@ export function OrderWizard({
     return serviceSpecificationFields(currentValues.serviceId as string);
   }, [currentValues.serviceId]);
 
-  const currentStepIdx = stepNumber(step, currentValues.accountType);
-  const totalSteps = stepOrder(currentValues.accountType).length;
+  const currentStepIdx = stepNumber(step, { accountType: currentValues.accountType, serviceId: currentValues.serviceId });
+  const totalStepsCount = totalSteps({ accountType: currentValues.accountType, serviceId: currentValues.serviceId });
 
   const goNext = async () => {
     setError(null);
@@ -177,7 +177,19 @@ export function OrderWizard({
     const ok = await trigger(fieldsToValidate);
     if (!ok) return;
 
-    const next = nextStep(step, currentValues.accountType);
+    // Block widths that cannot fit any available roll before advancing, so the
+    // customer fixes the size instead of the order being rejected on submit.
+    if (step === "dimensions" && currentValues.serviceId && currentValues.width) {
+      try {
+        const { resolveRollSubstrate } = require("@/shared/roll-width");
+        resolveRollSubstrate(currentValues.serviceId as string, currentValues.width);
+      } catch (err) {
+        setError((err as Error)?.message ?? "This width cannot be produced from an available roll.");
+        return;
+      }
+    }
+
+    const next = nextStep(step, { accountType: currentValues.accountType, serviceId: currentValues.serviceId });
     if (next) {
       // When changing service selection, warn about clearing incompatible specs
       if (step === "service") {
@@ -202,7 +214,7 @@ export function OrderWizard({
   };
 
   const goBack = () => {
-    const prev = prevStep(step, currentValues.accountType);
+    const prev = prevStep(step, { accountType: currentValues.accountType, serviceId: currentValues.serviceId });
     if (prev) setStep(prev);
   };
 
@@ -333,13 +345,13 @@ export function OrderWizard({
       {/* Progress bar */}
       <div className="px-4 pt-4 pb-2">
         <div className="flex justify-between text-xs font-mono text-neutral-500 mb-1">
-          <span>Step {currentStepIdx} of {totalSteps}</span>
+          <span>Step {currentStepIdx} of {totalStepsCount}</span>
           <span>{stepLabel(step)}</span>
         </div>
         <div className="h-1.5 bg-[#1C1D24] rounded-full overflow-hidden">
           <div
             className="h-full bg-[#E5C07B] transition-all duration-300"
-            style={{ width: `${(currentStepIdx / totalSteps) * 100}%` }}
+            style={{ width: `${(currentStepIdx / totalStepsCount) * 100}%` }}
           />
         </div>
       </div>

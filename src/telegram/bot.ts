@@ -178,6 +178,8 @@ async function createOrder(ctx: MyContext, draft: OrderDraft): Promise<string> {
     specifications: draft.specifications,
     dimensions: draft.dimensions,
     quantity: draft.area !== undefined ? String(draft.area) : undefined,
+    length: draft.length,
+    width: draft.width,
     phone: draft.phone,
     fileStorageId: draft.fileStorageId as Id<"_storage"> | undefined,
     fileName: draft.fileName,
@@ -399,6 +401,8 @@ async function handleDimensions(ctx: MyContext, text: string) {
   }
   const draft = ctx.session.draft ?? {};
   draft.dimensions = parsed.label;
+  draft.width = parsed.width;
+  draft.length = parsed.height;
   draft.area = parsed.area;
   ctx.session.draft = draft;
   ctx.session.step = "file";

@@ -9,6 +9,7 @@ interface StepProps {
   setValue: any;
   errors: any;
   estimatedArea: { unitArea: string; totalArea: string } | null;
+  error?: string | null;
   onNext: () => void;
   onBack?: () => void;
 }
@@ -22,7 +23,7 @@ const DIMENSION_PRESETS = [
   { label: "RollUp", width: "0.85", height: "2" },
 ];
 
-export function DimensionsStep({ control, watch, setValue, errors, estimatedArea, onNext, onBack }: StepProps) {
+export function DimensionsStep({ control, watch, setValue, errors, estimatedArea, error, onNext, onBack }: StepProps) {
   useController({ control, name: "width", defaultValue: undefined });
   useController({ control, name: "length", defaultValue: undefined });
   useController({ control, name: "dimensions", defaultValue: "" });
@@ -118,6 +119,7 @@ export function DimensionsStep({ control, watch, setValue, errors, estimatedArea
         </div>
       </div>
       {errors.dimensions && <p className="text-xs text-rose-400">{errors.dimensions.message}</p>}
+      {error ? <p className="text-xs text-rose-400">{error}</p> : null}
       <div className="pt-2 flex gap-3">
         {onBack ? <button type="button" onClick={onBack} className="flex-1 h-11 rounded-sm border border-white/[0.1] bg-transparent text-neutral-300 font-mono text-xs hover:bg-white/[0.05] transition-colors">Back</button> : null}
         <button type="button" onClick={onNext} disabled={!canProceed} className="flex-1 h-11 bg-[#E5C07B] hover:bg-[#EED08F] text-[#0C0D10] font-mono font-semibold text-xs tracking-[0.1em] uppercase rounded-sm transition-colors disabled:opacity-30">Next</button>

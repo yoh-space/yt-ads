@@ -21,6 +21,16 @@ export function ReviewStep({ watch, errors, allValues, busy, error, isEdit, onSu
 
   const lengthVal = allValues?.length ?? allValues?.height;
 
+  const derivedRoll = (() => {
+    if (!serviceId || !allValues?.width) return null;
+    try {
+      const { resolveRollSubstrate } = require("@/shared/roll-width");
+      return resolveRollSubstrate(serviceId, allValues.width) as { option: string; rollWidth: number } | null;
+    } catch {
+      return null;
+    }
+  })();
+
   const sections = [
     { label: "ስም", value: allValues?.customerName },
     { label: "ስልክ", value: allValues?.phone },
@@ -34,6 +44,7 @@ export function ReviewStep({ watch, errors, allValues, busy, error, isEdit, onSu
     { label: "አጠቃቀ", value: serviceLabel },
     { label: "ስፋት", value: allValues?.width ? `${allValues.width}m` : "—" },
     { label: "ቁመት", value: lengthVal ? `${lengthVal}m` : "—" },
+    ...(derivedRoll ? [{ label: "የሚጠቀመው ሮል", value: derivedRoll.option }] : []),
     { label: "ብዛት", value: allValues?.quantity },
     { label: "ማስታወሻ", value: allValues?.notes || "—" },
   ];
