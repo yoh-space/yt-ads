@@ -31,3 +31,6 @@ export const getMaterialsSummary = query({
     };
   },
 });
+
+export { purgeAndReseedCatalog } from "../admin";
+
