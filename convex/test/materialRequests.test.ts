@@ -235,7 +235,7 @@ describe("materialRequests issuance and acknowledgement invariants", () => {
     ).rejects.toThrow("Insufficient central package stock");
   });
 
-      it("rejects issuance when requesting operator role does not match machine role", async () => {
+  it("rejects issuance when requesting operator role does not match machine role", async () => {
     const state = buildValidState();
     state.id_profiles_operator.role = "laser_operator"; // Mismatch with printer_operator machine
     const { mockCtx } = createMockCtx(state);
@@ -259,7 +259,7 @@ describe("materialRequests issuance and acknowledgement invariants", () => {
     state.id_materialRequests_1.issuedQuantity = 20; // requested is 50
     const { mockCtx } = createMockCtx(state);
 
-                  await expect(
+    await expect(
       acknowledgeMaterialRequestInternal(
         mockCtx,
         { requestId: "id_materialRequests_1" as any },
@@ -275,7 +275,7 @@ describe("materialRequests issuance and acknowledgement invariants", () => {
     state.id_materialRequests_1.issuedQuantity = 50;
     const { mockCtx } = createMockCtx(state);
 
-                const result = await acknowledgeMaterialRequestInternal(
+    const result = await acknowledgeMaterialRequestInternal(
       mockCtx,
       { requestId: "id_materialRequests_1" as any },
       baseOperator,

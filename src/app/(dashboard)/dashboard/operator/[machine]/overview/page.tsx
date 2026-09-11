@@ -62,20 +62,9 @@ export default function OperatorMachineOverview({
   const [wasteQuantity, setWasteQuantity] = useState("");
   const [productionInputsValid, setProductionInputsValid] = useState({ input: true, output: true, waste: true });
 
-  if (!profile || overview === undefined || materials === undefined) {
-    return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <InventoryLoader label={`የ${machineParam.toUpperCase()} ኦፕሬተር ገጽ በመጫን ላይ…`} />
-      </div>
-    );
-  }
-
-  const currentMachine = overview.machine;
-  const machineJobs = withIds(overview.machineJobs);
-  const displayedJob = overview.displayedJob !== null ? withIds([overview.displayedJob])[0] : undefined;
-  const jobRequirements = overview.jobRequirements;
-  const floorStock = overview.floorStock as OperatorStockEntry[];
-  const hasPendingClearance = overview.pendingClearance;
+  const currentMachine = overview?.machine;
+  const machineJobs = withIds(overview?.machineJobs ?? []);
+  const floorStock = (overview?.floorStock ?? []) as OperatorStockEntry[];
 
   const jobOptions = useMemo(
     () => machineJobs as unknown as JobCard[],
@@ -101,6 +90,18 @@ export default function OperatorMachineOverview({
         })),
     [floorStock, currentMachine],
   );
+
+  if (!profile || overview === undefined || materials === undefined) {
+    return (
+      <div className="flex min-h-[400px] items-center justify-center">
+        <InventoryLoader label={`የ${machineParam.toUpperCase()} ኦፕሬተር ገጽ በመጫን ላይ…`} />
+      </div>
+    );
+  }
+
+  const displayedJob = overview.displayedJob !== null ? withIds([overview.displayedJob])[0] : undefined;
+  const jobRequirements = overview.jobRequirements;
+  const hasPendingClearance = overview.pendingClearance;
 
   const isCompletedJob = displayedJob?.status === "Completed";
 
@@ -134,7 +135,7 @@ export default function OperatorMachineOverview({
   const accessContext: AccessContext = {
     profile: { role: profile.role, active: profile.active },
     attributes: {
-      machineId: currentMachine.id,
+      machineId: currentMachine!.id,
       machineType: machineParam as "laser" | "cnc" | "plotter" | "printer",
     },
   };
