@@ -125,9 +125,11 @@ describe("role-routing", () => {
 
     // Laser Operator
     expect(isRouteAllowedForRole("laser_operator", "/dashboard/operator/laser")).toBe(true);
+    expect(isRouteAllowedForRole("laser_operator", "/dashboard/operator/settings")).toBe(true);
     expect(isRouteAllowedForRole("laser_operator", "/dashboard/operator/inventory/substock")).toBe(true);
     expect(isRouteAllowedForRole("laser_operator", "/inventory/substock")).toBe(true);
     expect(isRouteAllowedForRole("laser_operator", "/dashboard/operator/cnc")).toBe(false);
+    expect(isRouteAllowedForRole("laser_operator", "/dashboard/receptionist/settings")).toBe(false);
     expect(isRouteAllowedForRole("laser_operator", "/reports")).toBe(false);
     expect(isRouteAllowedForRole("laser_operator", "/orders")).toBe(false);
   });

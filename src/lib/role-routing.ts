@@ -506,6 +506,7 @@ function canAccessCanonicalRoute(role: Role, pathname: string): boolean {
   // Inventory and settings have stable flat sidebar entry points, with sub-stock
   // redirected to the assigned machine workspace.
   if (ws === "operator") {
+    if (feature === "settings") return isOperatorRole(role);
     if (feature === "inventory" && segments[3] === "substock") {
       return [
         "owner",
@@ -599,6 +600,7 @@ function canAccessLegacyRoute(role: Role, pathname: string): boolean {
 
     return (
       isAssignedMachineRoute ||
+      pathname.startsWith("/dashboard/operator/settings") ||
       pathname === "/inventory" ||
       pathname.startsWith("/inventory/substock") ||
       pathname.startsWith("/settings")
