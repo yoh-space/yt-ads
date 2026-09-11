@@ -6,6 +6,7 @@ import { AlertTriangle, BriefcaseBusiness, CheckCircle2, ClipboardPlus, FileText
 import { api } from "@/convex/_generated/api";
 import type { JobCard, Material, PackageUnit, Unit } from "@/lib/operations-types";
 import type { Id } from "@/convex/_generated/dataModel";
+import { findMaterialSpecification, isMaterialCompatibleWithMachine } from "@/shared/material-specifications";
 import { formatQuantity } from "@/lib/units";
 import { ModalShell } from "./modal-shell";
 import { Button, NumericInput } from "@/components/shared/ui";
@@ -223,6 +224,19 @@ export function MaterialRequestModal({
               .filter((line): line is NonNullable<typeof line> => line !== null);
             if (requestLines.length !== lines.length) return;
             const first = requestLines[0];
+
+            const specSummary = lines
+              .filter((l) => l.specOption)
+              .map((l) => {
+                const mat = lineFor(l.materialId);
+                return `${mat?.name ?? "Item"}: ${l.specOption}`;
+              })
+              .join("; ");
+
+            const fullNote = [specSummary ? `[Spec: ${specSummary}]` : undefined, note || undefined]
+              .filter(Boolean)
+              .join(" — ");
+
             onSave({
               jobCardId: selectedJob.id as Id<"jobCards">,
               materialId: first.materialId,
@@ -231,7 +245,7 @@ export function MaterialRequestModal({
               requestedPackages: first.requestedPackages,
               packageUnit: first.packageUnit,
               lines: requestLines,
-              note: note || undefined,
+              note: fullNote || undefined,
             });
           }}
         >
@@ -318,7 +332,7 @@ export function MaterialRequestModal({
                 return (
                   <div
                     key={`${line.materialId}-${index}`}
-                    className="grid gap-2 rounded-lg border border-border bg-secondary/50 p-3 sm:grid-cols-[1fr_0.35fr_auto]"
+                     className="grid gap-2 rounded-lg border border-border bg-secondary/50 p-3 sm:grid-cols-[1fr_0.35fr_auto]"
                   >
                     <select
                       value={line.materialId}

@@ -250,6 +250,11 @@ export const MATERIAL_SPECIFICATIONS: readonly MaterialSpecificationDefinition[]
       "8mm",
       "10mm",
       "18mm",
+      "3mm Thickness",
+      "5mm Thickness",
+      "8mm Thickness",
+      "10mm Thickness",
+      "18mm Thickness",
       "White",
       "Red",
       "Black",
@@ -259,6 +264,9 @@ export const MATERIAL_SPECIFICATIONS: readonly MaterialSpecificationDefinition[]
       "Green",
       "Yellow",
       "Orange",
+      "Golden",
+      "Transparent Mica",
+      "Transparent",
       "Pink",
       "Ice Blue",
       "Purple",
@@ -350,7 +358,9 @@ export const MATERIAL_SPECIFICATIONS: readonly MaterialSpecificationDefinition[]
     specification: "Color Option",
     specificationOptions: [
       "Black",
+      "Blue",
       "Blue (Cyan)",
+      "Red",
       "Red (Magenta)",
       "Yellow",
     ],
@@ -377,7 +387,9 @@ export const MATERIAL_SPECIFICATIONS: readonly MaterialSpecificationDefinition[]
       "White",
       "Yellow",
       "Black",
+      "Blue",
       "Blue (Cyan)",
+      "Red",
       "Red (Magenta)",
     ],
     storageLocation: "Chemical Store Room",
@@ -400,10 +412,12 @@ export const MATERIAL_SPECIFICATIONS: readonly MaterialSpecificationDefinition[]
     compatibleMachineTypes: ["Print and Cut"],
     specification: "Color Option",
     specificationOptions: [
+      "Red",
+      "Blue",
       "Black",
+      "Yellow",
       "Blue (Cyan)",
       "Red (Magenta)",
-      "Yellow",
     ],
     storageLocation: "Chemical Store Room",
     averageUse: "Crystc Eco-Solvent precision printer sticker and grayback runs",
@@ -425,11 +439,13 @@ export const MATERIAL_SPECIFICATIONS: readonly MaterialSpecificationDefinition[]
     compatibleMachineTypes: ["UV Flatbed"],
     specification: "Color Option",
     specificationOptions: [
+      "Red",
+      "Blue",
       "Black",
-      "Blue (Cyan)",
-      "Red (Magenta)",
       "Yellow",
       "White",
+      "Blue (Cyan)",
+      "Red (Magenta)",
     ],
     storageLocation: "Chemical Store Room",
     averageUse: "Ricoh Flatbed UV machine printing on mica, foam, cladding, canvas",
@@ -516,8 +532,18 @@ export const MATERIAL_SPECIFICATIONS: readonly MaterialSpecificationDefinition[]
     displayUnit: "ቁጥር",
     catalogFamily: "HARDWARE",
     catalogVariant: "Power Supply",
+    compatibleMachineTypes: ["Channel Letter Machine", "Assembly", "Laser Cutter", "CNC Router", "UV Flatbed"],
     specification: "Wattage",
-    specificationOptions: ["60 Watt", "100 Watt", "200 Watt", "400 Watt"],
+    specificationOptions: [
+      "60 Watt",
+      "100 Watt",
+      "200 Watt",
+      "400 Watt",
+      "60 watt",
+      "100 watt",
+      "200 watt",
+      "400 watt",
+    ],
     storageLocation: "Electrical Shelf E",
     averageUse: "LED lightboxes and illuminated channel letters",
   },
@@ -537,10 +563,13 @@ export const MATERIAL_SPECIFICATIONS: readonly MaterialSpecificationDefinition[]
     displayUnit: "ቁጥር",
     catalogFamily: "HARDWARE",
     catalogVariant: "Digital Screen",
+    compatibleMachineTypes: ["UV Flatbed", "Assembly", "Print and Cut"],
     specification: "Size",
     specificationOptions: [
       "A1 (594 × 841 mm)",
       "A2 (420 × 594 mm)",
+      "Digital Screen A1",
+      "Digital Screen A2",
     ],
     storageLocation: "Finished Goods Shelf F",
     averageUse: "Ultra-slim backlit posters and retail displays",
@@ -555,15 +584,18 @@ export const MATERIAL_SPECIFICATIONS: readonly MaterialSpecificationDefinition[]
     displayUnit: "ቁጥር",
     catalogFamily: "HARDWARE",
     catalogVariant: "LED Modules",
+    compatibleMachineTypes: ["Channel Letter Machine", "Assembly", "Laser Cutter", "CNC Router", "UV Flatbed"],
     specification: "Color Type",
     specificationOptions: [
-      "Cool White (6000K-6500K)",
-      "Warm White (3000K)",
-      "White (Warm White, Cool White)",
+      "White",
+      "Warm",
       "Yellow",
       "Red",
       "Blue",
       "Green",
+      "Cool White (6000K-6500K)",
+      "Warm White (3000K)",
+      "White (Warm White, Cool White)",
       "RGB (Multi-Color)",
     ],
     storageLocation: "Electrical Shelf E",
@@ -580,8 +612,9 @@ export const MATERIAL_SPECIFICATIONS: readonly MaterialSpecificationDefinition[]
     displayUnit: "ቁጥር",
     catalogFamily: "HARDWARE",
     catalogVariant: "Zecolo",
+    compatibleMachineTypes: ["CNC Router", "Channel Letter Machine", "Assembly"],
     specification: "Height (in centimeters)",
-    specificationOptions: ["8 cm", "6 cm"],
+    specificationOptions: ["8 cm", "6 cm", "8 cm thickness", "6 cm thickness"],
     storageLocation: "Hardware Rack G",
     averageUse: "Base edging and architectural frame skirting",
   },
@@ -595,9 +628,11 @@ export const MATERIAL_SPECIFICATIONS: readonly MaterialSpecificationDefinition[]
     displayUnit: "ሜትር",
     catalogFamily: "HARDWARE",
     catalogVariant: "Neon Light Flex",
+    compatibleMachineTypes: ["Channel Letter Machine", "Assembly"],
     specification: "Color Type",
     specificationOptions: [
       "White (Warm White, Cool White)",
+      "White",
       "Warm",
       "Yellow",
       "Red",
@@ -614,7 +649,7 @@ export const MATERIAL_SPECIFICATIONS: readonly MaterialSpecificationDefinition[]
   },
   {
     name: "Electric Wire",
-    aliases: ["Wire", "Electrical Cable", "Connecting Wire"],
+    aliases: ["Wire", "Eelectric wire", "Electrical Cable", "Connecting Wire"],
     category: "Electrical",
     purchaseUnit: "roll",
     baseUnit: "m",
@@ -623,15 +658,16 @@ export const MATERIAL_SPECIFICATIONS: readonly MaterialSpecificationDefinition[]
     catalogFamily: "HARDWARE",
     catalogVariant: "Electric Wire",
     catalogDimensions: "Metres",
+    compatibleMachineTypes: ["Channel Letter Machine", "Assembly", "Laser Cutter", "CNC Router", "UV Flatbed"],
     specification: "Gauge / Wire Type",
-    specificationOptions: ["1.5mm Standard", "2.5mm Heavy Duty"],
+    specificationOptions: ["1.5mm Standard", "2.5mm Heavy Duty", "Measured in Meter"],
     storageLocation: "Electrical Shelf E",
     averageUse: "Internal wiring for LED modules and power supplies",
     note: "Calculated in running meters. Roll basis: 100m.",
   },
   {
     name: "T-Shirts",
-    aliases: ["T-Shirt", "Blank T-Shirts", "Cotton T-Shirts"],
+    aliases: ["T-Shirt", "Tishert", "Tishert (Piece)", "Blank T-Shirts", "Cotton T-Shirts"],
     category: "Textile & Apparel",
     purchaseUnit: "piece",
     baseUnit: "pcs",
@@ -641,13 +677,13 @@ export const MATERIAL_SPECIFICATIONS: readonly MaterialSpecificationDefinition[]
     catalogVariant: "T-Shirts",
     compatibleMachineTypes: ["DTF"],
     specification: "Size & Fabric",
-    specificationOptions: ["S", "M", "L", "XL", "XXL"],
+    specificationOptions: ["S", "M", "L", "XL", "XXL", "Piece"],
     storageLocation: "Apparel Cabinet C",
     averageUse: "Garment apparel branding and DTF print transfers",
   },
   {
     name: "Amire",
-    aliases: ["AMIR", "Amir", "Amire Fasteners", "Rivets"],
+    aliases: ["AMIR", "Amir", "Amire (Packet (250 piece per package)", "Amire Fasteners", "Rivets"],
     category: "Hardware",
     purchaseUnit: "pack",
     baseUnit: "pcs",
@@ -655,8 +691,9 @@ export const MATERIAL_SPECIFICATIONS: readonly MaterialSpecificationDefinition[]
     displayUnit: "ፓኬት",
     catalogFamily: "HARDWARE",
     catalogVariant: "Amire",
+    compatibleMachineTypes: ["CNC Router", "Channel Letter Machine", "Assembly", "Banner Printer"],
     specification: "Packaging",
-    specificationOptions: ["Packet of 250 pieces"],
+    specificationOptions: ["Packet of 250 pieces", "250 piece per package"],
     storageLocation: "Hardware Rack G",
     averageUse: "Metal sheet fixing, frame assembly, banner mounting",
     note: "Pack conversion: 250 pieces per packet.",
@@ -664,6 +701,7 @@ export const MATERIAL_SPECIFICATIONS: readonly MaterialSpecificationDefinition[]
   {
     name: "Roll-Up Stands",
     aliases: [
+      "Roll up",
       "ROLE UP DELUX",
       "ROLE UP STANDARD",
       "Roll Up Standard",
@@ -677,8 +715,9 @@ export const MATERIAL_SPECIFICATIONS: readonly MaterialSpecificationDefinition[]
     displayUnit: "ቁጥር",
     catalogFamily: "HARDWARE",
     catalogVariant: "Roll-Up Stands",
+    compatibleMachineTypes: ["Print and Cut", "Banner Printer", "Assembly"],
     specification: "Stand Model",
-    specificationOptions: ["Deluxe Roll-Up Stand", "Standard Roll-Up Stand"],
+    specificationOptions: ["Delux", "Standard", "Deluxe Roll-Up Stand", "Standard Roll-Up Stand"],
     storageLocation: "Finished Goods Shelf F",
     averageUse: "Portable promotional exhibition displays",
   },
@@ -696,3 +735,43 @@ export function findMaterialSpecification(name: string): MaterialSpecificationDe
   }
   return undefined;
 }
+
+export function isMaterialCompatibleWithMachine(
+  materialNameOrSpec: string | { name: string; category?: string; compatibleMachineTypes?: readonly string[] },
+  machineSlugOrCode?: string
+): boolean {
+  if (!machineSlugOrCode) return true;
+  const name = typeof materialNameOrSpec === "string" ? materialNameOrSpec : materialNameOrSpec.name;
+  const spec = findMaterialSpecification(name);
+  const types = spec?.compatibleMachineTypes ?? (typeof materialNameOrSpec === "object" ? materialNameOrSpec.compatibleMachineTypes : undefined);
+  if (!types || types.length === 0) return true;
+
+  const slug = machineSlugOrCode.toLowerCase().trim();
+
+  return types.some((t) => {
+    const target = t.toLowerCase();
+    if (slug.includes("cj7k") || slug.includes("banner")) {
+      return target.includes("banner") || target.includes("print and cut");
+    }
+    if (slug.includes("cesp") || slug.includes("plotter") || slug.includes("print")) {
+      return target.includes("print and cut") || target.includes("banner");
+    }
+    if (slug.includes("dtf")) {
+      return target.includes("dtf");
+    }
+    if (slug.includes("ruv") || slug.includes("uv")) {
+      return target.includes("uv");
+    }
+    if (slug.includes("laser")) {
+      return target.includes("laser");
+    }
+    if (slug.includes("cnc")) {
+      return target.includes("cnc");
+    }
+    if (slug.includes("channel") || slug.includes("assy") || slug.includes("assembly")) {
+      return target.includes("channel") || target.includes("assembly") || target.includes("hardware") || target.includes("electrical");
+    }
+    return true;
+  });
+}
+
