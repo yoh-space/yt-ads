@@ -39,7 +39,7 @@ The web client can be wrapped as a lightweight cross-platform desktop app. This 
 
 - `src-tauri/` holds the Tauri v2 shell (`tauri.conf.json`, `Cargo.toml`, Rust entry points, capabilities, bundling icons). Updater and window config live in `tauri.conf.json`; the window is 1280×800 minimum and loads `http://localhost:3000` in development.
 - `src/components/auto-updater.tsx` is a root-mounted background service that checks `@tauri-apps/plugin-updater` on startup and applies updates with a sonner toast. It no-ops outside a Tauri WebView (guarded by `isTauri()`).
-- `src/lib/desktop.ts` exposes `printNative()` / `isDesktopShell()` used by the receptionist receipt print flow in the orders view.
+- `src/lib/desktop.ts` exposes `isDesktopShell()` to detect the Tauri native runtime environment.
 - Role workspace landing is defined in `src/components/dashboard/nav-config.ts` (`ROLE_WORKSPACE`); each authenticated role is routed to its workspace view (admin/owner → analytics, storekeeper → inventory, operators → jobs).
 
 ### Rust prerequisite

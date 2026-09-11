@@ -43,7 +43,7 @@ The platform is built on **Next.js 16 App Router** (with edge request intercepti
 - **Edge Role Routing**: `src/proxy.ts` inspects session state at the network edge and enforces strict role landing pages without flash-of-unauthorized-content.
 - **ACID Financial & Stock Ledger**: All material deductions, transfers, returns, and scrap events run inside Convex transactions and append to `stockMovements` and `orderEvents`.
 - **Two-Tier Inventory**: Bulk whole units (rolls, sheets, canisters) stay under Storekeeper custody (`parentInventory`), while operational floor quantities (`operatorSubStock`) are tracked in base metric units (`m²`, `m`, `L`).
-- **Telegram Native Integration**: Embedded Telegram Mini App portal for customer self-service intake, live order tracking, and receipt generation with HMAC-SHA256 authenticated verification.
+- **Telegram Native Integration**: Embedded Telegram Mini App portal for customer self-service intake, live order tracking, and payment instruction workflows with HMAC-SHA256 authenticated verification.
 
 ---
 
@@ -56,7 +56,7 @@ Each authenticated role is automatically routed to its dedicated workspace landi
 | **Owner / Admin** | `/dashboard/owner` | Loss-prevention metrics, company settings, operational policy configuration, user role delegation, and audit trails. |
 | **Manager** | `/dashboard/manager` | Operations overview, production throughput, staff delegation, and exception approvals. |
 | **Storekeeper** | `/dashboard/storekeeper` | Central warehouse inventory, stock-in conversions, material request fulfillment, and reorder alerts. |
-| **Receptionist** | `/dashboard/receptionist` | Order review locking, pricing approval, advance payment / credit confirmation, automated dispatch, and receipt printing. |
+| **Receptionist** | `/dashboard/receptionist` | Order review locking, pricing approval, advance payment / credit confirmation, and automated dispatch. |
 | **Laser Operator** | `/dashboard/operator/laser` | CO2 laser cutting and engraving job queues (Mica, Foam Board), machine timers, and production logging. |
 | **CNC Operator** | `/dashboard/operator/cnc` | 3-axis CNC router job queues (Foam Board, Cladding, MDF), toolpath monitoring, and floor consumption. |
 | **Plotter Operator** | `/dashboard/operator/plotter` | Eco-solvent print & cut sticker jobs (Frosted, Transparent, Reflective media), blade calibration, and log entries. |
@@ -179,7 +179,7 @@ NODE_ENV=production pnpm build
 
 The web application is packaged for cross-platform desktop usage via Tauri v2 in `src-tauri/`:
 
-- **Native Printing**: `src/lib/desktop.ts` provides `printNative()` for receptionist receipt printing.
+- **Desktop Shell Detection**: `src/lib/desktop.ts` provides `isDesktopShell()` to detect the native Tauri runtime environment.
 - **Auto-Updater**: `src/components/auto-updater.tsx` checks `@tauri-apps/plugin-updater` and notifies users of updates without blocking web clients.
 - **Commands**:
   ```bash
