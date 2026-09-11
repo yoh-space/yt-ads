@@ -20,7 +20,7 @@ This directory is the canonical technical and architectural reference for the **
 | Document | Purpose | Audience |
 |---|---|---|
 | [`yt-advertisement-seed-data.md`](./yt-advertisement-seed-data.md) | Authoritative master data specification: confirmed 23 raw materials, 6 machines, metric base unit conversion ratios, and initial workspace configurations. | Storekeepers, Data Engineers |
-| [`yt-advertisement-public-operations.md`](./yt-advertisement-public-operations.md) | Public customer intake specification: Telegram bot `/start` binding, Mini App order placement, self-service tracking `/track?code=...`, and payment request receipts. | Frontend Engineers, Customer Support |
+| [`yt-advertisement-public-operations.md`](./yt-advertisement-public-operations.md) | Public customer intake specification: Telegram bot `/start` binding, Mini App order placement, self-service tracking `/track?code=...`, and payment instructions/confirmation. | Frontend Engineers, Customer Support |
 | [`adr/0001-workspace-routing-architecture.md`](./adr/0001-workspace-routing-architecture.md) | Architectural Decision Record: Next.js 16 edge-intercepted routing via `src/proxy.ts` guaranteeing instant role home landing without client redirect flicker. | Web Architects, Frontend Developers |
 
 ### Active Feature & Evolution Plans

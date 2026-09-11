@@ -7,11 +7,6 @@ import { isTauri } from "@tauri-apps/api/core";
  * client stays unchanged when served as a normal website.
  */
 
-/** Opens the native print dialog for the current document. */
-export function printNative() {
-  window.print();
-}
-
 /** True when the app is running inside a Tauri WebView rather than a browser. */
 export function isDesktopShell(): boolean {
   return typeof window !== "undefined" && isTauri();

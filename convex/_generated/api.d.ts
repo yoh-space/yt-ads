@@ -69,7 +69,6 @@ import type * as payment from "../payment.js";
 import type * as receptionist_jobs from "../receptionist/jobs.js";
 import type * as receptionist_orders from "../receptionist/orders.js";
 import type * as receptionist_overview from "../receptionist/overview.js";
-import type * as receptionist_receipt from "../receptionist/receipt.js";
 import type * as reconciliation from "../reconciliation.js";
 import type * as reports from "../reports.js";
 import type * as resetSystemData from "../resetSystemData.js";
@@ -156,7 +155,6 @@ declare const fullApi: ApiFromModules<{
   "receptionist/jobs": typeof receptionist_jobs;
   "receptionist/orders": typeof receptionist_orders;
   "receptionist/overview": typeof receptionist_overview;
-  "receptionist/receipt": typeof receptionist_receipt;
   reconciliation: typeof reconciliation;
   reports: typeof reports;
   resetSystemData: typeof resetSystemData;

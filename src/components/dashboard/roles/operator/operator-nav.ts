@@ -5,9 +5,8 @@ export const OPERATOR_ROLES: Role[] = ["laser_operator", "cnc_operator", "plotte
 
 /**
  * Operator workspace navigation. All operator routes live under the machine
- * segment (`/dashboard/operator/<machine>/...`); inventory/substock and
- * settings stay flat per the routing conflict rule, so those items point at
- * the shared flat routes.
+ * segment (`/dashboard/operator/<machine>/...`); machine stock remains scoped
+ * to the assigned machine while settings use the operator workspace namespace.
  */
 export function operatorNavItems(machineSlug: string): WorkspaceNavItem[] {
   const base = `/dashboard/operator/${machineSlug}`;
@@ -43,7 +42,7 @@ export function operatorNavItems(machineSlug: string): WorkspaceNavItem[] {
       icon: "scale",
     },
     {
-      href: "/settings",
+      href: "/dashboard/operator/settings",
       label: "Settings",
       english: "ቅንብሮች",
       icon: "settings",
