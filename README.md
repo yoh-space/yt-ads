@@ -188,7 +188,7 @@ The web application is packaged for cross-platform desktop usage via Tauri v2 in
   ```
 
 ---
-
+ 
 ## 8. Documentation Directory
 
 Detailed technical and operational references are maintained under [`docs/`](./docs/README.md):
