@@ -1,7 +1,8 @@
 import type { WorkspaceNavItem } from "@/components/dashboard/shell/workspace-shell";
 import type { Role } from "@/lib/operations-types";
+import { CANONICAL_OPERATOR_ROLES } from "@/shared/production-manifest";
 
-export const OPERATOR_ROLES: Role[] = ["laser_operator", "cnc_operator", "plotter_operator", "printer_operator"];
+export const OPERATOR_ROLES: Role[] = [...CANONICAL_OPERATOR_ROLES];
 
 /**
  * Operator workspace navigation. All operator routes live under the machine
