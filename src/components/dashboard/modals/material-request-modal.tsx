@@ -73,11 +73,10 @@ export function MaterialRequestModal({
             ? "PIECE"
             : "PACKAGE");
 
-  // Machine-specific allowed raw materials
+  // Allowed materials scoped strictly to this job card
   const materialOptions = useMemo(() => {
-    let baseList: Array<Material & { isBlocked?: boolean; blockReason?: string; priorCustodyState?: string; isPrimary?: boolean }> = [];
     if (eligibility?.allowedMaterials && eligibility.allowedMaterials.length > 0) {
-      baseList = eligibility.allowedMaterials.map((m) => {
+      return eligibility.allowedMaterials.map((m) => {
         const fullMat = materials.find((mat) => mat.id === m.id);
         return {
           id: m.id,
@@ -94,42 +93,21 @@ export function MaterialRequestModal({
           quantity: fullMat?.quantity ?? 0,
           reorderAt: fullMat?.reorderAt ?? 0,
           accent: fullMat?.accent ?? "cyan",
-        };
+        } as Material & { isBlocked?: boolean; blockReason?: string; priorCustodyState?: string; isPrimary?: boolean };
       });
-    } else {
-      baseList = materials.map((m) => ({
-        ...m,
-        isPrimary: selectedJob?.materialId === m.id,
-      }));
     }
-
-    const baseIds = new Set(baseList.map((m) => m.id));
-    const extraCompatible = materials
-      .filter((m) => !baseIds.has(m.id) && isMaterialCompatibleWithMachine(m.name, machineSlug))
-      .map((m) => ({
-        ...m,
-        isPrimary: selectedJob?.materialId === m.id,
-      }));
-
-    const combined = [...baseList, ...extraCompatible];
-
-    // Filter to only include machine-compatible items or primary job materials
-    return combined.filter(
-      (m) => m.isPrimary || isMaterialCompatibleWithMachine(m.name, machineSlug),
-    );
-  }, [eligibility, materials, selectedJob, machineSlug]);
+    // Fallback while eligibility query loads or if no machineSlug
+    if (selectedJob?.materialId) {
+      const primary = materials.filter((m) => m.id === selectedJob.materialId);
+      if (primary.length > 0) return primary;
+    }
+    return materials;
+  }, [eligibility, materials, selectedJob]);
 
   const defaultMaterial = materialOptions[0] ?? materials[0];
 
-  const getInitialSpecOption = (matId: string) => {
-    const mat = materials.find((m) => m.id === matId);
-    if (!mat) return "";
-    const spec = findMaterialSpecification(mat.name);
-    return spec?.specificationOptions?.[0] ?? "";
-  };
-
-  const [lines, setLines] = useState<Array<{ materialId: string; packages: string; specOption: string }>>(() =>
-    defaultMaterial ? [{ materialId: defaultMaterial.id, packages: "1", specOption: getInitialSpecOption(defaultMaterial.id) }] : [],
+  const [lines, setLines] = useState(() =>
+    defaultMaterial ? [{ materialId: defaultMaterial.id, packages: "1" }] : [],
   );
   const [note, setNote] = useState("");
 
@@ -314,7 +292,7 @@ export function MaterialRequestModal({
                   const nextJob = activeJobs.find((job) => job.id === event.target.value);
                   setJobCardId(event.target.value);
                   if (nextJob) {
-                    setLines([{ materialId: nextJob.materialId, packages: "1", specOption: getInitialSpecOption(nextJob.materialId) }]);
+                    setLines([{ materialId: nextJob.materialId, packages: "1" }]);
                   }
                 }}
                 className="h-11 w-full rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none transition focus:border-cyan focus:ring-2 focus:ring-cyan/20"
@@ -334,13 +312,12 @@ export function MaterialRequestModal({
                 </span>
                 <button
                   type="button"
-                  onClick={() => {
-                    const firstMatId = materialOptions[0]?.id ?? materials[0]?.id ?? "";
+                  onClick={() =>
                     setLines((current) => [
                       ...current,
-                      { materialId: firstMatId, packages: "1", specOption: getInitialSpecOption(firstMatId) },
-                    ]);
-                  }}
+                      { materialId: materialOptions[0]?.id ?? "", packages: "1" },
+                    ])
+                  }
                   className="inline-flex items-center gap-1 rounded-md border border-cyan/30 px-2 py-1 text-xs font-semibold text-cyan"
                 >
                   <Plus size={13} /> Add material
@@ -349,29 +326,24 @@ export function MaterialRequestModal({
 
               {lines.map((line, index) => {
                 const material = lineFor(line.materialId);
-                const specDef = material ? findMaterialSpecification(material.name) : undefined;
-                const specOptions = specDef?.specificationOptions ?? [];
                 const ratio =
                   material?.conversionRatio && material.conversionRatio > 0 ? material.conversionRatio : 1;
                 const packageUnit = packageUnitFor(material);
                 return (
                   <div
                     key={`${line.materialId}-${index}`}
-                    className="grid gap-2.5 rounded-lg border border-border bg-secondary/50 p-3.5 sm:grid-cols-[1fr_0.35fr_auto]"
+                     className="grid gap-2 rounded-lg border border-border bg-secondary/50 p-3 sm:grid-cols-[1fr_0.35fr_auto]"
                   >
                     <select
                       value={line.materialId}
-                      onChange={(event) => {
-                        const newMatId = event.target.value;
+                      onChange={(event) =>
                         setLines((current) =>
                           current.map((item, itemIndex) =>
-                            itemIndex === index
-                              ? { ...item, materialId: newMatId, specOption: getInitialSpecOption(newMatId) }
-                              : item,
+                            itemIndex === index ? { ...item, materialId: event.target.value } : item,
                           ),
-                        );
-                      }}
-                      className="h-10 rounded-md border border-border bg-background px-2.5 text-sm text-foreground"
+                        )
+                      }
+                      className="h-10 rounded-md border border-border bg-background px-2 text-sm text-foreground"
                     >
                       {materialOptions.map((option) => (
                         <option
@@ -416,33 +388,6 @@ export function MaterialRequestModal({
                     >
                       <Trash2 size={16} />
                     </button>
-
-                    {specOptions.length > 0 ? (
-                      <div className="col-span-full flex flex-col gap-1 rounded-md border border-cyan-500/20 bg-cyan-950/20 p-2 text-xs">
-                        <label className="flex items-center gap-1.5 font-semibold text-cyan-300">
-                          <Ruler size={13} className="text-cyan-400" />
-                          {specDef?.specification ?? "Width / Specification"}
-                        </label>
-                        <select
-                          value={line.specOption || specOptions[0]}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setLines((current) =>
-                              current.map((item, itemIndex) =>
-                                itemIndex === index ? { ...item, specOption: val } : item,
-                              ),
-                            );
-                          }}
-                          className="h-9 w-full rounded border border-cyan-500/30 bg-background px-2.5 text-xs text-foreground font-medium outline-none focus:border-cyan"
-                        >
-                          {specOptions.map((opt) => (
-                            <option key={opt} value={opt}>
-                              {opt}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    ) : null}
 
                     <p className="col-span-full m-0 text-xs text-muted-foreground">
                       <Ruler size={12} className="mr-1 inline text-cyan" /> 1 {packageUnit} = {ratio}{" "}

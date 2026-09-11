@@ -33,9 +33,9 @@ The recommended target behavior is:
 - Machine, operator, material, and Job Card identities are resolved by stable IDs, not URL text or display names.
 
 > **Core rule:** A missing previous issue must be a valid starting state, not an error. A new request should be blocked only by a clearly defined unresolved custody or safety condition.
-
+ 
 ---
-
+ 
 # 2. Current Request Flow and Failure Points
 
 ## 2.1 Current call chain
