@@ -28,7 +28,7 @@
 │  - private chats w/ bot          │    │  - Next.js App Router /dashboard       │
 │  - Telegram Mini App (WebApp)    │    │  - Workspace-oriented routing          │
 └──────────────────┬──────────────┘    │  - React + Tailwind components          │
-                   │                                     │  - Dashboard domain components         │
+                   │                   │  - Dashboard domain components         │
                    │ HMAC-SHA256 initData  └────────────────────┬──────────────────┘
                    │ Telegram WebApp primary button         │
                    │                                        │ Better Auth session
