@@ -532,6 +532,7 @@ export const MATERIAL_SPECIFICATIONS: readonly MaterialSpecificationDefinition[]
     displayUnit: "ቁጥር",
     catalogFamily: "HARDWARE",
     catalogVariant: "Power Supply",
+    compatibleMachineTypes: ["Channel Letter Machine", "Assembly", "Laser Cutter", "CNC Router", "UV Flatbed"],
     specification: "Wattage",
     specificationOptions: [
       "60 Watt",
@@ -562,6 +563,7 @@ export const MATERIAL_SPECIFICATIONS: readonly MaterialSpecificationDefinition[]
     displayUnit: "ቁጥር",
     catalogFamily: "HARDWARE",
     catalogVariant: "Digital Screen",
+    compatibleMachineTypes: ["UV Flatbed", "Assembly", "Print and Cut"],
     specification: "Size",
     specificationOptions: [
       "A1 (594 × 841 mm)",
@@ -582,6 +584,7 @@ export const MATERIAL_SPECIFICATIONS: readonly MaterialSpecificationDefinition[]
     displayUnit: "ቁጥር",
     catalogFamily: "HARDWARE",
     catalogVariant: "LED Modules",
+    compatibleMachineTypes: ["Channel Letter Machine", "Assembly", "Laser Cutter", "CNC Router", "UV Flatbed"],
     specification: "Color Type",
     specificationOptions: [
       "White",
@@ -609,6 +612,7 @@ export const MATERIAL_SPECIFICATIONS: readonly MaterialSpecificationDefinition[]
     displayUnit: "ቁጥር",
     catalogFamily: "HARDWARE",
     catalogVariant: "Zecolo",
+    compatibleMachineTypes: ["CNC Router", "Channel Letter Machine", "Assembly"],
     specification: "Height (in centimeters)",
     specificationOptions: ["8 cm", "6 cm", "8 cm thickness", "6 cm thickness"],
     storageLocation: "Hardware Rack G",
@@ -624,6 +628,7 @@ export const MATERIAL_SPECIFICATIONS: readonly MaterialSpecificationDefinition[]
     displayUnit: "ሜትር",
     catalogFamily: "HARDWARE",
     catalogVariant: "Neon Light Flex",
+    compatibleMachineTypes: ["Channel Letter Machine", "Assembly"],
     specification: "Color Type",
     specificationOptions: [
       "White (Warm White, Cool White)",
@@ -653,6 +658,7 @@ export const MATERIAL_SPECIFICATIONS: readonly MaterialSpecificationDefinition[]
     catalogFamily: "HARDWARE",
     catalogVariant: "Electric Wire",
     catalogDimensions: "Metres",
+    compatibleMachineTypes: ["Channel Letter Machine", "Assembly", "Laser Cutter", "CNC Router", "UV Flatbed"],
     specification: "Gauge / Wire Type",
     specificationOptions: ["1.5mm Standard", "2.5mm Heavy Duty", "Measured in Meter"],
     storageLocation: "Electrical Shelf E",
@@ -685,6 +691,7 @@ export const MATERIAL_SPECIFICATIONS: readonly MaterialSpecificationDefinition[]
     displayUnit: "ፓኬት",
     catalogFamily: "HARDWARE",
     catalogVariant: "Amire",
+    compatibleMachineTypes: ["CNC Router", "Channel Letter Machine", "Assembly", "Banner Printer"],
     specification: "Packaging",
     specificationOptions: ["Packet of 250 pieces", "250 piece per package"],
     storageLocation: "Hardware Rack G",
@@ -708,6 +715,7 @@ export const MATERIAL_SPECIFICATIONS: readonly MaterialSpecificationDefinition[]
     displayUnit: "ቁጥር",
     catalogFamily: "HARDWARE",
     catalogVariant: "Roll-Up Stands",
+    compatibleMachineTypes: ["Print and Cut", "Banner Printer", "Assembly"],
     specification: "Stand Model",
     specificationOptions: ["Delux", "Standard", "Deluxe Roll-Up Stand", "Standard Roll-Up Stand"],
     storageLocation: "Finished Goods Shelf F",
@@ -727,3 +735,43 @@ export function findMaterialSpecification(name: string): MaterialSpecificationDe
   }
   return undefined;
 }
+
+export function isMaterialCompatibleWithMachine(
+  materialNameOrSpec: string | { name: string; category?: string; compatibleMachineTypes?: readonly string[] },
+  machineSlugOrCode?: string
+): boolean {
+  if (!machineSlugOrCode) return true;
+  const name = typeof materialNameOrSpec === "string" ? materialNameOrSpec : materialNameOrSpec.name;
+  const spec = findMaterialSpecification(name);
+  const types = spec?.compatibleMachineTypes ?? (typeof materialNameOrSpec === "object" ? materialNameOrSpec.compatibleMachineTypes : undefined);
+  if (!types || types.length === 0) return true;
+
+  const slug = machineSlugOrCode.toLowerCase().trim();
+
+  return types.some((t) => {
+    const target = t.toLowerCase();
+    if (slug.includes("cj7k") || slug.includes("banner")) {
+      return target.includes("banner") || target.includes("print and cut");
+    }
+    if (slug.includes("cesp") || slug.includes("plotter") || slug.includes("print")) {
+      return target.includes("print and cut") || target.includes("banner");
+    }
+    if (slug.includes("dtf")) {
+      return target.includes("dtf");
+    }
+    if (slug.includes("ruv") || slug.includes("uv")) {
+      return target.includes("uv");
+    }
+    if (slug.includes("laser")) {
+      return target.includes("laser");
+    }
+    if (slug.includes("cnc")) {
+      return target.includes("cnc");
+    }
+    if (slug.includes("channel") || slug.includes("assy") || slug.includes("assembly")) {
+      return target.includes("channel") || target.includes("assembly") || target.includes("hardware") || target.includes("electrical");
+    }
+    return true;
+  });
+}
+
