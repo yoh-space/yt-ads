@@ -161,7 +161,7 @@ export type ScrapLog = {
   createdAt: string;
 };
 
-export type MaterialRequestStatus = "Requested" | "Partially Issued" | "Issued" | "Received" | "Short Stock" | "Discrepancy";
+export type MaterialRequestStatus = "Requested" | "Partially Issued" | "Issued" | "Received" | "Short Stock" | "Discrepancy" | "Closed" | "Cancelled";
 
 export type MaterialRequest = {
   id: string;

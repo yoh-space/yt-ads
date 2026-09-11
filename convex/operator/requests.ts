@@ -2,8 +2,13 @@ import { mutation, query } from "../_generated/server";
 import { v } from "convex/values";
 import { packageUnit, unit } from "../schema";
 import { resolveOperatorMachine } from "./common";
-import { createMaterialRequestInternal, acknowledgeMaterialRequestInternal } from "../materialRequests";
+import {
+  createMaterialRequestInternal,
+  acknowledgeMaterialRequestInternal,
+  getMaterialRequestEligibilityInternal,
+} from "../materialRequests";
 import { canAccessMaterialRequest } from "../authorization";
+import type { Id } from "../_generated/dataModel";
 
 /**
  * Operator-scoped requisition surface for the /dashboard/operator workspace
@@ -13,7 +18,10 @@ import { canAccessMaterialRequest } from "../authorization";
  */
 
 export const list = query({
-  args: { machineSlug: v.string() },
+  args: {
+    machineSlug: v.string(),
+    scope: v.optional(v.union(v.literal("all"), v.literal("open"), v.literal("history"))),
+  },
   handler: async (ctx, args) => {
     const { identity, profile, machine } = await resolveOperatorMachine(ctx, args.machineSlug);
     const [requests, jobs, materials, users] = await Promise.all([
@@ -29,8 +37,17 @@ export const list = query({
 
     const visibleRequests = requests.filter((request) => {
       const job = jobMap.get(request.jobCardId);
-      if (!job || job.machineId !== machine._id) return false;
-      return canAccessMaterialRequest(profile.role, identity._id, request, machine);
+      const isMachineMatch = request.machineId === machine._id || (job && job.machineId === machine._id);
+      if (!isMachineMatch) return false;
+      if (!canAccessMaterialRequest(profile.role, identity._id, request, machine)) return false;
+
+      if (args.scope === "open") {
+        return request.status === "Requested" || request.status === "Partially Issued" || request.status === "Short Stock" || request.status === "Discrepancy";
+      }
+      if (args.scope === "history") {
+        return request.status === "Issued" || request.status === "Received" || request.status === "Closed" || request.status === "Cancelled";
+      }
+      return true;
     });
 
     return visibleRequests
@@ -51,6 +68,20 @@ export const list = query({
         };
       })
       .sort((left, right) => right.requestedAt - left.requestedAt);
+  },
+});
+
+export const getEligibility = query({
+  args: {
+    machineSlug: v.string(),
+    jobCardId: v.id("jobCards"),
+  },
+  handler: async (ctx, args) => {
+    const { identity, profile, machine } = await resolveOperatorMachine(ctx, args.machineSlug);
+    return await getMaterialRequestEligibilityInternal(ctx, identity, profile, {
+      machineId: machine._id as Id<"machines">,
+      jobCardId: args.jobCardId,
+    });
   },
 });
 

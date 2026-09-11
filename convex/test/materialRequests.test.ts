@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   issueMaterialRequestInternal,
   acknowledgeMaterialRequestInternal,
+  createMaterialRequestInternal,
+  getMaterialRequestEligibilityInternal,
 } from "../materialRequests";
+import { resolveMachineForRole } from "../operator/common";
 
 function createMockCtx(initialDocs: Record<string, any> = {}) {
   const docs = new Map<string, any>(Object.entries(initialDocs));
@@ -284,5 +287,343 @@ describe("materialRequests issuance and acknowledgement invariants", () => {
 
     expect(result.status).toBe("Received");
     expect(result.receivedBy).toBe(baseOperator._id);
+  });
+});
+
+describe("operator material requests lifecycle and clean custody", () => {
+  const operatorIdentity = { _id: "user_operator_printer" };
+  const operatorProfile = { role: "printer_operator" as const };
+
+  function buildCleanRequestState() {
+    return {
+      id_materials_1: {
+        _id: "id_materials_1",
+        __table: "materials",
+        name: "Banner Flex 3.2m",
+        unit: "m²",
+        baseUnit: "m²",
+        purchaseUnit: "roll",
+        packageUnit: "ROLL",
+        conversionRatio: 50,
+        active: true,
+        quantity: 500,
+      },
+      id_materials_ink: {
+        _id: "id_materials_ink",
+        __table: "materials",
+        name: "Cyan Solvent Ink",
+        unit: "L",
+        baseUnit: "L",
+        purchaseUnit: "canister",
+        packageUnit: "CANISTER",
+        conversionRatio: 5,
+        active: true,
+        quantity: 100,
+      },
+      id_materials_unrelated: {
+        _id: "id_materials_unrelated",
+        __table: "materials",
+        name: "Acrylic Sheet 3mm",
+        unit: "sheet",
+        baseUnit: "sheet",
+        active: true,
+        quantity: 50,
+      },
+      id_machines_1: {
+        _id: "id_machines_1",
+        __table: "machines",
+        name: "Polaris 3.2m",
+        code: "M-POLARIS",
+        type: "Large Format Printer",
+        operatorRole: "printer_operator",
+        active: true,
+      },
+      id_machines_2: {
+        _id: "id_machines_2",
+        __table: "machines",
+        name: "Mimaki JV300",
+        code: "M-MIMAKI",
+        type: "Eco Solvent Printer",
+        operatorRole: "printer_operator",
+        active: true,
+      },
+      id_jobCards_1: {
+        _id: "id_jobCards_1",
+        __table: "jobCards",
+        code: "JC-001",
+        title: "Large Banner Print",
+        client: "Acme Corp",
+        status: "Queued",
+        machineId: "id_machines_1",
+        materialId: "id_materials_1",
+        quantity: 100,
+        unit: "m²",
+      },
+      id_jobMaterialRequirements_1: {
+        _id: "id_jobMaterialRequirements_1",
+        __table: "jobMaterialRequirements",
+        jobCardId: "id_jobCards_1",
+        materialId: "id_materials_ink",
+        plannedBaseQuantity: 10,
+        approvedScrapQuantity: 0,
+      },
+      id_users_storekeeper: {
+        _id: "id_users_storekeeper",
+        __table: "users",
+        authUserId: "user_storekeeper",
+        role: "storekeeper",
+        active: true,
+      },
+    };
+  }
+
+  it("allows an operator with NO previous stock to create a material request", async () => {
+    const state = buildCleanRequestState();
+    const { mockCtx, inserted } = createMockCtx(state);
+
+    const result = await createMaterialRequestInternal(
+      mockCtx as any,
+      operatorIdentity,
+      operatorProfile,
+      {
+        jobCardId: "id_jobCards_1" as any,
+        materialId: "id_materials_1" as any,
+        requestedQuantity: 50,
+        unit: "m²",
+        requestedPackages: 1,
+        packageUnit: "ROLL",
+      },
+      "id_machines_1",
+    );
+
+    expect(result).toBeDefined();
+    expect(result.status).toBe("Requested");
+    expect(result.jobCardId).toBe("id_jobCards_1");
+    expect(result.machineId).toBe("id_machines_1");
+
+    // Assert machineId was persisted on the inserted materialRequest record
+    const requestInsert = inserted.find((i) => i.table === "materialRequests");
+    expect(requestInsert).toBeDefined();
+    expect(requestInsert?.value.machineId).toBe("id_machines_1");
+  });
+
+  it("allows an operator with depleted stock (currentRemaining = 0) to create a material request", async () => {
+    const state = buildCleanRequestState();
+    (state as any).id_operatorSubStock_old = {
+      _id: "id_operatorSubStock_old",
+      __table: "operatorSubStock",
+      operatorId: "user_operator_printer",
+      machineId: "id_machines_1",
+      materialId: "id_materials_1",
+      currentRemaining: 0,
+      status: "ACTIVE",
+    };
+    const { mockCtx } = createMockCtx(state);
+
+    const result = await createMaterialRequestInternal(
+      mockCtx as any,
+      operatorIdentity,
+      operatorProfile,
+      {
+        jobCardId: "id_jobCards_1" as any,
+        materialId: "id_materials_1" as any,
+        requestedQuantity: 50,
+        unit: "m²",
+        requestedPackages: 1,
+        packageUnit: "ROLL",
+      },
+      "id_machines_1",
+    );
+
+    expect(result.status).toBe("Requested");
+  });
+
+  it("allows an operator with active stock on a different machine to request on their assigned machine", async () => {
+    const state = buildCleanRequestState();
+    // Active stock on machine 2, but requesting for machine 1
+    (state as any).id_operatorSubStock_other = {
+      _id: "id_operatorSubStock_other",
+      __table: "operatorSubStock",
+      operatorId: "user_operator_printer",
+      machineId: "id_machines_2",
+      materialId: "id_materials_1",
+      currentRemaining: 100,
+      status: "ACTIVE",
+    };
+    const { mockCtx } = createMockCtx(state);
+
+    const result = await createMaterialRequestInternal(
+      mockCtx as any,
+      operatorIdentity,
+      operatorProfile,
+      {
+        jobCardId: "id_jobCards_1" as any,
+        materialId: "id_materials_1" as any,
+        requestedQuantity: 50,
+        unit: "m²",
+        requestedPackages: 1,
+        packageUnit: "ROLL",
+      },
+      "id_machines_1",
+    );
+
+    expect(result.status).toBe("Requested");
+  });
+
+  it("rejects request when material is not in Job Card or BOM requirements", async () => {
+    const state = buildCleanRequestState();
+    const { mockCtx } = createMockCtx(state);
+
+    await expect(
+      createMaterialRequestInternal(
+        mockCtx as any,
+        operatorIdentity,
+        operatorProfile,
+        {
+          jobCardId: "id_jobCards_1" as any,
+          materialId: "id_materials_unrelated" as any,
+          requestedQuantity: 5,
+          unit: "sheet" as any,
+          requestedPackages: 5,
+          packageUnit: "PIECE" as any,
+        },
+        "id_machines_1",
+      )
+    ).rejects.toThrow("The requested material and unit must match the job card.");
+  });
+
+  it("rejects request when there is an active batch with remaining stock on the same machine and material", async () => {
+    const state = buildCleanRequestState();
+    (state as any).id_operatorSubStock_active = {
+      _id: "id_operatorSubStock_active",
+      __table: "operatorSubStock",
+      operatorId: "user_operator_printer",
+      machineId: "id_machines_1",
+      materialId: "id_materials_1",
+      currentRemaining: 25.5,
+      status: "ACTIVE",
+      baseUnit: "m²",
+    };
+    const { mockCtx } = createMockCtx(state);
+
+    await expect(
+      createMaterialRequestInternal(
+        mockCtx as any,
+        operatorIdentity,
+        operatorProfile,
+        {
+          jobCardId: "id_jobCards_1" as any,
+          materialId: "id_materials_1" as any,
+          requestedQuantity: 50,
+          unit: "m²",
+          requestedPackages: 1,
+          packageUnit: "ROLL",
+        },
+        "id_machines_1",
+      )
+    ).rejects.toThrow("ACTIVE_CUSTODY_EXISTS");
+  });
+
+  it("rejects request when there is a pending clearance batch on the same machine and material", async () => {
+    const state = buildCleanRequestState();
+    (state as any).id_operatorSubStock_pending = {
+      _id: "id_operatorSubStock_pending",
+      __table: "operatorSubStock",
+      operatorId: "user_operator_printer",
+      machineId: "id_machines_1",
+      materialId: "id_materials_1",
+      currentRemaining: 5,
+      status: "PENDING_CLEARANCE",
+    };
+    const { mockCtx } = createMockCtx(state);
+
+    await expect(
+      createMaterialRequestInternal(
+        mockCtx as any,
+        operatorIdentity,
+        operatorProfile,
+        {
+          jobCardId: "id_jobCards_1" as any,
+          materialId: "id_materials_1" as any,
+          requestedQuantity: 50,
+          unit: "m²",
+          requestedPackages: 1,
+          packageUnit: "ROLL",
+        },
+        "id_machines_1",
+      )
+    ).rejects.toThrow("UNRESOLVED_CUSTODY_CLEARANCE");
+  });
+
+  it("returns structured eligibility with allowed materials including BOM requirements", async () => {
+    const state = buildCleanRequestState();
+    const { mockCtx } = createMockCtx(state);
+
+    const eligibility = await getMaterialRequestEligibilityInternal(
+      mockCtx as any,
+      operatorIdentity,
+      operatorProfile,
+      {
+        machineId: "id_machines_1" as any,
+        jobCardId: "id_jobCards_1" as any,
+      },
+    );
+
+    expect(eligibility.eligible).toBe(true);
+    expect(eligibility.blockingReasons).toHaveLength(0);
+    expect(eligibility.allowedMaterials).toHaveLength(2); // primary material + ink requirement
+    expect(eligibility.allowedMaterials.map((m) => m.id)).toEqual(
+      expect.arrayContaining(["id_materials_1", "id_materials_ink"]),
+    );
+    expect(eligibility.conversionSnapshots).toHaveLength(2);
+  });
+
+  it("resolveMachineForRole matches exact ID, exact code, and throws on ambiguous slugs", () => {
+    const machines = [
+      {
+        _id: "mach_101",
+        code: "M-POLARIS-1",
+        name: "Polaris Alpha",
+        type: "Large Format Printer",
+        operatorRole: "printer_operator" as const,
+        status: "Available",
+        materialUnit: "m²",
+        active: true,
+      },
+      {
+        _id: "mach_102",
+        code: "M-POLARIS-2",
+        name: "Polaris Beta",
+        type: "Large Format Printer",
+        operatorRole: "printer_operator" as const,
+        status: "Available",
+        materialUnit: "m²",
+        active: true,
+      },
+      {
+        _id: "mach_103",
+        code: "M-MIMAKI",
+        name: "Mimaki Roll",
+        type: "Eco Solvent Printer",
+        operatorRole: "printer_operator" as const,
+        status: "Available",
+        materialUnit: "m²",
+        active: true,
+      },
+    ];
+
+    // 1. Exact ID
+    expect(resolveMachineForRole(machines, "mach_101", "printer_operator")._id).toBe("mach_101");
+
+    // 2. Exact Code (case-insensitive)
+    expect(resolveMachineForRole(machines, "m-mimaki", "printer_operator")._id).toBe("mach_103");
+
+    // 3. Ambiguous slug matches multiple machines (e.g. "polaris")
+    expect(() => resolveMachineForRole(machines, "polaris", "printer_operator")).toThrow(
+      "AMBIGUOUS_MACHINE_SCOPE",
+    );
+
+    // 4. Unique substring matches
+    expect(resolveMachineForRole(machines, "polaris-1", "printer_operator")._id).toBe("mach_101");
   });
 });

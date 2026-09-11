@@ -21,6 +21,8 @@ const STATUS_TONE: Record<MaterialRequestStatus, "success" | "warning" | "info" 
   Received: "success",
   "Short Stock": "danger",
   Discrepancy: "danger",
+  Closed: "neutral",
+  Cancelled: "neutral",
 };
 
 const PHASE_LABEL: Partial<Record<MaterialRequestStatus, string>> = {
@@ -30,6 +32,8 @@ const PHASE_LABEL: Partial<Record<MaterialRequestStatus, string>> = {
   Received: "Received",
   "Short Stock": "Short stock",
   Discrepancy: "Discrepancy",
+  Closed: "Closed",
+  Cancelled: "Cancelled",
 };
 
 function requesterInitials(name: string) {

@@ -548,6 +548,7 @@ export default function OperatorMachineOverview({
           jobs={jobOptions}
           materials={materialOptions}
           unclearedStock={unclearedStock}
+          machineSlug={machineParam}
           onClose={() => setRequestOpen(false)}
           onSave={(input) => {
             void safeMutation(
@@ -556,6 +557,9 @@ export default function OperatorMachineOverview({
               () => {
                 setRequestOpen(false);
                 toast.success("Material request sent to the storekeeper");
+              },
+              (err) => {
+                toast.error(err instanceof Error ? err.message : "Failed to submit material request");
               },
             );
           }}
