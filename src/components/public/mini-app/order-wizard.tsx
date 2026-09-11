@@ -309,7 +309,8 @@ export function OrderWizard({
         const result = await submitOrder({
           clientName: values.customerName,
           phone: values.phone,
-          telegramId: telegramId ?? undefined,
+          telegramId: telegramInitData ? telegramId ?? undefined : undefined,
+          telegramInitData: telegramInitData ?? undefined,
           serviceType: values.serviceId as any,
           serviceId: values.serviceId as any,
           specifications: values.specifications as Record<string, string> | undefined,
