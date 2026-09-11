@@ -93,6 +93,8 @@ export const operatorStockStatus = v.union(
   v.literal("PENDING_CLEARANCE"),
   v.literal("CLEARED"),
   v.literal("EXHAUSTED"),
+  v.literal("DEPLETED"),
+  v.literal("VOIDED"),
 );
 
 export const orderPriority = v.union(
@@ -229,6 +231,8 @@ export const materialRequestStatus = v.union(
   v.literal("Received"),
   v.literal("Short Stock"),
   v.literal("Discrepancy"),
+  v.literal("Closed"),
+  v.literal("Cancelled"),
 );
 
 /** Owner-managed conversion rule used when a material has no local override. */
@@ -443,7 +447,9 @@ export default defineSchema({
     machineId: v.optional(v.id("machines")),
   })
     .index("by_job_card", ["jobCardId"])
-    .index("by_status", ["status"]),
+    .index("by_status", ["status"])
+    .index("by_machine_status", ["machineId", "status"])
+    .index("by_machine_requested_at", ["machineId", "requestedAt"]),
 
   customerOrders: defineTable({
     code: v.string(),
@@ -1049,6 +1055,8 @@ export default defineSchema({
       v.literal("Issued"),
       v.literal("Short Stock"),
       v.literal("Discrepancy"),
+      v.literal("Closed"),
+      v.literal("Cancelled"),
     ),
     note: v.optional(v.string()),
     requestedBy: v.string(),

@@ -39,12 +39,30 @@ export function resolveMachineForRole(
   role: Role,
   assignedMachineIds?: ReadonlyArray<string>,
 ): OperatorMachine {
-  const normalized = machineSlug.toLowerCase();
-  const machine = machines.find(
-    (entry) =>
-      entry.code.toLowerCase().includes(normalized) ||
-      entry.type.toLowerCase().includes(normalized),
-  );
+  const trimmed = machineSlug.trim();
+  const normalized = trimmed.toLowerCase();
+
+  // 1. Exact database machineId match
+  let machine = machines.find((entry) => entry._id === trimmed);
+
+  // 2. Exact canonical machine code match (case-insensitive)
+  if (!machine) {
+    machine = machines.find((entry) => entry.code.toLowerCase() === normalized);
+  }
+
+  // 3. Legacy slug substring compatibility with ambiguity rejection
+  if (!machine) {
+    const matches = machines.filter(
+      (entry) =>
+        entry.code.toLowerCase().includes(normalized) ||
+        entry.type.toLowerCase().includes(normalized),
+    );
+    if (matches.length > 1) {
+      throw new Error(`AMBIGUOUS_MACHINE_SCOPE: Multiple machines match the slug "${machineSlug}".`);
+    }
+    machine = matches[0];
+  }
+
   if (!machine) throw new Error("Machine not found.");
   if (machine.operatorRole !== role) {
     throw new Error("This machine is not assigned to your operator role.");

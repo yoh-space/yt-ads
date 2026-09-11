@@ -1,4 +1,4 @@
-import { mutation, query, type MutationCtx } from "./_generated/server";
+import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import type { Infer } from "convex/values";
 import { packageUnit, unit } from "./schema";
@@ -133,10 +133,191 @@ type CreateMaterialRequestArgs = {
  * equal the caller's role (attribute isolation), so an operator can never open
  * a request against another role's job card.
  */
+export async function getMaterialRequestEligibilityInternal(
+  ctx: QueryCtx | MutationCtx,
+  identity: { _id: string },
+  profile: { role: Role; assignedMachineIds?: ReadonlyArray<string> },
+  args: { machineId: Id<"machines">; jobCardId: Id<"jobCards"> },
+) {
+  const blockingReasons: string[] = [];
+  const warnings: string[] = [];
+
+  const [machine, job] = await Promise.all([
+    ctx.db.get(args.machineId),
+    ctx.db.get(args.jobCardId),
+  ]);
+
+  if (!machine) {
+    return {
+      eligible: false,
+      blockingReasons: ["Machine not found."],
+      warnings: [],
+      machine: null,
+      job: null,
+      allowedMaterials: [],
+      conversionSnapshots: [],
+    };
+  }
+
+  if (machine.operatorRole !== profile.role) {
+    blockingReasons.push("This machine is not assigned to your operator role.");
+  }
+  if (profile.assignedMachineIds?.length && !profile.assignedMachineIds.includes(machine._id)) {
+    blockingReasons.push("This machine is outside your assigned machine scope.");
+  }
+
+  if (!job) {
+    blockingReasons.push("Job card not found.");
+  } else {
+    if (job.status === "Completed") {
+      blockingReasons.push("Job card is already completed.");
+    }
+    if (job.machineId !== machine._id) {
+      blockingReasons.push("This job is not assigned to the selected machine.");
+    }
+  }
+
+  if (!job) {
+    return {
+      eligible: false,
+      blockingReasons,
+      warnings,
+      machine: {
+        id: machine._id,
+        code: machine.code,
+        name: machine.name,
+        operatorRole: machine.operatorRole,
+      },
+      job: null,
+      allowedMaterials: [],
+      conversionSnapshots: [],
+    };
+  }
+
+  const requirements = await ctx.db
+    .query("jobMaterialRequirements")
+    .withIndex("by_job_card", (q) => q.eq("jobCardId", job._id))
+    .collect();
+
+  const materialIdSet = new Set<Id<"materials">>([job.materialId]);
+  for (const req of requirements) {
+    materialIdSet.add(req.materialId);
+  }
+
+  const materials = (await Promise.all(Array.from(materialIdSet).map((id) => ctx.db.get(id)))).filter(
+    (m): m is NonNullable<typeof m> => m !== null && m.active,
+  );
+
+  const machineBatches = await ctx.db
+    .query("operatorSubStock")
+    .withIndex("by_machine", (q) => q.eq("machineId", machine._id))
+    .collect();
+
+  const operatorBatches = machineBatches.filter(
+    (b) => b.operatorId === identity._id || b.operatorId === profile.role,
+  );
+
+  const reconciliations = await ctx.db.query("reconciliations").collect();
+
+  const allowedMaterials = [];
+  const conversionSnapshots = [];
+
+  for (const mat of materials) {
+    const isPrimary = mat._id === job.materialId;
+    const req = requirements.find((r) => r.materialId === mat._id);
+    const plannedQty = req?.plannedBaseQuantity ?? (isPrimary ? (job.quantity ?? 0) : 0);
+
+    const matBatches = operatorBatches.filter((b) => b.materialId === mat._id);
+    const pendingBatch = matBatches.find((b) => b.status === "PENDING_CLEARANCE");
+    const activeBatchWithStock = matBatches.find((b) => b.status === "ACTIVE" && b.currentRemaining > 0.0001);
+    const depletedBatch = matBatches.find((b) => b.currentRemaining <= 0.0001);
+
+    const shortage = reconciliations.find(
+      (r) => r.materialId === mat._id && r.variance < 0 && r.status !== "Resolved",
+    );
+
+    let priorCustodyState: "NONE" | "USABLE_STOCK" | "DEPLETED" | "PENDING_CLEARANCE" | "SHORTAGE" = "NONE";
+    let isBlocked = false;
+    let materialBlockReason: string | undefined;
+
+    if (shortage) {
+      priorCustodyState = "SHORTAGE";
+      isBlocked = true;
+      materialBlockReason = `Unresolved shortage reconciliation (${shortage.status ?? "Open"}).`;
+    } else if (pendingBatch) {
+      priorCustodyState = "PENDING_CLEARANCE";
+      isBlocked = true;
+      materialBlockReason = "Pending owner clearance approval for previous batch.";
+    } else if (activeBatchWithStock) {
+      priorCustodyState = "USABLE_STOCK";
+      isBlocked = true;
+      materialBlockReason = `Active stock of ${activeBatchWithStock.currentRemaining.toFixed(2)} ${activeBatchWithStock.baseUnit ?? "units"} still in custody.`;
+    } else if (depletedBatch) {
+      priorCustodyState = "DEPLETED";
+      warnings.push(`Previous batch for ${mat.name} has been consumed (0 remaining).`);
+    }
+
+    const packageUnit = mat.packageUnit ?? (mat.purchaseUnit === "roll" ? "ROLL" : mat.purchaseUnit === "sheet" ? "SHEET" : mat.purchaseUnit === "canister" || mat.purchaseUnit === "liter" ? "CANISTER" : mat.purchaseUnit === "piece" ? "PIECE" : "PACKAGE");
+    const conversionRatio = mat.conversionRatio && mat.conversionRatio > 0 ? mat.conversionRatio : 1;
+    const baseUnit = mat.baseUnit ?? mat.unit;
+
+    allowedMaterials.push({
+      id: mat._id,
+      name: mat.name,
+      unit: mat.unit,
+      baseUnit,
+      packageUnit,
+      conversionRatio,
+      plannedQuantity: plannedQty,
+      remainingInCustody: activeBatchWithStock?.currentRemaining ?? 0,
+      priorCustodyState,
+      isBlocked,
+      blockReason: materialBlockReason,
+      isPrimary,
+    });
+
+    conversionSnapshots.push({
+      materialId: mat._id,
+      materialName: mat.name,
+      packageUnit,
+      baseUnit,
+      conversionRatio,
+    });
+  }
+
+  if (allowedMaterials.length === 0) {
+    blockingReasons.push("No active materials configured for this job card.");
+  } else if (allowedMaterials.every((m) => m.isBlocked)) {
+    blockingReasons.push("All required materials for this job card have active custody or clearance blocks.");
+  }
+
+  return {
+    eligible: blockingReasons.length === 0 && allowedMaterials.some((m) => !m.isBlocked),
+    blockingReasons,
+    warnings,
+    machine: {
+      id: machine._id,
+      code: machine.code,
+      name: machine.name,
+      operatorRole: machine.operatorRole,
+    },
+    job: {
+      id: job._id,
+      code: job.code,
+      title: job.title,
+      client: job.client,
+      status: job.status,
+      machineId: job.machineId,
+    },
+    allowedMaterials,
+    conversionSnapshots,
+  };
+}
+
 export async function createMaterialRequestInternal(
   ctx: MutationCtx,
   identity: { _id: string },
-  profile: { role: Role },
+  profile: { role: Role; assignedMachineIds?: ReadonlyArray<string> },
   args: CreateMaterialRequestArgs,
   scopeMachineId?: string,
 ) {
@@ -146,14 +327,7 @@ export async function createMaterialRequestInternal(
   if (!Number.isFinite(args.requestedQuantity) || args.requestedQuantity <= 0) {
     throw new Error("Requested quantity must be greater than zero.");
   }
-  const unclearedBatches = await ctx.db
-    .query("operatorSubStock")
-    .withIndex("by_operator", (q) => q.eq("operatorId", identity._id))
-    .filter((q) => q.or(q.eq(q.field("status"), "ACTIVE"), q.eq(q.field("status"), "PENDING_CLEARANCE")))
-    .collect();
-  if (unclearedBatches.length > 0) {
-    throw new Error("Cannot request new materials until previous stock cycle clearance is approved by Owner.");
-  }
+
   const [job, material] = await Promise.all([
     ctx.db.get(args.jobCardId),
     ctx.db.get(args.materialId),
@@ -168,6 +342,9 @@ export async function createMaterialRequestInternal(
   }
   if (scopeMachine.operatorRole !== profile.role) {
     throw new Error("This job belongs to a different operator role.");
+  }
+  if (profile.assignedMachineIds?.length && !profile.assignedMachineIds.includes(scopeMachine._id)) {
+    throw new Error("This machine is outside your assigned machine scope.");
   }
 
   const requestLines: CreateMaterialRequestArgs["lines"] = args.lines?.length ? args.lines : [{
@@ -194,6 +371,51 @@ export async function createMaterialRequestInternal(
   for (const line of requestLines) {
     await requireNoUnresolvedShortage(ctx, line.materialId);
   }
+
+  // Scoped custody check for this operator and machine
+  const machineBatches = await ctx.db
+    .query("operatorSubStock")
+    .withIndex("by_machine", (q) => q.eq("machineId", scopeMachine._id))
+    .collect();
+
+  const operatorBatches = machineBatches.filter(
+    (b) => b.operatorId === identity._id || b.operatorId === profile.role,
+  );
+
+  // Auto-transition depleted batches to EXHAUSTED
+  for (const batch of operatorBatches) {
+    if (batch.status === "ACTIVE" && batch.currentRemaining <= 0.0001) {
+      await ctx.db.patch(batch._id, { status: "EXHAUSTED", updatedAt: Date.now() });
+    }
+  }
+
+  const requestedMaterialIds = new Set(requestLines.map((line) => line.materialId));
+  for (const requestedMaterialId of requestedMaterialIds) {
+    const matBatches = operatorBatches.filter((b) => b.materialId === requestedMaterialId);
+
+    // 1. Unresolved clearance on this machine
+    const pendingBatch = matBatches.find((b) => b.status === "PENDING_CLEARANCE");
+    if (pendingBatch) {
+      const lineMaterial = requestedMaterialId === material._id ? material : await ctx.db.get(requestedMaterialId);
+      const name = lineMaterial?.name ?? "Material";
+      throw new Error(
+        `UNRESOLVED_CUSTODY_CLEARANCE: Cannot request new stock for ${name} until previous stock cycle clearance is approved by Owner.`,
+      );
+    }
+
+    // 2. Active usable stock already in custody
+    const activeBatch = matBatches.find((b) => b.status === "ACTIVE" && b.currentRemaining > 0.0001);
+    if (activeBatch) {
+      const lineMaterial = requestedMaterialId === material._id ? material : await ctx.db.get(requestedMaterialId);
+      const name = lineMaterial?.name ?? "Material";
+      const remaining = activeBatch.currentRemaining.toFixed(2);
+      const unitLabel = activeBatch.baseUnit ?? "units";
+      throw new Error(
+        `ACTIVE_CUSTODY_EXISTS: An active batch of ${name} with ${remaining} ${unitLabel} remaining is already assigned to this machine. Consume or reconcile existing stock before requesting a new batch.`,
+      );
+    }
+  }
+
   const requestGroupId = `${identity._id}-${Date.now()}`;
   let firstId: Id<"materialRequests"> | undefined;
   for (const line of requestLines) {
@@ -215,6 +437,7 @@ export async function createMaterialRequestInternal(
       requestedPackages: line.requestedPackages,
       conversionRatioSnapshot: lineMaterial.conversionRatio ?? 1,
       issuedPackages: 0,
+      machineId: scopeMachine._id,
     });
     firstId ??= id;
     await ctx.db.insert("materialRequestLines", {

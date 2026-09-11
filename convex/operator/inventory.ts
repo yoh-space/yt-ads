@@ -17,7 +17,11 @@ export const uncleared = query({
   handler: async (ctx, args) => {
     const { identity, profile, machine } = await resolveOperatorMachine(ctx, args.machineSlug);
     const batches = await collectFloorStock(ctx, machine, identity, profile.role);
-    const live = batches.filter((batch) => batch.status === "ACTIVE" || batch.status === "PENDING_CLEARANCE");
+    const live = batches.filter(
+      (batch) =>
+        (batch.status === "ACTIVE" && batch.currentRemaining > 0.0001) ||
+        batch.status === "PENDING_CLEARANCE",
+    );
     return {
       batches: live,
       hasPendingClearance: live.some((batch) => batch.status === "PENDING_CLEARANCE"),

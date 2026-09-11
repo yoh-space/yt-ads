@@ -111,9 +111,8 @@ export default function OperatorRequestsPage({
       <div className="flex items-center justify-end">
         <button
           type="button"
-          disabled={clearancePending}
           onClick={() => setRequestOpen(true)}
-          className="inline-flex items-center gap-1.5 rounded-sm border border-cyan-500/40 bg-cyan-950/30 px-3.5 py-1.5 text-xs font-semibold text-cyan-200 hover:bg-cyan-900/40 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-sm border border-cyan-500/40 bg-cyan-950/30 px-3.5 py-1.5 text-xs font-semibold text-cyan-200 hover:bg-cyan-900/40"
         >
           <ClipboardPlus size={13} /> ዕቃ ጠይቅ
         </button>
@@ -147,6 +146,7 @@ export default function OperatorRequestsPage({
           jobs={jobOptions}
           materials={materialOptions}
           unclearedStock={unclearedStock}
+          machineSlug={machineParam}
           onClose={() => setRequestOpen(false)}
           onSave={(input) => {
             void safeMutation(
@@ -155,6 +155,9 @@ export default function OperatorRequestsPage({
               () => {
                 setRequestOpen(false);
                 toast.success("Material request sent to the storekeeper");
+              },
+              (err) => {
+                toast.error(err instanceof Error ? err.message : "Failed to submit material request");
               },
             );
           }}
