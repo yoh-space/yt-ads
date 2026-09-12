@@ -464,6 +464,7 @@ export default defineSchema({
     name: v.string(),
     description: v.string(),
     category: capabilityCategory,
+    normalizationAliases: v.optional(v.array(v.string())),
     active: v.boolean(),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -1310,4 +1311,152 @@ export default defineSchema({
     ranAt: v.number(),
   })
     .index("by_key", ["key"]),
+
+  // ==========================================================================
+  // Database-First Catalog Tables (docs/plan/database-first-migration.md)
+  // ==========================================================================
+
+  /** Authoritative database-backed Service Catalog (Phase 1). */
+  serviceCatalog: defineTable({
+    id: v.string(),              // "banner_print" — stable slug, replaces serviceType literal
+    labelEn: v.string(),         // "Banner Printing"
+    labelAm: v.string(),         // "የባነር ማተሚያ"
+    categoryKey: v.string(),     // "PRINTING"
+    categoryNameEn: v.string(), // "Printing & Stickers"
+    categoryNameAm: v.optional(v.string()),
+    iconKey: v.optional(v.string()),
+    sortOrder: v.number(),
+    active: v.boolean(),
+    publishable: v.boolean(),    // visible to customers
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_id", ["id"])
+    .index("by_active", ["active", "sortOrder"]),
+
+  /** Authoritative database-backed Material Specifications Catalog (Phase 2). */
+  materialCatalog: defineTable({
+    id: v.string(),              // stable slug: "banner_flex"
+    name: v.string(),            // "Banner Flex"
+    aliases: v.optional(v.array(v.string())),
+    category: v.string(),        // "Banner Flex", "Ink", etc.
+    catalogFamily: v.string(),   // "ROLL", "RIGID_SHEET", "INK_SOLVENT", "HARDWARE"
+    baseUnit: v.string(),        // "m²", "m", "L", "pcs"
+    purchaseUnit: v.string(),    // "roll", "sheet", "liter", "piece"
+    conversionRatio: v.number(),
+    rollWidth: v.optional(v.number()),
+    sheetWidth: v.optional(v.number()),
+    sheetLength: v.optional(v.number()),
+    specificationOptions: v.optional(v.array(v.string())),
+    compatibleMachineTypes: v.optional(v.array(v.string())),
+    storageLocation: v.optional(v.string()),
+    averageUse: v.optional(v.string()),
+    catalogDimensions: v.optional(v.string()),
+    catalogVariant: v.optional(v.string()),
+    active: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_id", ["id"])
+    .index("by_name", ["name"])
+    .index("by_active", ["active"]),
+
+  /** Authoritative service production routing rules (Phase 3). */
+  serviceRoutes: defineTable({
+    serviceId: v.string(),       // FK → serviceCatalog.id
+    materialType: v.string(),
+    preferredMaterialName: v.string(),
+    requiredCapabilities: v.array(v.string()),
+    legacyCapabilities: v.array(v.string()),
+    operatorRole: v.string(),
+    preferredMachineCode: v.string(),
+    calculationUnit: v.string(),
+    defaultWasteMarginPercent: v.number(),
+    maxScrapLimitPercent: v.number(),
+    active: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_service_active", ["serviceId", "active"]),
+
+  /** Normalized machine-to-capability links with aliases (Phase 4). */
+  machineCapabilityLinks: defineTable({
+    machineCode: v.string(),     // "CJ7K-01"
+    capabilityCode: v.string(),  // "PRINT_ROLL_3_2M"
+    active: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_machine", ["machineCode"])
+    .index("by_capability", ["capabilityCode"]),
+
+  /** Service-specific ordering wizard form specifications (Phase 5). */
+  serviceSpecFields: defineTable({
+    serviceId: v.string(),       // FK → serviceCatalog.id
+    fieldKey: v.string(),        // "screenSize", "faceMaterial"
+    labelEn: v.string(),
+    labelAm: v.optional(v.string()),
+    materialName: v.optional(v.string()),  // derive options from materialCatalog
+    options: v.optional(v.array(v.string())),
+    required: v.boolean(),
+    sortOrder: v.number(),
+    active: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_service", ["serviceId", "active"]),
+
+  /** Database-backed Role workspace mapping (Phase 6). */
+  roleWorkspaceConfig: defineTable({
+    roleCode: v.string(),        // "crystal_jet_operator"
+    workspaceId: v.string(),     // "operator"
+    homeRoute: v.string(),       // "/dashboard/operator/crystal_jet"
+    machineSlug: v.optional(v.string()),  // "crystal_jet"
+    active: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_role", ["roleCode"]),
+
+  /** Workspace routing & route prefixes (Phase 6). */
+  workspaceRoutes: defineTable({
+    workspaceId: v.string(),
+    routePrefix: v.string(),     // "/dashboard/operator"
+    allowedRoles: v.array(v.string()),
+    label: v.string(),
+    labelAm: v.string(),
+    sortOrder: v.number(),
+    active: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_workspace", ["workspaceId"]),
+
+  /** Dynamic permission assignment matrix (Phase 7). */
+  rolePermissions: defineTable({
+    roleCode: v.string(),
+    permission: v.string(),
+    active: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_role", ["roleCode", "active"])
+    .index("by_permission", ["permission"]),
+
+  /** Inventory category groups and display groupings (Phase 8). */
+  materialCategoryGroups: defineTable({
+    id: v.string(),
+    labelEn: v.string(),
+    labelAm: v.string(),
+    descriptionEn: v.optional(v.string()),
+    descriptionAm: v.optional(v.string()),
+    iconName: v.string(),
+    tone: v.string(),
+    memberCategories: v.array(v.string()),
+    sortOrder: v.number(),
+    active: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_active", ["active", "sortOrder"]),
 });
