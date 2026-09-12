@@ -7,10 +7,16 @@ import { hasPermission, hasAnyPermission, type Permission } from "./authorizatio
 import { notifyUser } from "./notificationHelpers";
 import { verifyTelegramInitData } from "./telegramAuth";
 
-import { CANONICAL_OPERATOR_ROLES } from "../src/shared/production-manifest";
-
 const MANAGEMENT_ROLES: Role[] = ["owner", "manager", "admin"];
-export const OPERATOR_ROLES: Role[] = [...CANONICAL_OPERATOR_ROLES];
+/** Canonical 6 operator roles — one per confirmed production machine. */
+export const OPERATOR_ROLES: Role[] = [
+  "crystal_jet_operator",
+  "crystek_operator",
+  "ricoh_uv_operator",
+  "dtf_operator",
+  "laser_operator",
+  "cnc_operator",
+];
 
 type AuthIdentity = NonNullable<Awaited<ReturnType<typeof authComponent.safeGetAuthUser>>>;
 

@@ -8,8 +8,6 @@ import {
 } from "./schema";
 import { OPERATOR_ROLES, requireAnyPermission, requireOwner, requirePermission } from "./users";
 import {
-  CANONICAL_MACHINES,
-  CANONICAL_OPERATOR_ROLES,
   CAPABILITY_REGISTRY,
 } from "../src/shared/production-manifest";
 
@@ -324,9 +322,9 @@ export const reconcileCanonicalCatalog = mutation({
     let rolesCreated = 0;
     let machinesPatched = 0;
     let linksCreated = 0;
-    const unresolvedMachines: string[] = [];
     const unresolvedMaterials: string[] = [];
 
+    // 1. Seed capabilities from CAPABILITY_REGISTRY (static seed-time config)
     const capabilityIds = new Map<string, Id<"capabilities">>();
     for (const definition of Object.values(CAPABILITY_REGISTRY)) {
       const existing = (await ctx.db.query("capabilities").withIndex("by_code", (q) => q.eq("code", definition.id)).unique());
@@ -345,8 +343,18 @@ export const reconcileCanonicalCatalog = mutation({
       if (!existing) capabilitiesCreated++;
     }
 
+    // 2. Seed the 6 operator roles (one per confirmed machine)
+    const CANONICAL_ROLE_CODES = [
+      "crystal_jet_operator",
+      "crystek_operator",
+      "ricoh_uv_operator",
+      "dtf_operator",
+      "laser_operator",
+      "cnc_operator",
+    ] as const;
+
     const roleIds = new Map<string, Id<"operatorRoles">>();
-    for (const code of CANONICAL_OPERATOR_ROLES) {
+    for (const code of CANONICAL_ROLE_CODES) {
       const existing = (await ctx.db.query("operatorRoles").withIndex("by_code", (q) => q.eq("code", code)).unique());
       const allowedCapabilityIds = Object.values(CAPABILITY_REGISTRY)
         .filter((capability) => capability.category === "PRINTING" || capability.category === "CUTTING_ROUTING" || capability.category === "FINISHING_AUXILIARY")
@@ -367,19 +375,28 @@ export const reconcileCanonicalCatalog = mutation({
       if (!existing) rolesCreated++;
     }
 
+    // 3. Link existing machines to capabilities via machineCapabilities
     const machines = await ctx.db.query("machines").collect();
-    for (const definition of CANONICAL_MACHINES) {
-      const machine = machines.find((row) => row.catalogKey === definition.id || row.code === definition.code || row.name === definition.name);
-      if (!machine) {
-        unresolvedMachines.push(`${definition.id} (${definition.code})`);
-        continue;
-      }
-      if (machine.catalogKey !== definition.id) {
-        await ctx.db.patch(machine._id, { catalogKey: definition.id });
+    // Machine→capability mapping derived from service routes and machine codes
+    const MACHINE_CODE_TO_CAPS: Record<string, string[]> = {
+      "CJ7K-01": ["PRINT_ROLL_3_2M"],
+      "CESP-01": ["PRINT_ROLL_1_6M"],
+      "RUV-01":  ["PRINT_RIGID_UV_122_244"],
+      "DTF-01":  ["PRINT_ROLL_0_6M_DTF"],
+      "LAS-01":  ["CUT_RIGID_122_244_LASER"],
+      "CNC-01":  ["CUT_RIGID_2030_CNC"],
+    };
+
+    for (const machine of machines) {
+      if (!machine.active) continue;
+      const capCodes = MACHINE_CODE_TO_CAPS[machine.code];
+      if (!capCodes) continue;
+      if (machine.catalogKey !== machine.code) {
+        await ctx.db.patch(machine._id, { catalogKey: machine.code });
         machinesPatched++;
       }
-      for (const capabilityCode of definition.capabilities) {
-        const capabilityId = capabilityIds.get(capabilityCode);
+      for (const capCode of capCodes) {
+        const capabilityId = capabilityIds.get(capCode);
         if (!capabilityId) continue;
         const existingLink = (await ctx.db.query("machineCapabilities").withIndex("by_machine", (q) => q.eq("machineId", machine._id)).collect())
           .find((link) => link.capabilityId === capabilityId);
@@ -396,35 +413,39 @@ export const reconcileCanonicalCatalog = mutation({
           linksCreated++;
         }
       }
-      const operatorRoleId = roleIds.get(definition.operatorRole);
+
+      // Link primary materials
+      const roleCode = machine.operatorRole;
+      const operatorRoleId = roleIds.get(roleCode);
       if (operatorRoleId) {
         const role = await ctx.db.get(operatorRoleId);
-        for (const materialName of definition.primaryMaterialNames) {
-          const material = (await ctx.db.query("materials").collect()).find((row) => row.name === materialName || row.name.toLowerCase().includes(materialName.toLowerCase()));
-          if (!material) {
-            unresolvedMaterials.push(`${definition.code} → ${materialName}`);
-            continue;
-          }
-          const existingLink = (await ctx.db.query("machineMaterialLinks").withIndex("by_machine_material", (q) => q.eq("machineId", machine._id).eq("materialId", material._id)).collect())
-            .find((link) => link.relationshipType === "primary" && link.active);
-          if (!existingLink) {
-            await ctx.db.insert("machineMaterialLinks", {
-              machineId: machine._id,
-              materialId: material._id,
-              relationshipType: "primary",
-              productionType: material.productionType,
-              wasteMarginPercent: definition.defaultWasteMarginPercent,
-              required: true,
-              active: true,
-              createdAt: now,
-              updatedAt: now,
-              createdBy: identity._id,
-              updatedBy: identity._id,
-            });
-            linksCreated++;
+        if (role) {
+          const primaryMaterials = machine.primaryMaterials ?? [];
+          for (const materialName of primaryMaterials) {
+            const material = (await ctx.db.query("materials").collect()).find((row) => row.name === materialName || row.name.toLowerCase().includes(materialName.toLowerCase()));
+            if (!material) {
+              unresolvedMaterials.push(`${machine.code} → ${materialName}`);
+              continue;
+            }
+            const existingLink = (await ctx.db.query("machineMaterialLinks").withIndex("by_machine_material", (q) => q.eq("machineId", machine._id).eq("materialId", material._id)).collect())
+              .find((link) => link.relationshipType === "primary" && link.active);
+            if (!existingLink) {
+              await ctx.db.insert("machineMaterialLinks", {
+                machineId: machine._id,
+                materialId: material._id,
+                relationshipType: "primary",
+                productionType: material.productionType,
+                required: true,
+                active: true,
+                createdAt: now,
+                updatedAt: now,
+                createdBy: identity._id,
+                updatedBy: identity._id,
+              });
+              linksCreated++;
+            }
           }
         }
-        if (!role) throw new Error("Canonical operator role could not be loaded.");
       }
     }
 
@@ -440,7 +461,6 @@ export const reconcileCanonicalCatalog = mutation({
       rolesCreated,
       machinesPatched,
       linksCreated,
-      unresolvedMachines,
       unresolvedMaterials,
     };
   },

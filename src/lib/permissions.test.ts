@@ -10,17 +10,17 @@ describe("frontend RBAC and ABAC mirror", () => {
     expect(hasPermission("storekeeper", "order.manage")).toBe(false);
     expect(hasPermission("storekeeper", "stock.exception")).toBe(true);
     expect(hasPermission("storekeeper", "request.issue")).toBe(true);
-    expect(hasPermission("printer_operator", "order.view")).toBe(false);
-    expect(hasPermission("printer_operator", "stock.exception")).toBe(false);
-    expect(hasPermission("printer_operator", "machine.create")).toBe(false);
-    expect(hasPermission("printer_operator", "request.create")).toBe(true);
+    expect(hasPermission("crystal_jet_operator", "order.view")).toBe(false);
+    expect(hasPermission("crystal_jet_operator", "stock.exception")).toBe(false);
+    expect(hasPermission("crystal_jet_operator", "machine.create")).toBe(false);
+    expect(hasPermission("crystal_jet_operator", "request.create")).toBe(true);
   });
 
   it("applies machine and job attributes to operator access", () => {
-    const printer = { operatorRole: "printer_operator" as const };
+    const printer = { operatorRole: "crystal_jet_operator" as const };
     const laser = { operatorRole: "laser_operator" as const };
-    expect(canAccessMachine("printer_operator", printer)).toBe(true);
-    expect(canAccessMachine("printer_operator", laser)).toBe(false);
+    expect(canAccessMachine("crystal_jet_operator", printer)).toBe(true);
+    expect(canAccessMachine("crystal_jet_operator", laser)).toBe(false);
     expect(canAccessJob("laser_operator", laser)).toBe(true);
     expect(canAccessJob("laser_operator", undefined)).toBe(false);
   });
@@ -31,7 +31,7 @@ describe("frontend RBAC and ABAC mirror", () => {
       authUserId: "auth-1",
       name: "Operator",
       email: "operator@example.com",
-      role: "printer_operator",
+      role: "crystal_jet_operator",
       active: true,
     };
     expect(can(null, "material.create")).toBe(false);

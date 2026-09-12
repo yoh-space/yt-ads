@@ -31,8 +31,8 @@ describe("role-routing", () => {
     expect(ALL_ROLES).toContain("receptionist");
     expect(ALL_ROLES).toContain("laser_operator");
     expect(ALL_ROLES).toContain("cnc_operator");
-    expect(ALL_ROLES).toContain("plotter_operator");
-    expect(ALL_ROLES).toContain("printer_operator");
+    expect(ALL_ROLES).toContain("crystek_operator");
+    expect(ALL_ROLES).toContain("crystal_jet_operator");
 
     expect(isValidRole("owner")).toBe(true);
     expect(isValidRole("storekeeper")).toBe(true);
@@ -47,8 +47,8 @@ describe("role-routing", () => {
     expect(getRoleHomeRoute("receptionist")).toBe("/dashboard/receptionist");
     expect(getRoleHomeRoute("laser_operator")).toBe("/dashboard/operator/laser");
     expect(getRoleHomeRoute("cnc_operator")).toBe("/dashboard/operator/cnc");
-    expect(getRoleHomeRoute("plotter_operator")).toBe("/dashboard/operator/plotter");
-    expect(getRoleHomeRoute("printer_operator")).toBe("/dashboard/operator/printer");
+    expect(getRoleHomeRoute("crystek_operator")).toBe("/dashboard/operator/crystek");
+    expect(getRoleHomeRoute("crystal_jet_operator")).toBe("/dashboard/operator/crystal_jet");
   });
 
   it("validates workspaces and provides workspace-for-role mapping", () => {
@@ -73,8 +73,8 @@ describe("role-routing", () => {
     expect(getWorkspaceForRole("receptionist")).toBe("receptionist");
     expect(getWorkspaceForRole("laser_operator")).toBe("operator");
     expect(getWorkspaceForRole("cnc_operator")).toBe("operator");
-    expect(getWorkspaceForRole("plotter_operator")).toBe("operator");
-    expect(getWorkspaceForRole("printer_operator")).toBe("operator");
+    expect(getWorkspaceForRole("crystek_operator")).toBe("operator");
+    expect(getWorkspaceForRole("crystal_jet_operator")).toBe("operator");
   });
 
   it("identifies public routes correctly", () => {
@@ -135,40 +135,44 @@ describe("role-routing", () => {
   });
 
   it("maps machines and operator roles symmetrically and validates machines", () => {
-    expect(OPERATOR_MACHINES).toEqual(["laser", "cnc", "plotter", "printer"]);
+    expect(OPERATOR_MACHINES).toEqual(["laser", "cnc", "crystek", "crystal_jet", "ricoh_uv", "dtf"]);
     expect(isValidOperatorMachine("laser")).toBe(true);
     expect(isValidOperatorMachine("lathe")).toBe(false);
 
     expect(OPERATOR_MACHINE_MAP["laser"]).toBe("laser_operator");
     expect(OPERATOR_MACHINE_MAP["cnc"]).toBe("cnc_operator");
-    expect(OPERATOR_MACHINE_MAP["plotter"]).toBe("plotter_operator");
-    expect(OPERATOR_MACHINE_MAP["printer"]).toBe("printer_operator");
+    expect(OPERATOR_MACHINE_MAP["crystek"]).toBe("crystek_operator");
+    expect(OPERATOR_MACHINE_MAP["crystal_jet"]).toBe("crystal_jet_operator");
+    expect(OPERATOR_MACHINE_MAP["ricoh_uv"]).toBe("ricoh_uv_operator");
+    expect(OPERATOR_MACHINE_MAP["dtf"]).toBe("dtf_operator");
 
     expect(ROLE_TO_MACHINE_MAP["laser_operator"]).toBe("laser");
     expect(ROLE_TO_MACHINE_MAP["cnc_operator"]).toBe("cnc");
-    expect(ROLE_TO_MACHINE_MAP["plotter_operator"]).toBe("plotter");
-    expect(ROLE_TO_MACHINE_MAP["printer_operator"]).toBe("printer");
+    expect(ROLE_TO_MACHINE_MAP["crystek_operator"]).toBe("crystek");
+    expect(ROLE_TO_MACHINE_MAP["crystal_jet_operator"]).toBe("crystal_jet");
+    expect(ROLE_TO_MACHINE_MAP["ricoh_uv_operator"]).toBe("ricoh_uv");
+    expect(ROLE_TO_MACHINE_MAP["dtf_operator"]).toBe("dtf");
   });
 
   it("evaluates operator machine access and catches operator machine mismatch", () => {
     // Admins and owners can access any machine
     expect(isOperatorMachineAllowed("owner", "laser")).toBe(true);
     expect(isOperatorMachineAllowed("admin", "cnc")).toBe(true);
-    expect(isOperatorMachineAllowed("manager", "plotter")).toBe(true);
+    expect(isOperatorMachineAllowed("manager", "crystek")).toBe(true);
 
     // Specific operators can only access their assigned machine
     expect(isOperatorMachineAllowed("laser_operator", "laser")).toBe(true);
     expect(isOperatorMachineAllowed("laser_operator", "cnc")).toBe(false);
-    expect(isOperatorMachineAllowed("laser_operator", "printer")).toBe(false);
+    expect(isOperatorMachineAllowed("laser_operator", "crystal_jet")).toBe(false);
 
     expect(isOperatorMachineAllowed("cnc_operator", "cnc")).toBe(true);
     expect(isOperatorMachineAllowed("cnc_operator", "laser")).toBe(false);
 
-    expect(isOperatorMachineAllowed("plotter_operator", "plotter")).toBe(true);
-    expect(isOperatorMachineAllowed("plotter_operator", "printer")).toBe(false);
+    expect(isOperatorMachineAllowed("crystek_operator", "crystek")).toBe(true);
+    expect(isOperatorMachineAllowed("crystek_operator", "crystal_jet")).toBe(false);
 
-    expect(isOperatorMachineAllowed("printer_operator", "printer")).toBe(true);
-    expect(isOperatorMachineAllowed("printer_operator", "laser")).toBe(false);
+    expect(isOperatorMachineAllowed("crystal_jet_operator", "crystal_jet")).toBe(true);
+    expect(isOperatorMachineAllowed("crystal_jet_operator", "laser")).toBe(false);
   });
 
   it("enforces workspace access permissions via canAccessWorkspace", () => {

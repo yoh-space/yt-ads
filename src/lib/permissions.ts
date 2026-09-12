@@ -161,8 +161,10 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   ],
   laser_operator: [...OPERATIONS],
   cnc_operator: [...OPERATIONS],
-  plotter_operator: [...OPERATIONS],
-  printer_operator: [...OPERATIONS],
+  crystek_operator: [...OPERATIONS],
+  crystal_jet_operator: [...OPERATIONS],
+  ricoh_uv_operator: [...OPERATIONS],
+  dtf_operator: [...OPERATIONS],
   receptionist: [
     "dashboard.view",
     "order.view",

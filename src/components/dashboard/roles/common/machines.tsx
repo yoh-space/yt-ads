@@ -57,8 +57,10 @@ export function MachinesView({
     receptionist: { action: "Register customer order", detail: "Take walk-in orders and confirm payment at the front desk.", unit: "Reception desk" },
     laser_operator: { action: "Measure acrylic offcut", detail: "Record usable acrylic or foam sections in square meters.", unit: "Sheet area m\u00B2" },
     cnc_operator: { action: "Confirm board cut", detail: "Track wood or aluminium sheet output against the assigned job.", unit: "Board area m\u00B2" },
-    plotter_operator: { action: "Advance vinyl roll", detail: "Capture roll consumption and plotter output in running meters.", unit: "Roll length m" },
-    printer_operator: { action: "Start print meter", detail: "Record banner usage and print area before final inspection.", unit: "Print area m\u00B2" },
+    crystek_operator: { action: "Advance vinyl roll", detail: "Capture roll consumption and plotter output in running meters.", unit: "Roll length m" },
+    crystal_jet_operator: { action: "Start print meter", detail: "Record banner usage and print area before final inspection.", unit: "Print area m\u00B2" },
+    ricoh_uv_operator: { action: "Run UV print job", detail: "Record UV print output and substrate consumption.", unit: "Print area m\u00B2" },
+    dtf_operator: { action: "Load DTF film", detail: "Track DTF transfer print output and film usage.", unit: "Print area m\u00B2" },
   };
   const focus = context[role];
   const primaryMachine = machines[0];
@@ -119,7 +121,7 @@ export function MachinesView({
                 className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-md border border-line bg-white text-navy transition-colors hover:border-cyan hover:bg-cyan/5"
                 onClick={() => onOffcut(primaryMachine.id)}
               >
-                {role === "plotter_operator" ? "የቪኒል ቀሪ ይመዝግቡ" : "የሚጠቅም ቀሪ ይመዝግቡ"}
+                {role === "crystek_operator" ? "የቪኒል ቀሪ ይመዝግቡ" : "የሚጠቅም ቀሪ ይመዝግቡ"}
               </button>
             )}
           </div>

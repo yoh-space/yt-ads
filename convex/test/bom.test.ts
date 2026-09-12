@@ -12,7 +12,7 @@ describe("BOM Allocation & Routing Math", () => {
     const bannerRoute = resolveRouteForService("banner_print");
     expect(bannerRoute).toBeDefined();
     expect(bannerRoute?.preferredMaterialName).toBe("Banner");
-    expect(bannerRoute?.operatorRole).toBe("printer_operator");
+    expect(bannerRoute?.operatorRole).toBe("crystal_jet_operator");
 
     const laserRoute = resolveRouteForService("light_box_a1");
     expect(laserRoute).toBeDefined();
@@ -58,12 +58,12 @@ describe("BOM Allocation & Routing Math", () => {
       materialType: "Banner Flex",
       preferredMaterialName: "Banner",
       machineCapabilities: ["3.2m Print Width"],
-      operatorRole: "printer_operator",
+      operatorRole: "crystal_jet_operator",
     };
 
     const machines = [
-      { _id: "m1", name: "Printer A", code: "P-01", operatorRole: "printer_operator", status: "Running", active: true, _creationTime: 100 },
-      { _id: "m2", name: "Printer B", code: "P-02", operatorRole: "printer_operator", status: "Available", active: true, _creationTime: 200 },
+      { _id: "m1", name: "Printer A", code: "P-01", operatorRole: "crystal_jet_operator", status: "Running", active: true, _creationTime: 100 },
+      { _id: "m2", name: "Printer B", code: "P-02", operatorRole: "crystal_jet_operator", status: "Available", active: true, _creationTime: 200 },
       { _id: "m3", name: "Laser A", code: "L-01", operatorRole: "laser_operator", status: "Available", active: true, _creationTime: 300 },
     ];
 

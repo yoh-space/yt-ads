@@ -8,8 +8,10 @@ export const ALL_ROLES: readonly Role[] = [
   "receptionist",
   "laser_operator",
   "cnc_operator",
-  "plotter_operator",
-  "printer_operator",
+  "crystek_operator",
+  "crystal_jet_operator",
+  "ricoh_uv_operator",
+  "dtf_operator",
 ] as const;
 
 export function isValidRole(value: unknown): value is Role {
@@ -31,7 +33,7 @@ export function isValidWorkspaceId(value: unknown): value is WorkspaceId {
   return typeof value === "string" && (ALL_WORKSPACES as readonly string[]).includes(value);
 }
 
-export const OPERATOR_MACHINES = ["laser", "cnc", "plotter", "printer"] as const;
+export const OPERATOR_MACHINES = ["laser", "cnc", "crystek", "crystal_jet", "ricoh_uv", "dtf"] as const;
 export type OperatorMachine = (typeof OPERATOR_MACHINES)[number];
 
 export function isValidOperatorMachine(value: unknown): value is OperatorMachine {
@@ -41,15 +43,19 @@ export function isValidOperatorMachine(value: unknown): value is OperatorMachine
 export const OPERATOR_MACHINE_MAP: Record<OperatorMachine, Role> = {
   laser: "laser_operator",
   cnc: "cnc_operator",
-  plotter: "plotter_operator",
-  printer: "printer_operator",
+  crystek: "crystek_operator",
+  crystal_jet: "crystal_jet_operator",
+  ricoh_uv: "ricoh_uv_operator",
+  dtf: "dtf_operator",
 };
 
 export const ROLE_TO_MACHINE_MAP: Partial<Record<Role, OperatorMachine>> = {
   laser_operator: "laser",
   cnc_operator: "cnc",
-  plotter_operator: "plotter",
-  printer_operator: "printer",
+  crystek_operator: "crystek",
+  crystal_jet_operator: "crystal_jet",
+  ricoh_uv_operator: "ricoh_uv",
+  dtf_operator: "dtf",
 };
 
 export const ROLE_HOME_ROUTE: Record<Role, string> = {
@@ -60,8 +66,10 @@ export const ROLE_HOME_ROUTE: Record<Role, string> = {
   receptionist: "/dashboard/receptionist",
   laser_operator: "/dashboard/operator/laser",
   cnc_operator: "/dashboard/operator/cnc",
-  plotter_operator: "/dashboard/operator/plotter",
-  printer_operator: "/dashboard/operator/printer",
+  crystek_operator: "/dashboard/operator/crystek",
+  crystal_jet_operator: "/dashboard/operator/crystal_jet",
+  ricoh_uv_operator: "/dashboard/operator/ricoh_uv",
+  dtf_operator: "/dashboard/operator/dtf",
 };
 
 export function getRoleHomeRoute(role: Role): string {
@@ -121,8 +129,10 @@ function isOperatorRole(role: Role): boolean {
   return (
     role === "laser_operator" ||
     role === "cnc_operator" ||
-    role === "plotter_operator" ||
-    role === "printer_operator"
+    role === "crystek_operator" ||
+    role === "crystal_jet_operator" ||
+    role === "ricoh_uv_operator" ||
+    role === "dtf_operator"
   );
 }
 
@@ -312,8 +322,10 @@ export const ROUTE_CONTRACTS: Record<WorkspaceId, RouteContract> = {
     roles: [
       "laser_operator",
       "cnc_operator",
-      "plotter_operator",
-      "printer_operator",
+      "crystek_operator",
+      "crystal_jet_operator",
+      "ricoh_uv_operator",
+      "dtf_operator",
     ],
     homeRoute: "/dashboard/operator",
     allowedPrefixes: [
@@ -365,8 +377,10 @@ export function getLegacyRouteRedirect(pathname: string, role: Role): string | n
     const isFloorOperator = [
       "laser_operator",
       "cnc_operator",
-      "plotter_operator",
-      "printer_operator",
+      "crystek_operator",
+      "crystal_jet_operator",
+      "ricoh_uv_operator",
+      "dtf_operator",
     ].includes(role);
     const target = isFloorOperator ? "/inventory/substock" : "/inventory/parent";
     return isRedirectLoop(cleanPath, target) ? null : target;
@@ -514,8 +528,10 @@ function canAccessCanonicalRoute(role: Role, pathname: string): boolean {
         "manager",
         "laser_operator",
         "cnc_operator",
-        "plotter_operator",
-        "printer_operator",
+        "crystek_operator",
+        "crystal_jet_operator",
+        "ricoh_uv_operator",
+        "dtf_operator",
       ].includes(role);
     }
     if (feature) {
@@ -543,7 +559,7 @@ function canAccessCanonicalRoute(role: Role, pathname: string): boolean {
   if (feature === "inventory") {
     const sub = segments[3];
     if (sub === "substock") {
-      return ["owner", "admin", "manager", "laser_operator", "cnc_operator", "plotter_operator", "printer_operator"].includes(role);
+      return ["owner", "admin", "manager", "laser_operator", "cnc_operator", "crystek_operator", "crystal_jet_operator", "ricoh_uv_operator", "dtf_operator"].includes(role);
     }
     return ["owner", "admin", "manager", "storekeeper"].includes(role);
   }

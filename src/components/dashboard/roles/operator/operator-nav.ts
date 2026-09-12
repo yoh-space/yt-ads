@@ -1,8 +1,15 @@
 import type { WorkspaceNavItem } from "@/components/dashboard/shell/workspace-shell";
 import type { Role } from "@/lib/operations-types";
-import { CANONICAL_OPERATOR_ROLES } from "@/shared/production-manifest";
 
-export const OPERATOR_ROLES: Role[] = [...CANONICAL_OPERATOR_ROLES];
+/** Canonical 6 operator roles — one per confirmed production machine. */
+export const OPERATOR_ROLES: Role[] = [
+  "crystal_jet_operator",
+  "crystek_operator",
+  "ricoh_uv_operator",
+  "dtf_operator",
+  "laser_operator",
+  "cnc_operator",
+];
 
 /**
  * Operator workspace navigation. All operator routes live under the machine

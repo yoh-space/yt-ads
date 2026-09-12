@@ -112,7 +112,7 @@ describe("materialRequests issuance and acknowledgement invariants", () => {
         __table: "machines",
         name: "Polaris 3.2m",
                 code: "M-POLARIS",
-        operatorRole: "printer_operator",
+        operatorRole: "crystal_jet_operator",
         active: true,
       },
       id_jobCards_1: {
@@ -126,7 +126,7 @@ describe("materialRequests issuance and acknowledgement invariants", () => {
         _id: "id_profiles_operator",
         __table: "profiles",
                 authUserId: "user_operator_printer",
-        role: "printer_operator",
+        role: "crystal_jet_operator",
         active: true,
       },
       id_materialRequests_1: {
@@ -240,7 +240,7 @@ describe("materialRequests issuance and acknowledgement invariants", () => {
 
   it("rejects issuance when requesting operator role does not match machine role", async () => {
     const state = buildValidState();
-    state.id_profiles_operator.role = "laser_operator"; // Mismatch with printer_operator machine
+    state.id_profiles_operator.role = "laser_operator"; // Mismatch with crystal_jet_operator machine
     const { mockCtx } = createMockCtx(state);
 
     await expect(
@@ -267,7 +267,7 @@ describe("materialRequests issuance and acknowledgement invariants", () => {
         mockCtx,
         { requestId: "id_materialRequests_1" as any },
         baseOperator,
-        "printer_operator"
+        "crystal_jet_operator"
       )
     ).rejects.toThrow("Cannot acknowledge receipt while request is still partially issued.");
   });
@@ -282,7 +282,7 @@ describe("materialRequests issuance and acknowledgement invariants", () => {
       mockCtx,
       { requestId: "id_materialRequests_1" as any },
       baseOperator,
-      "printer_operator"
+      "crystal_jet_operator"
     );
 
     expect(result.status).toBe("Received");
@@ -292,7 +292,7 @@ describe("materialRequests issuance and acknowledgement invariants", () => {
 
 describe("operator material requests lifecycle and clean custody", () => {
   const operatorIdentity = { _id: "user_operator_printer" };
-  const operatorProfile = { role: "printer_operator" as const };
+  const operatorProfile = { role: "crystal_jet_operator" as const };
 
   function buildCleanRequestState() {
     return {
@@ -335,7 +335,7 @@ describe("operator material requests lifecycle and clean custody", () => {
         name: "Polaris 3.2m",
         code: "M-POLARIS",
         type: "Large Format Printer",
-        operatorRole: "printer_operator",
+        operatorRole: "crystal_jet_operator",
         active: true,
       },
       id_machines_2: {
@@ -344,7 +344,7 @@ describe("operator material requests lifecycle and clean custody", () => {
         name: "Mimaki JV300",
         code: "M-MIMAKI",
         type: "Eco Solvent Printer",
-        operatorRole: "printer_operator",
+        operatorRole: "crystal_jet_operator",
         active: true,
       },
       id_jobCards_1: {
@@ -585,7 +585,7 @@ describe("operator material requests lifecycle and clean custody", () => {
         code: "M-POLARIS-1",
         name: "Polaris Alpha",
         type: "Large Format Printer",
-        operatorRole: "printer_operator" as const,
+        operatorRole: "crystal_jet_operator" as const,
         status: "Available",
         materialUnit: "m²",
         active: true,
@@ -595,7 +595,7 @@ describe("operator material requests lifecycle and clean custody", () => {
         code: "M-POLARIS-2",
         name: "Polaris Beta",
         type: "Large Format Printer",
-        operatorRole: "printer_operator" as const,
+        operatorRole: "crystal_jet_operator" as const,
         status: "Available",
         materialUnit: "m²",
         active: true,
@@ -605,7 +605,7 @@ describe("operator material requests lifecycle and clean custody", () => {
         code: "M-MIMAKI",
         name: "Mimaki Roll",
         type: "Eco Solvent Printer",
-        operatorRole: "printer_operator" as const,
+        operatorRole: "crystal_jet_operator" as const,
         status: "Available",
         materialUnit: "m²",
         active: true,
@@ -613,17 +613,17 @@ describe("operator material requests lifecycle and clean custody", () => {
     ];
 
     // 1. Exact ID
-    expect(resolveMachineForRole(machines, "mach_101", "printer_operator")._id).toBe("mach_101");
+    expect(resolveMachineForRole(machines, "mach_101", "crystal_jet_operator")._id).toBe("mach_101");
 
     // 2. Exact Code (case-insensitive)
-    expect(resolveMachineForRole(machines, "m-mimaki", "printer_operator")._id).toBe("mach_103");
+    expect(resolveMachineForRole(machines, "m-mimaki", "crystal_jet_operator")._id).toBe("mach_103");
 
     // 3. Ambiguous slug matches multiple machines (e.g. "polaris")
-    expect(() => resolveMachineForRole(machines, "polaris", "printer_operator")).toThrow(
+    expect(() => resolveMachineForRole(machines, "polaris", "crystal_jet_operator")).toThrow(
       "AMBIGUOUS_MACHINE_SCOPE",
     );
 
     // 4. Unique substring matches
-    expect(resolveMachineForRole(machines, "polaris-1", "printer_operator")._id).toBe("mach_101");
+    expect(resolveMachineForRole(machines, "polaris-1", "crystal_jet_operator")._id).toBe("mach_101");
   });
 });

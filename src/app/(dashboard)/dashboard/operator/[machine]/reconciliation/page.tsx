@@ -43,7 +43,7 @@ export default function OperatorReconciliationPage({
   const machineStock = stock.filter((entry) => entry.machineId === machine.id && entry.status === "ACTIVE");
   const accessContext: AccessContext = {
     profile: { role: profile.role, active: profile.active },
-    attributes: { machineId: machine.id, machineType: machineParam as "laser" | "cnc" | "plotter" | "printer" },
+    attributes: { machineId: machine.id, machineType: machineParam as "laser" | "cnc" | "crystek" | "crystal_jet" | "ricoh_uv" | "dtf" },
   };
 
   async function submitCount(stockId: Id<"operatorSubStock">, systemRemaining: number, unit: string) {

@@ -112,8 +112,8 @@ export const resetSystemData = mutation({
     const operatorRoles = new Set([
       "laser_operator",
       "cnc_operator",
-      "plotter_operator",
-      "printer_operator",
+      "crystek_operator",
+      "crystal_jet_operator",
     ]);
     const allStaff = await ctx.db.query("staff").collect();
     for (const member of allStaff) {

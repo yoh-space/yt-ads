@@ -9,8 +9,10 @@ export const role = v.union(
   v.literal("receptionist"),
   v.literal("laser_operator"),
   v.literal("cnc_operator"),
-  v.literal("plotter_operator"),
-  v.literal("printer_operator"),
+  v.literal("crystal_jet_operator"),
+  v.literal("crystek_operator"),
+  v.literal("ricoh_uv_operator"),
+  v.literal("dtf_operator"),
 );
 
 export const unit = v.union(

@@ -53,8 +53,10 @@ export function getNavItemHref(view: View, role: Role): string {
 const OVERVIEW_LABEL_OVERRIDE: Partial<Record<Role, { label: string; english: string }>> = {
   laser_operator: { label: "የሌዘር ማሽን ሥራ", english: "Laser Machine Workspace" },
   cnc_operator: { label: "የሲኤንሲ ማሽን ሥራ", english: "CNC Machine Workspace" },
-  plotter_operator: { label: "የፕሎተር ማሽን ሥራ", english: "Plotter Machine Workspace" },
-  printer_operator: { label: "የፕሪንተር ማሽን ሥራ", english: "Printer Machine Workspace" },
+  crystek_operator: { label: "የፕሎተር ማሽን ሥራ", english: "Plotter Machine Workspace" },
+  crystal_jet_operator: { label: "የፕሪንተር ማሽን ሥራ", english: "Printer Machine Workspace" },
+  ricoh_uv_operator: { label: "የሪኮ UV ማሽን ሥራ", english: "Ricoh UV Machine Workspace" },
+  dtf_operator: { label: "የ勠ታፍ ማሽን ሥራ", english: "DTF Machine Workspace" },
 };
 
 export function getNavLabel(view: View, role: Role): { label: string; english: string } {

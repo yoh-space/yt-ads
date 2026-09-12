@@ -37,8 +37,8 @@ describe("workspace access policy", () => {
       "receptionist",
       "laser_operator",
       "cnc_operator",
-      "plotter_operator",
-      "printer_operator",
+      "crystek_operator",
+      "crystal_jet_operator",
     ] as const;
 
     for (const role of roles) {

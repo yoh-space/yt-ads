@@ -6,8 +6,10 @@ export type Role =
   | "receptionist"
   | "laser_operator"
   | "cnc_operator"
-  | "plotter_operator"
-  | "printer_operator";
+  | "crystal_jet_operator"
+  | "crystek_operator"
+  | "ricoh_uv_operator"
+  | "dtf_operator";
 export type Unit = "m²" | "m" | "sheet" | "piece" | "pcs" | "L" | "mL";
 export type PurchaseUnit = "roll" | "sheet" | "pack" | "canister" | "liter" | "piece";
 export type PackageUnit = "ROLL" | "SHEET" | "PACKAGE" | "CANISTER" | "PIECE";
@@ -215,6 +217,8 @@ export const roleLabels: Record<Role, { am: string; en: string; initial: string 
   receptionist: { am: "ተቀባይ", en: "Receptionist", initial: "RC" },
   laser_operator: { am: "Laser ኦፕሬተር", en: "Laser Cutter", initial: "LC" },
   cnc_operator: { am: "CNC ኦፕሬተር", en: "CNC Router", initial: "CN" },
-  plotter_operator: { am: "Plotter ኦፕሬተር", en: "Vinyl Cutter", initial: "PL" },
-  printer_operator: { am: "Printer ኦፕሬተር", en: "Large Format Print", initial: "PR" },
+  crystal_jet_operator: { am: "Crystal Jet ኦፕሬተር", en: "Crystal Jet Operator", initial: "CJ" },
+  crystek_operator: { am: "Crystek ኦፕሬተር", en: "Crystek Operator", initial: "CK" },
+  ricoh_uv_operator: { am: "Ricoh UV ኦፕሬተር", en: "Ricoh UV Operator", initial: "RU" },
+  dtf_operator: { am: "DTF ኦፕሬተር", en: "DTF Operator", initial: "DT" },
 };

@@ -76,7 +76,7 @@ const PRINTER_MACHINE: OperatorMachine = {
   name: "Polaris 3.2m",
   code: "BAN-01",
   type: "Banner Printer",
-  operatorRole: "printer_operator",
+  operatorRole: "crystal_jet_operator",
   status: "Running",
   materialUnit: "m²",
   active: true,
@@ -95,24 +95,24 @@ const LASER_MACHINE: OperatorMachine = {
 
 describe("operator namespace machine scoping", () => {
   it("resolves a machine by type or code for the matching operator role", () => {
-    const resolved = resolveMachineForRole([PRINTER_MACHINE, LASER_MACHINE], "ban", "printer_operator");
+    const resolved = resolveMachineForRole([PRINTER_MACHINE, LASER_MACHINE], "ban", "crystal_jet_operator");
     expect(resolved._id).toBe("id_machines_printer");
   });
 
   it("rejects a slug that resolves to a machine of a different operator role", () => {
     expect(() =>
-      resolveMachineForRole([PRINTER_MACHINE, LASER_MACHINE], "las", "printer_operator")
+      resolveMachineForRole([PRINTER_MACHINE, LASER_MACHINE], "las", "crystal_jet_operator")
     ).toThrow("This machine is not assigned to your operator role.");
   });
 
   it("rejects an unknown machine slug", () => {
-    expect(() => resolveMachineForRole([PRINTER_MACHINE], "uv", "printer_operator")).toThrow(
+    expect(() => resolveMachineForRole([PRINTER_MACHINE], "uv", "crystal_jet_operator")).toThrow(
       "Machine not found."
     );
   });
 
   it("returns the machine when the role matches by code even if type differs", () => {
-    const resolved = resolveMachineForRole([PRINTER_MACHINE], "BAN-01", "printer_operator");
+    const resolved = resolveMachineForRole([PRINTER_MACHINE], "BAN-01", "crystal_jet_operator");
     expect(resolved._id).toBe("id_machines_printer");
   });
 });
@@ -163,7 +163,7 @@ describe("operator job-completion scope (completeJobInternal)", () => {
     const result = await completeJobInternal(
       mockCtx,
       { _id: "auth_printer" },
-      { role: "printer_operator" },
+      { role: "crystal_jet_operator" },
       { jobId: "id_jobCards_1" },
     );
 
@@ -210,7 +210,7 @@ describe("operator offcut entry scope (createOffcutInternal)", () => {
       createOffcutInternal(
         mockCtx,
         operator,
-        { role: "printer_operator" },
+        { role: "crystal_jet_operator" },
         {
           materialId: "id_materials_1",
           width: 1,
@@ -232,7 +232,7 @@ describe("operator offcut entry scope (createOffcutInternal)", () => {
       createOffcutInternal(
         mockCtx,
         operator,
-        { role: "printer_operator" },
+        { role: "crystal_jet_operator" },
         {
           materialId: "id_materials_1",
           width: 1,
@@ -251,7 +251,7 @@ describe("operator offcut entry scope (createOffcutInternal)", () => {
     const result = await createOffcutInternal(
       mockCtx,
       operator,
-      { role: "printer_operator" },
+      { role: "crystal_jet_operator" },
       {
         materialId: "id_materials_1",
         width: 1,
@@ -313,7 +313,7 @@ describe("operator scrap entry scope (logScrapInternal)", () => {
       logScrapInternal(
         mockCtx,
         operator,
-        { role: "printer_operator" },
+        { role: "crystal_jet_operator" },
         {
           materialId: "id_materials_1",
           quantity: 2,
@@ -331,7 +331,7 @@ describe("operator scrap entry scope (logScrapInternal)", () => {
     const result = await logScrapInternal(
       mockCtx,
       operator,
-      { role: "printer_operator" },
+      { role: "crystal_jet_operator" },
       {
         materialId: "id_materials_1",
         quantity: 2,

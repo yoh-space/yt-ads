@@ -14,7 +14,7 @@ import { recordInventoryEvent } from "./inventoryLedger";
 import { classifyMaterialProductionType, effectiveConsumptionRate, resolveEtbValue } from "./materialUsage";
 import { assertServiceIdsMatchSchema } from "./services";
 import { MATERIAL_TYPE_CATALOG } from "./orderAutomation";
-import { CANONICAL_SERVICE_ROUTES, CANONICAL_MACHINES, CAPABILITY_REGISTRY } from "../src/shared/production-manifest";
+import { CANONICAL_SERVICE_ROUTES, CAPABILITY_REGISTRY } from "../src/shared/production-manifest";
 
 /**
  * Full field set for a seeded material, matching what the production
@@ -143,13 +143,13 @@ export async function seedDemoData(ctx: MutationCtx, createdById: string) {
   });
   const mPlotter = await ctx.db.insert("machines", {
     name: "Crystc Eco-Solvent Printer", code: "CESP-01", type: "Eco-Solvent Printer & Cutter",
-    operatorRole: "plotter_operator", materialUnit: "m²", status: "Available", active: true,
+    operatorRole: "crystek_operator", materialUnit: "m²", status: "Available", active: true,
     primaryMaterials: ["Frosted Sticker", "Transparent Sticker", "Reflective Sticker", "Mesh Sticker"],
     compatibleInks: ["Print & Cut Ink 1L Canister"],
   });
   const mPrinter = await ctx.db.insert("machines", {
     name: "Crystal Jet 7K Series", code: "CJ7K-01", type: "Large Format Solvent Printer",
-    operatorRole: "printer_operator", materialUnit: "m²", status: "Running",
+    operatorRole: "crystal_jet_operator", materialUnit: "m²", status: "Running",
     activeJob: "JC-0420", active: true,
     primaryMaterials: ["Banner Flex", "Mesh Sticker"],
     compatibleInks: ["Banner Ink 5L Canister"],
@@ -237,10 +237,10 @@ export const seed = mutation({
 const YT_WORKSPACE_KEY = "yt-advertisement";
 
 const YT_MACHINE_MASTER_DATA = [
-  { name: "Crystal Jet 7K Series", code: "BAN-01", type: "Banner Printer", manufacturer: "Crystal", model: "Crystal Jet 7K Series", capability: "Banner and heavy sticker production", primaryMaterialFamilies: ["ROLL"], associatedInkFamilies: ["Banner Ink 5L", "Banner Solvent"], operatorRole: "printer_operator" as const, materialUnit: "m²" as const, displayUnit: "m²", status: "Available" as const },
-  { name: "Crystc Eco-Solvent Printer", code: "PAC-01", type: "Print and Cut", manufacturer: "Crystal", model: "Eco-Solvent Print & Cut", capability: "Stickers and grayback media", primaryMaterialFamilies: ["ROLL"], associatedInkFamilies: ["Print & Cut Ink 1L", "Print & Cut Solvent"], operatorRole: "plotter_operator" as const, materialUnit: "m²" as const, displayUnit: "m²", status: "Available" as const },
-  { name: "Ricoh Flatbed UV Machine", code: "UVF-01", type: "UV Flatbed", manufacturer: "Ricoh", model: "Flatbed UV", capability: "Rigid sheets and specialty media", primaryMaterialFamilies: ["RIGID_SHEET", "HARDWARE"], associatedInkFamilies: ["UV Ink 1L"], operatorRole: "printer_operator" as const, materialUnit: "m²" as const, displayUnit: "m²", status: "Available" as const },
-  { name: "DTF i3200", code: "DTF-01", type: "DTF", manufacturer: "i3200", model: "DTF i3200", capability: "T-shirts and textile films", primaryMaterialFamilies: ["ROLL", "HARDWARE"], associatedInkFamilies: ["DTF Ink 1L", "DTF Solvent"], operatorRole: "printer_operator" as const, materialUnit: "m" as const, displayUnit: "m", status: "Available" as const },
+  { name: "Crystal Jet 7K Series", code: "BAN-01", type: "Banner Printer", manufacturer: "Crystal", model: "Crystal Jet 7K Series", capability: "Banner and heavy sticker production", primaryMaterialFamilies: ["ROLL"], associatedInkFamilies: ["Banner Ink 5L", "Banner Solvent"], operatorRole: "crystal_jet_operator" as const, materialUnit: "m²" as const, displayUnit: "m²", status: "Available" as const },
+  { name: "Crystc Eco-Solvent Printer", code: "PAC-01", type: "Print and Cut", manufacturer: "Crystal", model: "Eco-Solvent Print & Cut", capability: "Stickers and grayback media", primaryMaterialFamilies: ["ROLL"], associatedInkFamilies: ["Print & Cut Ink 1L", "Print & Cut Solvent"], operatorRole: "crystek_operator" as const, materialUnit: "m²" as const, displayUnit: "m²", status: "Available" as const },
+  { name: "Ricoh Flatbed UV Machine", code: "UVF-01", type: "UV Flatbed", manufacturer: "Ricoh", model: "Flatbed UV", capability: "Rigid sheets and specialty media", primaryMaterialFamilies: ["RIGID_SHEET", "HARDWARE"], associatedInkFamilies: ["UV Ink 1L"], operatorRole: "ricoh_uv_operator" as const, materialUnit: "m²" as const, displayUnit: "m²", status: "Available" as const },
+  { name: "DTF i3200", code: "DTF-01", type: "DTF", manufacturer: "i3200", model: "DTF i3200", capability: "T-shirts and textile films", primaryMaterialFamilies: ["ROLL", "HARDWARE"], associatedInkFamilies: ["DTF Ink 1L", "DTF Solvent"], operatorRole: "dtf_operator" as const, materialUnit: "m" as const, displayUnit: "m", status: "Available" as const },
   { name: "Laser Cutter", code: "LAS-01", type: "Laser Cutter", manufacturer: "Crystal", model: "CO2 Laser Cutter", capability: "Mica and foam board cutting", primaryMaterialFamilies: ["RIGID_SHEET"], operatorRole: "laser_operator" as const, materialUnit: "m²" as const, displayUnit: "m²", status: "Available" as const },
   { name: "CNC Router", code: "CNC-01", type: "CNC Router", model: "Heavy Duty CNC Router", capability: "Foam board, cladding, and MDF sheets", primaryMaterialFamilies: ["RIGID_SHEET"], operatorRole: "cnc_operator" as const, materialUnit: "m²" as const, displayUnit: "m²", status: "Available" as const },
 ] as const;
@@ -518,9 +518,9 @@ export const seedYtAdvertisementWorkspace = mutation({
     const applicationRoles: Record<string, Role[]> = {
       Zewuditu: ["storekeeper"],
       "ዮርዳኖስ": ["manager"],
-      "Debas melaku": ["plotter_operator"],
-      surafel: ["printer_operator"],
-      "SAMUEL GETE": ["printer_operator"],
+      "Debas melaku": ["crystek_operator"],
+      surafel: ["crystal_jet_operator"],
+      "SAMUEL GETE": ["crystal_jet_operator"],
       Addisu: ["cnc_operator", "laser_operator"],
     };
     for (const [personName, department, businessRole, responsibility, handlesMaterial] of staffRecords) {
@@ -1014,8 +1014,8 @@ export const seedSingleRoleAccount = mutation({
       receptionist: { role: "receptionist", name: "Selamawit", email: "ytadvert+receptionist@gmail.com", password: "password123", staffName: "Selamawit" },
       laser_operator: { role: "laser_operator", name: "Addisu", email: "ytadvert+laser@gmail.com", password: "password123", staffName: "Addisu" },
       cnc_operator: { role: "cnc_operator", name: "Addisu", email: "ytadvert+cnc@gmail.com", password: "password123", staffName: "Addisu" },
-      plotter_operator: { role: "plotter_operator", name: "Debas Melaku", email: "ytadvert+plotter@gmail.com", password: "password123", staffName: "Debas melaku" },
-      printer_operator: { role: "printer_operator", name: "Surafel", email: "ytadvert+printer@gmail.com", password: "password123", staffName: "surafel" },
+      crystek_operator: { role: "crystek_operator", name: "Debas Melaku", email: "ytadvert+plotter@gmail.com", password: "password123", staffName: "Debas melaku" },
+      crystal_jet_operator: { role: "crystal_jet_operator", name: "Surafel", email: "ytadvert+printer@gmail.com", password: "password123", staffName: "surafel" },
     };
 
     const entry = ROLE_SEED_DATA[args.roleName];
@@ -1078,8 +1078,8 @@ const DEMO_ACCOUNT_ROLES = [
   "receptionist",
   "laser_operator",
   "cnc_operator",
-  "plotter_operator",
-  "printer_operator",
+  "crystek_operator",
+  "crystal_jet_operator",
 ] as const;
 
 export const seedAll = mutation({
@@ -1156,7 +1156,7 @@ type RoleKey =
   | "receptionist"
   | "laser_operator"
   | "cnc_operator"
-  | "printer_operator";
+  | "crystal_jet_operator";
 
 interface DemoAccount {
   role: RoleKey;
@@ -1176,7 +1176,7 @@ const DEMO_ACCOUNTS: readonly DemoAccount[] = [
   { role: "receptionist",   name: "Selamawit Alemu",  email: "receptionist@yotech.com",   password: DEMO_PASSWORD },
   { role: "laser_operator", name: "Addisu Mekonnen",  email: "laser@yotech.com",          password: DEMO_PASSWORD },
   { role: "cnc_operator",   name: "Addisu Mekonnen",  email: "cnc@yotech.com",            password: DEMO_PASSWORD },
-  { role: "printer_operator", name: "Surafel Girma",  email: "printer@yotech.com",        password: DEMO_PASSWORD },
+  { role: "crystal_jet_operator", name: "Surafel Girma",  email: "printer@yotech.com",        password: DEMO_PASSWORD },
 ];
 
 const SEED_MIGRATION_KEY = "seed:demo:v1";
@@ -1401,7 +1401,7 @@ const DEMO_MACHINES: readonly MachineInsertInput[] = [
     manufacturer: "Generic",
     model: "3.2m Eco-Solvent / Solvent Printer",
     capability: "3.2m Print Width",
-    operatorRole: "printer_operator",
+    operatorRole: "crystal_jet_operator",
     materialUnit: "m²",
     displayUnit: "m²",
     status: "Running",
@@ -1693,7 +1693,7 @@ export const seedDemoLifecycle = mutation({
       receptionist: "",
       laser_operator: "",
       cnc_operator: "",
-      printer_operator: "",
+      crystal_jet_operator: "",
     };
     for (const role of Object.keys(operatorIds) as RoleKey[]) {
       if (operatorIds[role]) continue;
@@ -1725,7 +1725,7 @@ export const seedDemoLifecycle = mutation({
       },
       {
         machineCode: "BAN-01",
-        operatorRole: "printer_operator",
+        operatorRole: "crystal_jet_operator",
         materialName: "Banner",
         packages: 1,            // 1 roll = 160 m² issued to printer
         clearanceStage: "CLEARED",
@@ -1737,7 +1737,7 @@ export const seedDemoLifecycle = mutation({
 
     const operatorBatchIds: Record<string, Id<"operatorSubStock">> = {};
     // Key under which the banner printer's ACTIVE ink sub-stock is tracked.
-    const INK_STOCK_KEY = "printer_operator_ink";
+    const INK_STOCK_KEY = "crystal_jet_operator_ink";
     const assignmentByRole = new Map<RoleKey, OperatorAssignment>(
       assignments.map((a) => [a.operatorRole, a]),
     );
@@ -1803,7 +1803,7 @@ export const seedDemoLifecycle = mutation({
       const inkMaterial = DEMO_MATERIALS.find((m) => m.name === inkMaterialName)!;
       const inkMaterialId = materialIds[inkMaterialName];
       const inkParentId = parentIds[inkMaterialName];
-      const inkOperatorAuthId = operatorIds.printer_operator;
+      const inkOperatorAuthId = operatorIds.crystal_jet_operator;
       const printerMachineId = machineIds["BAN-01"];
       const inkLitres = 5;
 
@@ -1838,12 +1838,12 @@ export const seedDemoLifecycle = mutation({
         operatorSubStockId: inkStockId,
         operatorId: inkOperatorAuthId,
         machineId: printerMachineId,
-        note: `Store-to-operator transfer (${inkMaterialName} → printer_operator)`,
+        note: `Store-to-operator transfer (${inkMaterialName} → crystal_jet_operator)`,
         createdBy,
       });
       log.push({
         step: "issuance:ink",
-        detail: `BAN-01 printer_operator: 5 L Banner Ink issued to floor (ACTIVE)`,
+        detail: `BAN-01 crystal_jet_operator: 5 L Banner Ink issued to floor (ACTIVE)`,
       });
     }
 
@@ -1885,7 +1885,7 @@ export const seedDemoLifecycle = mutation({
         companyLegalName: "Abyssinia Bank S.C.",
         priority: "High",
         dueOffsetDays: 0,
-        operatorRole: "printer_operator",
+        operatorRole: "crystal_jet_operator",
         machineCode: "BAN-01",
         materialName: "Banner",
       },
@@ -1987,7 +1987,7 @@ export const seedDemoLifecycle = mutation({
         status: "In production",
         priority: "High",
         dueOffsetHours: 8,
-        operatorRole: "printer_operator",
+        operatorRole: "crystal_jet_operator",
         consumeQuantity: 86.4,
         offcutQuantity: 1.6,
         scrapQuantity: 0.8,
@@ -2089,7 +2089,7 @@ export const seedDemoLifecycle = mutation({
       // The substrate above is Banner; the printer's ACTIVE ink batch is the one
       // created under INK_STOCK_KEY and the 12 mL/m² rate mirrors the seeded
       // `systemConfigs` so the demo matches `logProductionAndDeductStock`.
-      if (job.operatorRole === "printer_operator") {
+      if (job.operatorRole === "crystal_jet_operator") {
         const inkStockId = operatorBatchIds[INK_STOCK_KEY];
         const inkMaterialId = materialIds["Banner Ink"];
         const inkMlPerSquareMetre = 12;
@@ -2488,16 +2488,24 @@ export const seedMachineConfiguration = mutation({
       }
       debugCapabilities = Array.from(capabilityIds.entries()).map(([code]) => ({ code, name: "" }));
 
-      // Seed machineCapabilities
+      // Seed machineCapabilities — local mapping (machines now live in DB)
+      const MACHINE_CAPABILITIES: Record<string, string[]> = {
+        "CJ7K-01": ["PRINT_ROLL_3_2M"],
+        "CESP-01": ["PRINT_ROLL_1_6M"],
+        "RUV-01":  ["PRINT_RIGID_UV_122_244"],
+        "DTF-01":  ["PRINT_ROLL_0_6M_DTF"],
+        "LAS-01":  ["CUT_RIGID_122_244_LASER"],
+        "CNC-01":  ["CUT_RIGID_2030_CNC"],
+      };
       const existingMachineCaps = await ctx.db.query("machineCapabilities").collect();
       if (existingMachineCaps.length === 0 || args.force) {
         if (args.force) {
           for (const row of existingMachineCaps) await ctx.db.delete(row._id);
         }
-        for (const machineDef of CANONICAL_MACHINES) {
-          const machine = machines.find((m) => m.code === machineDef.code && m.active);
+        for (const [code, capCodes] of Object.entries(MACHINE_CAPABILITIES)) {
+          const machine = machines.find((m) => m.code === code && m.active);
           if (!machine) continue;
-          for (const capCode of machineDef.capabilities) {
+          for (const capCode of capCodes) {
             const capId = capabilityIds.get(capCode);
             if (!capId) continue;
             await ctx.db.insert("machineCapabilities", {

@@ -136,7 +136,7 @@ export default function OperatorMachineOverview({
     profile: { role: profile.role, active: profile.active },
     attributes: {
       machineId: currentMachine!.id,
-      machineType: machineParam as "laser" | "cnc" | "plotter" | "printer",
+      machineType: machineParam as "laser" | "cnc" | "crystek" | "crystal_jet" | "ricoh_uv" | "dtf",
     },
   };
 

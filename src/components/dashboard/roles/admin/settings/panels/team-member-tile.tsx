@@ -15,8 +15,10 @@ const roleTone: Record<Role, "success" | "info" | "warning" | "neutral"> = {
   receptionist: "info",
   laser_operator: "neutral",
   cnc_operator: "neutral",
-  plotter_operator: "neutral",
-  printer_operator: "neutral",
+  crystek_operator: "neutral",
+  crystal_jet_operator: "neutral",
+  ricoh_uv_operator: "neutral",
+  dtf_operator: "neutral",
 };
 
 /** Single row inside the team panel: avatar + name + role select + activate toggle. */

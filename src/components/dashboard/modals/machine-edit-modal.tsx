@@ -21,7 +21,7 @@ export type MachineEditInput = {
   materialUnit?: Unit;
 };
 
-const operatorRoles: Role[] = ["laser_operator", "cnc_operator", "plotter_operator", "printer_operator"];
+const operatorRoles: Role[] = ["laser_operator", "cnc_operator", "crystek_operator", "crystal_jet_operator"];
 
 const fieldClasses =
   "w-full h-[37px] px-[10px] rounded-md border border-border bg-background text-foreground text-[11px] outline-none placeholder:text-muted-foreground transition-all " +

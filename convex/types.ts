@@ -6,8 +6,10 @@ export type Role =
   | "receptionist"
   | "laser_operator"
   | "cnc_operator"
-  | "plotter_operator"
-  | "printer_operator";
+  | "crystal_jet_operator"
+  | "crystek_operator"
+  | "ricoh_uv_operator"
+  | "dtf_operator";
 
 export type Unit = "m²" | "m" | "sheet" | "piece" | "pcs" | "L" | "mL";
 
@@ -44,6 +46,8 @@ export const ROLES: Role[] = [
   "receptionist",
   "laser_operator",
   "cnc_operator",
-  "plotter_operator",
-  "printer_operator",
+  "crystal_jet_operator",
+  "crystek_operator",
+  "ricoh_uv_operator",
+  "dtf_operator",
 ];

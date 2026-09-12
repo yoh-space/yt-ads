@@ -30,7 +30,7 @@ export type AccessContext = {
     warehouseId?: string;
     department?: string;
     machineId?: string;
-    machineType?: "laser" | "cnc" | "plotter" | "printer";
+    machineType?: "laser" | "cnc" | "crystek" | "crystal_jet" | "ricoh_uv" | "dtf";
   };
 };
 
@@ -82,8 +82,10 @@ const ROLE_CAPABILITY_OVERRIDES: Partial<Record<Role, Partial<Record<Capability,
   },
   laser_operator: { "inventory.parent.view": false, "inventory.substock.view": true, "reconciliation.operator": true, "jobs.execute": true },
   cnc_operator: { "inventory.parent.view": false, "inventory.substock.view": true, "reconciliation.operator": true, "jobs.execute": true },
-  plotter_operator: { "inventory.parent.view": false, "inventory.substock.view": true, "reconciliation.operator": true, "jobs.execute": true },
-  printer_operator: { "inventory.parent.view": false, "inventory.substock.view": true, "reconciliation.operator": true, "jobs.execute": true },
+  crystek_operator: { "inventory.parent.view": false, "inventory.substock.view": true, "reconciliation.operator": true, "jobs.execute": true },
+  crystal_jet_operator: { "inventory.parent.view": false, "inventory.substock.view": true, "reconciliation.operator": true, "jobs.execute": true },
+  ricoh_uv_operator: { "inventory.parent.view": false, "inventory.substock.view": true, "reconciliation.operator": true, "jobs.execute": true },
+  dtf_operator: { "inventory.parent.view": false, "inventory.substock.view": true, "reconciliation.operator": true, "jobs.execute": true },
 };
 
 export function canAccess(context: AccessContext, capability: Capability): boolean {

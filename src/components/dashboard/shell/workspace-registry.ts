@@ -85,7 +85,7 @@ export const WORKSPACE_REGISTRY: Record<WorkspaceId, WorkspaceDefinition> = {
   operator: {
     id: "operator",
     route: "/dashboard/operator",
-    roles: ["laser_operator", "cnc_operator", "plotter_operator", "printer_operator"],
+    roles: ["laser_operator", "cnc_operator", "crystek_operator", "crystal_jet_operator", "ricoh_uv_operator", "dtf_operator"],
     primaryCapability: "jobs.execute",
     navViews: ["overview", "inventory", "reconciliation", "settings"],
     modules: [

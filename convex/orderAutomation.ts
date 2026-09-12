@@ -2,8 +2,8 @@ import { computeJobConsumption, type ProductionType } from "./materialUsage";
 import {
   CANONICAL_SERVICE_ROUTES,
   normalizeCapabilityId,
-  findManifestMachine,
 } from "../src/shared/production-manifest";
+import { findManifestMachine } from "../src/shared/machine-catalog";
 
 /**
  * Order → production automation.
@@ -31,7 +31,7 @@ export const MATERIAL_TYPE_CATALOG: readonly MaterialTypeRoute[] = Object.values
   materialType: route.materialType,
   preferredMaterialName: route.preferredMaterialName,
   machineCapabilities: [...route.requiredCapabilities, ...route.legacyCapabilities],
-  operatorRole: route.operatorRole,
+  operatorRole: route.operatorRole as Role,
 }));
 
 const CATALOG_INDEX = new Map<string, MaterialTypeRoute>(
@@ -88,7 +88,7 @@ export function compatibleMachines(
     const manifestMachine = findManifestMachine(machine.code || machine.name);
     if (manifestMachine) {
       machineCaps.push(...manifestMachine.capabilities);
-      machineCaps.push(manifestMachine.legacyCapabilityText);
+      machineCaps.push(manifestMachine.capability);
     }
 
     // Fallback: If machine document has no capability metadata at all (e.g. lightweight unit test mock),
