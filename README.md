@@ -27,7 +27,7 @@ The platform is built on **Next.js 16 App Router** (with edge request intercepti
                           ┌─────────────────────────────┐
                           │    Convex Backend Engine    │
                           │   (Schema, Queries, Mut)    │
-                          └──────────────┬──────────────┘
+                          └──────────────┬──────────────┘ 
                                          │
         ┌────────────────────────────────┼────────────────────────────────┐
         ▼                                ▼                                ▼
