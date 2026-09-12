@@ -1,128 +1,253 @@
 "use client";
 
-import { useQuery } from "convex/react";
+import { useState } from "react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { OwnerPageHeader } from "@/components/dashboard/roles/owner/owner-page-header";
-import { StatCard } from "@/components/shared/ui/stat-card";
-import { Panel, PanelHeader } from "@/components/shared/ui/panel";
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/shared/ui/table";
-import { InventoryLoader } from "@/components/dashboard/widgets/inventory-loader";
-import { PackageOpen, AlertTriangle, Layers } from "lucide-react";
-import { OperationalPanel } from "@/components/dashboard/roles/admin/settings/operational/operational-panel";
-import { RawMaterialReorderSection } from "@/components/dashboard/roles/owner/raw-material-reorder-section";
+import { Package, Factory, Clock, Shield, Calculator, DollarSign, Save } from "lucide-react";
+import { Button } from "@/components/shared/ui";
+import { FormMessage } from "@/components/dashboard/roles/admin/settings/chrome/form";
+import { ValuationSection } from "@/components/dashboard/roles/admin/settings/operational/sections/valuation-section";
+import { ConversionSection } from "@/components/dashboard/roles/admin/settings/operational/sections/conversion-section";
+import { OverrideSection, type MaterialOption } from "@/components/dashboard/roles/admin/settings/operational/sections/override-section";
+import { ProductionSection } from "@/components/dashboard/roles/admin/settings/operational/sections/production-section";
+import { ScrapAllowanceSection } from "@/components/dashboard/roles/admin/settings/operational/sections/scrap-allowance-section";
+import { OrderExpirySection } from "@/components/dashboard/roles/admin/settings/operational/sections/order-expiry-section";
+import { RiskSection } from "@/components/dashboard/roles/admin/settings/operational/sections/risk-section";
+import { InventoryPolicySection } from "@/components/dashboard/roles/admin/settings/operational/sections/inventory-policy-section";
+import { useOperationalConfigState } from "@/components/dashboard/roles/admin/settings/operational/state";
+import { useMemo } from "react";
+
+type ConfigSection = "inventory" | "production" | "orders" | "security" | "conversion" | "valuation";
+
+const SECTIONS = [
+  { id: "inventory" as ConfigSection, label: "Inventory Control", icon: Package, amharic: "የእቃ ቁጥጥር" },
+  { id: "production" as ConfigSection, label: "Production Rules", icon: Factory, amharic: "የምርት ህጎች" },
+  { id: "orders" as ConfigSection, label: "Order Lifecycle", icon: Clock, amharic: "የትዕዛዝ ዘርፍ" },
+  { id: "security" as ConfigSection, label: "Security Controls", icon: Shield, amharic: "የደህንነት ቁጥጥር" },
+  { id: "conversion" as ConfigSection, label: "Unit Conversion", icon: Calculator, amharic: "የክፍል መቀየሪያ" },
+  { id: "valuation" as ConfigSection, label: "Valuation & Finance", icon: DollarSign, amharic: "የዋጋ እና ፋይናንስ" },
+];
 
 export default function OwnerOperationalConfigurationPage() {
-  const summary = useQuery(api.owner.materials.getMaterialsSummary);
-  const materials = useQuery(api.owner.materials.listForConfiguration);
+  const [activeSection, setActiveSection] = useState<ConfigSection>("inventory");
+  const config = useQuery(api.systemConfigs.getSystemConfig);
+  const state = useQuery(api.dashboard.getState, {});
+  const updateSystemConfig = useMutation(api.systemConfigs.updateSystemConfig);
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  if (summary === undefined || materials === undefined) {
+  const form = useOperationalConfigState(config ?? undefined);
+
+  const materials = useMemo<MaterialOption[]>(() => {
+    if (!state) return [];
+    return state.materials
+      .map((material) => ({
+        id: material._id,
+        name: material.name,
+        baseUnit: material.baseUnit ?? material.unit,
+        unit: material.unit,
+      }))
+      .sort((left, right) => left.name.localeCompare(right.name));
+  }, [state]);
+
+  if (config === undefined || state === undefined) {
     return (
       <div className="flex h-[70vh] items-center justify-center">
-        <InventoryLoader label="Loading Configuration…" />
+        <p className="text-xs text-muted-foreground">Loading configuration…</p>
       </div>
     );
   }
 
-  const categories = Object.entries(summary.byCategory).sort((a, b) => b[1] - a[1]);
+  async function save(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setMessage("");
+    try {
+      await updateSystemConfig({
+        etbPerSquareMetre: form.etbPerSquareMetre,
+        etbPerLitre: form.etbPerLitre,
+        etbPerPiece: form.etbPerPiece,
+        etbPerMetre: form.etbPerMetre,
+        etbPerSheet: form.etbPerSheet,
+        unitConversionDefaults: form.unitConversionDefaults,
+        materialOverrides: form.overrides,
+        inkMlPerSquareMetre: form.inkMlPerSquareMetre,
+        maxAllowedWastePercent: form.maxAllowedWastePercent,
+        minOffcutAreaSquareMetre: form.minOffcutAreaSquareMetre,
+        standardWasteMargin: form.standardWasteMargin,
+        maxAllowedScrapLimit: form.maxAllowedScrapLimit,
+        defaultReorderLevel: form.defaultReorderLevel,
+        reorderAlertsEnabled: form.reorderAlertsEnabled,
+        reorderAlertCooldownHours: form.reorderAlertCooldownHours,
+        requireAdminPinForExceptions: form.requireAdminPinForExceptions,
+        maxDirectStockOutEtb: form.maxDirectStockOutEtb,
+        orderExpirationHours: form.orderExpirationHours,
+        defaultScrapAllowancePercent: form.defaultScrapAllowancePercent,
+        defaultMarginSquareMetres: form.defaultMarginSquareMetres,
+        materialScrapAllowances: form.materialScrapAllowances,
+      });
+      setMessage("ቅኑ ተስርሷል። በቀጣዩ የምርት መዝገብ ላይ ይተገበራል።");
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "ማስቀመጥ አልተቻለም።",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
-    <div className="space-y-6">
-      <OwnerPageHeader
-        kicker="Operational Configuration · የሥራ ማስተካከያ"
-        title="Operational Configuration"
-        subtitle="Set the simple rules your team follows every day."
-      />
-
-      <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard
-          icon={<PackageOpen size={16} />}
-          label="Raw materials"
-          subtitle="ንቁ ዕቃዎች"
-          value={summary.totalMaterials}
-          variant="default"
-        />
-        <StatCard
-          icon={<AlertTriangle size={16} />}
-          label="Need restocking"
-          subtitle="መልሶ ለማዘዝ ደረጃ"
-          value={summary.reorderMaterials.length}
-          variant="alert"
-          isAlert={summary.reorderMaterials.length > 0}
-        />
-        <StatCard
-          icon={<Layers size={16} />}
-          label="Material groups"
-          subtitle="የዕቃ ዓይነቶች"
-          value={categories.length}
-          variant="sales"
-        />
+    <div className="flex h-[calc(100vh-8rem)] gap-6">
+      {/* Left Sidebar */}
+      <div className="w-64 shrink-0 overflow-y-auto">
+        <div className="sticky top-0 space-y-4">
+          <div className="space-y-1">
+            <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.2em] text-primary mb-3">
+              Configuration Sections
+            </p>
+            <nav className="space-y-1">
+              {SECTIONS.map((section) => {
+                const Icon = section.icon;
+                const isActive = activeSection === section.id;
+                return (
+                  <button
+                    key={section.id}
+                    onClick={() => setActiveSection(section.id)}
+                    className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
+                      isActive
+                        ? "bg-primary text-primary-foreground font-medium"
+                        : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
+                    }`}
+                  >
+                    <Icon size={16} className="shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate">{section.label}</div>
+                      <div className="truncate text-[10px] opacity-70">{section.amharic}</div>
+                    </div>
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
+        </div>
       </div>
 
-      <Panel>
-        <PanelHeader
-          title="Materials that need restocking"
-          subtitle="መልሶ ለማዘዝ ደረጃ ላይ ያሉ"
-          kicker="Restock"
-          icon={<AlertTriangle size={16} />}
-        />
-        {summary.reorderMaterials.length === 0 ? (
-          <p className="p-[17px] text-[12px] text-muted-foreground">
-            All materials are above their reorder point.
-          </p>
-        ) : (
-          <div className="overflow-x-auto">
-            <Table dense>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Material</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Unit</TableHead>
-                  <TableHead>On hand</TableHead>
-                  <TableHead>Restock when below</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {summary.reorderMaterials.map((material) => (
-                  <TableRow key={material.id}>
-                    <TableCell className="font-medium text-foreground">{material.name}</TableCell>
-                    <TableCell muted>{material.category}</TableCell>
-                    <TableCell muted>{material.unit}</TableCell>
-                    <TableCell mono>{material.quantity}</TableCell>
-                    <TableCell mono muted>{material.reorderAt}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </Panel>
+      {/* Main Content Area */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="space-y-6">
+          <OwnerPageHeader
+            kicker="Operational Configuration · የሥራ ማስተካከያ"
+            title={SECTIONS.find((s) => s.id === activeSection)?.label || "Configuration"}
+            subtitle="Set the operational rules that govern your business processes."
+          />
 
-      <RawMaterialReorderSection materials={materials} />
-      <OperationalPanel />
+          <form onSubmit={save} className="space-y-6">
+            <div className="rounded-xl border border-border bg-card divide-y divide-border">
+              {activeSection === "inventory" && (
+                <InventoryPolicySection
+                  defaultReorderLevel={form.defaultReorderLevel}
+                  setDefaultReorderLevel={form.setDefaultReorderLevel}
+                  reorderAlertsEnabled={form.reorderAlertsEnabled}
+                  setReorderAlertsEnabled={form.setReorderAlertsEnabled}
+                  reorderAlertCooldownHours={form.reorderAlertCooldownHours}
+                  setReorderAlertCooldownHours={form.setReorderAlertCooldownHours}
+                />
+              )}
 
-      <Panel>
-        <PanelHeader
-          title="Materials by Category"
-          subtitle="በዓይነት የተከፋፈለ"
-          kicker="Catalog"
-          icon={<Layers size={16} />}
-        />
-        {categories.length === 0 ? (
-          <p className="p-[17px] text-[12px] text-muted-foreground">No material categories tracked.</p>
-        ) : (
-          <div className="grid gap-3 p-[17px] sm:grid-cols-2 lg:grid-cols-3">
-            {categories.map(([category, count]) => (
-              <div
-                key={category}
-                className="flex items-center justify-between rounded-lg border border-border/60 bg-background/40 px-3 py-2.5"
-              >
-                <span className="text-[12px] text-muted-foreground">{category}</span>
-                <span className="font-mono text-[13px] font-bold text-foreground">{count}</span>
+              {activeSection === "production" && (
+                <>
+                  <ProductionSection
+                    inkMlPerSquareMetre={form.inkMlPerSquareMetre}
+                    setInkMlPerSquareMetre={form.setInkMlPerSquareMetre}
+                    maxAllowedWastePercent={form.maxAllowedWastePercent}
+                    setMaxAllowedWastePercent={form.setMaxAllowedWastePercent}
+                    minOffcutAreaSquareMetre={form.minOffcutAreaSquareMetre}
+                    setMinOffcutAreaSquareMetre={form.setMinOffcutAreaSquareMetre}
+                    standardWasteMargin={form.standardWasteMargin}
+                    setStandardWasteMargin={form.setStandardWasteMargin}
+                    maxAllowedScrapLimit={form.maxAllowedScrapLimit}
+                    setMaxAllowedScrapLimit={form.setMaxAllowedScrapLimit}
+                  />
+                  <ScrapAllowanceSection
+                    defaultScrapAllowancePercent={form.defaultScrapAllowancePercent}
+                    setDefaultScrapAllowancePercent={form.setDefaultScrapAllowancePercent}
+                    defaultMarginSquareMetres={form.defaultMarginSquareMetres}
+                    setDefaultMarginSquareMetres={form.setDefaultMarginSquareMetres}
+                    scrapAllowances={form.materialScrapAllowances}
+                    setScrapAllowances={form.setMaterialScrapAllowances}
+                    materials={materials}
+                    onMessage={setMessage}
+                  />
+                </>
+              )}
+
+              {activeSection === "orders" && (
+                <OrderExpirySection
+                  orderExpirationHours={form.orderExpirationHours}
+                  setOrderExpirationHours={form.setOrderExpirationHours}
+                />
+              )}
+
+              {activeSection === "security" && (
+                <RiskSection
+                  requireAdminPinForExceptions={form.requireAdminPinForExceptions}
+                  setRequireAdminPinForExceptions={form.setRequireAdminPinForExceptions}
+                  maxDirectStockOutEtb={form.maxDirectStockOutEtb}
+                  setMaxDirectStockOutEtb={form.setMaxDirectStockOutEtb}
+                />
+              )}
+
+              {activeSection === "conversion" && (
+                <ConversionSection
+                  rules={form.unitConversionDefaults}
+                  setRules={form.setUnitConversionDefaults}
+                />
+              )}
+
+              {activeSection === "valuation" && (
+                <>
+                  <ValuationSection
+                    etbPerSquareMetre={form.etbPerSquareMetre}
+                    setEtbPerSquareMetre={form.setEtbPerSquareMetre}
+                    etbPerLitre={form.etbPerLitre}
+                    setEtbPerLitre={form.setEtbPerLitre}
+                    etbPerPiece={form.etbPerPiece}
+                    setEtbPerPiece={form.setEtbPerPiece}
+                    etbPerMetre={form.etbPerMetre}
+                    setEtbPerMetre={form.setEtbPerMetre}
+                    etbPerSheet={form.etbPerSheet}
+                    setEtbPerSheet={form.setEtbPerSheet}
+                  />
+                  <OverrideSection
+                    overrides={form.overrides}
+                    setOverrides={form.setOverrides}
+                    materials={materials}
+                    onMessage={setMessage}
+                  />
+                </>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-secondary/40 px-5 py-4">
+              <p className="text-[11px] text-muted-foreground">
+                የባለቤት ብቻ ማስተካከያ · በቀጣዩ የምርት መዝገብ ላይ ይተገበራል።
+              </p>
+              <div className="flex flex-wrap items-center gap-3">
+                {message ? (
+                  <FormMessage tone={message.includes("Unable") || message.includes("አልተቻለም") ? "error" : "success"}>{message}</FormMessage>
+                ) : null}
+                <Button variant="primary" type="submit" disabled={busy}>
+                  <Save size={15} />
+                  {busy ? "በመቀመጥ ላይ…" : "ማስቀመጥ"}
+                </Button>
               </div>
-            ))}
-          </div>
-        )}
-      </Panel>
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
   );
 }

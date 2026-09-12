@@ -16,12 +16,19 @@ import { ScrapAllowanceSection } from "./sections/scrap-allowance-section";
 import { ValuationSection } from "./sections/valuation-section";
 import { useOperationalConfigState } from "./state";
 
+type ConfigSection = "inventory" | "production" | "orders" | "security" | "conversion" | "valuation";
+
+interface OperationalPanelProps {
+  defaultTab?: ConfigSection;
+  hideTabs?: boolean;
+}
+
 /**
  * Owner-only Operational Configuration view:
  * composes the seven per-domain sections into four categorized tabs
  * and persists changes to the `systemConfigs.updateSystemConfig` mutation.
  */
-export function OperationalPanel() {
+export function OperationalPanel({ defaultTab, hideTabs }: OperationalPanelProps = {}) {
   const config = useQuery(api.systemConfigs.getSystemConfig);
   const state = useQuery(api.dashboard.getState, {});
   const updateSystemConfig = useMutation(api.systemConfigs.updateSystemConfig);
@@ -29,6 +36,18 @@ export function OperationalPanel() {
   const [busy, setBusy] = useState(false);
 
   const form = useOperationalConfigState(config ?? undefined);
+
+  // Map sidebar sections to tab values
+  const sectionToTabMap: Record<ConfigSection, string> = {
+    inventory: "production",
+    production: "production",
+    orders: "orders",
+    security: "security",
+    conversion: "pricing",
+    valuation: "pricing",
+  };
+
+  const defaultTabValue = defaultTab ? sectionToTabMap[defaultTab] : "pricing";
 
   const materials = useMemo<MaterialOption[]>(() => {
     if (!state) return [];
@@ -91,21 +110,23 @@ export function OperationalPanel() {
   }
 
   return (
-    <Tabs defaultValue="pricing" className="space-y-4">
-      <TabsList>
-        <TabsTrigger value="pricing">
-          <span className="text-sm font-semibold">የዋጋ እና ሂሳብ ተመኖች</span>
-        </TabsTrigger>
-        <TabsTrigger value="production">
-          <span className="text-sm font-semibold">የምርት እና ብክነት ህጎች</span>
-        </TabsTrigger>
-        <TabsTrigger value="orders">
-          <span className="text-sm font-semibold">የትዕዛዝ አስተዳደር</span>
-        </TabsTrigger>
-        <TabsTrigger value="security">
-          <span className="text-sm font-semibold">የደህንነት እና ቁጥጥር ህጎች</span>
-        </TabsTrigger>
-      </TabsList>
+    <Tabs defaultValue={defaultTabValue} className="space-y-4">
+      {!hideTabs && (
+        <TabsList>
+          <TabsTrigger value="pricing">
+            <span className="text-sm font-semibold">የዋጋ እና ሂሳብ ተመኖች</span>
+          </TabsTrigger>
+          <TabsTrigger value="production">
+            <span className="text-sm font-semibold">የምርት እና ብክነት ህጎች</span>
+          </TabsTrigger>
+          <TabsTrigger value="orders">
+            <span className="text-sm font-semibold">የትዕዛዝ አስተዳደር</span>
+          </TabsTrigger>
+          <TabsTrigger value="security">
+            <span className="text-sm font-semibold">የደህንነት እና ቁጥጥር ህጎች</span>
+          </TabsTrigger>
+        </TabsList>
+      )}
 
       <form
         onSubmit={save}
