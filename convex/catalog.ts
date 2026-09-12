@@ -6,7 +6,7 @@ import {
   machineMaterialRelationship,
   productionType,
 } from "./schema";
-import { OPERATOR_ROLES, requireOwner, requirePermission } from "./users";
+import { OPERATOR_ROLES, requireAnyPermission, requireOwner, requirePermission } from "./users";
 import {
   CANONICAL_MACHINES,
   CANONICAL_OPERATOR_ROLES,
@@ -19,6 +19,55 @@ const capabilityArgs = {
   description: v.string(),
   category: capabilityCategory,
 };
+
+export const getCatalogOverview = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAnyPermission(ctx, ["machine.view", "material.view", "team.view"]);
+    const [machines, materials, capabilities, links, roles, assignments] = await Promise.all([
+      ctx.db.query("machines").collect(),
+      ctx.db.query("materials").collect(),
+      ctx.db.query("capabilities").collect(),
+      ctx.db.query("machineMaterialLinks").collect(),
+      ctx.db.query("operatorRoles").collect(),
+      ctx.db.query("operatorMachineAssignments").collect(),
+    ]);
+    return {
+      counts: {
+        activeMachines: machines.filter((row) => row.active).length,
+        activeMaterials: materials.filter((row) => row.active).length,
+        activeCapabilities: capabilities.filter((row) => row.active).length,
+        activeLinks: links.filter((row) => row.active).length,
+        activeOperatorRoles: roles.filter((row) => row.active).length,
+        activeAssignments: assignments.filter((row) => row.active).length,
+      },
+      machines: machines.filter((row) => row.active).map((machine) => ({
+        id: machine._id,
+        name: machine.name,
+        code: machine.code,
+        catalogKey: machine.catalogKey,
+        status: machine.status,
+        operatorRole: machine.operatorRole,
+      })),
+      materials: materials.filter((row) => row.active).map((material) => ({
+        id: material._id,
+        name: material.name,
+        category: material.category,
+        variantKey: material.variantKey,
+        baseUnit: material.baseUnit ?? material.unit,
+        specificationAttributes: material.specificationAttributes,
+      })),
+      links: links.filter((row) => row.active).map((link) => ({
+        id: link._id,
+        machineId: link.machineId,
+        materialId: link.materialId,
+        relationshipType: link.relationshipType,
+        productionType: link.productionType,
+        required: link.required,
+      })),
+    };
+  },
+});
 
 async function audit(
   ctx: any,

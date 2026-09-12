@@ -9,6 +9,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import { InventoryLoader } from "@/components/dashboard/widgets/inventory-loader";
 import { PackageOpen, AlertTriangle, Layers } from "lucide-react";
 import { DevReseedControl } from "@/components/dashboard/roles/admin/dev-reseed-control";
+import { CatalogOverviewPanel } from "@/components/dashboard/roles/admin/catalog-overview-panel";
 
 export default function AdminOperationalConfigurationPage() {
   const summary = useQuery(api.admin.materials.getMaterialsSummary);
@@ -32,6 +33,8 @@ export default function AdminOperationalConfigurationPage() {
       />
 
       <DevReseedControl />
+
+      <CatalogOverviewPanel />
 
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard
