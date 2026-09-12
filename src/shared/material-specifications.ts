@@ -725,6 +725,7 @@ export const MATERIAL_SPECIFICATIONS: readonly MaterialSpecificationDefinition[]
 
 export function findMaterialSpecification(name: string): MaterialSpecificationDefinition | undefined {
   const normalized = name.trim().toLowerCase();
+  // 1. Exact match
   for (const material of MATERIAL_SPECIFICATIONS) {
     if (
       material.name.toLowerCase() === normalized ||
@@ -733,20 +734,56 @@ export function findMaterialSpecification(name: string): MaterialSpecificationDe
       return material;
     }
   }
+  // 2. Prefix / containment match for explicit variants (e.g. "Banner 3.2m × 50m", "Neon Light - Warm")
+  for (const material of MATERIAL_SPECIFICATIONS) {
+    const matName = material.name.toLowerCase();
+    if (normalized.startsWith(matName) || normalized.includes(matName)) {
+      return material;
+    }
+    if (
+      material.aliases?.some((alias) => {
+        const a = alias.toLowerCase();
+        return normalized.startsWith(a) || normalized.includes(a);
+      })
+    ) {
+      return material;
+    }
+  }
   return undefined;
 }
 
 export function isMaterialCompatibleWithMachine(
-  materialNameOrSpec: string | { name: string; category?: string; compatibleMachineTypes?: readonly string[] },
+  materialNameOrSpec: string | { name: string; category?: string; compatibleMachineTypes?: readonly string[]; machineType?: string },
   machineSlugOrCode?: string
 ): boolean {
   if (!machineSlugOrCode) return true;
   const name = typeof materialNameOrSpec === "string" ? materialNameOrSpec : materialNameOrSpec.name;
+  const machineType = typeof materialNameOrSpec === "object" ? materialNameOrSpec.machineType : undefined;
+  const slug = machineSlugOrCode.toLowerCase().trim();
+
+  // Direct machineType mapping if present
+  if (machineType) {
+    switch (machineType) {
+      case "LARGE_FORMAT_PRINTER":
+        return slug.includes("cj7k") || slug.includes("banner") || slug.includes("cesp") || slug.includes("print") || slug.includes("plotter");
+      case "DTF_PRINTER":
+        return slug.includes("dtf");
+      case "PRINT_CUT_PRINTER":
+        return slug.includes("cesp") || slug.includes("print") || slug.includes("plotter");
+      case "UV_PRINTER":
+        return slug.includes("ruv") || slug.includes("uv");
+      case "CNC_LASER":
+        return slug.includes("laser") || slug.includes("cnc") || slug.includes("ruv") || slug.includes("uv");
+      case "SIGNAGE_ASSEMBLY":
+        return slug.includes("channel") || slug.includes("assy") || slug.includes("assembly") || slug.includes("cnc") || slug.includes("laser");
+      default:
+        break;
+    }
+  }
+
   const spec = findMaterialSpecification(name);
   const types = spec?.compatibleMachineTypes ?? (typeof materialNameOrSpec === "object" ? materialNameOrSpec.compatibleMachineTypes : undefined);
   if (!types || types.length === 0) return true;
-
-  const slug = machineSlugOrCode.toLowerCase().trim();
 
   return types.some((t) => {
     const target = t.toLowerCase();
