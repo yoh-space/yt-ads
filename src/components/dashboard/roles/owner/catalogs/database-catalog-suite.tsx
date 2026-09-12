@@ -488,7 +488,9 @@ export function DatabaseCatalogSuite() {
 
             <Panel>
               <PanelHeader title="Database Permissions Summary" subtitle="Permissions granted to each role." />
-              <div className="max-h-[500px] overflow-y-auto divide-y divide-border text-xs">
+              <div
+                className="max-h-[500px] overflow-y-auto divide-y divide-border text-xs [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+              >
                 {(roleConfigs as RoleConfigRecord[] | undefined)?.map((cfg: RoleConfigRecord) => {
                   const rolePerms = ((permissions as PermissionRecord[] | undefined) ?? []).filter(
                     (p: PermissionRecord) => p.roleCode === cfg.roleCode,

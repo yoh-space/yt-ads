@@ -138,7 +138,7 @@ export default function OwnerOperationalConfigurationPage() {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         <div className="space-y-6">
           <OwnerPageHeader
             kicker="Operational Configuration · የሥራ ማስተካከያ"
