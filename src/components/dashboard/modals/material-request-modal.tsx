@@ -107,7 +107,7 @@ export function MaterialRequestModal({
   const defaultMaterial = materialOptions[0] ?? materials[0];
 
   const [lines, setLines] = useState(() =>
-    defaultMaterial ? [{ materialId: defaultMaterial.id, packages: "1" }] : [],
+    defaultMaterial ? [{ materialId: defaultMaterial.id, packages: "1", specOption: "" }] : [],
   );
   const [note, setNote] = useState("");
 
@@ -292,7 +292,7 @@ export function MaterialRequestModal({
                   const nextJob = activeJobs.find((job) => job.id === event.target.value);
                   setJobCardId(event.target.value);
                   if (nextJob) {
-                    setLines([{ materialId: nextJob.materialId, packages: "1" }]);
+                                        setLines([{ materialId: nextJob.materialId, packages: "1", specOption: "" }]);
                   }
                 }}
                 className="h-11 w-full rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none transition focus:border-cyan focus:ring-2 focus:ring-cyan/20"
@@ -312,10 +312,10 @@ export function MaterialRequestModal({
                 </span>
                 <button
                   type="button"
-                  onClick={() =>
+                                    onClick={() =>
                     setLines((current) => [
                       ...current,
-                      { materialId: materialOptions[0]?.id ?? "", packages: "1" },
+                      { materialId: materialOptions[0]?.id ?? "", packages: "1", specOption: "" },
                     ])
                   }
                   className="inline-flex items-center gap-1 rounded-md border border-cyan/30 px-2 py-1 text-xs font-semibold text-cyan"

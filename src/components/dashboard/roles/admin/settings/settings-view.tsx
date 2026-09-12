@@ -18,6 +18,7 @@ import { ProfilePanel } from "./panels/profile-panel";
 import { SecurityPanel } from "./panels/security-panel";
 import { TeamPanel } from "./panels/team-panel";
 import { MigrationPanel } from "./panels/migration-panel";
+import { CatalogResetPanel } from "./panels/catalog-reset-panel";
 import { SystemResetPanel } from "./panels/system-reset-panel";
 
 /**
@@ -62,6 +63,15 @@ export function SettingsView({ profile }: { profile: Profile }) {
         : []),
       ...(isOwner
         ? [{
+            id: "catalog-reset",
+            icon: <ShieldCheck size={20} />,
+            title: "Catalog Reset",
+            description: "Purge all data and re-seed the 23-category material catalog.",
+            badge: "Owner",
+          } satisfies SettingsCategoryEntry]
+        : []),
+      ...(isOwner
+        ? [{
             id: "system-reset",
             icon: <ShieldCheck size={20} />,
             title: "System Data Reset",
@@ -91,6 +101,7 @@ export function SettingsView({ profile }: { profile: Profile }) {
             {selected.id === "team" && <TeamPanel profile={profile} />}
             {selected.id === "company" && <CompanyPanel />}
             {selected.id === "migration" && <MigrationPanel />}
+            {selected.id === "catalog-reset" && isOwner && <CatalogResetPanel />}
             {selected.id === "system-reset" && isOwner && <SystemResetPanel />}
           </div>
         </div>
