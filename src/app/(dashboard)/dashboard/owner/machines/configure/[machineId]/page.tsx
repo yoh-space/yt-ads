@@ -11,7 +11,7 @@ import { InventoryLoader } from "@/components/dashboard/widgets/inventory-loader
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/shared/ui/tabs";
 import { Factory, Droplets, Link2, Route, Package, AlertTriangle, Plus, Pencil, Archive, RotateCcw, X } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { toast } from "sonner";
 
 export default function MachineConfigurePage() {
@@ -27,9 +27,17 @@ export default function MachineConfigurePage() {
   const materials = useQuery(api.materials.list, {});
   const serviceDefinitions = useQuery(api.owner.serviceDefinitions.list, {});
 
-  const [modal, setModal] = useState<{ type: string; item?: any } | null>(null);
+  const [drawer, setDrawer] = useState<{ type: string; item?: any } | null>(null);
+  const closeDrawer = useCallback(() => setDrawer(null), []);
 
-  if (machine === undefined || inkRules === undefined || serviceRoutes === undefined || materialLinks === undefined) {
+  // Close drawer on Escape
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") closeDrawer(); };
+    if (drawer) document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [drawer, closeDrawer]);
+
+  if (machine === undefined || inkRules === undefined || serviceRoutes === undefined || materialLinks === undefined || capabilities === undefined || materials === undefined || serviceDefinitions === undefined) {
     return (
       <div className="flex h-[70vh] items-center justify-center">
         <InventoryLoader label="Loading Machine Configuration…" />
@@ -54,6 +62,23 @@ export default function MachineConfigurePage() {
   const routeCount = serviceRoutes.filter((r) => r.active).length;
   const activeRoutes = serviceRoutes.filter((r) => r.active && r.customerVisible).length;
   const linkCount = materialLinks.filter((l) => l.active).length;
+
+  // Build lookup maps once for all tabs
+  const materialMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const mat of materials) m.set(mat._id, mat.name);
+    return m;
+  }, [materials]);
+  const capMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of capabilities) m.set(c._id, c.name);
+    return m;
+  }, [capabilities]);
+  const serviceDefMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const s of serviceDefinitions) m.set(s._id, s.nameEn);
+    return m;
+  }, [serviceDefinitions]);
 
   return (
     <div className="space-y-6">
@@ -88,29 +113,57 @@ export default function MachineConfigurePage() {
           <MachineOverviewTab machine={machine} />
         </TabsContent>
         <TabsContent value="ink-rules">
-          <InkRulesTab machineId={machineId} inkRules={inkRules} materials={materials ?? []} onOpenModal={setModal} />
+          <InkRulesTab inkRules={inkRules} materialMap={materialMap} onOpenDrawer={setDrawer} />
         </TabsContent>
         <TabsContent value="material-links">
-          <MaterialLinksTab machineId={machineId} materialLinks={materialLinks} materials={materials ?? []} onOpenModal={setModal} />
+          <MaterialLinksTab materialLinks={materialLinks} materialMap={materialMap} onOpenDrawer={setDrawer} />
         </TabsContent>
         <TabsContent value="service-routes">
-          <ServiceRoutesTab machineId={machineId} serviceRoutes={serviceRoutes} capabilities={capabilities ?? []} serviceDefinitions={serviceDefinitions ?? []} onOpenModal={setModal} />
+          <ServiceRoutesTab serviceRoutes={serviceRoutes} capMap={capMap} serviceDefMap={serviceDefMap} onOpenDrawer={setDrawer} />
         </TabsContent>
         <TabsContent value="warnings">
           <WarningsTab machine={machine} inkRuleCount={inkRuleCount} routeCount={routeCount} linkCount={linkCount} />
         </TabsContent>
       </Tabs>
 
-      {modal?.type === "ink-rule" && (
-        <InkRuleModal machineId={machineId} item={modal.item} materials={materials ?? []} onClose={() => setModal(null)} />
-      )}
-      {modal?.type === "service-route" && (
-        <ServiceRouteModal machineId={machineId} item={modal.item} capabilities={capabilities ?? []} serviceDefinitions={serviceDefinitions ?? []} onClose={() => setModal(null)} />
-      )}
-      {modal?.type === "material-link" && (
-        <MaterialLinkModal machineId={machineId} item={modal.item} materials={materials ?? []} onClose={() => setModal(null)} />
+      {/* Right-side slide-in drawer */}
+      {drawer && (
+        <DrawerShell title={
+          drawer.type === "ink-rule" ? (drawer.item ? "Edit Ink Rule" : "New Ink Rule") :
+          drawer.type === "material-link" ? (drawer.item ? "Edit Material Link" : "New Material Link") :
+          (drawer.item ? "Edit Service Route" : "New Service Route")
+        } onClose={closeDrawer}>
+          {drawer.type === "ink-rule" && (
+            <InkRuleForm machineId={machineId} item={drawer.item} materialMap={materialMap} materials={materials} onDone={closeDrawer} />
+          )}
+          {drawer.type === "material-link" && (
+            <MaterialLinkForm machineId={machineId} item={drawer.item} materialMap={materialMap} materials={materials} onDone={closeDrawer} />
+          )}
+          {drawer.type === "service-route" && (
+            <ServiceRouteForm machineId={machineId} item={drawer.item} capMap={capMap} serviceDefMap={serviceDefMap} capabilities={capabilities} serviceDefinitions={serviceDefinitions} onDone={closeDrawer} />
+          )}
+        </DrawerShell>
       )}
     </div>
+  );
+}
+
+/* ───────── Drawer Shell ───────── */
+
+function DrawerShell({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/40 transition-opacity" onClick={onClose} />
+      <div className="fixed inset-y-0 right-0 z-50 w-full max-w-lg bg-background border-l border-border/60 shadow-2xl flex flex-col animate-slide-in-right">
+        <div className="flex items-center justify-between border-b border-border/60 px-6 py-4">
+          <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+          <button onClick={onClose} className="p-1.5 rounded hover:bg-background/80 text-muted-foreground hover:text-foreground transition-colors"><X size={16} /></button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-6 py-5">
+          {children}
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -160,10 +213,9 @@ function MachineOverviewTab({ machine }: { machine: any }) {
 
 /* ───────── Ink Rules Tab ───────── */
 
-function InkRulesTab({ machineId, inkRules, materials, onOpenModal }: { machineId: Id<"machines">; inkRules: any[]; materials: any[]; onOpenModal: (m: { type: string; item?: any }) => void }) {
+function InkRulesTab({ inkRules, materialMap, onOpenDrawer }: { inkRules: any[]; materialMap: Map<string, string>; onOpenDrawer: (m: { type: string; item?: any }) => void }) {
   const archiveMutation = useMutation(api.owner.machineInkRules.archive);
   const restoreMutation = useMutation(api.owner.machineInkRules.restore);
-  const getMaterialName = (id: string) => materials.find((m) => m._id === id)?.name ?? id;
 
   return (
     <Panel>
@@ -172,7 +224,7 @@ function InkRulesTab({ machineId, inkRules, materials, onOpenModal }: { machineI
         kicker="Production"
         icon={<Droplets size={16} />}
         action={
-          <button onClick={() => onOpenModal({ type: "ink-rule" })} className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-background/40 px-2.5 py-1 text-[11px] font-medium text-muted-foreground hover:bg-background/80 hover:text-foreground transition-colors">
+          <button onClick={() => onOpenDrawer({ type: "ink-rule" })} className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-background/40 px-2.5 py-1 text-[11px] font-medium text-muted-foreground hover:bg-background/80 hover:text-foreground transition-colors">
             <Plus size={12} /> Add Rule
           </button>
         }
@@ -198,7 +250,7 @@ function InkRulesTab({ machineId, inkRules, materials, onOpenModal }: { machineI
               {inkRules.map((rule) => (
                 <tr key={rule._id} className="border-b border-border/30 hover:bg-background/40">
                   <td className="p-[17px] font-medium text-foreground">{rule.inkColor}</td>
-                  <td className="p-[17px] text-muted-foreground">{getMaterialName(rule.materialId)}</td>
+                  <td className="p-[17px] text-muted-foreground">{materialMap.get(rule.materialId) ?? "—"}</td>
                   <td className="p-[17px] font-mono text-foreground">{rule.rate}</td>
                   <td className="p-[17px] text-muted-foreground">{rule.consumptionUnit}</td>
                   <td className="p-[17px] font-mono text-foreground">{rule.wasteAllowancePercent ?? "—"}</td>
@@ -210,7 +262,7 @@ function InkRulesTab({ machineId, inkRules, materials, onOpenModal }: { machineI
                   </td>
                   <td className="p-[17px] text-right">
                     <div className="inline-flex items-center gap-1">
-                      <button onClick={() => onOpenModal({ type: "ink-rule", item: rule })} className="p-1 rounded hover:bg-background/80 text-muted-foreground hover:text-foreground transition-colors"><Pencil size={12} /></button>
+                      <button onClick={() => onOpenDrawer({ type: "ink-rule", item: rule })} className="p-1 rounded hover:bg-background/80 text-muted-foreground hover:text-foreground transition-colors"><Pencil size={12} /></button>
                       {rule.active ? (
                         <button onClick={async () => { await archiveMutation({ id: rule._id }); toast.success("Archived"); }} className="p-1 rounded hover:bg-background/80 text-muted-foreground hover:text-danger transition-colors"><Archive size={12} /></button>
                       ) : (
@@ -230,10 +282,9 @@ function InkRulesTab({ machineId, inkRules, materials, onOpenModal }: { machineI
 
 /* ───────── Material Links Tab ───────── */
 
-function MaterialLinksTab({ machineId, materialLinks, materials, onOpenModal }: { machineId: Id<"machines">; materialLinks: any[]; materials: any[]; onOpenModal: (m: { type: string; item?: any }) => void }) {
+function MaterialLinksTab({ materialLinks, materialMap, onOpenDrawer }: { materialLinks: any[]; materialMap: Map<string, string>; onOpenDrawer: (m: { type: string; item?: any }) => void }) {
   const archiveMutation = useMutation(api.owner.machineMaterialLinks.archive);
   const restoreMutation = useMutation(api.owner.machineMaterialLinks.restore);
-  const getMaterialName = (id: string) => materials.find((m) => m._id === id)?.name ?? id;
 
   return (
     <Panel>
@@ -242,7 +293,7 @@ function MaterialLinksTab({ machineId, materialLinks, materials, onOpenModal }: 
         kicker="Compatibility"
         icon={<Link2 size={16} />}
         action={
-          <button onClick={() => onOpenModal({ type: "material-link" })} className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-background/40 px-2.5 py-1 text-[11px] font-medium text-muted-foreground hover:bg-background/80 hover:text-foreground transition-colors">
+          <button onClick={() => onOpenDrawer({ type: "material-link" })} className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-background/40 px-2.5 py-1 text-[11px] font-medium text-muted-foreground hover:bg-background/80 hover:text-foreground transition-colors">
             <Plus size={12} /> Add Link
           </button>
         }
@@ -266,7 +317,7 @@ function MaterialLinksTab({ machineId, materialLinks, materials, onOpenModal }: 
             <tbody>
               {materialLinks.map((link) => (
                 <tr key={link._id} className="border-b border-border/30 hover:bg-background/40">
-                  <td className="p-[17px] font-medium text-foreground">{getMaterialName(link.materialId)}</td>
+                  <td className="p-[17px] font-medium text-foreground">{materialMap.get(link.materialId) ?? "—"}</td>
                   <td className="p-[17px] text-muted-foreground capitalize">{link.relationshipType}</td>
                   <td className="p-[17px] text-muted-foreground capitalize">{link.productionType ?? "—"}</td>
                   <td className="p-[17px]">{link.required ? <span className="text-[10px] font-medium text-cyan">Yes</span> : "—"}</td>
@@ -278,7 +329,7 @@ function MaterialLinksTab({ machineId, materialLinks, materials, onOpenModal }: 
                   </td>
                   <td className="p-[17px] text-right">
                     <div className="inline-flex items-center gap-1">
-                      <button onClick={() => onOpenModal({ type: "material-link", item: link })} className="p-1 rounded hover:bg-background/80 text-muted-foreground hover:text-foreground transition-colors"><Pencil size={12} /></button>
+                      <button onClick={() => onOpenDrawer({ type: "material-link", item: link })} className="p-1 rounded hover:bg-background/80 text-muted-foreground hover:text-foreground transition-colors"><Pencil size={12} /></button>
                       {link.active ? (
                         <button onClick={async () => { await archiveMutation({ id: link._id }); toast.success("Archived"); }} className="p-1 rounded hover:bg-background/80 text-muted-foreground hover:text-danger transition-colors"><Archive size={12} /></button>
                       ) : (
@@ -298,11 +349,9 @@ function MaterialLinksTab({ machineId, materialLinks, materials, onOpenModal }: 
 
 /* ───────── Service Routes Tab ───────── */
 
-function ServiceRoutesTab({ machineId, serviceRoutes, capabilities, serviceDefinitions, onOpenModal }: { machineId: Id<"machines">; serviceRoutes: any[]; capabilities: any[]; serviceDefinitions: any[]; onOpenModal: (m: { type: string; item?: any }) => void }) {
+function ServiceRoutesTab({ serviceRoutes, capMap, serviceDefMap, onOpenDrawer }: { serviceRoutes: any[]; capMap: Map<string, string>; serviceDefMap: Map<string, string>; onOpenDrawer: (m: { type: string; item?: any }) => void }) {
   const archiveMutation = useMutation(api.owner.machineServiceRoutes.archive);
   const restoreMutation = useMutation(api.owner.machineServiceRoutes.restore);
-  const getCapName = (id: string) => capabilities.find((c: any) => c._id === id)?.name ?? id;
-  const getServiceName = (id: string) => serviceDefinitions.find((s: any) => s._id === id)?.nameEn ?? id;
 
   return (
     <Panel>
@@ -311,7 +360,7 @@ function ServiceRoutesTab({ machineId, serviceRoutes, capabilities, serviceDefin
         kicker="Routing"
         icon={<Route size={16} />}
         action={
-          <button onClick={() => onOpenModal({ type: "service-route" })} className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-background/40 px-2.5 py-1 text-[11px] font-medium text-muted-foreground hover:bg-background/80 hover:text-foreground transition-colors">
+          <button onClick={() => onOpenDrawer({ type: "service-route" })} className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-background/40 px-2.5 py-1 text-[11px] font-medium text-muted-foreground hover:bg-background/80 hover:text-foreground transition-colors">
             <Plus size={12} /> Add Route
           </button>
         }
@@ -336,8 +385,8 @@ function ServiceRoutesTab({ machineId, serviceRoutes, capabilities, serviceDefin
             <tbody>
               {serviceRoutes.map((route) => (
                 <tr key={route._id} className="border-b border-border/30 hover:bg-background/40">
-                  <td className="p-[17px] font-medium text-foreground">{getServiceName(route.serviceId)}</td>
-                  <td className="p-[17px] text-muted-foreground">{getCapName(route.capabilityId)}</td>
+                  <td className="p-[17px] font-medium text-foreground">{serviceDefMap.get(route.serviceId) ?? "—"}</td>
+                  <td className="p-[17px] text-muted-foreground">{capMap.get(route.capabilityId) ?? "—"}</td>
                   <td className="p-[17px] font-mono text-foreground">{route.priority}</td>
                   <td className="p-[17px] text-muted-foreground">{route.calculationUnit}</td>
                   <td className="p-[17px] font-mono text-foreground">{route.defaultWasteMarginPercent ?? "—"}</td>
@@ -349,7 +398,7 @@ function ServiceRoutesTab({ machineId, serviceRoutes, capabilities, serviceDefin
                   </td>
                   <td className="p-[17px] text-right">
                     <div className="inline-flex items-center gap-1">
-                      <button onClick={() => onOpenModal({ type: "service-route", item: route })} className="p-1 rounded hover:bg-background/80 text-muted-foreground hover:text-foreground transition-colors"><Pencil size={12} /></button>
+                      <button onClick={() => onOpenDrawer({ type: "service-route", item: route })} className="p-1 rounded hover:bg-background/80 text-muted-foreground hover:text-foreground transition-colors"><Pencil size={12} /></button>
                       {route.active ? (
                         <button onClick={async () => { await archiveMutation({ id: route._id }); toast.success("Archived"); }} className="p-1 rounded hover:bg-background/80 text-muted-foreground hover:text-danger transition-colors"><Archive size={12} /></button>
                       ) : (
@@ -396,9 +445,9 @@ function WarningsTab({ machine, inkRuleCount, routeCount, linkCount }: { machine
   );
 }
 
-/* ───────── Ink Rule Modal ───────── */
+/* ───────── Ink Rule Form (inside drawer) ───────── */
 
-function InkRuleModal({ machineId, item, materials, onClose }: { machineId: Id<"machines">; item?: any; materials: any[]; onClose: () => void }) {
+function InkRuleForm({ machineId, item, materialMap, materials, onDone }: { machineId: Id<"machines">; item?: any; materialMap: Map<string, string>; materials: any[]; onDone: () => void }) {
   const upsert = useMutation(api.owner.machineInkRules.upsert);
   const inkMaterials = useMemo(() => materials.filter((m) => m.materialFamily === "INK" || m.name.toLowerCase().includes("ink")), [materials]);
   const [form, setForm] = useState({
@@ -430,72 +479,55 @@ function InkRuleModal({ machineId, item, materials, onClose }: { machineId: Id<"
         notes: form.notes || undefined,
       });
       toast.success(item ? "Rule updated" : "Rule created");
-      onClose();
+      onDone();
     } catch (err: any) { toast.error(err.message); } finally { setSaving(false); }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
-      <div className="w-full max-w-lg rounded-lg border border-border/60 bg-background p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold text-foreground">{item ? "Edit Ink Rule" : "New Ink Rule"}</h2>
-          <button onClick={onClose} className="p-1 rounded hover:bg-background/80 text-muted-foreground"><X size={14} /></button>
-        </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Material *</label>
-            <select value={form.materialId} onChange={(e) => setForm({ ...form, materialId: e.target.value })} className="mt-1 w-full h-9 rounded border border-border/60 bg-background px-2 text-sm text-foreground">
-              <option value="">Select ink material</option>
-              {inkMaterials.map((m: any) => <option key={m._id} value={m._id}>{m.name}</option>)}
-            </select>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Ink Color *</label>
-              <select value={form.inkColor} onChange={(e) => setForm({ ...form, inkColor: e.target.value })} className="mt-1 w-full h-9 rounded border border-border/60 bg-background px-2 text-sm text-foreground">
-                {["Cyan", "Magenta", "Yellow", "Black", "White", "Red", "Green", "Blue"].map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Unit *</label>
-              <select value={form.consumptionUnit} onChange={(e) => setForm({ ...form, consumptionUnit: e.target.value })} className="mt-1 w-full h-9 rounded border border-border/60 bg-background px-2 text-sm text-foreground">
-                <option value="ml_per_sqm">mL per m²</option>
-                <option value="ml_per_rm">mL per rm</option>
-                <option value="ml_per_piece">mL per piece</option>
-              </select>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Rate *</label>
-              <input type="number" step="0.001" min="0" value={form.rate} onChange={(e) => setForm({ ...form, rate: e.target.value })} className="mt-1 w-full h-9 rounded border border-border/60 bg-background px-2 text-sm text-foreground" />
-            </div>
-            <div>
-              <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Waste Allowance %</label>
-              <input type="number" step="0.1" min="0" max="100" value={form.wasteAllowancePercent} onChange={(e) => setForm({ ...form, wasteAllowancePercent: e.target.value })} className="mt-1 w-full h-9 rounded border border-border/60 bg-background px-2 text-sm text-foreground" />
-            </div>
-          </div>
-          <label className="flex items-center gap-2 text-[12px] text-foreground">
-            <input type="checkbox" checked={form.isDefault} onChange={(e) => setForm({ ...form, isDefault: e.target.checked })} className="rounded border-border/60" />
-            Default rule for this machine/color
-          </label>
-          <div>
-            <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Notes</label>
-            <input type="text" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="mt-1 w-full h-9 rounded border border-border/60 bg-background px-2 text-sm text-foreground" />
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={onClose} className="px-3 py-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors">Cancel</button>
-            <button type="submit" disabled={saving} className="px-3 py-1.5 rounded bg-cyan text-[11px] font-semibold text-black hover:bg-cyan/80 disabled:opacity-50 transition-colors">{saving ? "Saving…" : item ? "Update" : "Create"}</button>
-          </div>
-        </form>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <Field label="Material *">
+        <select value={form.materialId} onChange={(e) => setForm({ ...form, materialId: e.target.value })} className="input-field">
+          <option value="">Select ink material</option>
+          {inkMaterials.map((m: any) => <option key={m._id} value={m._id}>{m.name}</option>)}
+        </select>
+      </Field>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Ink Color *">
+          <select value={form.inkColor} onChange={(e) => setForm({ ...form, inkColor: e.target.value })} className="input-field">
+            {["Cyan", "Magenta", "Yellow", "Black", "White", "Red", "Green", "Blue"].map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </Field>
+        <Field label="Unit *">
+          <select value={form.consumptionUnit} onChange={(e) => setForm({ ...form, consumptionUnit: e.target.value })} className="input-field">
+            <option value="ml_per_sqm">mL per m²</option>
+            <option value="ml_per_rm">mL per rm</option>
+            <option value="ml_per_piece">mL per piece</option>
+          </select>
+        </Field>
       </div>
-    </div>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Rate *">
+          <input type="number" step="0.001" min="0" value={form.rate} onChange={(e) => setForm({ ...form, rate: e.target.value })} className="input-field" />
+        </Field>
+        <Field label="Waste Allowance %">
+          <input type="number" step="0.1" min="0" max="100" value={form.wasteAllowancePercent} onChange={(e) => setForm({ ...form, wasteAllowancePercent: e.target.value })} className="input-field" />
+        </Field>
+      </div>
+      <label className="flex items-center gap-2 text-[12px] text-foreground">
+        <input type="checkbox" checked={form.isDefault} onChange={(e) => setForm({ ...form, isDefault: e.target.checked })} className="rounded border-border/60" />
+        Default rule for this machine/color
+      </label>
+      <Field label="Notes">
+        <input type="text" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="input-field" />
+      </Field>
+      <DrawerFooter saving={saving} savingText={item ? "Updating…" : "Creating…"} onCancel={onDone} />
+    </form>
   );
 }
 
-/* ───────── Material Link Modal ───────── */
+/* ───────── Material Link Form (inside drawer) ───────── */
 
-function MaterialLinkModal({ machineId, item, materials, onClose }: { machineId: Id<"machines">; item?: any; materials: any[]; onClose: () => void }) {
+function MaterialLinkForm({ machineId, item, materialMap, materials, onDone }: { machineId: Id<"machines">; item?: any; materialMap: Map<string, string>; materials: any[]; onDone: () => void }) {
   const upsert = useMutation(api.owner.machineMaterialLinks.upsert);
   const [form, setForm] = useState({
     materialId: item?.materialId ?? materials[0]?._id ?? "",
@@ -518,7 +550,7 @@ function MaterialLinkModal({ machineId, item, materials, onClose }: { machineId:
         machineId,
         materialId: form.materialId as Id<"materials">,
         relationshipType: form.relationshipType as any,
-        productionType: form.productionType as any,
+        productionType: form.productionType as any || undefined,
         conversionRatioOverride: form.conversionRatioOverride ? Number(form.conversionRatioOverride) : undefined,
         wasteMarginPercent: form.wasteMarginPercent ? Number(form.wasteMarginPercent) : undefined,
         required: form.required,
@@ -526,71 +558,54 @@ function MaterialLinkModal({ machineId, item, materials, onClose }: { machineId:
         notes: form.notes || undefined,
       });
       toast.success(item ? "Link updated" : "Link created");
-      onClose();
+      onDone();
     } catch (err: any) { toast.error(err.message); } finally { setSaving(false); }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
-      <div className="w-full max-w-lg rounded-lg border border-border/60 bg-background p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold text-foreground">{item ? "Edit Material Link" : "New Material Link"}</h2>
-          <button onClick={onClose} className="p-1 rounded hover:bg-background/80 text-muted-foreground"><X size={14} /></button>
-        </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Material *</label>
-            <select value={form.materialId} onChange={(e) => setForm({ ...form, materialId: e.target.value })} className="mt-1 w-full h-9 rounded border border-border/60 bg-background px-2 text-sm text-foreground">
-              <option value="">Select material</option>
-              {materials.map((m: any) => <option key={m._id} value={m._id}>{m.name}</option>)}
-            </select>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Relationship *</label>
-              <select value={form.relationshipType} onChange={(e) => setForm({ ...form, relationshipType: e.target.value })} className="mt-1 w-full h-9 rounded border border-border/60 bg-background px-2 text-sm text-foreground">
-                {["primary", "supported", "ink", "solvent", "accessory", "consumable"].map((r) => <option key={r} value={r}>{r}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Production Type</label>
-              <select value={form.productionType} onChange={(e) => setForm({ ...form, productionType: e.target.value })} className="mt-1 w-full h-9 rounded border border-border/60 bg-background px-2 text-sm text-foreground">
-                <option value="">None</option>
-                {["area", "linear", "ink", "unit"].map((t) => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Conversion Ratio Override</label>
-              <input type="number" step="0.001" min="0" value={form.conversionRatioOverride} onChange={(e) => setForm({ ...form, conversionRatioOverride: e.target.value })} className="mt-1 w-full h-9 rounded border border-border/60 bg-background px-2 text-sm text-foreground" />
-            </div>
-            <div>
-              <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Waste Margin %</label>
-              <input type="number" step="0.1" min="0" max="100" value={form.wasteMarginPercent} onChange={(e) => setForm({ ...form, wasteMarginPercent: e.target.value })} className="mt-1 w-full h-9 rounded border border-border/60 bg-background px-2 text-sm text-foreground" />
-            </div>
-          </div>
-          <label className="flex items-center gap-2 text-[12px] text-foreground">
-            <input type="checkbox" checked={form.required} onChange={(e) => setForm({ ...form, required: e.target.checked })} className="rounded border-border/60" />
-            Required material
-          </label>
-          <div>
-            <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Notes</label>
-            <input type="text" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="mt-1 w-full h-9 rounded border border-border/60 bg-background px-2 text-sm text-foreground" />
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={onClose} className="px-3 py-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors">Cancel</button>
-            <button type="submit" disabled={saving} className="px-3 py-1.5 rounded bg-cyan text-[11px] font-semibold text-black hover:bg-cyan/80 disabled:opacity-50 transition-colors">{saving ? "Saving…" : item ? "Update" : "Create"}</button>
-          </div>
-        </form>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <Field label="Material *">
+        <select value={form.materialId} onChange={(e) => setForm({ ...form, materialId: e.target.value })} className="input-field">
+          <option value="">Select material</option>
+          {materials.map((m: any) => <option key={m._id} value={m._id}>{m.name}</option>)}
+        </select>
+      </Field>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Relationship *">
+          <select value={form.relationshipType} onChange={(e) => setForm({ ...form, relationshipType: e.target.value })} className="input-field">
+            {["primary", "supported", "ink", "solvent", "accessory", "consumable"].map((r) => <option key={r} value={r}>{r}</option>)}
+          </select>
+        </Field>
+        <Field label="Production Type">
+          <select value={form.productionType} onChange={(e) => setForm({ ...form, productionType: e.target.value })} className="input-field">
+            <option value="">None</option>
+            {["area", "linear", "ink", "unit"].map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </Field>
       </div>
-    </div>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Conversion Ratio Override">
+          <input type="number" step="0.001" min="0" value={form.conversionRatioOverride} onChange={(e) => setForm({ ...form, conversionRatioOverride: e.target.value })} className="input-field" />
+        </Field>
+        <Field label="Waste Margin %">
+          <input type="number" step="0.1" min="0" max="100" value={form.wasteMarginPercent} onChange={(e) => setForm({ ...form, wasteMarginPercent: e.target.value })} className="input-field" />
+        </Field>
+      </div>
+      <label className="flex items-center gap-2 text-[12px] text-foreground">
+        <input type="checkbox" checked={form.required} onChange={(e) => setForm({ ...form, required: e.target.checked })} className="rounded border-border/60" />
+        Required material
+      </label>
+      <Field label="Notes">
+        <input type="text" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="input-field" />
+      </Field>
+      <DrawerFooter saving={saving} savingText={item ? "Updating…" : "Creating…"} onCancel={onDone} />
+    </form>
   );
 }
 
-/* ───────── Service Route Modal ───────── */
+/* ───────── Service Route Form (inside drawer) ───────── */
 
-function ServiceRouteModal({ machineId, item, capabilities, serviceDefinitions, onClose }: { machineId: Id<"machines">; item?: any; capabilities: any[]; serviceDefinitions: any[]; onClose: () => void }) {
+function ServiceRouteForm({ machineId, item, capMap, serviceDefMap, capabilities, serviceDefinitions, onDone }: { machineId: Id<"machines">; item?: any; capMap: Map<string, string>; serviceDefMap: Map<string, string>; capabilities: any[]; serviceDefinitions: any[]; onDone: () => void }) {
   const upsert = useMutation(api.owner.machineServiceRoutes.upsert);
   const [form, setForm] = useState({
     serviceId: item?.serviceId ?? serviceDefinitions[0]?._id ?? "",
@@ -623,70 +638,73 @@ function ServiceRouteModal({ machineId, item, capabilities, serviceDefinitions, 
         active: true,
       });
       toast.success(item ? "Route updated" : "Route created");
-      onClose();
+      onDone();
     } catch (err: any) { toast.error(err.message); } finally { setSaving(false); }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
-      <div className="w-full max-w-lg rounded-lg border border-border/60 bg-background p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold text-foreground">{item ? "Edit Service Route" : "New Service Route"}</h2>
-          <button onClick={onClose} className="p-1 rounded hover:bg-background/80 text-muted-foreground"><X size={14} /></button>
-        </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Service Definition *</label>
-            <select value={form.serviceId} onChange={(e) => setForm({ ...form, serviceId: e.target.value })} className="mt-1 w-full h-9 rounded border border-border/60 bg-background px-2 text-sm text-foreground">
-              <option value="">Select service</option>
-              {serviceDefinitions.map((s: any) => <option key={s._id} value={s._id}>{s.nameEn}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Capability *</label>
-            <select value={form.capabilityId} onChange={(e) => setForm({ ...form, capabilityId: e.target.value })} className="mt-1 w-full h-9 rounded border border-border/60 bg-background px-2 text-sm text-foreground">
-              <option value="">Select capability</option>
-              {capabilities.map((c: any) => <option key={c._id} value={c._id}>{c.name}</option>)}
-            </select>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Priority *</label>
-              <input type="number" min="1" value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })} className="mt-1 w-full h-9 rounded border border-border/60 bg-background px-2 text-sm text-foreground" />
-            </div>
-            <div>
-              <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Calculation Unit</label>
-              <select value={form.calculationUnit} onChange={(e) => setForm({ ...form, calculationUnit: e.target.value })} className="mt-1 w-full h-9 rounded border border-border/60 bg-background px-2 text-sm text-foreground">
-                {["m²", "rm", "piece", "hour"].map((u) => <option key={u} value={u}>{u}</option>)}
-              </select>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Waste Margin %</label>
-              <input type="number" step="0.1" min="0" max="100" value={form.defaultWasteMarginPercent} onChange={(e) => setForm({ ...form, defaultWasteMarginPercent: e.target.value })} className="mt-1 w-full h-9 rounded border border-border/60 bg-background px-2 text-sm text-foreground" />
-            </div>
-            <div>
-              <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Max Scrap Limit %</label>
-              <input type="number" step="0.1" min="0" max="100" value={form.maxScrapLimitPercent} onChange={(e) => setForm({ ...form, maxScrapLimitPercent: e.target.value })} className="mt-1 w-full h-9 rounded border border-border/60 bg-background px-2 text-sm text-foreground" />
-            </div>
-          </div>
-          <div className="flex gap-4">
-            <label className="flex items-center gap-2 text-[12px] text-foreground">
-              <input type="checkbox" checked={form.customerVisible} onChange={(e) => setForm({ ...form, customerVisible: e.target.checked })} className="rounded border-border/60" />
-              Customer visible
-            </label>
-            <label className="flex items-center gap-2 text-[12px] text-foreground">
-              <input type="checkbox" checked={form.requiresManualReview} onChange={(e) => setForm({ ...form, requiresManualReview: e.target.checked })} className="rounded border-border/60" />
-              Requires manual review
-            </label>
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={onClose} className="px-3 py-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors">Cancel</button>
-            <button type="submit" disabled={saving} className="px-3 py-1.5 rounded bg-cyan text-[11px] font-semibold text-black hover:bg-cyan/80 disabled:opacity-50 transition-colors">{saving ? "Saving…" : item ? "Update" : "Create"}</button>
-          </div>
-        </form>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <Field label="Service Definition *">
+        <select value={form.serviceId} onChange={(e) => setForm({ ...form, serviceId: e.target.value })} className="input-field">
+          <option value="">Select service</option>
+          {serviceDefinitions.map((s: any) => <option key={s._id} value={s._id}>{s.nameEn}</option>)}
+        </select>
+      </Field>
+      <Field label="Capability *">
+        <select value={form.capabilityId} onChange={(e) => setForm({ ...form, capabilityId: e.target.value })} className="input-field">
+          <option value="">Select capability</option>
+          {capabilities.map((c: any) => <option key={c._id} value={c._id}>{c.name}</option>)}
+        </select>
+      </Field>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Priority *">
+          <input type="number" min="1" value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })} className="input-field" />
+        </Field>
+        <Field label="Calculation Unit">
+          <select value={form.calculationUnit} onChange={(e) => setForm({ ...form, calculationUnit: e.target.value })} className="input-field">
+            {["m²", "rm", "piece", "hour"].map((u) => <option key={u} value={u}>{u}</option>)}
+          </select>
+        </Field>
       </div>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Waste Margin %">
+          <input type="number" step="0.1" min="0" max="100" value={form.defaultWasteMarginPercent} onChange={(e) => setForm({ ...form, defaultWasteMarginPercent: e.target.value })} className="input-field" />
+        </Field>
+        <Field label="Max Scrap Limit %">
+          <input type="number" step="0.1" min="0" max="100" value={form.maxScrapLimitPercent} onChange={(e) => setForm({ ...form, maxScrapLimitPercent: e.target.value })} className="input-field" />
+        </Field>
+      </div>
+      <div className="flex gap-4">
+        <label className="flex items-center gap-2 text-[12px] text-foreground">
+          <input type="checkbox" checked={form.customerVisible} onChange={(e) => setForm({ ...form, customerVisible: e.target.checked })} className="rounded border-border/60" />
+          Customer visible
+        </label>
+        <label className="flex items-center gap-2 text-[12px] text-foreground">
+          <input type="checkbox" checked={form.requiresManualReview} onChange={(e) => setForm({ ...form, requiresManualReview: e.target.checked })} className="rounded border-border/60" />
+          Requires manual review
+        </label>
+      </div>
+      <DrawerFooter saving={saving} savingText={item ? "Updating…" : "Creating…"} onCancel={onDone} />
+    </form>
+  );
+}
+
+/* ───────── Shared Form Primitives ───────── */
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</label>
+      <div className="mt-1">{children}</div>
+    </div>
+  );
+}
+
+function DrawerFooter({ saving, savingText, onCancel }: { saving: boolean; savingText: string; onCancel: () => void }) {
+  return (
+    <div className="flex justify-end gap-2 pt-4 border-t border-border/60">
+      <button type="button" onClick={onCancel} className="px-3 py-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors">Cancel</button>
+      <button type="submit" disabled={saving} className="px-4 py-1.5 rounded bg-cyan text-[11px] font-semibold text-black hover:bg-cyan/80 disabled:opacity-50 transition-colors">{saving ? savingText : "Save"}</button>
     </div>
   );
 }
