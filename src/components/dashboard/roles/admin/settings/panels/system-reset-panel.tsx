@@ -19,7 +19,6 @@ export function SystemResetPanel() {
   const [message, setMessage] = useState<{ text: string; tone: "success" | "error" } | null>(null);
 
   if (status?.dataResetExecuted === true) return null;
-  if (status === undefined) return null;
 
   async function executeReset() {
     if (confirmationKey !== CONFIRMATION_KEY) return;
