@@ -27,7 +27,6 @@ export default function AdminOverviewPage() {
       <WorkspacePageHeader
         kicker="Main Overview · ዋና ማዕከል"
         title="Overview"
-        subtitle="Today's business picture at a glance."
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

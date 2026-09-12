@@ -38,7 +38,6 @@ export default function AdminOrdersPage() {
       <WorkspacePageHeader
         kicker="Orders · የደንበኛ ትዕዛዞች"
         title="Orders"
-        subtitle={`${summary.totalOrders} customer orders in the system.`}
       />
 
       <div className="grid gap-4 sm:grid-cols-3">

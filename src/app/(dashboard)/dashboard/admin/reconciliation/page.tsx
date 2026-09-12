@@ -141,7 +141,6 @@ export default function AdminReconciliationPage() {
       <WorkspacePageHeader
         kicker="Reconciliation · ክምችት ማረጋገጫ"
         title="Reconciliation"
-        subtitle="Floor stock batches awaiting review, plus recent audit outcomes."
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

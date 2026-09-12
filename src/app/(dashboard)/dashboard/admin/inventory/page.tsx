@@ -27,7 +27,6 @@ export default function AdminInventoryPage() {
       <WorkspacePageHeader
         kicker="Stock Levels · ክምችት ደረጃ"
         title="Inventory"
-        subtitle="Approximate stock value across the central store and production floor."
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

@@ -54,7 +54,6 @@ export default function ManagerMachinesPage() {
       <WorkspacePageHeader
         kicker="Machines · የማሽኖች ሁኔታ"
         title="Machine status"
-        subtitle="See which machines are working, ready, or need attention."
       />
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">

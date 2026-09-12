@@ -9,7 +9,6 @@ export default function ManagerInventoryPage() {
       <WorkspacePageHeader
         kicker="Materials · እቃዎች"
         title="Materials"
-        subtitle="See the main store material levels at a glance."
       />
       <div className="rounded-xl border border-border/60 bg-card p-6 text-center text-[12px] text-muted-foreground">
         Material status cards require live inventory data integration. Use the Owner Inventory dashboard for full material visibility.

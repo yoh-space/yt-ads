@@ -75,7 +75,6 @@ export default function ManagerOrdersPage() {
       <WorkspacePageHeader
         kicker="Orders · የደንበኛ ማዘዣ"
         title="Orders"
-        subtitle="Keep track of customer requests, deadlines, and progress."
       />
 
       <div className="grid gap-3 sm:grid-cols-3">

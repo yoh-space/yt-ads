@@ -24,7 +24,6 @@ export default function ReceptionistSettingsPage() {
       <WorkspacePageHeader
         kicker="Workspace Configuration"
         title="System & Account Settings"
-        subtitle="Manage profile details, security preferences, and team permissions."
       />
       <SettingsView profile={resolvedProfile} />
     </div>

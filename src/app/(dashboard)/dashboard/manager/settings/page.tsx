@@ -24,7 +24,6 @@ export default function ManagerSettingsPage() {
       <WorkspacePageHeader
         kicker="Workspace Configuration"
         title="System & Account Settings"
-        subtitle="Manage your profile and security preferences."
       />
       <SettingsView profile={resolvedProfile} />
     </div>

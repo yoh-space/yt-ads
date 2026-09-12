@@ -29,7 +29,6 @@ export default function AdminMachinesPage() {
       <WorkspacePageHeader
         kicker="Machine Status · የማሽን ሁኔታ"
         title="Machines"
-        subtitle={`${summary.machinesCount} active machines on the floor.`}
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

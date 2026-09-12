@@ -141,7 +141,6 @@ export default function OwnerReconciliationClearancePage() {
       <OwnerPageHeader
         kicker="Reconciliation Clearance · ክምችት ማረጋገጫ"
         title="Reconciliation Clearance"
-        subtitle="Floor stock batches waiting on owner review, plus recent audit outcomes."
       />
 
       <div className="grid gap-4 grid-cols-4">

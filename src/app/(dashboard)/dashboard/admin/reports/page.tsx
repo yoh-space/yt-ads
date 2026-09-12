@@ -34,7 +34,6 @@ export default function AdminReportsPage() {
       <WorkspacePageHeader
         kicker="Reports · ሪፖርቶች"
         title="Reports"
-        subtitle="Daily performance, stock runway, and loss summaries."
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

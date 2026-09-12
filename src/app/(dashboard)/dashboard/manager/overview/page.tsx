@@ -43,7 +43,6 @@ export default function ManagerOverviewPage() {
       <WorkspacePageHeader
         kicker="Today · የዛሬ እይታ"
         title="Overview"
-        subtitle="A quick look at today's machines, jobs, orders, and materials."
       />
 
       <WorkspaceModuleGate context={accessContext} moduleId="dashboard.kpis">

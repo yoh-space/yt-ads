@@ -54,7 +54,6 @@ export default function OwnerInventoryPage() {
         <OwnerPageHeader
           kicker="Stock Levels · ክምችት ደረጃ"
           title="Inventory Overview"
-          subtitle="Enterprise-wide stock health — central store valuation, production floor custody, and unreconciled exposure."
         />
 
         {/* ── KPI cards ── */}

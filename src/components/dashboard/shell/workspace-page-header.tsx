@@ -22,7 +22,7 @@ export function WorkspacePageHeader({
           {kicker}
         </p>
         <h1 className="text-xl font-bold tracking-tight text-foreground mt-0.5">{title}</h1>
-        {subtitle && <p className="text-[12px] text-muted-foreground mt-0.5">{subtitle}</p>}
+        {subtitle && <p className="text-sm text-muted-foreground mt-0.5">{subtitle}</p>}
       </div>
       {action && <div className="shrink-0">{action}</div>}
     </div>

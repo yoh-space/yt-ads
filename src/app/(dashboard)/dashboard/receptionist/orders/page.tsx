@@ -62,7 +62,6 @@ export default function ReceptionistOrdersPage() {
         <WorkspacePageHeader
           kicker="Reception Desk · የተቀበል ዴስክ"
           title="Customer Orders Queue"
-          subtitle="Register walk-ins, price orders, confirm payment, and issue job cards."
         />
 
         <OrdersView

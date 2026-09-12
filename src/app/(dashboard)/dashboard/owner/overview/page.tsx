@@ -29,7 +29,6 @@ export default function OwnerOverviewPage() {
       <OwnerPageHeader
         kicker="Main Overview · ዋና ማዕከል"
         title="Overview"
-        subtitle="Today's business picture at a glance."
       />
 
       <div className="grid gap-4 grid-cols-4">

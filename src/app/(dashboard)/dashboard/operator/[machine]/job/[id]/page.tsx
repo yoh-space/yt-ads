@@ -62,7 +62,6 @@ export default function OperatorJobDetailPage({
       <WorkspacePageHeader
         kicker="Job Card · የሥራ ካርድ"
         title={job.code}
-        subtitle={job.title ?? "Untitled job"}
       />
 
       <div className="rounded-sm border border-[#1E293B] bg-[#14161D] p-5 space-y-4">

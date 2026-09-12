@@ -35,7 +35,6 @@ export default function AdminSettingsPage() {
       <WorkspacePageHeader
         kicker="Settings · ማስተካከያ"
         title="Settings"
-        subtitle="Company and profile information for this workspace."
       />
 
       <DevReseedControl />

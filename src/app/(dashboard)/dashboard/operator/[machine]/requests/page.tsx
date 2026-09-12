@@ -91,7 +91,6 @@ export default function OperatorRequestsPage({
       <WorkspacePageHeader
         kicker="Material Requests · የዕቃ ጥያቄዎች"
         title={`Requests — ${machineParam.toUpperCase()}`}
-        subtitle="Material requests raised on this machine line and their handover status."
       />
 
       {clearancePending ? (

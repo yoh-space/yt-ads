@@ -63,7 +63,6 @@ export default function StorekeeperOverviewPage() {
       <WorkspacePageHeader
         kicker="Storekeeper Overview · የመጋዘን ማጠቃለያ"
         title="Overview"
-        subtitle="Central package stock, requisition inbox, and reorder pressure at a glance."
       />
 
       <WorkspaceModuleGate context={accessContext} moduleId="inventory.kpis">
