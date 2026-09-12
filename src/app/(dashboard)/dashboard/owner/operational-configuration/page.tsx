@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { OwnerPageHeader } from "@/components/dashboard/roles/owner/owner-page-header";
-import { Package, Factory, Clock, Shield, Calculator, DollarSign, Save } from "lucide-react";
+import { Package, Factory, Clock, Shield, Calculator, DollarSign, Save, Database } from "lucide-react";
 import { Button } from "@/components/shared/ui";
 import { FormMessage } from "@/components/dashboard/roles/admin/settings/chrome/form";
 import { ValuationSection } from "@/components/dashboard/roles/admin/settings/operational/sections/valuation-section";
@@ -15,12 +15,14 @@ import { ScrapAllowanceSection } from "@/components/dashboard/roles/admin/settin
 import { OrderExpirySection } from "@/components/dashboard/roles/admin/settings/operational/sections/order-expiry-section";
 import { RiskSection } from "@/components/dashboard/roles/admin/settings/operational/sections/risk-section";
 import { InventoryPolicySection } from "@/components/dashboard/roles/admin/settings/operational/sections/inventory-policy-section";
+import { DatabaseCatalogSuite } from "@/components/dashboard/roles/owner/catalogs/database-catalog-suite";
 import { useOperationalConfigState } from "@/components/dashboard/roles/admin/settings/operational/state";
 import { useMemo } from "react";
 
-type ConfigSection = "inventory" | "production" | "orders" | "security" | "conversion" | "valuation";
+type ConfigSection = "inventory" | "production" | "orders" | "security" | "conversion" | "valuation" | "catalogs";
 
 const SECTIONS = [
+  { id: "catalogs" as ConfigSection, label: "Master Catalogs", icon: Database, amharic: "ዳታቤዝ ካታሎግ" },
   { id: "inventory" as ConfigSection, label: "Inventory Control", icon: Package, amharic: "የእቃ ቁጥጥር" },
   { id: "production" as ConfigSection, label: "Production Rules", icon: Factory, amharic: "የምርት ህጎች" },
   { id: "orders" as ConfigSection, label: "Order Lifecycle", icon: Clock, amharic: "የትዕዛዝ ዘርፍ" },
@@ -144,108 +146,112 @@ export default function OwnerOperationalConfigurationPage() {
             subtitle="Set the operational rules that govern your business processes."
           />
 
-          <form onSubmit={save} className="space-y-6">
-            <div className="rounded-xl border border-border bg-card divide-y divide-border">
-              {activeSection === "inventory" && (
-                <InventoryPolicySection
-                  defaultReorderLevel={form.defaultReorderLevel}
-                  setDefaultReorderLevel={form.setDefaultReorderLevel}
-                  reorderAlertsEnabled={form.reorderAlertsEnabled}
-                  setReorderAlertsEnabled={form.setReorderAlertsEnabled}
-                  reorderAlertCooldownHours={form.reorderAlertCooldownHours}
-                  setReorderAlertCooldownHours={form.setReorderAlertCooldownHours}
-                />
-              )}
-
-              {activeSection === "production" && (
-                <>
-                  <ProductionSection
-                    inkMlPerSquareMetre={form.inkMlPerSquareMetre}
-                    setInkMlPerSquareMetre={form.setInkMlPerSquareMetre}
-                    maxAllowedWastePercent={form.maxAllowedWastePercent}
-                    setMaxAllowedWastePercent={form.setMaxAllowedWastePercent}
-                    minOffcutAreaSquareMetre={form.minOffcutAreaSquareMetre}
-                    setMinOffcutAreaSquareMetre={form.setMinOffcutAreaSquareMetre}
-                    standardWasteMargin={form.standardWasteMargin}
-                    setStandardWasteMargin={form.setStandardWasteMargin}
-                    maxAllowedScrapLimit={form.maxAllowedScrapLimit}
-                    setMaxAllowedScrapLimit={form.setMaxAllowedScrapLimit}
+          {activeSection === "catalogs" ? (
+            <DatabaseCatalogSuite />
+          ) : (
+            <form onSubmit={save} className="space-y-6">
+              <div className="rounded-xl border border-border bg-card divide-y divide-border">
+                {activeSection === "inventory" && (
+                  <InventoryPolicySection
+                    defaultReorderLevel={form.defaultReorderLevel}
+                    setDefaultReorderLevel={form.setDefaultReorderLevel}
+                    reorderAlertsEnabled={form.reorderAlertsEnabled}
+                    setReorderAlertsEnabled={form.setReorderAlertsEnabled}
+                    reorderAlertCooldownHours={form.reorderAlertCooldownHours}
+                    setReorderAlertCooldownHours={form.setReorderAlertCooldownHours}
                   />
-                  <ScrapAllowanceSection
-                    defaultScrapAllowancePercent={form.defaultScrapAllowancePercent}
-                    setDefaultScrapAllowancePercent={form.setDefaultScrapAllowancePercent}
-                    defaultMarginSquareMetres={form.defaultMarginSquareMetres}
-                    setDefaultMarginSquareMetres={form.setDefaultMarginSquareMetres}
-                    scrapAllowances={form.materialScrapAllowances}
-                    setScrapAllowances={form.setMaterialScrapAllowances}
-                    materials={materials}
-                    onMessage={setMessage}
+                )}
+
+                {activeSection === "production" && (
+                  <>
+                    <ProductionSection
+                      inkMlPerSquareMetre={form.inkMlPerSquareMetre}
+                      setInkMlPerSquareMetre={form.setInkMlPerSquareMetre}
+                      maxAllowedWastePercent={form.maxAllowedWastePercent}
+                      setMaxAllowedWastePercent={form.setMaxAllowedWastePercent}
+                      minOffcutAreaSquareMetre={form.minOffcutAreaSquareMetre}
+                      setMinOffcutAreaSquareMetre={form.setMinOffcutAreaSquareMetre}
+                      standardWasteMargin={form.standardWasteMargin}
+                      setStandardWasteMargin={form.setStandardWasteMargin}
+                      maxAllowedScrapLimit={form.maxAllowedScrapLimit}
+                      setMaxAllowedScrapLimit={form.setMaxAllowedScrapLimit}
+                    />
+                    <ScrapAllowanceSection
+                      defaultScrapAllowancePercent={form.defaultScrapAllowancePercent}
+                      setDefaultScrapAllowancePercent={form.setDefaultScrapAllowancePercent}
+                      defaultMarginSquareMetres={form.defaultMarginSquareMetres}
+                      setDefaultMarginSquareMetres={form.setDefaultMarginSquareMetres}
+                      scrapAllowances={form.materialScrapAllowances}
+                      setScrapAllowances={form.setMaterialScrapAllowances}
+                      materials={materials}
+                      onMessage={setMessage}
+                    />
+                  </>
+                )}
+
+                {activeSection === "orders" && (
+                  <OrderExpirySection
+                    orderExpirationHours={form.orderExpirationHours}
+                    setOrderExpirationHours={form.setOrderExpirationHours}
                   />
-                </>
-              )}
+                )}
 
-              {activeSection === "orders" && (
-                <OrderExpirySection
-                  orderExpirationHours={form.orderExpirationHours}
-                  setOrderExpirationHours={form.setOrderExpirationHours}
-                />
-              )}
-
-              {activeSection === "security" && (
-                <RiskSection
-                  requireAdminPinForExceptions={form.requireAdminPinForExceptions}
-                  setRequireAdminPinForExceptions={form.setRequireAdminPinForExceptions}
-                  maxDirectStockOutEtb={form.maxDirectStockOutEtb}
-                  setMaxDirectStockOutEtb={form.setMaxDirectStockOutEtb}
-                />
-              )}
-
-              {activeSection === "conversion" && (
-                <ConversionSection
-                  rules={form.unitConversionDefaults}
-                  setRules={form.setUnitConversionDefaults}
-                />
-              )}
-
-              {activeSection === "valuation" && (
-                <>
-                  <ValuationSection
-                    etbPerSquareMetre={form.etbPerSquareMetre}
-                    setEtbPerSquareMetre={form.setEtbPerSquareMetre}
-                    etbPerLitre={form.etbPerLitre}
-                    setEtbPerLitre={form.setEtbPerLitre}
-                    etbPerPiece={form.etbPerPiece}
-                    setEtbPerPiece={form.setEtbPerPiece}
-                    etbPerMetre={form.etbPerMetre}
-                    setEtbPerMetre={form.setEtbPerMetre}
-                    etbPerSheet={form.etbPerSheet}
-                    setEtbPerSheet={form.setEtbPerSheet}
+                {activeSection === "security" && (
+                  <RiskSection
+                    requireAdminPinForExceptions={form.requireAdminPinForExceptions}
+                    setRequireAdminPinForExceptions={form.setRequireAdminPinForExceptions}
+                    maxDirectStockOutEtb={form.maxDirectStockOutEtb}
+                    setMaxDirectStockOutEtb={form.setMaxDirectStockOutEtb}
                   />
-                  <OverrideSection
-                    overrides={form.overrides}
-                    setOverrides={form.setOverrides}
-                    materials={materials}
-                    onMessage={setMessage}
-                  />
-                </>
-              )}
-            </div>
+                )}
 
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-secondary/40 px-5 py-4">
-              <p className="text-[11px] text-muted-foreground">
-                የባለቤት ብቻ ማስተካከያ · በቀጣዩ የምርት መዝገብ ላይ ይተገበራል።
-              </p>
-              <div className="flex flex-wrap items-center gap-3">
-                {message ? (
-                  <FormMessage tone={message.includes("Unable") || message.includes("አልተቻለም") ? "error" : "success"}>{message}</FormMessage>
-                ) : null}
-                <Button variant="primary" type="submit" disabled={busy}>
-                  <Save size={15} />
-                  {busy ? "በመቀመጥ ላይ…" : "ማስቀመጥ"}
-                </Button>
+                {activeSection === "conversion" && (
+                  <ConversionSection
+                    rules={form.unitConversionDefaults}
+                    setRules={form.setUnitConversionDefaults}
+                  />
+                )}
+
+                {activeSection === "valuation" && (
+                  <>
+                    <ValuationSection
+                      etbPerSquareMetre={form.etbPerSquareMetre}
+                      setEtbPerSquareMetre={form.setEtbPerSquareMetre}
+                      etbPerLitre={form.etbPerLitre}
+                      setEtbPerLitre={form.setEtbPerLitre}
+                      etbPerPiece={form.etbPerPiece}
+                      setEtbPerPiece={form.setEtbPerPiece}
+                      etbPerMetre={form.etbPerMetre}
+                      setEtbPerMetre={form.setEtbPerMetre}
+                      etbPerSheet={form.etbPerSheet}
+                      setEtbPerSheet={form.setEtbPerSheet}
+                    />
+                    <OverrideSection
+                      overrides={form.overrides}
+                      setOverrides={form.setOverrides}
+                      materials={materials}
+                      onMessage={setMessage}
+                    />
+                  </>
+                )}
               </div>
-            </div>
-          </form>
+
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-secondary/40 px-5 py-4">
+                <p className="text-[11px] text-muted-foreground">
+                  የባለቤት ብቻ ማስተካከያ · በቀጣዩ የምርት መዝገብ ላይ ይተገበራል።
+                </p>
+                <div className="flex flex-wrap items-center gap-3">
+                  {message ? (
+                    <FormMessage tone={message.includes("Unable") || message.includes("አልተቻለም") ? "error" : "success"}>{message}</FormMessage>
+                  ) : null}
+                  <Button variant="primary" type="submit" disabled={busy}>
+                    <Save size={15} />
+                    {busy ? "በመቀመጥ ላይ…" : "ማስቀመጥ"}
+                  </Button>
+                </div>
+              </div>
+            </form>
+          )}
         </div>
       </div>
     </div>

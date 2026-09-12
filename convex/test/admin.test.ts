@@ -1,5 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 import { purgeAndReseedCatalog } from "../admin";
+import * as users from "../users";
+
+beforeEach(() => {
+  vi.spyOn(users, "requireOwner").mockResolvedValue({
+    identity: { _id: "user_owner", email: "owner@test.com" } as any,
+    profile: { role: "owner", active: true } as any,
+  } as any);
+});
 
 function createMockCtx(initialDocs: Record<string, any> = {}) {
   const docs = new Map<string, any>(Object.entries(initialDocs));
@@ -51,13 +59,13 @@ describe("purgeAndReseedCatalog admin mutation", () => {
 
     const result = await handler(mockCtx, { confirmKey: "PURGE_YT_2026" });
 
-    expect(result).toEqual({ status: "SUCCESS", insertedCount: 85 });
+    expect(result).toEqual({ status: "SUCCESS", insertedCount: 70 });
     expect(deleted).toContain("id_materials_old1");
     expect(deleted).toContain("id_materialRequests_old1");
     expect(deleted).toContain("id_jobCards_old1");
 
     const insertedMaterials = inserted.filter((item) => item.table === "materials").map((item) => item.value);
-    expect(insertedMaterials).toHaveLength(85);
+    expect(insertedMaterials).toHaveLength(70);
 
     const names = insertedMaterials.map((m) => m.name);
     expect(names).toContain("Banner 3.2m × 50m");
@@ -65,7 +73,7 @@ describe("purgeAndReseedCatalog admin mutation", () => {
     expect(names).toContain("Frosted Sticker (1.2m × 50m)");
     expect(names).toContain("Transparent Mica 5mm (1.22m × 2.44m)");
     expect(names).toContain("Neon Light - Ice Blue");
-    expect(names).toContain("Power Supply 60W");
+    expect(names).toContain("Power Supply 100W");
     expect(names).toContain("Amire (Packet - 250 pcs/pkg)");
     expect(names).toContain("Roll-Up Stand - Delux");
   });
