@@ -485,19 +485,19 @@ function InkRuleForm({ machineId, item, materialMap, materials, onDone }: { mach
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <Field label="Material *">
-        <select value={form.materialId} onChange={(e) => setForm({ ...form, materialId: e.target.value })} className="input-field">
+        <select value={form.materialId} onChange={(e) => setForm({ ...form, materialId: e.target.value })} className="h-9 w-full rounded-md border border-border bg-background px-3 text-xs text-foreground outline-none focus:border-primary">
           <option value="">Select ink material</option>
           {inkMaterials.map((m: any) => <option key={m._id} value={m._id}>{m.name}</option>)}
         </select>
       </Field>
       <div className="grid grid-cols-2 gap-3">
         <Field label="Ink Color *">
-          <select value={form.inkColor} onChange={(e) => setForm({ ...form, inkColor: e.target.value })} className="input-field">
+          <select value={form.inkColor} onChange={(e) => setForm({ ...form, inkColor: e.target.value })} className="h-9 w-full rounded-md border border-border bg-background px-3 text-xs text-foreground outline-none focus:border-primary">
             {["Cyan", "Magenta", "Yellow", "Black", "White", "Red", "Green", "Blue"].map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
         </Field>
         <Field label="Unit *">
-          <select value={form.consumptionUnit} onChange={(e) => setForm({ ...form, consumptionUnit: e.target.value })} className="input-field">
+          <select value={form.consumptionUnit} onChange={(e) => setForm({ ...form, consumptionUnit: e.target.value })} className="h-9 w-full rounded-md border border-border bg-background px-3 text-xs text-foreground outline-none focus:border-primary">
             <option value="ml_per_sqm">mL per m²</option>
             <option value="ml_per_rm">mL per rm</option>
             <option value="ml_per_piece">mL per piece</option>
@@ -506,10 +506,10 @@ function InkRuleForm({ machineId, item, materialMap, materials, onDone }: { mach
       </div>
       <div className="grid grid-cols-2 gap-3">
         <Field label="Rate *">
-          <input type="number" step="0.001" min="0" value={form.rate} onChange={(e) => setForm({ ...form, rate: e.target.value })} className="input-field" />
+          <input type="number" step="0.001" min="0" value={form.rate} onChange={(e) => setForm({ ...form, rate: e.target.value })} className="h-9 w-full rounded-md border border-border bg-background px-3 text-xs text-foreground outline-none focus:border-primary" />
         </Field>
         <Field label="Waste Allowance %">
-          <input type="number" step="0.1" min="0" max="100" value={form.wasteAllowancePercent} onChange={(e) => setForm({ ...form, wasteAllowancePercent: e.target.value })} className="input-field" />
+          <input type="number" step="0.1" min="0" max="100" value={form.wasteAllowancePercent} onChange={(e) => setForm({ ...form, wasteAllowancePercent: e.target.value })} className="h-9 w-full rounded-md border border-border bg-background px-3 text-xs text-foreground outline-none focus:border-primary" />
         </Field>
       </div>
       <label className="flex items-center gap-2 text-[12px] text-foreground">
@@ -517,7 +517,7 @@ function InkRuleForm({ machineId, item, materialMap, materials, onDone }: { mach
         Default rule for this machine/color
       </label>
       <Field label="Notes">
-        <input type="text" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="input-field" />
+        <input type="text" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="h-9 w-full rounded-md border border-border bg-background px-3 text-xs text-foreground outline-none focus:border-primary" />
       </Field>
       <DrawerFooter saving={saving} savingText={item ? "Updating…" : "Creating…"} onCancel={onDone} />
     </form>
@@ -564,19 +564,19 @@ function MaterialLinkForm({ machineId, item, materialMap, materials, onDone }: {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <Field label="Material *">
-        <select value={form.materialId} onChange={(e) => setForm({ ...form, materialId: e.target.value })} className="input-field">
+        <select value={form.materialId} onChange={(e) => setForm({ ...form, materialId: e.target.value })} className="h-9 w-full rounded-md border border-border bg-background px-3 text-xs text-foreground outline-none focus:border-primary">
           <option value="">Select material</option>
           {materials.map((m: any) => <option key={m._id} value={m._id}>{m.name}</option>)}
         </select>
       </Field>
       <div className="grid grid-cols-2 gap-3">
         <Field label="Relationship *">
-          <select value={form.relationshipType} onChange={(e) => setForm({ ...form, relationshipType: e.target.value })} className="input-field">
+          <select value={form.relationshipType} onChange={(e) => setForm({ ...form, relationshipType: e.target.value })} className="h-9 w-full rounded-md border border-border bg-background px-3 text-xs text-foreground outline-none focus:border-primary">
             {["primary", "supported", "ink", "solvent", "accessory", "consumable"].map((r) => <option key={r} value={r}>{r}</option>)}
           </select>
         </Field>
         <Field label="Production Type">
-          <select value={form.productionType} onChange={(e) => setForm({ ...form, productionType: e.target.value })} className="input-field">
+          <select value={form.productionType} onChange={(e) => setForm({ ...form, productionType: e.target.value })} className="h-9 w-full rounded-md border border-border bg-background px-3 text-xs text-foreground outline-none focus:border-primary">
             <option value="">None</option>
             {["area", "linear", "ink", "unit"].map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
@@ -584,10 +584,10 @@ function MaterialLinkForm({ machineId, item, materialMap, materials, onDone }: {
       </div>
       <div className="grid grid-cols-2 gap-3">
         <Field label="Conversion Ratio Override">
-          <input type="number" step="0.001" min="0" value={form.conversionRatioOverride} onChange={(e) => setForm({ ...form, conversionRatioOverride: e.target.value })} className="input-field" />
+          <input type="number" step="0.001" min="0" value={form.conversionRatioOverride} onChange={(e) => setForm({ ...form, conversionRatioOverride: e.target.value })} className="h-9 w-full rounded-md border border-border bg-background px-3 text-xs text-foreground outline-none focus:border-primary" />
         </Field>
         <Field label="Waste Margin %">
-          <input type="number" step="0.1" min="0" max="100" value={form.wasteMarginPercent} onChange={(e) => setForm({ ...form, wasteMarginPercent: e.target.value })} className="input-field" />
+          <input type="number" step="0.1" min="0" max="100" value={form.wasteMarginPercent} onChange={(e) => setForm({ ...form, wasteMarginPercent: e.target.value })} className="h-9 w-full rounded-md border border-border bg-background px-3 text-xs text-foreground outline-none focus:border-primary" />
         </Field>
       </div>
       <label className="flex items-center gap-2 text-[12px] text-foreground">
@@ -595,7 +595,7 @@ function MaterialLinkForm({ machineId, item, materialMap, materials, onDone }: {
         Required material
       </label>
       <Field label="Notes">
-        <input type="text" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="input-field" />
+        <input type="text" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="h-9 w-full rounded-md border border-border bg-background px-3 text-xs text-foreground outline-none focus:border-primary" />
       </Field>
       <DrawerFooter saving={saving} savingText={item ? "Updating…" : "Creating…"} onCancel={onDone} />
     </form>
@@ -644,33 +644,33 @@ function ServiceRouteForm({ machineId, item, capMap, serviceDefMap, capabilities
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <Field label="Service Definition *">
-        <select value={form.serviceId} onChange={(e) => setForm({ ...form, serviceId: e.target.value })} className="input-field">
+        <select value={form.serviceId} onChange={(e) => setForm({ ...form, serviceId: e.target.value })} className="h-9 w-full rounded-md border border-border bg-background px-3 text-xs text-foreground outline-none focus:border-primary">
           <option value="">Select service</option>
           {serviceDefinitions.map((s: any) => <option key={s._id} value={s._id}>{s.nameEn}</option>)}
         </select>
       </Field>
       <Field label="Capability *">
-        <select value={form.capabilityId} onChange={(e) => setForm({ ...form, capabilityId: e.target.value })} className="input-field">
+        <select value={form.capabilityId} onChange={(e) => setForm({ ...form, capabilityId: e.target.value })} className="h-9 w-full rounded-md border border-border bg-background px-3 text-xs text-foreground outline-none focus:border-primary">
           <option value="">Select capability</option>
           {capabilities.map((c: any) => <option key={c._id} value={c._id}>{c.name}</option>)}
         </select>
       </Field>
       <div className="grid grid-cols-2 gap-3">
         <Field label="Priority *">
-          <input type="number" min="1" value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })} className="input-field" />
+          <input type="number" min="1" value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })} className="h-9 w-full rounded-md border border-border bg-background px-3 text-xs text-foreground outline-none focus:border-primary" />
         </Field>
         <Field label="Calculation Unit">
-          <select value={form.calculationUnit} onChange={(e) => setForm({ ...form, calculationUnit: e.target.value })} className="input-field">
+          <select value={form.calculationUnit} onChange={(e) => setForm({ ...form, calculationUnit: e.target.value })} className="h-9 w-full rounded-md border border-border bg-background px-3 text-xs text-foreground outline-none focus:border-primary">
             {["m²", "rm", "piece", "hour"].map((u) => <option key={u} value={u}>{u}</option>)}
           </select>
         </Field>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <Field label="Waste Margin %">
-          <input type="number" step="0.1" min="0" max="100" value={form.defaultWasteMarginPercent} onChange={(e) => setForm({ ...form, defaultWasteMarginPercent: e.target.value })} className="input-field" />
+          <input type="number" step="0.1" min="0" max="100" value={form.defaultWasteMarginPercent} onChange={(e) => setForm({ ...form, defaultWasteMarginPercent: e.target.value })} className="h-9 w-full rounded-md border border-border bg-background px-3 text-xs text-foreground outline-none focus:border-primary" />
         </Field>
         <Field label="Max Scrap Limit %">
-          <input type="number" step="0.1" min="0" max="100" value={form.maxScrapLimitPercent} onChange={(e) => setForm({ ...form, maxScrapLimitPercent: e.target.value })} className="input-field" />
+          <input type="number" step="0.1" min="0" max="100" value={form.maxScrapLimitPercent} onChange={(e) => setForm({ ...form, maxScrapLimitPercent: e.target.value })} className="h-9 w-full rounded-md border border-border bg-background px-3 text-xs text-foreground outline-none focus:border-primary" />
         </Field>
       </div>
       <div className="flex gap-4">
