@@ -151,7 +151,7 @@ export default function OperatorJobDetailPage({
             {isInProduction ? (
               <div className="flex items-center gap-2">
                 <input value={pauseReason} onChange={(event) => setPauseReason(event.target.value)} placeholder="Why is it paused?" className="h-8 w-44 rounded-sm border border-slate-700 bg-slate-950 px-2 text-xs text-white outline-none focus:border-cyan-500" />
-                <button type="button" disabled={!pauseReason.trim() || isPending(`pause-${jobId}`)} onClick={() => void safeMutation(`pause-${jobId}`, pauseJob({ machineSlug: machineParam, jobId, reason: pauseReason }), () => { setPauseReason(""); toast.success("Job paused"); })} className="inline-flex items-center gap-1.5 rounded-sm border border-amber-500/40 bg-amber-950/30 px-3.5 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-900/40 disabled:opacity-50">Pause job</button>
+                <button type="button" disabled={!pauseReason.trim() || isPending(`pause-${jobId}`)} onClick={() => void safeMutation(`pause-${jobId}`, pauseJob({ machineSlug: machineParam, jobId, reason: pauseReason }), () => { setPauseReason(""); toast.success("Job paused"); }, (err) => toast.error("Failed to pause job: " + (err instanceof Error ? err.message : String(err))))} className="inline-flex items-center gap-1.5 rounded-sm border border-amber-500/40 bg-amber-950/30 px-3.5 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-900/40 disabled:opacity-50">Pause job</button>
               </div>
             ) : null}
             <button
@@ -161,7 +161,8 @@ export default function OperatorJobDetailPage({
                 void safeMutation(
                   `complete-${jobId}`,
                   completeJob({ machineSlug: machineParam, jobId }),
-                  () => toast.success("ሥራው በተሳካ ሁኔታ ተጠናቋል")
+                  () => toast.success("ሥራው በተሳካ ሁኔታ ተጠናቋል"),
+                  (err) => toast.error("Failed to complete job: " + (err instanceof Error ? err.message : String(err)))
                 );
               }}
               className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-sm bg-[#38B000] text-xs font-semibold text-white hover:bg-[#2D8B00] transition-colors"

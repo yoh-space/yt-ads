@@ -206,9 +206,9 @@ export const issueStockToOperator = mutation({
       materialId: item.materialId,
       operatorId: args.operatorId.trim(),
       machineId: args.machineId,
-      issuedUnits: 0,
-      issuedQuantity: 0,
-      currentRemaining: 0,
+      issuedUnits: args.units,
+      issuedQuantity: baseQuantity,
+      currentRemaining: baseQuantity,
       status: "ACTIVE",
       issuedBy: identity._id,
       issuedAt: now,
@@ -401,8 +401,22 @@ export const logProductionAndDeductStock = mutation({
       inkFloorDeducted = await deductInkFromFloor(ctx, job.machineId, inkMl, identity._id, job._id);
       const inkRemainder = Number((inkMl / 1000 - inkFloorDeducted).toFixed(3));
       if (inkRemainder > 0) {
+        // Resolve the ink material from floor batches for accurate ledger tracking.
+        const inkBatches = (await ctx.db
+          .query("operatorSubStock")
+          .withIndex("by_machine", (q) => q.eq("machineId", job.machineId as never))
+          .collect())
+          .filter((b) => b.status === "ACTIVE" && b.currentRemaining > 0);
+        let inkMaterialId: string | undefined;
+        for (const b of inkBatches) {
+          const mat = await ctx.db.get(b.materialId);
+          if (mat && classifyMaterialProductionType(mat) === "ink") {
+            inkMaterialId = b.materialId;
+            break;
+          }
+        }
         await recordInventoryEvent(ctx, {
-          materialId: job.materialId,
+          materialId: (inkMaterialId ?? job.materialId) as any,
           eventType: "PRODUCTION_CONSUMPTION",
           custody: "parent",
           balanceEffect: "out",

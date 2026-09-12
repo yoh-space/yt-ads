@@ -428,7 +428,8 @@ export default function OperatorMachineOverview({
                             outputQuantity: Number(outputQuantity) || displayedJob.quantity,
                             wasteQuantity: Number(wasteQuantity) || 0,
                           }),
-                          () => toast.success("የምርት መረጃ ተመዝግቧል")
+                          () => toast.success("የምርት መረጃ ተመዝግቧል"),
+                          (err) => toast.error("Failed to save production: " + (err instanceof Error ? err.message : String(err)))
                         );
                       }}
                       className="px-3.5 py-1.5 rounded-sm border border-[#1E293B] bg-[#14161D] text-xs font-semibold text-slate-200 hover:text-white hover:border-[#00B4D8] transition-colors"
@@ -442,7 +443,8 @@ export default function OperatorMachineOverview({
                         void safeMutation(
                           `complete-${displayedJob.id}`,
                           completeJobMutation({ machineSlug: machineParam, jobId: displayedJob.id as Id<"jobCards"> }),
-                          () => toast.success("ሥራው በተሳካ ሁኔታ ተጠናቋል")
+                          () => toast.success("ሥራው በተሳካ ሁኔታ ተጠናቋል"),
+                          (err) => toast.error("Failed to complete job: " + (err instanceof Error ? err.message : String(err)))
                         );
                       }}
                       className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-sm bg-[#38B000] text-xs font-semibold text-white hover:bg-[#2D8B00] transition-colors"

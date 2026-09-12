@@ -117,7 +117,9 @@ async function recordProductionInternal(ctx: any, args: ProductionInput, operato
       relatedId: job._id,
     });
   }
-  await ctx.db.patch(job._id, { status: "In production" });
+  if (job.status === "Queued" || job.status === "Paused") {
+    await ctx.db.patch(job._id, { status: "In production" });
+  }
   if (job.orderId) {
     await ctx.db.patch(job.orderId, { status: "IN_PRODUCTION", updatedAt: Date.now() });
   }
