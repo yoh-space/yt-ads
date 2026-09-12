@@ -11,7 +11,7 @@ The canonical implementation is split across four files; cross-reference them wh
 
 ## 1. Roles and the canonical permission union
 
-The platform runs nine roles (`convex/schema.ts:4` and `src/lib/operations-types.ts`). The role union is exactly:
+The platform runs eleven roles (`convex/schema.ts:4` and `src/lib/operations-types.ts`). The role union is exactly:
 
 ```ts
 type Role =
@@ -19,8 +19,9 @@ type Role =
   | "manager"
   | "admin"
   | "storekeeper"
-  | "laser_operator"   | "cnc_operator"
-  | "plotter_operator" | "printer_operator"
+  | "crystal_jet_operator" | "crystek_operator"
+  | "ricoh_uv_operator"    | "dtf_operator"
+  | "laser_operator"       | "cnc_operator"
   | "receptionist";
 ```
 
@@ -51,43 +52,43 @@ The 38 permission tokens grouped by concern:
 
 The matrix below is the source of truth for **server-side** access. The React mirror in `src/lib/permissions.ts` mirrors it.
 
-| Permission | owner | manager | admin | storekeeper | laser_operator | cnc_operator | plotter_operator | printer_operator | receptionist |
-| --- | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: |
-| `dashboard.view` | ✓ | ✓ | ✓ | ✓ | | | | | ✓ |
-| `material.view` | ✓ | ✓ | ✓ | ✓ | | | | | |
-| `material.create` | ✓ | ✓ | ✓ | ✓ | | | | | |
-| `material.edit` | ✓ | ✓ | ✓ | ✓ | | | | | |
-| `material.delete` | ✓ | ✓ | ✓ | | | | | | |
-| `stock.record` | ✓ | ✓ | ✓ | ✓ | | | | | |
-| `stock.exception` | ✓ | ✓ | ✓ | ✓ | | | | | |
-| `machine.view` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | |
-| `machine.create` | ✓ | ✓ | ✓ | | | | | | |
-| `machine.update` | ✓ | ✓ | ✓ | | | | | | |
-| `machine.delete` | ✓ | ✓ | | | | | | | |
-| `job.view` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | |
-| `job.create` | ✓ | ✓ | ✓ | ✓ | | | | | |
-| `job.complete` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | |
-| `job.record_production` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | |
-| `offcut.view` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | |
-| `offcut.create` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | |
-| `scrap.view` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | |
-| `scrap.create` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | |
-| `request.view` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | |
-| `request.create` | — **Owner excluded** | ✓ | ✓ | — *excluded* | ✓ | ✓ | ✓ | ✓ | |
-| `request.issue` | — **Owner excluded** | ✓ | ✓ | ✓ | | | | | |
-| `request.acknowledge` | — **Owner excluded** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | |
-| `order.view` | ✓ | ✓ | ✓ | | | | | | ✓ |
-| `order.create` | ✓ | ✓ | ✓ | | | | | | ✓ |
-| `order.manage` | ✓ | ✓ | ✓ | | | | | | ✓ |
-| `reconciliation.record` | ✓ | ✓ | ✓ | ✓ | | | | | |
-| `reconciliation.review` | — **Manager excluded** | — | ✓ (admin) | | | | | | |
-| `reconciliation.operator` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | |
-| `reconciliation.clearance` | ✓ | ✓ | ✓ | | | | | | |
-| `team.view` | ✓ | ✓ | ✓ | | | | | | |
-| `team.manage` | ✓ | ✓ | | | | | | | |
-| `company_settings.update` | ✓ | — **Manager excluded** | ✓ | | | | | | |
-| `reports.view` | ✓ | ✓ | ✓ | ✓ | | | | | |
-| `audit.view` | ✓ | ✓ | ✓ | ✓ | | | | | |
+| Permission | owner | manager | admin | storekeeper | crystal_jet_operator | crystek_operator | ricoh_uv_operator | dtf_operator | laser_operator | cnc_operator | receptionist |
+| --- | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: |
+| `dashboard.view` | ✓ | ✓ | ✓ | ✓ | | | | | | | ✓ |
+| `material.view` | ✓ | ✓ | ✓ | ✓ | | | | | | | |
+| `material.create` | ✓ | ✓ | ✓ | ✓ | | | | | | | |
+| `material.edit` | ✓ | ✓ | ✓ | ✓ | | | | | | | |
+| `material.delete` | ✓ | ✓ | ✓ | | | | | | | | |
+| `stock.record` | ✓ | ✓ | ✓ | ✓ | | | | | | | |
+| `stock.exception` | ✓ | ✓ | ✓ | ✓ | | | | | | | |
+| `machine.view` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | |
+| `machine.create` | ✓ | ✓ | ✓ | | | | | | | | |
+| `machine.update` | ✓ | ✓ | ✓ | | | | | | | | |
+| `machine.delete` | ✓ | ✓ | | | | | | | | | |
+| `job.view` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | |
+| `job.create` | ✓ | ✓ | ✓ | ✓ | | | | | | | |
+| `job.complete` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | |
+| `job.record_production` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | |
+| `offcut.view` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | |
+| `offcut.create` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | |
+| `scrap.view` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | |
+| `scrap.create` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | |
+| `request.view` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | |
+| `request.create` | — **Owner excluded** | ✓ | ✓ | — *excluded* | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | |
+| `request.issue` | — **Owner excluded** | ✓ | ✓ | ✓ | | | | | | | |
+| `request.acknowledge` | — **Owner excluded** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | |
+| `order.view` | ✓ | ✓ | ✓ | | | | | | | | ✓ |
+| `order.create` | ✓ | ✓ | ✓ | | | | | | | | ✓ |
+| `order.manage` | ✓ | ✓ | ✓ | | | | | | | | ✓ |
+| `reconciliation.record` | ✓ | ✓ | ✓ | ✓ | | | | | | | |
+| `reconciliation.review` | — **Manager excluded** | — | ✓ (admin) | | | | | | | | |
+| `reconciliation.operator` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | |
+| `reconciliation.clearance` | ✓ | ✓ | ✓ | | | | | | | | |
+| `team.view` | ✓ | ✓ | ✓ | | | | | | | | |
+| `team.manage` | ✓ | ✓ | | | | | | | | | |
+| `company_settings.update` | ✓ | — **Manager excluded** | ✓ | | | | | | | | |
+| `reports.view` | ✓ | ✓ | ✓ | ✓ | | | | | | | |
+| `audit.view` | ✓ | ✓ | ✓ | ✓ | | | | | | | |
 
 Differences from a naïve "everyone gets everything" map:
 
@@ -95,7 +96,7 @@ Differences from a naïve "everyone gets everything" map:
 - **Manager** is `[...ALL]` **minus** `{company_settings.update, reconciliation.review, reconciliation.clearance}`. ETB rate cards and final clearance decisions are Owner (or admin, the canonical back-office substitute).
 - **Admin** holds **every** permission. It is the operational back-office for the Owner; the audit trail (`clearedBy`, `reviewedBy`) records who actually pressed the buttons.
 - **Storekeeper** keeps the central store (`material.edit`, `stock.record`, `stock.exception`) but does not carry `reconciliation.review` — the Owner/manager is the reviewer of the store's counts.
-- The four **operator roles** share the `OPERATIONS` array (`authorization.ts:81`). They never write customer orders; they only drive machines and log their own production.
+- The six **operator roles** share the `OPERATIONS` array (`authorization.ts:81`). They never write customer orders; they only drive machines and log their own production.
 - **Receptionist** carries only the order-management bundle: `dashboard.view`, `order.view`, `order.create`, `order.manage`. They own the order lifecycle and copy customer-provided TIN and organization details from Telegram orders when needed.
 
 The frontend mirror (`src/lib/permissions.ts:100`) keeps the exact same map with one cosmetic difference: the frontend additionally offers `dashboard.view` to all operator roles — UI nicety for the operator workspace landing page.
@@ -284,7 +285,12 @@ Every server-side guard rejects the input rather than silently clamping — a re
 | **Admin** | Operate as a back-office Owner substitute across all surfaces; the only role besides Owner with `reconciliation.review` / `reconciliation.clearance` / `company_settings.update`. | Be the canonical financial audience for ETB monetary loss (`canViewFinancial` is Owner-only). |
 | **Storekeeper** | Receive stock; issue batch to operator; record central physical counts; record exception stock-outs; view materials. | Issue a customer-facing order; modify ETB rates; review or clear operator batches. |
 | **Receptionist** | Receive customer orders; copy customer-provided TIN and organization details; price and confirm payment; close orders. | Generate invoices or receipts; receive or issue raw stock; record production; review central reconciliations. |
-| **Laser / CNC / Plotter / Printer operator** | Record production on their machine; reconcile their floor stock; request new material (only when all their batches are `CLEARED` or `EXHAUSTED`); register offcuts and scrap. | Touch the central store; touch other operators' machines; create customer orders. |
+| **Crystal Jet Operator** | Record production on the Crystal Jet 7K Series; reconcile floor stock; request new material; register offcuts and scrap. | Touch the central store; touch other operators' machines; create customer orders. |
+| **Crystek Operator** | Record production on the Crystc Eco-Solvent; reconcile floor stock; request new material; register offcuts and scrap. | Touch the central store; touch other operators' machines; create customer orders. |
+| **Ricoh UV Operator** | Record production on the Ricoh Flatbed UV; reconcile floor stock; request new material; register offcuts and scrap. | Touch the central store; touch other operators' machines; create customer orders. |
+| **DTF Operator** | Record production on the DTF i3200; reconcile floor stock; request new material; register offcuts and scrap. | Touch the central store; touch other operators' machines; create customer orders. |
+| **Laser Operator** | Record production on the CO2 Laser; reconcile floor stock; request new material; register offcuts and scrap. | Touch the central store; touch other operators' machines; create customer orders. |
+| **CNC Operator** | Record production on the CNC Router; reconcile floor stock; request new material; register offcuts and scrap. | Touch the central store; touch other operators' machines; create customer orders. |
 
 ## 10. Hardening checklist for new surfaces
 

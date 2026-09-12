@@ -198,7 +198,7 @@ The two-tier invariant — *"the ledger is the source of truth, the projections 
 
 | Gate | Detail |
 | --- | --- |
-| Permission | `request.create`. Owned by the four operator roles, manager, admin, storekeeper. **Explicitly excluded from Owner** by `EXCLUDED_FROM_OWNER`. |
+| Permission | `request.create`. Owned by the six operator roles, manager, admin, storekeeper. **Explicitly excluded from Owner** by `EXCLUDED_FROM_OWNER`. |
 | Quantity | Strictly positive. |
 | Job-card link | The `jobCardId` must exist; the job's `materialId` and `unit` must match the request. |
 | **Active floor-stock check** | The handler queries `operatorSubStock` by `operatorId = identity._id`, filters `status ∈ {ACTIVE, PENDING_CLEARANCE}`. If any row matches, it throws the owner-gated message: *"Request Blocked: You have active or un-cleared floor material. Please reconcile your remaining stock and obtain Owner Clearance before requesting new stock."* |

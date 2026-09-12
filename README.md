@@ -57,10 +57,12 @@ Each authenticated role is automatically routed to its dedicated workspace landi
 | **Manager** | `/dashboard/manager` | Operations overview, production throughput, staff delegation, and exception approvals. |
 | **Storekeeper** | `/dashboard/storekeeper` | Central warehouse inventory, stock-in conversions, material request fulfillment, and reorder alerts. |
 | **Receptionist** | `/dashboard/receptionist` | Order review locking, pricing approval, advance payment / credit confirmation, and automated dispatch. |
+| **Crystek Operator** | `/dashboard/operator/crystek` | Eco-solvent print & cut sticker jobs (Frosted, Transparent, Reflective media), blade calibration, and log entries. |
+| **Crystal Jet Operator** | `/dashboard/operator/crystal_jet` | Large-format solvent banner and roll printing (Crystal Jet 7K Series), mesh printing, and production logging. |
+| **Ricoh UV Operator** | `/dashboard/operator/ricoh_uv` | UV flatbed printing on rigid sheets (Mica, Foam Board, Cladding, Canvas), and production logging. |
+| **DTF Operator** | `/dashboard/operator/dtf` | Direct-to-film textile printing (T-shirts), DTF roll production, and production logging. |
 | **Laser Operator** | `/dashboard/operator/laser` | CO2 laser cutting and engraving job queues (Mica, Foam Board), machine timers, and production logging. |
 | **CNC Operator** | `/dashboard/operator/cnc` | 3-axis CNC router job queues (Foam Board, Cladding, MDF), toolpath monitoring, and floor consumption. |
-| **Plotter Operator** | `/dashboard/operator/plotter` | Eco-solvent print & cut sticker jobs (Frosted, Transparent, Reflective media), blade calibration, and log entries. |
-| **Printer Operator** | `/dashboard/operator/printer` | Large-format solvent banner and roll printing (Crystal Jet), UV flatbed, and DTF textile runs. |
 
 ---
 
@@ -200,8 +202,7 @@ Detailed technical and operational references are maintained under [`docs/`](./d
 | [RBAC & Security Guide](./docs/rbac-security.md) | Role permissions matrix, Telegram HMAC validation, and ABAC policies. |
 | [Owner Oversight & Loss Prevention](./docs/owner-oversight.md) | Floor clearance, ETB leakage monitoring, and executive controls. |
 | [Owner Operational Configuration](./docs/owner-operational-configuration-plan.md) | Policy resolution, waste thresholds, and reorder alerts. |
-| [Feature Implementation Plan](./docs/plan/newFeature.md) | Customer Onboarding Wizard, Review Lock, and Production Mapping. |
-| [Role Dashboard UI/UX Plan](./docs/plan/dashboard-role-ui-ux-plan.md) | Multi-role workspace design, telemetry, and Amharic typography. |
+| [Database-First Migration Plan](./docs/plan/database-first-migration.md) | 9-phase plan to make all catalogs DB-managed with owner CRUD. |
 | [Master Seed Data Specification](./docs/yt-advertisement-seed-data.md) | Official 23 materials, 6 machine records, and business parameters. |
 | [Workspace Routing ADR](./docs/adr/0001-workspace-routing-architecture.md) | Architectural decision record for edge-intercepted role routing. |
 | [Design System Tokens](./DESIGN_SYSTEM.md) | Visual language, semantic colors, surface tokens, and UI primitives. |

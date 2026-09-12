@@ -18,7 +18,7 @@ As the ERP capabilities grow, organizing routes around workspaces rather than ra
    - Workspaces represent functional operational domains, not merely permission strings.
 
 2. **Route Hierarchy**:
-   - Operator routes remain permanently stable at `/dashboard/operator/[machine]` and `/dashboard/operator/[machine]/reconciliation` (for `laser`, `cnc`, `plotter`, and `printer`).
+   - Operator routes remain permanently stable at `/dashboard/operator/[machine]` and `/dashboard/operator/[machine]/reconciliation` (for `laser`, `cnc`, `crystek`, `crystal_jet`, `ricoh_uv`, and `dtf`).
    - Feature routes within workspaces are canonicalized under `/dashboard/[workspace]/...` (e.g., `/dashboard/owner/orders`, `/dashboard/storekeeper/inventory`, `/dashboard/manager/jobs`).
    - Global flat routes (`/orders`, `/inventory`, `/reconciliation`, `/reports`, `/settings`) and the legacy reception route (`/dashboard/reception`) will be preserved as backwards-compatible redirects. Owner, manager, and storekeeper roots are served directly by the dynamic workspace route because their URL is already canonical.
 

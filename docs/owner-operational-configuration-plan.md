@@ -1,5 +1,7 @@
 # Owner Operational Configuration: Implementation Plan
 
+> **Status:** Architectural plan. The owner machine config workspace with 5 tabs (machines, capabilities, ink rules, service definitions, machine routes) is already implemented. Full DB-first migration of all catalogs is planned in `docs/plan/database-first-migration.md`.
+
 ## Executive Summary
 
 The project already has a single `systemConfigs` record, an owner operational-configuration route, and a multi-tab configuration form. The recommended implementation is to evolve that foundation into an **Owner Control Center** rather than create a second settings system. The owner should manage operational policies from one page, while the backend remains the authoritative source for every value used by inventory, production, off-cut reuse, scrap review, order expiry, notifications, and reporting.

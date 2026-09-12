@@ -55,7 +55,7 @@
 The dashboard uses a canonical workspace routing model defined in `docs/adr/0001-workspace-routing-architecture.md`:
 
 - **Canonical routes**: `/dashboard/[workspace]/...` where `workspace` ∈ `{owner, manager, admin, storekeeper, receptionist, operator}`
-- **Operator routes**: Stable at `/dashboard/operator/[machine]` for `laser`, `cnc`, `plotter`, `printer`
+- **Operator routes**: Stable at `/dashboard/operator/[machine]` for `laser`, `cnc`, `crystek`, `crystal_jet`, `ricoh_uv`, `dtf`
 - **Legacy redirects**: Flat routes (`/orders`, `/inventory`, `/reports`, `/settings`, `/reconciliation`) and the legacy reception route redirect to canonical workspace routes; owner, manager, and storekeeper roots are served directly by the dynamic workspace route
 - **Authorization**: Route contracts in `src/lib/role-routing.ts` define allowed prefixes per workspace; proxy interception in `src/proxy.ts` enforces redirects
 
@@ -153,7 +153,7 @@ The schema is defined in `convex/schema.ts`; every table there is annotated with
 
 ### 5.3.1 Service routing & material recipes
 
-Automatic machine routing and material planning are driven by three tables (see `src/shared/services.ts` and `src/shared/machine-catalog.ts` for the frontend mirrors):
+Automatic machine routing and material planning are driven by three tables (see `src/shared/services.ts` and `src/shared/machine-catalog.ts` for the seed-time fallback mirrors; DB-managed tables are the planned runtime source per `docs/plan/database-first-migration.md`):
 
 | Table | Purpose | Key indices |
 | --- | --- | --- |

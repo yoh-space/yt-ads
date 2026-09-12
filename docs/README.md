@@ -12,7 +12,7 @@ This directory is the canonical technical and architectural reference for the **
 |---|---|---|
 | [`architecture.md`](./architecture.md) | High-level system architecture, Next.js App Router edge guard, unified event-sourced inventory ledger (`stockMovements`), relational database schemas (`convex/schema.ts`), and client-server synchronization. | Engineers, System Architects, Technical Reviewers |
 | [`workflows.md`](./workflows.md) | End-to-end operational workflows: customer order journey via Telegram Mini App, receptionist review lock, payment approval, automated dispatch, production logging, and customer notification pipelines. | Receptionists, Storekeepers, Product Managers |
-| [`rbac-security.md`](./rbac-security.md) | Complete role-permission matrix (Owner, Manager, Storekeeper, Receptionist, Laser, CNC, Plotter, Printer), attribute-based access controls (ABAC), Telegram HMAC-SHA256 signature verification, and session hardening. | Security Auditors, Backend Engineers |
+| [`rbac-security.md`](./rbac-security.md) | Complete role-permission matrix (Owner, Manager, Storekeeper, Receptionist, Laser, CNC, Crystek, Crystal Jet, Ricoh UV, DTF), attribute-based access controls (ABAC), Telegram HMAC-SHA256 signature verification, and session hardening. | Security Auditors, Backend Engineers |
 | [`owner-oversight.md`](./owner-oversight.md) | Executive auditing surfaces: ETB-denominated loss-prevention tracking, operator floor audit, floor batch clearance workflows, and owner operational boundaries. | Managing Director, Operations Auditors |
 
 ### Operational Specifications & Data Contracts
@@ -27,16 +27,16 @@ This directory is the canonical technical and architectural reference for the **
 
 | Document | Purpose | Status |
 |---|---|---|
-| [`plan/newFeature.md`](./plan/newFeature.md) | Customer Onboarding Wizard, Order Edit Lifecycle, Review Lock Boundary, and Automated Production Allocation Engine. | Phases 0–3 Complete, Phases 4–9 Planned |
-| [`plan/dashboard-role-ui-ux-plan.md`](./plan/dashboard-role-ui-ux-plan.md) | Dashboard role workspace modernization, Amharic typography, telemetry widgets, and operator workspace ergonomics. | Implemented |
+| [`plan/database-first-migration.md`](./plan/database-first-migration.md) | 9-phase plan to migrate all static catalogs (services, materials, machines, roles, capabilities, routing, permissions) to DB-managed tables with owner CRUD. | Active |
 | [`owner-operational-configuration-plan.md`](./owner-operational-configuration-plan.md) | Centralized Owner Control Center for system policy management, waste tolerances, reorder thresholds, and audit trails. | Architectural Plan |
 
 ### Root References
 
 | Document | Purpose |
 |---|---|
-| [`../README.md`](../README.md) | Master repository README, quick-start guide, tech stack overview, and development verification commands. |
+| [`../README.md`](../README.md) | Master repository README, system architecture, role workspace matrix, and development verification commands. |
 | [`../AGENTS.md`](../AGENTS.md) | Single-page developer and agent orientation: Convex conventions, deployment safeguards, test, lint, and build checks. |
+| [`../CLAUDE.md`](../CLAUDE.md) | AI assistant guidance: active architecture, development checks, Convex conventions, and cleanup rules. |
 | [`../DESIGN_SYSTEM.md`](../DESIGN_SYSTEM.md) | Visual design tokens, semantic CSS variables, surface hierarchy, and UI primitive conventions. |
 | [`../convex/README.md`](../convex/README.md) | Convex deployment configuration, database collections, transactional accounting rules, and seed mutations. |
 

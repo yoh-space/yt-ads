@@ -24,18 +24,16 @@ The separate `seedYitbarekOwner` mutation creates or promotes the real confirmed
 
 ## Machines
 
-The seed includes the following eight production machines. The manufacturer `Crystal` is set for the four machines explicitly confirmed by the owner: DTF, Print and Cut, Laser Cutter 1325, and UV Flatbed.
+The seed includes the following six confirmed production machines. The manufacturer `Crystal` is set for the Crystal Jet, Crystc Eco-Solvent, Ricoh Flatbed UV, and DTF machines.
 
 | Machine | Seed code | Manufacturer | Model | Capability | Base/display unit | Operator role |
 |---|---|---|---|---|---|---|
-| Large Format Banner Printer | `BAN-01` | Not supplied | `3.2m Eco-Solvent / Solvent Printer` | `3.2m Print Width` | `m²` | `printer_operator` |
-| DTF Printer | `DTF-01` | Crystal | `60cm Roll-to-Roll DTF` | `0.60m Print Width` | `m` | `printer_operator` |
-| Print & Cut Eco-Solvent Plotter | `PAC-01` | Crystal | `1.6m Print & Cut Plotter` | `1.6m Width` | `m²` | `plotter_operator` |
+| Crystal Jet 7K Series | `CJ7K-01` | Crystal | `3.2m Eco-Solvent / Solvent Printer` | `3.2m Print Width` | `m²` | `crystal_jet_operator` |
+| Crystc Eco-Solvent Printer | `CESP-01` | Crystal | `1.6m Print & Cut Plotter` | `1.6m Print Width` | `m²` | `crystek_operator` |
+| Ricoh Flatbed UV Machine | `RUV-01` | Crystal | `Industrial UV Flatbed` | `Direct-to-Rigid Board` | `m²` | `ricoh_uv_operator` |
+| DTF i3200 | `DTF-01` | Crystal | `60cm Roll-to-Roll DTF` | `0.60m DTF Film Printing` | `m` | `dtf_operator` |
+| Laser Cutter 1325 | `LAS-01` | Not supplied | `1300mm x 2500mm CO2 Laser` | `1.22m x 2.44m Standard Board` | `m²` | `laser_operator` |
 | CNC Router 2030 | `CNC-01` | Not supplied | `2000mm x 3000mm Heavy Duty` | `2.0m x 3.0m Bed Size` | `m²` | `cnc_operator` |
-| Laser Cutter 1325 | `LAS-01` | Crystal | `1300mm x 2500mm CO2 Laser` | `1.22m x 2.44m Standard Board` | `m²` | `laser_operator` |
-| Pneumatic / Manual Heat Press | `HPR-01` | Not supplied | `Flatbed Heat Press` | `40cm x 60cm Platen` | `pcs` | `printer_operator` |
-| Paper Guillotine Cutter (Conca) | `CON-01` | Not supplied | `Heavy Duty Paper Cutter` | `A3+ Cutting Width` | `pcs` | `printer_operator` |
-| UV Flatbed Printer | `UVF-01` | Crystal | `Industrial UV Flatbed` | `Direct-to-Rigid Board` | `m²` | `printer_operator` |
 
 The seed initializes all machines as `Available` and active because no historical operating or maintenance status was supplied. The codes are provisional application identifiers, not manufacturer serial numbers. Exact serial numbers, maintenance data, and final staff assignments remain onboarding tasks.
 
@@ -110,9 +108,9 @@ The seed stores staff as business-context records. It does not automatically cre
 | Yitbarek | Owner | `owner` context; linked to the real owner account after bootstrap |
 | Yordanos | Manager / management | `manager` application-role context |
 | Zewuditu | Storekeeper | `storekeeper` application-role context |
-| Debas Melaku | Print and Cut operator | `plotter_operator` application-role context |
-| Surafel | UV Flatbed operator | `printer_operator` application-role context |
-| Samuel Gete | Banner machine operator | `printer_operator` application-role context |
+| Debas Melaku | Print and Cut operator | `crystek_operator` application-role context |
+| Surafel | UV Flatbed operator | `ricoh_uv_operator` application-role context |
+| Samuel Gete | Banner machine operator | `crystal_jet_operator` application-role context |
 | Addisu | CNC and Laser operator | Both `cnc_operator` and `laser_operator` application-role context |
 | Niguse, abriham, haymanot, Yohannes | Relief coordination/staff | Business context only; final application role pending |
 | Emebet | Direct sales / customer services | Business context only; dedicated customer-service role pending |

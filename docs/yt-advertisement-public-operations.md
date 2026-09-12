@@ -2,7 +2,7 @@
 
 ## Public client portal
 
-The public home route is `/`. It presents YT Advertisement capabilities for large-format printing, UV flatbed work, CNC routing, laser cutting, DTF printing, and plotter/vinyl production. It uses the seeded company contact card, including Jemo Kafdem Building, Addis Ababa and the current company phone number.
+The public home route is `/`. It presents YT Advertisement capabilities for large-format printing, UV flatbed work, CNC routing, laser cutting, DTF printing, and eco-solvent print & cut production. It uses the seeded company contact card, including Jemo Kafdem Building, Addis Ababa and the current company phone number.
 
 The project request form captures the client or company name, phone number, service type, dimensions/specification, quantity, preferred due date, notes, and an optional artwork/reference file. Files are uploaded to Convex storage and only the storage identifier and filename are stored with the order. Public submission creates a `customerOrders` record in `Received` status and notifies active owner, manager, and general-manager profiles through the existing notification inbox.
 

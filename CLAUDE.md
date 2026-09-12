@@ -9,7 +9,7 @@ This project uses **Next.js App Router**, **Convex**, and **Better Auth**.
 - `src/components/ui/` contains domain-neutral UI primitives and `src/components/public/` the order tracker and Telegram Mini App.
 - `convex/` contains the schema, queries, mutations, authentication helpers, seed mutation, and shared backend validation.
 - `src/lib/` contains shared frontend types, authentication clients, role routing, and pure conversion helpers.
-- `src/shared/` contains the service catalog, material specifications, and machine catalog.
+- `src/shared/` contains the service catalog, material specifications, and machine catalog (seed-time fallbacks; DB-managed tables are the planned runtime source per `docs/plan/database-first-migration.md`).
 - `src/proxy.ts` is the Next.js 16 edge request interceptor that enforces role-gated routing.
 - `pages/` is not an active routing directory for this App Router project.
 

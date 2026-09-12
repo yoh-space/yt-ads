@@ -2,6 +2,8 @@
 
 The application uses Convex for the database, reactive queries, and authenticated mutations. Better Auth is mounted through the Convex component and exposed to Next.js through `src/app/api/auth/[...all]/route.ts`.
 
+> **Database-first migration:** All static catalogs (services, materials, machines, roles, capabilities, routing, permissions) are being migrated to DB-managed tables with owner CRUD. See `docs/plan/database-first-migration.md` for the 9-phase plan.
+
 ## Required deployment configuration
 
 Create or connect a Convex deployment and provide these values:
@@ -63,7 +65,7 @@ In one transaction the mutation persists the breakdown on the job card (`grossDe
 `convex/seed.ts` provides separate demo, workspace, migration, and owner-bootstrap paths:
 
 - `seed` inserts the original demo materials, machines, job cards, and offcuts for a controlled demonstration.
-- `seedYtAdvertisementWorkspace` inserts the captured YT Advertisement master data: company settings, eight machine records, 26 materials, and 12 staff responsibility records. The four confirmed Crystal machine records are Print and Cut, DTF, Laser Cutter 1325, and UV Flat bed. It intentionally creates no jobs, production logs, stock movements, material requests, scrap, or offcuts because no real historical activity was provided.
+- `seedYtAdvertisementWorkspace` inserts the captured YT Advertisement master data: company settings, six production machine records, 26 materials, and 12 staff responsibility records. The six confirmed machines are Crystal Jet 7K Series, Crystc Eco-Solvent, Ricoh Flatbed UV, DTF i3200, Laser Cutter 1325, and CNC Router 2030. It intentionally creates no jobs, production logs, stock movements, material requests, scrap, or offcuts because no real historical activity was provided.
 - `migrateYtAdvertisementMasterData` safely applies the revised machine capabilities and purchase/base-unit conversion metadata to an existing seeded workspace without deleting operational records or changing current quantities and reorder balances. Machines match by code and materials match by name; missing records are added with zero balances.
 - `seedYitbarekOwner` creates or promotes the confirmed real owner account at the approved email, using a password supplied only at invocation time. The password is not stored in source, returned, or written to the application profile. Run it only in the intended local development deployment, then change the temporary password from Account settings.
 
@@ -71,15 +73,15 @@ The requirement-based seed is idempotent by company key and refuses to mix with 
 
 ## Owner, profile, and notifications
 
-The application roles now include `owner` and `manager` in addition to the existing operational roles. The owner can manage all operations, assign or revoke roles, deactivate profiles, and update company branding. Owner, manager, and legacy admin accounts can manage team access; managers cannot assign or modify the owner role. Every authenticated user can update their own name and profile image URL, change their password, and start Google account linking from Account settings.
+The application roles now include `owner` and `manager` in addition to the existing operational roles. The owner can manage all operations, assign or revoke roles, deactivate profiles, and update company branding. Owner, manager, and legacy admin accounts can manage team access; managers cannot assign or modify the owner role. Every authenticated user can update their own name and profile image URL, change their password, and start Google account linking from Account settings. The six confirmed operator roles are `crystal_jet_operator`, `crystek_operator`, `ricoh_uv_operator`, `dtf_operator`, `laser_operator`, and `cnc_operator`.
 
 Notifications are persisted per recipient and delivered reactively through Convex subscriptions. The initial targeted events cover material requests, material issues and partial/short-stock issues, received confirmations, low stock, job updates, machine updates, and account role/access updates. The header badge counts unread items; the modal lists newest first and supports marking one item or all items as read.
 
 To enable Google sign-in and account linking, set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in the Convex deployment environment and configure the OAuth callback URL for the Better Auth site URL. The repository only contains the variable names in `.env.example`, never the credential values.
 
-For the current master-data conversion rules, `purchaseUnit` is one of `roll`, `sheet`, `pack`, `liter`, or `piece`; `baseUnit` is one of `m²`, `m`, `L`, or `pcs`; and `conversionRatio` converts purchase quantity into base quantity. PVC Film remains intentionally unconfigured until its physical roll dimensions are confirmed.
+For the current master-data conversion rules, `purchaseUnit` is one of `roll`, `sheet`, `pack`, `liter`, or `piece`; `baseUnit` is one of `m²`, `m`, `L`, or `pcs`; and `conversionRatio` converts purchase quantity into base quantity.
 
-Material records also carry a canonical `specification`, optional `specificationValue`, and the strict `specificationOptions` list used by the creation form and Convex validation. The supported families are: Neon Light color type; Banner roll weight and size; Foam thickness/size in millimeters; Mica Sheet color/finish; Acrylic thickness in millimeters; Canvas roll width/type; Machine Ink type and color configuration; Power Supply wattage; LED Module / Strip color type; and Zocolo height in centimeters. The source of truth is `src/shared/material-specifications.ts`, which also preserves aliases such as `LED`, `Mica`, `Canvas`, and `ZOCOLO` for non-destructive migration.
+Material records also carry a canonical `specification`, optional `specificationValue`, and the strict `specificationOptions` list used by the creation form and Convex validation. The supported families are: Neon Light color type; Banner roll weight and size; Foam thickness/size in millimeters; Mica Sheet color/finish; Acrylic thickness in millimeters; Canvas roll width/type; Machine Ink type and color configuration; Power Supply wattage; LED Module / Strip color type; and Zocolo height in centimeters. The source of truth is `src/shared/material-specifications.ts` (seed-time fallback; DB-managed `materialCatalog` table is the planned runtime source per `docs/plan/database-first-migration.md`).
 
 ## Verification
 
