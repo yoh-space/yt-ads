@@ -121,7 +121,7 @@ export function MaterialRequestModal({
 
   const [lines, setLines] = useState<RequestLineItem[]>(() =>
     defaultMaterial
-      ? [{ materialId: defaultMaterial.id, packages: "1", specOption: "", specOption: getInitialSpecOption(defaultMaterial.id) }]
+      ? [{ materialId: defaultMaterial.id, packages: "1", specOption: getInitialSpecOption(defaultMaterial.id) }]
       : [],
   );
   const [note, setNote] = useState("");
