@@ -1,5 +1,4 @@
 import type { LucideIcon } from "lucide-react";
-import { Boxes, Cable, FlaskConical, Package, PanelsTopLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type RawMaterialCategoryId = "roll" | "sheets" | "canisters" | "packages" | "coil";
@@ -121,70 +120,7 @@ export function InventoryCategoryCard({
   );
 }
 
-export const rawMaterialCategories: RawMaterialCategory[] = [
-  {
-    id: "roll",
-    label: "Roll",
-    description: "Roll materials",
-    icon: PanelsTopLeft,
-    total: 14,
-    totalUnit: "rolls",
-    tone: "cyan",
-    items: [
-      { name: "Banner", quantity: 4, unit: "" },
-      { name: "Sticker", quantity: 8, unit: "" },
-      { name: "Canvas", quantity: 2, unit: "" },
-    ],
-  },
-  {
-    id: "sheets",
-    label: "Sheets",
-    description: "Boards and sheets",
-    icon: Boxes,
-    total: 25,
-    totalUnit: "sheets",
-    tone: "gold",
-    items: [
-      { name: "Foam", quantity: 15, unit: "" },
-      { name: "Mica", quantity: 10, unit: "" },
-    ],
-  },
-  {
-    id: "canisters",
-    label: "Canisters",
-    description: "Ink and solvents",
-    icon: FlaskConical,
-    total: 18,
-    totalUnit: "canisters",
-    tone: "violet",
-    items: [
-      { name: "INKS", quantity: 12, unit: "" },
-      { name: "Solvents", quantity: 6, unit: "" },
-    ],
-  },
-  {
-    id: "packages",
-    label: "Packages / Pieces",
-    description: "Hardware and parts",
-    icon: Package,
-    total: 150,
-    totalUnit: "pcs",
-    tone: "blue",
-    items: [{ name: "LED Lights", quantity: 150, unit: " pcs" }],
-  },
-  {
-    id: "coil",
-    label: "Coil / Meter",
-    description: "Wire and cable",
-    icon: Cable,
-    total: 80,
-    totalUnit: "m",
-    tone: "green",
-    items: [{ name: "Electric Wire", quantity: 80, unit: "m" }],
-  },
-];
-
-export function RawMaterialStatusGrid({ categories = rawMaterialCategories }: { categories?: RawMaterialCategory[] }) {
+export function RawMaterialStatusGrid({ categories }: { categories: RawMaterialCategory[] }) {
   return (
     <section aria-labelledby="raw-material-status-title" className="space-y-3">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">

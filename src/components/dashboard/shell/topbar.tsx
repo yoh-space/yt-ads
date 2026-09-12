@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
-import { Bell, Menu, PanelLeftClose, PanelLeftOpen, Search } from "lucide-react";
+import { Bell, Menu, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { getNavItemHref, navItems } from "./nav-config";
@@ -91,17 +91,6 @@ export function Topbar({
         <div className="flex items-center gap-5">
           <div className="hidden md:flex items-center gap-2">
             <SoundControl />
-          </div>
-
-          <div className="w-[245px] h-[34px] flex items-center gap-[7px] px-[7px_7px_7px_10px] border border-line rounded-lg text-gray-500">
-            <Search size={17} />
-            <input 
-              className="flex-1 min-w-0 border-0 outline-0 bg-transparent text-[11px] text-ink placeholder:text-gray-400"
-              placeholder="Search material, job card..." 
-            />
-            <kbd className="font-mono text-[9px] px-1 py-[3px] bg-gray-100 rounded-[3px] text-gray-400">
-              ⌘ K
-            </kbd>
           </div>
           
           <button 

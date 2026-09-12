@@ -61,6 +61,7 @@ import type * as owner_audit from "../owner/audit.js";
 import type * as owner_common from "../owner/common.js";
 import type * as owner_inventory from "../owner/inventory.js";
 import type * as owner_machineInkRules from "../owner/machineInkRules.js";
+import type * as owner_machineMaterialLinks from "../owner/machineMaterialLinks.js";
 import type * as owner_machineServiceRoutes from "../owner/machineServiceRoutes.js";
 import type * as owner_machines from "../owner/machines.js";
 import type * as owner_materials from "../owner/materials.js";
@@ -154,6 +155,7 @@ declare const fullApi: ApiFromModules<{
   "owner/common": typeof owner_common;
   "owner/inventory": typeof owner_inventory;
   "owner/machineInkRules": typeof owner_machineInkRules;
+  "owner/machineMaterialLinks": typeof owner_machineMaterialLinks;
   "owner/machineServiceRoutes": typeof owner_machineServiceRoutes;
   "owner/machines": typeof owner_machines;
   "owner/materials": typeof owner_materials;

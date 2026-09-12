@@ -1,7 +1,6 @@
 "use client";
 
 import { WorkspacePageHeader } from "@/components/dashboard/shell/workspace-page-header";
-import { RawMaterialStatusGrid } from "@/components/dashboard/widgets/raw-material-status-cards";
 import { ManagerDirectStockOut } from "@/components/dashboard/widgets/manager-direct-stock-out";
 
 export default function ManagerInventoryPage() {
@@ -12,7 +11,9 @@ export default function ManagerInventoryPage() {
         title="Materials"
         subtitle="See the main store material levels at a glance."
       />
-      <RawMaterialStatusGrid />
+      <div className="rounded-xl border border-border/60 bg-card p-6 text-center text-[12px] text-muted-foreground">
+        Material status cards require live inventory data integration. Use the Owner Inventory dashboard for full material visibility.
+      </div>
       <ManagerDirectStockOut />
     </div>
   );
