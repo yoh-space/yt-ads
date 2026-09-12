@@ -347,6 +347,8 @@ export default defineSchema({
   materials: defineTable({
     name: v.string(),
     category: v.string(),
+    machineType: v.optional(v.string()),
+    sqmPerUnit: v.optional(v.number()),
     catalogFamily: v.optional(materialCatalogFamily),
     catalogVariant: v.optional(v.string()),
     catalogDimensions: v.optional(v.string()),

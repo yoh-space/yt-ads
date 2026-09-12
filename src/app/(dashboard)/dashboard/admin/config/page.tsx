@@ -8,6 +8,7 @@ import { Panel, PanelHeader } from "@/components/shared/ui/panel";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/shared/ui/table";
 import { InventoryLoader } from "@/components/dashboard/widgets/inventory-loader";
 import { PackageOpen, AlertTriangle, Layers } from "lucide-react";
+import { DevReseedControl } from "@/components/dashboard/roles/admin/dev-reseed-control";
 
 export default function AdminOperationalConfigurationPage() {
   const summary = useQuery(api.admin.materials.getMaterialsSummary);
@@ -29,6 +30,8 @@ export default function AdminOperationalConfigurationPage() {
         title="Operational Configuration"
         subtitle="Material catalog and reorder settings."
       />
+
+      <DevReseedControl />
 
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard

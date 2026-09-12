@@ -7,6 +7,7 @@ import { Panel, PanelHeader } from "@/components/shared/ui/panel";
 import { SectionLabel } from "@/components/shared/ui/typography";
 import { InventoryLoader } from "@/components/dashboard/widgets/inventory-loader";
 import { Settings, Building2, UserRound, CalendarClock } from "lucide-react";
+import { DevReseedControl } from "@/components/dashboard/roles/admin/dev-reseed-control";
 
 function InformationalRow({ label, value }: { label: string; value: string }) {
   return (
@@ -36,6 +37,8 @@ export default function AdminSettingsPage() {
         title="Settings"
         subtitle="Company and profile information for this workspace."
       />
+
+      <DevReseedControl />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel>

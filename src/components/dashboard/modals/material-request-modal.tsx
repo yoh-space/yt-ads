@@ -104,10 +104,25 @@ export function MaterialRequestModal({
     return materials;
   }, [eligibility, materials, selectedJob]);
 
+  type RequestLineItem = {
+    materialId: string;
+    packages: string;
+    specOption?: string;
+  };
+
+  const getInitialSpecOption = (matId: string) => {
+    const mat = materialOptions.find((m) => m.id === matId) ?? materials.find((m) => m.id === matId);
+    if (!mat) return undefined;
+    const spec = findMaterialSpecification(mat.name);
+    return spec?.specificationOptions?.[0];
+  };
+
   const defaultMaterial = materialOptions[0] ?? materials[0];
 
-  const [lines, setLines] = useState(() =>
-    defaultMaterial ? [{ materialId: defaultMaterial.id, packages: "1" }] : [],
+  const [lines, setLines] = useState<RequestLineItem[]>(() =>
+    defaultMaterial
+      ? [{ materialId: defaultMaterial.id, packages: "1", specOption: getInitialSpecOption(defaultMaterial.id) }]
+      : [],
   );
   const [note, setNote] = useState("");
 
@@ -312,12 +327,13 @@ export function MaterialRequestModal({
                 </span>
                 <button
                   type="button"
-                  onClick={() =>
+                  onClick={() => {
+                    const firstMatId = materialOptions[0]?.id ?? materials[0]?.id ?? "";
                     setLines((current) => [
                       ...current,
-                      { materialId: materialOptions[0]?.id ?? "", packages: "1" },
-                    ])
-                  }
+                      { materialId: firstMatId, packages: "1", specOption: getInitialSpecOption(firstMatId) },
+                    ]);
+                  }}
                   className="inline-flex items-center gap-1 rounded-md border border-cyan/30 px-2 py-1 text-xs font-semibold text-cyan"
                 >
                   <Plus size={13} /> Add material
@@ -326,6 +342,8 @@ export function MaterialRequestModal({
 
               {lines.map((line, index) => {
                 const material = lineFor(line.materialId);
+                const specDef = material ? findMaterialSpecification(material.name) : undefined;
+                const specOptions = specDef?.specificationOptions ?? [];
                 const ratio =
                   material?.conversionRatio && material.conversionRatio > 0 ? material.conversionRatio : 1;
                 const packageUnit = packageUnitFor(material);
@@ -336,13 +354,16 @@ export function MaterialRequestModal({
                   >
                     <select
                       value={line.materialId}
-                      onChange={(event) =>
+                      onChange={(event) => {
+                        const newMatId = event.target.value;
                         setLines((current) =>
                           current.map((item, itemIndex) =>
-                            itemIndex === index ? { ...item, materialId: event.target.value } : item,
+                            itemIndex === index
+                              ? { ...item, materialId: newMatId, specOption: getInitialSpecOption(newMatId) }
+                              : item,
                           ),
-                        )
-                      }
+                        );
+                      }}
                       className="h-10 rounded-md border border-border bg-background px-2 text-sm text-foreground"
                     >
                       {materialOptions.map((option) => (
@@ -389,6 +410,32 @@ export function MaterialRequestModal({
                       <Trash2 size={16} />
                     </button>
 
+                    {!specOptions.some((opt) => material?.name.toLowerCase().includes(opt.toLowerCase())) && specOptions.length > 1 ? (
+                      <div className="col-span-full flex flex-col gap-1 rounded-md border border-cyan-500/20 bg-cyan-950/20 p-2 text-xs">
+                        <label className="flex items-center gap-1.5 font-semibold text-cyan-300">
+                          <Ruler size={13} className="text-cyan-400" />
+                          {specDef?.specification ?? "Width / Specification"}
+                        </label>
+                        <select
+                          value={line.specOption || specOptions[0]}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setLines((current) =>
+                              current.map((item, itemIndex) =>
+                                itemIndex === index ? { ...item, specOption: val } : item,
+                              ),
+                            );
+                          }}
+                          className="h-9 w-full rounded border border-cyan-500/30 bg-background px-2.5 text-xs text-foreground font-medium outline-none focus:border-cyan"
+                        >
+                          {specOptions.map((opt) => (
+                            <option key={opt} value={opt}>
+                              {opt}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : null}
                     <p className="col-span-full m-0 text-xs text-muted-foreground">
                       <Ruler size={12} className="mr-1 inline text-cyan" /> 1 {packageUnit} = {ratio}{" "}
                       {material?.baseUnit ?? material?.unit ?? "m²"} · approximately{" "}
