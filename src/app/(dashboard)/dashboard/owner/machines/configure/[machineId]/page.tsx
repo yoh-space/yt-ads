@@ -37,6 +37,22 @@ export default function MachineConfigurePage() {
     return () => document.removeEventListener("keydown", handler);
   }, [drawer, closeDrawer]);
 
+  const materialMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const mat of materials ?? []) m.set(mat._id, mat.name);
+    return m;
+  }, [materials]);
+  const capMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of capabilities ?? []) m.set(c._id, c.name);
+    return m;
+  }, [capabilities]);
+  const serviceDefMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const s of serviceDefinitions ?? []) m.set(s._id, s.nameEn);
+    return m;
+  }, [serviceDefinitions]);
+
   if (machine === undefined || inkRules === undefined || serviceRoutes === undefined || materialLinks === undefined || capabilities === undefined || materials === undefined || serviceDefinitions === undefined) {
     return (
       <div className="flex h-[70vh] items-center justify-center">
@@ -62,23 +78,6 @@ export default function MachineConfigurePage() {
   const routeCount = serviceRoutes.filter((r) => r.active).length;
   const activeRoutes = serviceRoutes.filter((r) => r.active && r.customerVisible).length;
   const linkCount = materialLinks.filter((l) => l.active).length;
-
-  // Build lookup maps once for all tabs
-  const materialMap = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const mat of materials) m.set(mat._id, mat.name);
-    return m;
-  }, [materials]);
-  const capMap = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const c of capabilities) m.set(c._id, c.name);
-    return m;
-  }, [capabilities]);
-  const serviceDefMap = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const s of serviceDefinitions) m.set(s._id, s.nameEn);
-    return m;
-  }, [serviceDefinitions]);
 
   return (
     <div className="space-y-6">
