@@ -3,12 +3,20 @@ import { resolveInkRequirements } from "../bomResolver";
 import type { QueryCtx } from "../_generated/server";
 
 describe("Phase 5: Ink & Solvent Resolution & Validation", () => {
-  function createMockQueryCtx(materials: Array<any> = []) {
+  function createMockQueryCtx(materials: Array<any> = [], inkRules: Array<any> = []) {
     return {
       db: {
         query: (table: string) => ({
+          withIndex: (_indexName: string, _fn: any) => ({
+            collect: async () => {
+              if (table === "materials") return materials;
+              if (table === "machineInkConsumptionRules") return inkRules;
+              return [];
+            },
+          }),
           collect: async () => {
             if (table === "materials") return materials;
+            if (table === "machineInkConsumptionRules") return inkRules;
             return [];
           },
         }),
@@ -43,10 +51,12 @@ describe("Phase 5: Ink & Solvent Resolution & Validation", () => {
     // 10 m² * 3.5 ml/m² = 35 ml = 0.035 L
     expect(cyan?.requiredMl).toBe(35);
     expect(cyan?.requiredLitres).toBe(0.035);
+    expect(cyan?.source).toBe("machine_config");
 
     const black = reqs.find((r) => r.inkColor === "Black");
     expect(black?.requiredMl).toBe(40);
     expect(black?.requiredLitres).toBe(0.04);
+    expect(black?.source).toBe("machine_config");
   });
 
   it("excludes solvents from ink resolution", async () => {
@@ -66,6 +76,7 @@ describe("Phase 5: Ink & Solvent Resolution & Validation", () => {
     expect(reqs).toHaveLength(1);
     expect(reqs[0].materialName).toBe("Eco-Solvent Ink");
     expect(reqs[0].requiredMl).toBe(120);
+    expect(reqs[0].source).toBe("system_default");
   });
 
   it("returns empty requirements for non-printing machines", async () => {

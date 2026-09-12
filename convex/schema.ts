@@ -232,6 +232,14 @@ export const productionType = v.union(
   v.literal("unit"),
 );
 
+/** Ink consumption measurement unit for machine-specific rules. */
+export const inkConsumptionUnit = v.union(
+  v.literal("ml_per_sqm"),
+  v.literal("ml_per_linear_m"),
+  v.literal("ml_per_piece"),
+  v.literal("fixed_per_job"),
+);
+
 export const reconciliationStatus = v.union(
   v.literal("Open"),
   v.literal("Reviewed"),
@@ -519,6 +527,73 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_machine", ["machineId"])
     .index("by_role", ["operatorRoleId"]),
+
+  /** Owner-managed machine-specific ink consumption rules. */
+  machineInkConsumptionRules: defineTable({
+    machineId: v.id("machines"),
+    materialId: v.id("materials"),
+    inkColor: v.string(),
+    consumptionUnit: inkConsumptionUnit,
+    rate: v.number(),
+    wasteAllowancePercent: v.optional(v.number()),
+    isDefault: v.boolean(),
+    active: v.boolean(),
+    effectiveFrom: v.optional(v.number()),
+    effectiveTo: v.optional(v.number()),
+    notes: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    createdBy: v.string(),
+    updatedBy: v.string(),
+  })
+    .index("by_machine", ["machineId"])
+    .index("by_material", ["materialId"])
+    .index("by_machine_material_color", ["machineId", "materialId", "inkColor"]),
+
+  /** Database-backed service definitions for owner-managed catalog. */
+  serviceDefinitions: defineTable({
+    serviceKey: v.string(),
+    categoryKey: v.string(),
+    nameEn: v.string(),
+    nameAm: v.string(),
+    shortDescriptionEn: v.optional(v.string()),
+    shortDescriptionAm: v.optional(v.string()),
+    iconKey: v.optional(v.string()),
+    sortOrder: v.number(),
+    active: v.boolean(),
+    publishable: v.boolean(),
+    requiresQuote: v.boolean(),
+    specificationSchema: v.optional(v.any()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    createdBy: v.string(),
+    updatedBy: v.string(),
+  })
+    .index("by_service_key", ["serviceKey"])
+    .index("by_active_publishable", ["active", "publishable"]),
+
+  /** Machine-to-service production routes. */
+  machineServiceRoutes: defineTable({
+    machineId: v.id("machines"),
+    serviceId: v.id("serviceDefinitions"),
+    capabilityId: v.id("capabilities"),
+    priority: v.number(),
+    active: v.boolean(),
+    requiresManualReview: v.boolean(),
+    calculationUnit: v.string(),
+    defaultWasteMarginPercent: v.optional(v.number()),
+    maxScrapLimitPercent: v.optional(v.number()),
+    customerVisible: v.boolean(),
+    effectiveFrom: v.optional(v.number()),
+    effectiveTo: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    createdBy: v.string(),
+    updatedBy: v.string(),
+  })
+    .index("by_machine", ["machineId"])
+    .index("by_service", ["serviceId"])
+    .index("by_active_service", ["active", "serviceId"]),
 
   materialRequests: defineTable({
     jobCardId: v.id("jobCards"),
@@ -1040,6 +1115,7 @@ export default defineSchema({
   serviceBOM: defineTable({
     serviceType,
     materialId: v.id("materials"),
+    machineServiceRouteId: v.optional(v.id("machineServiceRoutes")),
     /** How this material is consumed: area_rate (m²), linear_rate (m), quantity_rate (pcs), or fixed. */
     consumptionMode: v.union(
       v.literal("area_rate"),
@@ -1061,7 +1137,8 @@ export default defineSchema({
   })
     .index("by_service", ["serviceType"])
     .index("by_material", ["materialId"])
-    .index("by_active_service", ["active", "serviceType"]),
+    .index("by_active_service", ["active", "serviceType"])
+    .index("by_route", ["machineServiceRouteId"]),
 
   /**
    * Material-type routing catalog consumed by the job-card auto-router. Each

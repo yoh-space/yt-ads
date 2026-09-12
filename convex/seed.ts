@@ -14,6 +14,7 @@ import { recordInventoryEvent } from "./inventoryLedger";
 import { classifyMaterialProductionType, effectiveConsumptionRate, resolveEtbValue } from "./materialUsage";
 import { assertServiceIdsMatchSchema } from "./services";
 import { MATERIAL_TYPE_CATALOG } from "./orderAutomation";
+import { CANONICAL_SERVICE_ROUTES, CANONICAL_MACHINES, CAPABILITY_REGISTRY } from "../src/shared/production-manifest";
 
 /**
  * Full field set for a seeded material, matching what the production
@@ -2322,6 +2323,244 @@ export const seedDemoLifecycle = mutation({
         jobs: jobs.length,
       },
       log,
+    };
+  },
+});
+
+/**
+ * Service definitions seed data. Maps canonical service IDs to
+ * display labels, categories, and sort order.
+ */
+const SERVICE_DEFINITIONS_SEED = [
+  { serviceKey: "banner_print", categoryKey: "LARGE_FORMAT_PRINTING", nameEn: "Banner Print", nameAm: "ባነር ህትመት", sortOrder: 1 },
+  { serviceKey: "sticker_white", categoryKey: "LARGE_FORMAT_PRINTING", nameEn: "White Sticker", nameAm: "ነጭ ስቲከር", sortOrder: 2 },
+  { serviceKey: "sticker_transparent", categoryKey: "LARGE_FORMAT_PRINTING", nameEn: "Transparent Sticker", nameAm: "ትርንስፓሬንት ስቲከር", sortOrder: 3 },
+  { serviceKey: "sticker_reflective", categoryKey: "LARGE_FORMAT_PRINTING", nameEn: "Reflective Sticker", nameAm: "አንጸባራቂ ስቲከር", sortOrder: 4 },
+  { serviceKey: "sticker_mesh", categoryKey: "LARGE_FORMAT_PRINTING", nameEn: "Mesh Sticker", nameAm: "መሽ ስቲከር", sortOrder: 5 },
+  { serviceKey: "sticker_frosted", categoryKey: "LARGE_FORMAT_PRINTING", nameEn: "Frosted Sticker", nameAm: "ፍሮስት ስቲከር", sortOrder: 6 },
+  { serviceKey: "hq_print_and_cut", categoryKey: "LARGE_FORMAT_PRINTING", nameEn: "High Quality Print & Cut", nameAm: "ከፍተኛ ጥራት ህትመት", sortOrder: 7 },
+  { serviceKey: "light_box_a1", categoryKey: "SIGNAGE_AND_DISPLAYS", nameEn: "Light Box - A1", nameAm: "ላይት ቦክስ - A1", sortOrder: 8 },
+  { serviceKey: "light_box_a2", categoryKey: "SIGNAGE_AND_DISPLAYS", nameEn: "Light Box - A2", nameAm: "ላይት ቦክስ - A2", sortOrder: 9 },
+  { serviceKey: "neon_light", categoryKey: "SIGNAGE_AND_DISPLAYS", nameEn: "Neon Light", nameAm: "ኒዮን መብራት", sortOrder: 10 },
+  { serviceKey: "roll_up_standard", categoryKey: "SIGNAGE_AND_DISPLAYS", nameEn: "Roll Up Standard", nameAm: "ሮል አፕ ስታንዳርድ", sortOrder: 11 },
+  { serviceKey: "roll_up_deluxe", categoryKey: "SIGNAGE_AND_DISPLAYS", nameEn: "Roll Up Deluxe", nameAm: "ሮል አፕ ዲላክስ", sortOrder: 12 },
+  { serviceKey: "uv_print_mica", categoryKey: "FLATBED_UV_PRINTING", nameEn: "Mica UV Print", nameAm: "ሚካ UV ህትመት", sortOrder: 13 },
+  { serviceKey: "uv_print_foam", categoryKey: "FLATBED_UV_PRINTING", nameEn: "Foam UV Print", nameAm: "ፎም UV ህትመት", sortOrder: 14 },
+  { serviceKey: "uv_print_cladding", categoryKey: "FLATBED_UV_PRINTING", nameEn: "Cladding UV Print", nameAm: "ክላዲንግ UV ህትመት", sortOrder: 15 },
+  { serviceKey: "uv_print_canvas", categoryKey: "FLATBED_UV_PRINTING", nameEn: "Canvas UV Print", nameAm: "ካንቫስ UV ህትመት", sortOrder: 16 },
+  { serviceKey: "foam_cutout", categoryKey: "CNC_AND_LASER", nameEn: "Foam Cut-out", nameAm: "ፎም ቁረጥ", sortOrder: 17 },
+  { serviceKey: "foam_engrave", categoryKey: "CNC_AND_LASER", nameEn: "Foam Engrave", nameAm: "ፎም ማስቀርታ", sortOrder: 18 },
+  { serviceKey: "mica_cutout", categoryKey: "CNC_AND_LASER", nameEn: "Mica Cut-out", nameAm: "ሚካ ቁረጥ", sortOrder: 19 },
+  { serviceKey: "mica_engrave", categoryKey: "CNC_AND_LASER", nameEn: "Mica Engrave", nameAm: "ሚካ ማስቀርታ", sortOrder: 20 },
+  { serviceKey: "dtf", categoryKey: "TEXTILE_AND_APPAREL", nameEn: "DTF Printing", nameAm: "DTF ህትመት", sortOrder: 21 },
+  { serviceKey: "sublimation", categoryKey: "TEXTILE_AND_APPAREL", nameEn: "Sublimation Printing", nameAm: "Sublimation ህትመት", sortOrder: 22 },
+] as const;
+
+/**
+ * Ink consumption rules for machines. Maps machine codes to their
+ * ink materials with per-color rates and waste allowances.
+ * Material names match the production database (not the specification catalog).
+ */
+const INK_RULES_SEED = [
+  // Crystal Jet 7K - Banner Printer
+  { machineCode: "BAN-01", materialName: "Banner Ink", inkColor: "CMYK", rate: 10, unit: "ml_per_sqm" as const, wastePercent: 5 },
+  // Crystc Eco-Solvent - Print & Cut
+  { machineCode: "PAC-01", materialName: "Print and Cut INK", inkColor: "CMYK", rate: 8, unit: "ml_per_sqm" as const, wastePercent: 4 },
+  // Ricoh UV Flatbed
+  { machineCode: "UVF-01", materialName: "UV Flat bed Ink", inkColor: "CMYK", rate: 12, unit: "ml_per_sqm" as const, wastePercent: 6 },
+  { machineCode: "UVF-01", materialName: "UV Flat bed Ink", inkColor: "WHITE", rate: 5, unit: "ml_per_sqm" as const, wastePercent: 3 },
+  // DTF i3200
+  { machineCode: "DTF-01", materialName: "DTF Ink", inkColor: "CMYK", rate: 6, unit: "ml_per_sqm" as const, wastePercent: 4 },
+  { machineCode: "DTF-01", materialName: "DTF Ink", inkColor: "WHITE", rate: 3, unit: "ml_per_sqm" as const, wastePercent: 2 },
+] as const;
+
+/**
+ * Seeds the normalized machine configuration tables (serviceDefinitions,
+ * machineInkConsumptionRules, machineServiceRoutes) from canonical data.
+ *
+ * Idempotent: skips tables that already have rows.
+ */
+export const seedMachineConfiguration = mutation({
+  args: { force: v.optional(v.boolean()) },
+  handler: async (ctx, args) => {
+    const actor = await resolveBootstrapActor(ctx);
+    const now = Date.now();
+    const createdById = actor.authUserId ?? "seed-system";
+
+    const counts = { serviceDefinitions: 0, inkRules: 0, serviceRoutes: 0 };
+
+    // 1. Seed serviceDefinitions if empty
+    const existingServiceDefs = await ctx.db.query("serviceDefinitions").collect();
+    if (existingServiceDefs.length === 0 || args.force) {
+      if (args.force) {
+        for (const row of existingServiceDefs) await ctx.db.delete(row._id);
+      }
+      for (const def of SERVICE_DEFINITIONS_SEED) {
+        await ctx.db.insert("serviceDefinitions", {
+          serviceKey: def.serviceKey,
+          categoryKey: def.categoryKey,
+          nameEn: def.nameEn,
+          nameAm: def.nameAm,
+          sortOrder: def.sortOrder,
+          active: true,
+          publishable: true,
+          requiresQuote: false,
+          createdAt: now,
+          updatedAt: now,
+          createdBy: createdById,
+          updatedBy: createdById,
+        });
+        counts.serviceDefinitions++;
+      }
+    }
+
+    // 2. Seed machineInkConsumptionRules if empty
+    const existingInkRules = await ctx.db.query("machineInkConsumptionRules").collect();
+    if (existingInkRules.length === 0 || args.force) {
+      if (args.force) {
+        for (const row of existingInkRules) await ctx.db.delete(row._id);
+      }
+      const machines = await ctx.db.query("machines").collect();
+      const materials = await ctx.db.query("materials").collect();
+
+      for (const rule of INK_RULES_SEED) {
+        const machine = machines.find((m) => m.code === rule.machineCode && m.active);
+        if (!machine) continue;
+        const material = materials.find((m) => m.name === rule.materialName && m.active);
+        if (!material) continue;
+
+        await ctx.db.insert("machineInkConsumptionRules", {
+          machineId: machine._id,
+          materialId: material._id,
+          inkColor: rule.inkColor,
+          consumptionUnit: rule.unit,
+          rate: rule.rate,
+          wasteAllowancePercent: rule.wastePercent,
+          isDefault: true,
+          active: true,
+          createdAt: now,
+          updatedAt: now,
+          createdBy: createdById,
+          updatedBy: createdById,
+        });
+        counts.inkRules++;
+      }
+    }
+
+    // 3. Seed capabilities, machineCapabilities, and machineServiceRoutes
+    let debugCapabilities: Array<{ code: string; name: string }> = [];
+    const existingRoutes = await ctx.db.query("machineServiceRoutes").collect();
+    if (existingRoutes.length === 0 || args.force) {
+      if (args.force) {
+        for (const row of existingRoutes) await ctx.db.delete(row._id);
+      }
+      const machines = await ctx.db.query("machines").collect();
+      const serviceDefs = await ctx.db.query("serviceDefinitions").collect();
+
+      // Seed capabilities if empty
+      const existingCapabilities = await ctx.db.query("capabilities").collect();
+      const capabilityIds = new Map<string, Id<"capabilities">>();
+      if (existingCapabilities.length === 0 || args.force) {
+        if (args.force) {
+          for (const row of existingCapabilities) await ctx.db.delete(row._id);
+          // Also clear machineCapabilities
+          const existingMachineCaps = await ctx.db.query("machineCapabilities").collect();
+          for (const row of existingMachineCaps) await ctx.db.delete(row._id);
+        }
+        for (const [capId, definition] of Object.entries(CAPABILITY_REGISTRY)) {
+          const id = await ctx.db.insert("capabilities", {
+            code: definition.id,
+            name: definition.name,
+            description: definition.description,
+            category: definition.category,
+            active: true,
+            createdAt: now,
+            updatedAt: now,
+            createdBy: createdById,
+            updatedBy: createdById,
+          });
+          capabilityIds.set(capId, id);
+        }
+      } else {
+        for (const cap of existingCapabilities) {
+          if (cap.active) capabilityIds.set(cap.code, cap._id);
+        }
+      }
+      debugCapabilities = Array.from(capabilityIds.entries()).map(([code]) => ({ code, name: "" }));
+
+      // Seed machineCapabilities
+      const existingMachineCaps = await ctx.db.query("machineCapabilities").collect();
+      if (existingMachineCaps.length === 0 || args.force) {
+        if (args.force) {
+          for (const row of existingMachineCaps) await ctx.db.delete(row._id);
+        }
+        for (const machineDef of CANONICAL_MACHINES) {
+          const machine = machines.find((m) => m.code === machineDef.code && m.active);
+          if (!machine) continue;
+          for (const capCode of machineDef.capabilities) {
+            const capId = capabilityIds.get(capCode);
+            if (!capId) continue;
+            await ctx.db.insert("machineCapabilities", {
+              machineId: machine._id,
+              capabilityId: capId,
+              active: true,
+              createdAt: now,
+              updatedAt: now,
+              createdBy: createdById,
+              updatedBy: createdById,
+            });
+          }
+        }
+      }
+
+      // Build machine-to-capability mapping for route seeding
+      const machineCapabilities = await ctx.db.query("machineCapabilities").collect();
+      const machineCapMap = new Map<string, Set<string>>();
+      for (const mc of machineCapabilities) {
+        if (!mc.active) continue;
+        const capId = capabilityIds.get(mc.capabilityId) ? mc.capabilityId : null;
+        const cap = capId ? { code: Array.from(capabilityIds.entries()).find(([, v]) => v === capId)?.[0] ?? "" } : null;
+        if (!cap) continue;
+        if (!machineCapMap.has(mc.machineId)) machineCapMap.set(mc.machineId, new Set());
+        machineCapMap.get(mc.machineId)!.add(cap.code);
+      }
+
+      for (const route of Object.values(CANONICAL_SERVICE_ROUTES)) {
+        const serviceDef = serviceDefs.find((s) => s.serviceKey === route.serviceId);
+        if (!serviceDef) continue;
+
+        // Find the preferred machine by code
+        const preferredMachine = machines.find((m) => m.code === route.preferredMachineCode && m.active);
+        if (!preferredMachine) continue;
+
+        // Find the capability for this route
+        const requiredCap = route.requiredCapabilities[0];
+        const capId = capabilityIds.get(requiredCap);
+        if (!capId) continue;
+
+        await ctx.db.insert("machineServiceRoutes", {
+          machineId: preferredMachine._id,
+          serviceId: serviceDef._id,
+          capabilityId: capId,
+          priority: 1,
+          active: true,
+          requiresManualReview: false,
+          calculationUnit: route.calculationUnit,
+          defaultWasteMarginPercent: route.defaultWasteMarginPercent,
+          maxScrapLimitPercent: route.maxScrapLimitPercent,
+          customerVisible: true,
+          createdAt: now,
+          updatedAt: now,
+          createdBy: createdById,
+          updatedBy: createdById,
+        });
+        counts.serviceRoutes++;
+      }
+    }
+
+    return {
+      seeded: true,
+      ...counts,
     };
   },
 });

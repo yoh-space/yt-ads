@@ -69,11 +69,29 @@ export async function deductJobRequirements(
     let toDeduct = 0;
     if (args.mode === "incremental") {
       if (isInk) {
-        // Output area * ink consumption rate
-        const printedArea = args.actualOutputQuantity ?? 0;
-        const rate = material.consumptionRate ?? config.inkMlPerSquareMetre;
-        const requiredMl = printedArea * rate;
-        toDeduct = Number((requiredMl / 1000).toFixed(3)); // in Litres
+        // Check for machine-specific ink consumption rules first
+        const machineInkRules = await ctx.db
+          .query("machineInkConsumptionRules")
+          .withIndex("by_machine", (q) => q.eq("machineId", job.machineId))
+          .collect();
+
+        const activeInkRules = machineInkRules.filter((r) => r.active && r.materialId === req.materialId);
+        
+        if (activeInkRules.length > 0) {
+          // Use machine-specific ink rule
+          const rule = activeInkRules[0];
+          const printedArea = args.actualOutputQuantity ?? 0;
+          const rate = rule.rate;
+          const requiredMl = printedArea * rate;
+          const wasteFactor = rule.wasteAllowancePercent ? 1 + rule.wasteAllowancePercent / 100 : 1;
+          toDeduct = Number(((requiredMl * wasteFactor) / 1000).toFixed(3)); // in Litres
+        } else {
+          // Fallback to global config
+          const printedArea = args.actualOutputQuantity ?? 0;
+          const rate = material.consumptionRate ?? config.inkMlPerSquareMetre;
+          const requiredMl = printedArea * rate;
+          toDeduct = Number((requiredMl / 1000).toFixed(3)); // in Litres
+        }
       } else {
         toDeduct = args.actualInputQuantity ?? 0;
       }
