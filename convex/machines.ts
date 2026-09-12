@@ -18,6 +18,14 @@ export const list = query({
   },
 });
 
+export const get = query({
+  args: { id: v.id("machines") },
+  handler: async (ctx, args) => {
+    await requirePermission(ctx, "machine.view");
+    return ctx.db.get(args.id);
+  },
+});
+
 export const listForTopbar = query({
   args: {},
   returns: v.array(v.object({

@@ -7,10 +7,12 @@ import { StatCard } from "@/components/shared/ui/stat-card";
 import { Panel, PanelHeader } from "@/components/shared/ui/panel";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/shared/ui/table";
 import { InventoryLoader } from "@/components/dashboard/widgets/inventory-loader";
-import { Factory, PlayCircle, Wrench, CirclePause } from "lucide-react";
+import { Factory, PlayCircle, Wrench, CirclePause, Settings } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export default function OwnerMachinesPage() {
   const summary = useQuery(api.owner.machines.getMachineSummary);
+  const router = useRouter();
 
   if (summary === undefined) {
     return (
@@ -84,11 +86,12 @@ export default function OwnerMachinesPage() {
                   <TableHead>Status</TableHead>
                   <TableHead>Active job</TableHead>
                   <TableHead>Queued</TableHead>
+                  <TableHead className="w-[80px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {summary.machines.map((machine) => (
-                  <TableRow key={machine.id}>
+                  <TableRow key={machine.id} interactive onClick={() => router.push(`/dashboard/owner/machines/configure/${machine.id}`)}>
                     <TableCell className="font-medium text-foreground">{machine.name}</TableCell>
                     <TableCell mono muted>{machine.code}</TableCell>
                     <TableCell muted>{machine.type}</TableCell>
@@ -105,6 +108,18 @@ export default function OwnerMachinesPage() {
                       {machine.activeJob ? `${machine.activeJob.code} · ${machine.activeJob.title}` : "—"}
                     </TableCell>
                     <TableCell mono>{machine.queuedCount}</TableCell>
+                    <TableCell>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(`/dashboard/owner/machines/configure/${machine.id}`);
+                        }}
+                        className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-background/40 px-2 py-1 text-[10px] font-medium text-muted-foreground hover:bg-background/80 hover:text-foreground transition-colors"
+                      >
+                        <Settings size={12} />
+                        Configure
+                      </button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
