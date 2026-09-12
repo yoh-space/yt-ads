@@ -1331,7 +1331,7 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   })
-    .index("by_id", ["id"])
+    .index("by_service_id", ["id"])
     .index("by_active", ["active", "sortOrder"]),
 
   /** Authoritative database-backed Material Specifications Catalog (Phase 2). */
@@ -1357,7 +1357,7 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   })
-    .index("by_id", ["id"])
+    .index("by_material_id", ["id"])
     .index("by_name", ["name"])
     .index("by_active", ["active"]),
 

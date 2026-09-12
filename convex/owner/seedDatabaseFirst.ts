@@ -43,7 +43,7 @@ export async function runDatabaseFirstSeed(ctx: MutationCtx) {
     }
 
     const existing = await qTable(ctx, "serviceCatalog")
-      .withIndex("by_id", (q: any) => q.eq("id", id))
+      .withIndex("by_service_id", (q: any) => q.eq("id", id))
       .first();
 
     if (existing) {
@@ -84,7 +84,7 @@ export async function runDatabaseFirstSeed(ctx: MutationCtx) {
       .replace(/^_+|_+$/g, "");
 
     const existing = await qTable(ctx, "materialCatalog")
-      .withIndex("by_id", (q: any) => q.eq("id", slug))
+      .withIndex("by_material_id", (q: any) => q.eq("id", slug))
       .first();
 
     const payload = {

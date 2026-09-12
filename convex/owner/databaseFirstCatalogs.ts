@@ -102,7 +102,7 @@ export const getService = query({
   args: { serviceId: v.string() },
   handler: async (ctx, args) => {
     return qTable(ctx, "serviceCatalog")
-      .withIndex("by_id", (q: any) => q.eq("id", args.serviceId))
+      .withIndex("by_service_id", (q: any) => q.eq("id", args.serviceId))
       .first();
   },
 });
@@ -124,7 +124,7 @@ export const upsertService = mutation({
     await requireOwner(ctx);
     const now = Date.now();
     const existing = await qTable(ctx, "serviceCatalog")
-      .withIndex("by_id", (q: any) => q.eq("id", args.id))
+      .withIndex("by_service_id", (q: any) => q.eq("id", args.id))
       .first();
 
     if (existing) {
@@ -148,7 +148,7 @@ export const toggleServiceActive = mutation({
   handler: async (ctx, args) => {
     await requireOwner(ctx);
     const item = await qTable(ctx, "serviceCatalog")
-      .withIndex("by_id", (q: any) => q.eq("id", args.serviceId))
+      .withIndex("by_service_id", (q: any) => q.eq("id", args.serviceId))
       .first();
     if (!item) throw new Error(`Service ${args.serviceId} not found`);
     await ctx.db.patch(item._id, { active: args.active, updatedAt: Date.now() });
@@ -156,8 +156,8 @@ export const toggleServiceActive = mutation({
 });
 
 export async function validateServiceType(ctx: QueryCtx | MutationCtx, serviceId: string): Promise<boolean> {
-  const service = await qTable(ctx, "serviceCatalog")
-    .withIndex("by_id", (q: any) => q.eq("id", serviceId))
+    const service = await qTable(ctx, "serviceCatalog")
+      .withIndex("by_service_id", (q: any) => q.eq("id", serviceId))
     .first();
 
   if (service) return service.active;
@@ -185,7 +185,7 @@ export const getMaterialCatalogItem = query({
   args: { id: v.string() },
   handler: async (ctx, args) => {
     return qTable(ctx, "materialCatalog")
-      .withIndex("by_id", (q: any) => q.eq("id", args.id))
+      .withIndex("by_material_id", (q: any) => q.eq("id", args.id))
       .first();
   },
 });
@@ -215,7 +215,7 @@ export const upsertMaterialCatalogItem = mutation({
     await requireOwner(ctx);
     const now = Date.now();
     const existing = await qTable(ctx, "materialCatalog")
-      .withIndex("by_id", (q: any) => q.eq("id", args.id))
+      .withIndex("by_material_id", (q: any) => q.eq("id", args.id))
       .first();
 
     if (existing) {
@@ -239,7 +239,7 @@ export const toggleMaterialCatalogActive = mutation({
   handler: async (ctx, args) => {
     await requireOwner(ctx);
     const item = await qTable(ctx, "materialCatalog")
-      .withIndex("by_id", (q: any) => q.eq("id", args.id))
+      .withIndex("by_material_id", (q: any) => q.eq("id", args.id))
       .first();
     if (!item) throw new Error(`Material spec ${args.id} not found`);
     await ctx.db.patch(item._id, { active: args.active, updatedAt: Date.now() });

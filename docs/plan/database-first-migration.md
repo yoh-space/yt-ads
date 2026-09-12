@@ -45,7 +45,7 @@ serviceCatalog: defineTable({
   publishable: v.boolean(),    // visible to customers
   createdAt: v.number(),
   updatedAt: v.number(),
-}).index("by_id", ["id"]).index("by_active", ["active", "sortOrder"])
+}).index("by_service_id", ["id"]).index("by_active", ["active", "sortOrder"])
 ```
 
 **Schema change:** `serviceType` v.union → `v.string()`
@@ -106,7 +106,7 @@ materialCatalog: defineTable({
   active: v.boolean(),
   createdAt: v.number(),
   updatedAt: v.number(),
-}).index("by_id", ["id"]).index("by_name", ["name"]).index("by_active", ["active"])
+}).index("by_material_id", ["id"]).index("by_name", ["name"]).index("by_active", ["active"])
 ```
 
 **Schema changes:**
