@@ -22,8 +22,11 @@ export const getResetStatus = query({
 });
 
 /**
- * Irreversibly clears operational/demo data and leaves the workspace's staff,
- * machine, material, service, and system configuration records intact.
+ * Irreversibly wipes ALL operational data, machine configs, material catalog,
+ * operational configuration, and operator staff profiles. Preserves only:
+ *   - owner, manager, admin, storekeeper, receptionist staff profiles
+ *   - system config (with reset flag set)
+ *   - company settings
  *
  * This is deliberately guarded twice: requireOwner rejects every non-owner
  * role, and the exact confirmation key prevents accidental invocation.
@@ -52,12 +55,13 @@ export const resetSystemData = mutation({
     }
     if (!config) throw new Error("System configuration could not be initialized.");
 
-    // These tables are operational history, transactional records, derived
-    // stock projections, customer records, and one-time migration/audit data.
-    const purgeTables = [
+    // ── 1. Operational history & transactional records ──
+    const operationalTables = [
       "notifications",
       "materialRequests",
+      "materialRequestLines",
       "customerOrders",
+      "orderEvents",
       "stockExceptions",
       "stock_movements",
       "jobCards",
@@ -67,34 +71,74 @@ export const resetSystemData = mutation({
       "offcutConsumptions",
       "scraps",
       "reconciliations",
+      "weeklyReconciliations",
       "configurationChanges",
       "parentInventory",
       "operatorSubStock",
       "jobMaterialRequirements",
       "reservations",
-      "materialRequestLines",
-      "weeklyReconciliations",
       "telegramUsers",
       "telegramSessions",
       "migrations",
     ] as const;
 
-    for (const table of purgeTables) {
+    for (const table of operationalTables) {
       const records = await ctx.db.query(table).collect();
       for (const record of records) await ctx.db.delete(record._id);
     }
 
-    // Preserve the material catalog/configuration but clear its legacy cached
-    // balances so the dashboard starts at a zero inventory baseline.
-    const materials = await ctx.db.query("materials").collect();
-    for (const material of materials) {
-      await ctx.db.patch(material._id, {
-        quantity: 0,
-        rollEquivalent: 0,
-        sheetEquivalent: 0,
-      });
+    // ── 2. Machine configs & operational configuration ──
+    const configTables = [
+      "machines",
+      "capabilities",
+      "machineCapabilities",
+      "machineMaterialLinks",
+      "operatorRoles",
+      "operatorMachineAssignments",
+      "machineInkConsumptionRules",
+      "serviceDefinitions",
+      "machineServiceRoutes",
+      "serviceMaterialRecipes",
+      "serviceBOM",
+      "materialTypeCatalog",
+    ] as const;
+
+    for (const table of configTables) {
+      const records = await ctx.db.query(table).collect();
+      for (const record of records) await ctx.db.delete(record._id);
     }
 
+    // ── 3. Delete operator staff profiles (preserve owner/manager/admin/storekeeper/receptionist) ──
+    const operatorRoles = new Set([
+      "laser_operator",
+      "cnc_operator",
+      "plotter_operator",
+      "printer_operator",
+    ]);
+    const allStaff = await ctx.db.query("staff").collect();
+    for (const member of allStaff) {
+      const roles = member.applicationRoles ?? [];
+      const isOperator = roles.some((r) => operatorRoles.has(r));
+      if (isOperator) {
+        await ctx.db.delete(member._id);
+      }
+    }
+
+    // Also delete associated user auth records for operators
+    const allUsers = await ctx.db.query("users").collect();
+    for (const user of allUsers) {
+      if (operatorRoles.has(user.role)) {
+        await ctx.db.delete(user._id);
+      }
+    }
+
+    // ── 4. Wipe material catalog entirely ──
+    const materials = await ctx.db.query("materials").collect();
+    for (const material of materials) {
+      await ctx.db.delete(material._id);
+    }
+
+    // ── 5. Mark reset as executed ──
     const now = Date.now();
     await ctx.db.patch(config._id, {
       dataResetExecuted: true,

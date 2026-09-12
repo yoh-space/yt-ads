@@ -40,18 +40,21 @@ export function SystemResetPanel() {
 
   return (
     <div className="divide-y divide-border overflow-hidden rounded-xl border border-coral/40 bg-card">
-      <FormSection icon={<ShieldAlert size={17} />} tone="coral" title="Danger zone: system data reset" note="Owner only · irreversible one-time operation">
+      <FormSection icon={<ShieldAlert size={17} />} tone="coral" title="Danger zone: full system data reset" note="Owner only · irreversible · wipes everything except non-operator staff">
         <div className="space-y-4">
           <div className="rounded-lg border border-coral/40 bg-coral/10 p-4">
             <div className="flex gap-3">
               <AlertTriangle className="mt-0.5 flex-none text-coral" size={20} />
               <p className="m-0 text-sm font-semibold leading-6 text-coral">
-                DANGER ZONE: System Data Reset. This action will permanently erase all test orders, inventory logs, and customer records. This operation cannot be undone.
+                DANGER ZONE: Full System Reset. This action will permanently erase ALL data — orders, inventory logs, customers, machine configs, material catalog, operational configuration, and operator staff profiles. This cannot be undone.
               </p>
             </div>
           </div>
           <p className="m-0 text-sm text-muted-foreground">
-            Staff profiles, assigned roles, machine configuration schemas, material catalogs, company settings, and operational configuration will be preserved. Inventory balances will return to zero.
+            <strong>Preserved:</strong> owner, manager, admin, storekeeper, and receptionist staff profiles, company settings, and system config.
+          </p>
+          <p className="m-0 text-sm text-muted-foreground">
+            <strong>Wiped:</strong> all materials, machines, capabilities, service definitions, service routes, ink rules, material links, BOM, operator roles &amp; assignments, job cards, orders, stock movements, production logs, reconciliations, offcuts, scraps, notifications, and Telegram sessions.
           </p>
           <div className="flex flex-wrap items-center gap-3">
             <Button className="bg-coral text-white hover:bg-coral/90" type="button" onClick={() => setConfirmationOpen(true)}>
