@@ -7,8 +7,8 @@ import { api } from "@/convex/_generated/api";
 import { Download, Package, Plus, Search, Truck } from "lucide-react";
 import { WorkspacePageHeader } from "@/components/dashboard/shell/workspace-page-header";
 import { InventoryLoader } from "@/components/dashboard/widgets/inventory-loader";
-import { useDashboardModal } from "@/components/dashboard/modals/modal-context";
 import { WorkspaceModuleGate } from "@/components/dashboard/shell/workspace-renderer";
+import { RawMaterialStockInModal } from "@/components/dashboard/modals/raw-material-stock-in-modal";
 import type { AccessContext } from "@/lib/access-policy";
 
 type PackagingTab = "ALL" | "ROLL" | "SHEET" | "LITER";
@@ -30,9 +30,9 @@ export default function StorekeeperInventoryPage() {
   const profile = useQuery(api.users.getCurrentProfile);
   const parentInventory = useQuery(api.storekeeper.parentInventory.list);
   const systemConfig = useQuery(api.systemConfigs.getStorekeeperConfig);
-  const { openModal } = useDashboardModal();
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState<PackagingTab>("ALL");
+  const [stockInOpen, setStockInOpen] = useState(false);
 
   const items = parentInventory ?? [];
   const filteredItems = useMemo(() => {
@@ -98,7 +98,7 @@ export default function StorekeeperInventoryPage() {
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <button
-                  onClick={() => openModal("stock")}
+                  onClick={() => setStockInOpen(true)}
                   className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-xs font-bold text-primary-foreground transition hover:bg-primary/90"
                 >
                   <Plus size={14} /> አዲስ እቃ ገቢ አድርግ
@@ -193,6 +193,10 @@ export default function StorekeeperInventoryPage() {
           </div>
         </section>
       </WorkspaceModuleGate>
+
+      {stockInOpen && (
+        <RawMaterialStockInModal onClose={() => setStockInOpen(false)} />
+      )}
     </div>
   );
 }

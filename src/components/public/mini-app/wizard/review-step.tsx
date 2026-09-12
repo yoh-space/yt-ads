@@ -41,9 +41,9 @@ export function ReviewStep({ watch, errors, allValues, busy, error, isEdit, onSu
           { label: "TIN", value: allValues?.tinNumber || "—" },
         ]
       : []),
-    { label: "አጠቃቀ", value: serviceLabel },
+    { label: "Types", value: serviceLabel },
     { label: "ስፋት", value: allValues?.width ? `${allValues.width}m` : "—" },
-    { label: "ቁመት", value: lengthVal ? `${lengthVal}m` : "—" },
+    { label: "ርዝመት", value: lengthVal ? `${lengthVal}m` : "—" },
     ...(derivedRoll ? [{ label: "የሚጠቀመው ሮል", value: derivedRoll.option }] : []),
     { label: "ብዛት", value: allValues?.quantity },
     { label: "ማስታወሻ", value: allValues?.notes || "—" },
@@ -63,7 +63,7 @@ export function ReviewStep({ watch, errors, allValues, busy, error, isEdit, onSu
       {hasErrors ? (
         <div className="flex items-start gap-2 p-3 rounded-sm bg-rose-500/10 border border-rose-500/30">
           <AlertCircle size={16} className="text-rose-400 flex-none mt-0.5" />
-          <p className="text-xs text-rose-300">አንዳንድ ሜሳጃዎች አልተሞሉም። እባክዎ ተመልሰው ያረጋግጡ.</p>
+          <p className="text-xs text-rose-300">አስፈላጊ መረጃዎች አልተሞሉም። እባክዎ ተመልሰው ያረጋግጡ.</p>
         </div>
       ) : null}
 

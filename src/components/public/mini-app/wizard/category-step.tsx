@@ -58,7 +58,7 @@ export function CategoryStep({ control, watch, setValue, errors, onNext, onBack 
                 <Icon size={18} className={isSelected ? "text-[#E5C07B]" : "text-neutral-500"} />
                 <div>
                   <span className="font-semibold text-sm block">{category.categoryName}</span>
-                  <span className="text-xs text-neutral-500 block">{category.items.length} አጠቃቀ</span>
+                  <span className="text-xs text-neutral-500 block">{category.items.length} አይነቶች</span>
                 </div>
               </div>
             </button>

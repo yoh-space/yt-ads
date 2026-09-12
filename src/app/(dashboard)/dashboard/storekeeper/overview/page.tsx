@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { ArrowDownToLine, ArrowRight, Boxes, ClipboardList, Plus, Warehouse } from "lucide-react";
@@ -8,7 +9,7 @@ import { WorkspacePageHeader } from "@/components/dashboard/shell/workspace-page
 import { StatCard } from "@/components/shared/ui/stat-card";
 import { Panel, PanelHeader } from "@/components/shared/ui/panel";
 import { InventoryLoader } from "@/components/dashboard/widgets/inventory-loader";
-import { useDashboardModal } from "@/components/dashboard/modals/modal-context";
+import { RawMaterialStockInModal } from "@/components/dashboard/modals/raw-material-stock-in-modal";
 import { WorkspaceModuleGate } from "@/components/dashboard/shell/workspace-renderer";
 import type { AccessContext } from "@/lib/access-policy";
 
@@ -42,7 +43,7 @@ export default function StorekeeperOverviewPage() {
   const router = useRouter();
   const profile = useQuery(api.users.getCurrentProfile);
   const overview = useQuery(api.storekeeper.overview.getOverview);
-  const { openModal } = useDashboardModal();
+  const [stockInOpen, setStockInOpen] = useState(false);
 
   if (overview === undefined || !profile) {
     return (
@@ -66,7 +67,7 @@ export default function StorekeeperOverviewPage() {
       />
 
       <WorkspaceModuleGate context={accessContext} moduleId="inventory.kpis">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <StatCard
             icon={<Boxes size={16} />}
             label="Rolls in Store"
@@ -124,7 +125,7 @@ export default function StorekeeperOverviewPage() {
             <ClipboardList size={14} /> Requisition Inbox <ArrowRight size={13} />
           </button>
           <button
-            onClick={() => openModal("stock")}
+            onClick={() => setStockInOpen(true)}
             className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-xs font-bold text-primary-foreground transition hover:bg-primary/90"
           >
             <Plus size={14} /> አዲስ እቃ ገቢ አድርግ
@@ -165,6 +166,10 @@ export default function StorekeeperOverviewPage() {
           </Panel>
         )}
       </WorkspaceModuleGate>
+
+      {stockInOpen && (
+        <RawMaterialStockInModal onClose={() => setStockInOpen(false)} />
+      )}
     </div>
   );
 }

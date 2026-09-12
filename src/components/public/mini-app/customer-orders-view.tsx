@@ -100,7 +100,7 @@ function OrderDetail({ order, onBack, onEditOrder }: { order: CustomerOrder; onB
           </div>
         ) : null}
         <div className="grid grid-cols-2 gap-3 text-sm">
-          <div><span className="text-xs text-neutral-500 block">አጠቃቀ</span><strong className="text-neutral-200">{getServiceLabel(order.serviceType, "am") ?? order.serviceType}</strong></div>
+          <div><span className="text-xs text-neutral-500 block">አይነቶች</span><strong className="text-neutral-200">{getServiceLabel(order.serviceType, "am") ?? order.serviceType}</strong></div>
           <div><span className="text-xs text-neutral-500 block">መጠን</span><strong className="text-neutral-200">{order.dimensions}</strong></div>
           <div><span className="text-xs text-neutral-500 block">ብዛት</span><strong className="text-neutral-200">{order.quantity}</strong></div>
           <div><span className="text-xs text-neutral-500 block">የመጨረሻ ቀን</span><strong className="text-neutral-200">{new Date(order.preferredDueDate).toLocaleDateString("en-ET")}</strong></div>
