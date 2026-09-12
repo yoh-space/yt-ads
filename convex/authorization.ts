@@ -136,6 +136,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "request.issue",
     "request.acknowledge",
     "team.view",
+    "team.manage",
     "company_settings.update",
     "reports.view",
     "audit.view",

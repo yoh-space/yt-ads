@@ -166,6 +166,21 @@ export const machineStatus = v.union(
   v.literal("Unavailable"),
 );
 
+export const capabilityCategory = v.union(
+  v.literal("PRINTING"),
+  v.literal("CUTTING_ROUTING"),
+  v.literal("FINISHING_AUXILIARY"),
+);
+
+export const machineMaterialRelationship = v.union(
+  v.literal("primary"),
+  v.literal("supported"),
+  v.literal("ink"),
+  v.literal("solvent"),
+  v.literal("accessory"),
+  v.literal("consumable"),
+);
+
 export const priority = v.union(
   v.literal("High"),
   v.literal("Medium"),
@@ -345,6 +360,12 @@ export default defineSchema({
     .index("by_recipient_read", ["recipientAuthUserId", "readAt"]),
 
   materials: defineTable({
+    /** Stable owner-managed identity used instead of display-name matching. */
+    catalogKey: v.optional(v.string()),
+    /** Conceptual family key shared by physical variants of one material. */
+    definitionKey: v.optional(v.string()),
+    /** Stable identity for one stock-tracked physical specification variant. */
+    variantKey: v.optional(v.string()),
     name: v.string(),
     category: v.string(),
     machineType: v.optional(v.string()),
@@ -364,6 +385,8 @@ export default defineSchema({
     specification: v.optional(v.string()),
     specificationValue: v.optional(v.string()),
     specificationOptions: v.optional(v.array(v.string())),
+    /** Structured, category-specific attributes such as width, thickness, color, or volume. */
+    specificationAttributes: v.optional(v.record(v.string(), v.string())),
     /** Deprecated materialized base balance; ledger events are authoritative. */
     quantity: v.number(),
     reorderAt: v.number(),
@@ -391,6 +414,8 @@ export default defineSchema({
     .index("by_unit", ["unit"]),
 
   machines: defineTable({
+    /** Stable catalog identity used by seed reconciliation and aliases. */
+    catalogKey: v.optional(v.string()),
     name: v.string(),
     code: v.string(),
     type: v.string(),
@@ -423,6 +448,77 @@ export default defineSchema({
   })
     .index("by_code", ["code"])
     .index("by_operator_role", ["operatorRole"]),
+  /** Owner-managed machine capability registry. */
+  capabilities: defineTable({
+    code: v.string(),
+    name: v.string(),
+    description: v.string(),
+    category: capabilityCategory,
+    active: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    createdBy: v.string(),
+    updatedBy: v.string(),
+  }).index("by_code", ["code"]).index("by_active", ["active"]),
+  /** Normalized machine-to-capability relationship. */
+  machineCapabilities: defineTable({
+    machineId: v.id("machines"),
+    capabilityId: v.id("capabilities"),
+    active: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    createdBy: v.string(),
+    updatedBy: v.string(),
+  }).index("by_machine", ["machineId"]).index("by_capability", ["capabilityId"]),
+  /** Explicit owner-managed machine-to-material compatibility and usage rules. */
+  machineMaterialLinks: defineTable({
+    machineId: v.id("machines"),
+    materialId: v.id("materials"),
+    relationshipType: machineMaterialRelationship,
+    productionType: v.optional(productionType),
+    conversionRatioOverride: v.optional(v.number()),
+    wasteMarginPercent: v.optional(v.number()),
+    required: v.boolean(),
+    notes: v.optional(v.string()),
+    active: v.boolean(),
+    effectiveFrom: v.optional(v.number()),
+    effectiveTo: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    createdBy: v.string(),
+    updatedBy: v.string(),
+  })
+    .index("by_machine", ["machineId"])
+    .index("by_material", ["materialId"])
+    .index("by_machine_material", ["machineId", "materialId"]),
+  /** Owner-managed operational roles, distinct from security application roles. */
+  operatorRoles: defineTable({
+    code: v.string(),
+    name: v.string(),
+    description: v.optional(v.string()),
+    allowedCapabilityIds: v.array(v.id("capabilities")),
+    active: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    createdBy: v.string(),
+    updatedBy: v.string(),
+  }).index("by_code", ["code"]).index("by_active", ["active"]),
+  /** Effective user-to-machine operational assignments. */
+  operatorMachineAssignments: defineTable({
+    userId: v.id("users"),
+    machineId: v.id("machines"),
+    operatorRoleId: v.id("operatorRoles"),
+    active: v.boolean(),
+    effectiveFrom: v.optional(v.number()),
+    effectiveTo: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    createdBy: v.string(),
+    updatedBy: v.string(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_machine", ["machineId"])
+    .index("by_role", ["operatorRoleId"]),
 
   materialRequests: defineTable({
     jobCardId: v.id("jobCards"),
