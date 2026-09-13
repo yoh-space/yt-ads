@@ -60,7 +60,7 @@ export default function ReceptionistOrdersPage() {
     <>
       <div className="space-y-6">
         <WorkspacePageHeader
-          kicker="Reception Desk · የተቀበል ዴስክ"
+          kicker="Reception Desk"
           title="Customer Orders Queue"
         />
 

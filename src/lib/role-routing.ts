@@ -186,6 +186,7 @@ export const ROUTE_DESCRIPTORS: Record<string, RouteDescriptor> = {
       if (role === "owner") return "/dashboard/owner/jobs";
       if (role === "admin") return "/dashboard/admin/jobs";
       if (role === "manager") return "/dashboard/manager/jobs";
+      if (role === "receptionist") return "/dashboard/receptionist/jobs";
       return "/dashboard/manager";
     },
     type: "canonical",
@@ -550,7 +551,10 @@ function canAccessCanonicalRoute(role: Role, pathname: string): boolean {
   if (feature === "reconciliation") {
     return ["owner", "admin", "storekeeper"].includes(role);
   }
-  if (feature === "jobs" || feature === "machines" || feature === "config") {
+  if (feature === "jobs") {
+    return ["owner", "admin", "manager", "receptionist"].includes(role);
+  }
+  if (feature === "machines" || feature === "config") {
     return ["owner", "admin", "manager"].includes(role);
   }
   if (feature === "settings") {

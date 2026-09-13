@@ -30,7 +30,6 @@ export default function ReceptionistOverviewPage() {
       <WorkspacePageHeader
         kicker="Reception Desk"
         title="Overview"
-        subtitle="Today's intake, payment follow-ups, and production status at the front desk."
       />
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">

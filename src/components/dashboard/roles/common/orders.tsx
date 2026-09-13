@@ -140,7 +140,6 @@ export function OrdersView({
       <Panel>
         <PanelHeader
           title="Orders ready for action"
-          subtitle="Live work queue"
           kicker="LIVE WORK QUEUE"
           action={
             <div className="flex items-center gap-2">
@@ -344,8 +343,6 @@ export function OrdersView({
           ))}
         </div>
       </Panel>
-
-      <p className="text-xs text-gray-500">Creating a job card from an order carries client details automatically. Material is deducted when production is recorded, not at creation.</p>
 
       {selected ? (
         <OrderDetailsSheet
