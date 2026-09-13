@@ -6,7 +6,7 @@ import { SERVICE_CATEGORIES, getServiceLabel, type ServiceId } from "@/constants
 import { cn } from "@/lib/utils";
 
 const icons: Record<string, ComponentType<{ size?: number; className?: string }>> = { banner_print: Printer, sticker_white: Layers, sticker_transparent: Maximize2, sticker_reflective: Sparkles, sticker_mesh: Layers, sticker_frosted: Sparkles, hq_print_and_cut: Scissors, light_box_a1: SunMedium, light_box_a2: SunMedium, neon_light: Zap, roll_up_standard: FolderDown, roll_up_deluxe: FolderDown, uv_print_mica: Palette, uv_print_foam: Palette, uv_print_cladding: Palette, uv_print_canvas: Palette, foam_cutout: Cpu, foam_engrave: Cpu, mica_cutout: Scissors, mica_engrave: Scissors, dtf: Shirt, sublimation: Shirt };
-const categories = [{ id: "ALL", label: "ሁሉም" }, { id: "LARGE_FORMAT_PRINTING", label: "ባነር እና ስቲከር" }, { id: "SIGNAGE_AND_DISPLAYS", label: "ማስታወቂያ ቦርድ" }, { id: "FLATBED_UV_PRINTING", label: "UV ህትመት" }, { id: "CNC_AND_LASER", label: "ቁረጥ እና ቅርጽ" }, { id: "TEXTILE_AND_APPAREL", label: "DTF ጨርቃጨርቅ" }] as const;
+const categories = [{ id: "ALL", label: "ሁሉም" }, { id: "LARGE_FORMAT_PRINTING", label: "ባነር እና ስቲከር" }, { id: "SIGNAGE_AND_DISPLAYS", label: "ማስታወቂያ ቦርድ" }, { id: "FLATBED_UV_PRINTING", label: "UV ህትመት" }, { id: "CNC_AND_LASER", label: "ከት እና ቅርጽ" }, { id: "TEXTILE_AND_APPAREL", label: "DTF ጨርቃጨርቅ" }] as const;
 
 export function ServicePicker({ value, onChange, onClear }: { value: ServiceId | null; onChange: (value: ServiceId) => void; onClear: () => void }) {
   const [category, setCategory] = useState("ALL");

@@ -44,6 +44,7 @@ import type * as materialUsage from "../materialUsage.js";
 import type * as materials from "../materials.js";
 import type * as migrations from "../migrations.js";
 import type * as notificationHelpers from "../notificationHelpers.js";
+import type * as notificationPolicy from "../notificationPolicy.js";
 import type * as notifications from "../notifications.js";
 import type * as offcuts from "../offcuts.js";
 import type * as operator_common from "../operator/common.js";
@@ -150,6 +151,7 @@ declare const fullApi: ApiFromModules<{
   materials: typeof materials;
   migrations: typeof migrations;
   notificationHelpers: typeof notificationHelpers;
+  notificationPolicy: typeof notificationPolicy;
   notifications: typeof notifications;
   offcuts: typeof offcuts;
   "operator/common": typeof operator_common;

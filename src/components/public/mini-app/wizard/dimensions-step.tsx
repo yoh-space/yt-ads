@@ -92,7 +92,7 @@ export function DimensionsStep({ control, watch, setValue, errors, estimatedArea
           {errors.width && <p className="text-xs text-rose-400">{errors.width.message}</p>}
         </div>
         <div className="space-y-1">
-          <label className="font-mono text-[10px] uppercase text-neutral-400 block">ቁመት (m)</label>
+          <label className="font-mono text-[10px] uppercase text-neutral-400 block">ርዝመት (m)</label>
           <input
             type="number"
             min="0.01"
