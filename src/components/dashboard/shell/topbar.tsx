@@ -134,9 +134,10 @@ export function Topbar({
 
       {notificationsOpen && notifications ? (
         <NotificationModal
+          role={profile?.role}
           notifications={notifications}
           onMarkRead={(id) => void markRead({ notificationId: id as Id<"notifications"> })}
-          onMarkAllRead={() => void markAllRead()}
+          onMarkAllRead={(category) => void markAllRead({ category })}
           onClose={() => setNotificationsOpen(false)}
         />
       ) : null}

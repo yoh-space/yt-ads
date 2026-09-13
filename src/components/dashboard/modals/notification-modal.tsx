@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Bell,
   Boxes,
@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { ModalShell } from "@/components/dashboard/modals/modal-shell";
 import { cn } from "@/lib/utils";
+import { OPERATOR_ROLES } from "@/components/dashboard/roles/operator/operator-nav";
 
 type NotificationType =
   | "material_request"
@@ -39,13 +40,14 @@ type NotificationItem = {
   title: string;
   message: string;
   type: NotificationType;
+  domain?: string;
   relatedLabel?: string;
   actorName?: string;
   createdAt: number;
   readAt?: number;
 };
 
-type Category = "all" | "orders" | "inventory" | "operations" | "account";
+export type Category = "all" | "orders" | "inventory" | "operations" | "account";
 
 type CategoryFilter = {
   value: Category;
@@ -54,7 +56,7 @@ type CategoryFilter = {
   types?: NotificationType[];
 };
 
-const CATEGORY_FILTERS: CategoryFilter[] = [
+const ALL_CATEGORY_FILTERS: CategoryFilter[] = [
   { value: "all", label: "All", icon: LayoutList },
   {
     value: "orders",
@@ -85,7 +87,14 @@ const CATEGORY_FILTERS: CategoryFilter[] = [
   { value: "account", label: "Account", icon: UserRound, types: ["account_update"] },
 ];
 
-const ATTENTION_TYPES: NotificationType[] = ["short_stock", "material_overuse", "discrepancy", "overdue_order", "exception_stock_out", "clearance_rejected"];
+const ATTENTION_TYPES: NotificationType[] = [
+  "short_stock",
+  "material_overuse",
+  "discrepancy",
+  "overdue_order",
+  "exception_stock_out",
+  "clearance_rejected",
+];
 const SUCCESS_TYPES: NotificationType[] = ["material_received", "clearance_granted"];
 
 function formatNotificationTime(createdAt: number) {
@@ -97,28 +106,87 @@ function formatNotificationTime(createdAt: number) {
   }).format(new Date(createdAt));
 }
 
+function getAllowedCategoriesForRole(role?: string): Category[] {
+  if (role === "receptionist") {
+    return ["all", "orders"];
+  }
+  if (role === "storekeeper") {
+    return ["all", "inventory"];
+  }
+  if (role && (OPERATOR_ROLES as readonly string[]).includes(role)) {
+    return ["all", "inventory", "operations"];
+  }
+  return ["all", "orders", "inventory", "operations", "account"];
+}
+
+function getContextualEmptyState(role?: string, category?: CategoryFilter): { title: string; subtitle: string } {
+  if (!category || category.value === "all") {
+    return {
+      title: "No notifications yet.",
+      subtitle: "New activity will appear here when it needs your operational attention.",
+    };
+  }
+
+  if (category.value === "inventory" && role === "storekeeper") {
+    return {
+      title: "No inventory notifications for your storekeeper workspace.",
+      subtitle: "Material requests, stock alerts, and receipt events will appear here.",
+    };
+  }
+
+  if (category.value === "orders" && role === "receptionist") {
+    return {
+      title: "No order notifications for your reception queue.",
+      subtitle: "New customer orders and status transitions will appear here.",
+    };
+  }
+
+  if (role && (OPERATOR_ROLES as readonly string[]).includes(role)) {
+    return {
+      title: `No ${category.label.toLowerCase()} notifications for your machine workspace.`,
+      subtitle: "Job assignments, machine maintenance, and stock handovers will appear here.",
+    };
+  }
+
+  return {
+    title: `No ${category.label.toLowerCase()} notifications.`,
+    subtitle: "New activity in this domain will appear here when it needs your attention.",
+  };
+}
+
 export function NotificationModal({
+  role,
   notifications,
   onMarkRead,
   onMarkAllRead,
   onClose,
 }: {
+  role?: string;
   notifications: NotificationItem[];
   onMarkRead: (id: string) => void;
-  onMarkAllRead: () => void;
+  onMarkAllRead: (category?: Category) => void;
   onClose: () => void;
 }) {
   const [activeCategory, setActiveCategory] = useState<Category>("all");
-  const unread = notifications.filter((item) => !item.readAt).length;
-  const selectedCategory = CATEGORY_FILTERS.find((category) => category.value === activeCategory);
-  const filteredNotifications = selectedCategory?.types
-    ? notifications.filter((notification) => selectedCategory.types?.includes(notification.type))
+  const unreadTotal = notifications.filter((item) => !item.readAt).length;
+
+  const allowedCategories = useMemo(() => getAllowedCategoriesForRole(role), [role]);
+  const visibleCategories = useMemo(
+    () => ALL_CATEGORY_FILTERS.filter((filter) => allowedCategories.includes(filter.value)),
+    [allowedCategories],
+  );
+
+  const currentCategory = visibleCategories.find((cat) => cat.value === activeCategory) ?? visibleCategories[0];
+  const filteredNotifications = currentCategory?.types
+    ? notifications.filter((notification) => currentCategory.types?.includes(notification.type))
     : notifications;
+
+  const emptyState = getContextualEmptyState(role, currentCategory);
 
   return (
     <ModalShell
       title="Notifications"
-      subtitle="Updates relevant to your work and responsibilities."
+      subtitle="Updates relevant to your work and operational scope."
       onClose={onClose}
       className="h-[min(720px,85vh)] max-w-2xl"
       bodyClassName="[scrollbar-width:thin] [scrollbar-color:hsl(var(--navy-2))_transparent] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-navy-2 [&::-webkit-scrollbar-thumb]:hover:bg-cyan"
@@ -130,27 +198,36 @@ export function NotificationModal({
               <Bell size={14} />
             </span>
             <span>
-              <b className="text-foreground">{unread}</b> unread
+              <b className="text-foreground">{unreadTotal}</b> unread total
             </span>
           </span>
           <button
             type="button"
             className="rounded-md px-2 py-1 text-sm font-semibold text-cyan-dark transition-colors hover:bg-cyan/10 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:text-muted-foreground disabled:opacity-60"
-            onClick={onMarkAllRead}
-            disabled={unread === 0}
+            onClick={() => onMarkAllRead(currentCategory?.value === "all" ? undefined : currentCategory?.value)}
+            disabled={unreadTotal === 0}
           >
-            Mark all as read
+            {currentCategory && currentCategory.value !== "all"
+              ? `Mark ${currentCategory.label.toLowerCase()} as read`
+              : "Mark all as read"}
           </button>
         </div>
 
-        <div className="rounded-xl border border-border bg-secondary/70 p-1" role="tablist" aria-label="Notification categories">
-          <div className="grid grid-cols-2 gap-1 sm:grid-cols-5">
-            {CATEGORY_FILTERS.map((category) => {
+        <div
+          className="rounded-xl border border-border bg-secondary/70 p-1"
+          role="tablist"
+          aria-label="Notification categories"
+        >
+          <div className={cn(
+            "grid gap-1",
+            visibleCategories.length <= 2 ? "grid-cols-2" : visibleCategories.length === 3 ? "grid-cols-3" : "grid-cols-2 sm:grid-cols-5"
+          )}>
+            {visibleCategories.map((category) => {
               const Icon = category.icon;
-              const count = category.types
-                ? notifications.filter((notification) => category.types?.includes(notification.type)).length
-                : notifications.length;
-              const isActive = activeCategory === category.value;
+              const unreadCount = category.types
+                ? notifications.filter((n) => !n.readAt && category.types?.includes(n.type)).length
+                : unreadTotal;
+              const isActive = (currentCategory?.value ?? "all") === category.value;
 
               return (
                 <button
@@ -169,21 +246,28 @@ export function NotificationModal({
                 >
                   <Icon size={14} aria-hidden="true" />
                   {category.label}
-                  <span
-                    className={cn(
-                      "min-w-5 rounded-full px-1.5 py-0.5 text-center font-mono text-[10px] leading-none",
-                      isActive ? "bg-primary-foreground/15 text-primary-foreground" : "bg-card text-muted-foreground",
-                    )}
-                  >
-                    {count}
-                  </span>
+                  {unreadCount > 0 ? (
+                    <span
+                      className={cn(
+                        "min-w-5 rounded-full px-1.5 py-0.5 text-center font-mono text-[10px] leading-none",
+                        isActive ? "bg-primary-foreground/15 text-primary-foreground" : "bg-card text-foreground font-bold",
+                      )}
+                    >
+                      {unreadCount}
+                    </span>
+                  ) : null}
                 </button>
               );
             })}
           </div>
         </div>
 
-        <div id="notification-list" className="space-y-3" role="tabpanel" aria-label={`${selectedCategory?.label} notifications`}>
+        <div
+          id="notification-list"
+          className="space-y-3"
+          role="tabpanel"
+          aria-label={`${currentCategory?.label} notifications`}
+        >
           {filteredNotifications.map((notification) => {
             const read = Boolean(notification.readAt);
             const needsAttention = ATTENTION_TYPES.includes(notification.type);
@@ -220,7 +304,7 @@ export function NotificationModal({
                       {needsAttention ? <TriangleAlert size={11} aria-hidden="true" /> : null}
                       {isSuccess ? <CheckCircle2 size={11} aria-hidden="true" /> : null}
                       {needsAttention ? "Attention" : isSuccess ? "Complete" : read ? "Read" : "New"}
-                      </span>
+                    </span>
                   </div>
                   <p className="mt-1 text-sm leading-6 text-muted-foreground">{notification.message}</p>
                   {notification.relatedLabel ? (
@@ -249,10 +333,8 @@ export function NotificationModal({
           {filteredNotifications.length === 0 ? (
             <div className="rounded-xl border border-dashed border-border bg-secondary/45 p-10 text-center">
               <ClipboardList className="mx-auto mb-3 text-muted-foreground" size={24} aria-hidden="true" />
-              <p className="text-sm font-semibold text-foreground">
-                {notifications.length === 0 ? "No notifications yet." : `No ${selectedCategory?.label.toLowerCase()} notifications.`}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">New activity will appear here when it needs your attention.</p>
+              <p className="text-sm font-semibold text-foreground">{emptyState.title}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{emptyState.subtitle}</p>
             </div>
           ) : null}
         </div>
