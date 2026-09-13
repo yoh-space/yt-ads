@@ -8,6 +8,15 @@ import { ROLE_HOME_ROUTE } from "../../src/lib/role-routing";
 
 const qTable = (ctx: MutationCtx, table: string): any => (ctx.db.query as any)(table);
 
+function extractThickness(options: readonly string[] | undefined): { thickness?: number; attributes?: Record<string, string | number> } {
+  const values = (options ?? [])
+    .flatMap((option) => [...option.matchAll(/(\d+(?:\.\d+)?)\s*mm\b/gi)].map((match) => Number(match[1])))
+    .filter((value) => Number.isFinite(value));
+  const unique = [...new Set(values)];
+  if (unique.length === 0) return {};
+  return { thickness: unique[0], attributes: { thicknessOptions: unique.join(",") } };
+}
+
 export async function runDatabaseFirstSeed(ctx: MutationCtx) {
   const now = Date.now();
   let servicesCount = 0;
@@ -76,7 +85,22 @@ export async function runDatabaseFirstSeed(ctx: MutationCtx) {
     servicesCount++;
   }
 
-  // 2. Seed Material Specifications Catalog (Phase 2)
+  // 2. Seed dynamic material attributes and material specifications (Phase 2)
+  const attributeDefinitions = [
+    { key: "thickness", label: "Thickness (mm)", valueType: "number" as const, applicableCatalogFamily: ["RIGID_SHEET", "ROLL"] },
+    { key: "color", label: "Color", valueType: "string" as const, applicableCatalogFamily: ["RIGID_SHEET", "INK_SOLVENT", "HARDWARE"] },
+    { key: "wattage", label: "Wattage (W)", valueType: "number" as const, applicableCatalogFamily: ["HARDWARE"] },
+    { key: "gsm", label: "Grams per square metre", valueType: "number" as const, applicableCatalogFamily: ["ROLL", "RIGID_SHEET"] },
+    { key: "height_cm", label: "Height (cm)", valueType: "number" as const, applicableCatalogFamily: ["HARDWARE"] },
+  ];
+  for (const definition of attributeDefinitions) {
+    const existing = await qTable(ctx, "materialAttributeDefinitions")
+      .withIndex("by_key", (q: any) => q.eq("key", definition.key))
+      .first();
+    if (existing) await ctx.db.patch(existing._id, { ...definition, active: true });
+    else await ctx.db.insert("materialAttributeDefinitions", { ...definition, active: true });
+  }
+
   for (const spec of MATERIAL_SPECIFICATIONS) {
     const slug = spec.name
       .toLowerCase()
@@ -87,6 +111,7 @@ export async function runDatabaseFirstSeed(ctx: MutationCtx) {
       .withIndex("by_material_id", (q: any) => q.eq("id", slug))
       .first();
 
+    const thickness = extractThickness(spec.specificationOptions);
     const payload = {
       id: slug,
       name: spec.name,
@@ -99,6 +124,8 @@ export async function runDatabaseFirstSeed(ctx: MutationCtx) {
       rollWidth: spec.rollWidth,
       sheetWidth: spec.sheetWidth,
       sheetLength: spec.sheetLength,
+      thickness: thickness.thickness,
+      attributes: thickness.attributes,
       specificationOptions: spec.specificationOptions ? [...spec.specificationOptions] : undefined,
       compatibleMachineTypes: spec.compatibleMachineTypes ? [...spec.compatibleMachineTypes] : undefined,
       storageLocation: spec.storageLocation,

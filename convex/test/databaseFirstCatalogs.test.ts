@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { runDatabaseFirstSeed, assertServiceCatalogSync, assertRoleCatalogSync } from "../owner/seedDatabaseFirst";
+import { upsertMaterialCatalogItem } from "../owner/databaseFirstCatalogs";
 import * as users from "../users";
 
 beforeEach(() => {
@@ -143,5 +144,75 @@ describe("Database-First Catalog Seeding & Sync", () => {
     const servicesAfterSecond = tables.get("serviceCatalog")!.size;
 
     expect(servicesAfterSecond).toBe(servicesAfterFirst);
+  });
+
+  it("normalizes names, derives ids, and rejects invalid family dimensions", async () => {
+    const { mockCtx, tables } = createMockDb();
+    const handler = (upsertMaterialCatalogItem as any)._handler ?? upsertMaterialCatalogItem;
+    const id = await handler(mockCtx, {
+      name: "  Banner   Flex  ",
+      category: " Banner ",
+      catalogFamily: "roll",
+      baseUnit: "m²",
+      purchaseUnit: " Roll ",
+      conversionRatio: 160,
+      rollWidth: 3.2,
+      active: true,
+    });
+    const row = Array.from(tables.get("materialCatalog")!.values())[0] as any;
+    expect(id).toBe(row._id);
+    expect(row.id).toBe("banner_flex");
+    expect(row.name).toBe("Banner Flex");
+    await expect(handler(mockCtx, {
+      name: "Rigid Board",
+      category: "Board",
+      catalogFamily: "RIGID_SHEET",
+      baseUnit: "m²",
+      purchaseUnit: "sheet",
+      conversionRatio: 2.9,
+      active: true,
+    })).rejects.toThrow("sheetWidth");
+  });
+
+  it("rejects stale edits and renames referenced by active service routes", async () => {
+    const { mockCtx, tables } = createMockDb();
+    const handler = (upsertMaterialCatalogItem as any)._handler ?? upsertMaterialCatalogItem;
+    const id = await handler(mockCtx, {
+      id: "banner_flex",
+      name: "Banner Flex",
+      category: "Banner",
+      catalogFamily: "ROLL",
+      baseUnit: "m²",
+      purchaseUnit: "roll",
+      conversionRatio: 160,
+      rollWidth: 3.2,
+      active: true,
+    });
+    const material = Array.from(tables.get("materialCatalog")!.values()).find((row: any) => row._id === id) as any;
+    await mockCtx.db.insert("serviceRoutes", { serviceId: "banner_print", preferredMaterialName: "Banner Flex", active: true });
+    await expect(handler(mockCtx, {
+      id: "banner_flex",
+      name: "Renamed Banner Flex",
+      category: "Banner",
+      catalogFamily: "ROLL",
+      baseUnit: "m²",
+      purchaseUnit: "roll",
+      conversionRatio: 160,
+      rollWidth: 3.2,
+      active: true,
+      expectedUpdatedAt: material.updatedAt,
+    })).rejects.toThrow("MATERIAL_REFERENCED");
+    await expect(handler(mockCtx, {
+      id: "banner_flex",
+      name: "Banner Flex",
+      category: "Banner",
+      catalogFamily: "ROLL",
+      baseUnit: "m²",
+      purchaseUnit: "roll",
+      conversionRatio: 160,
+      rollWidth: 3.2,
+      active: true,
+      expectedUpdatedAt: material.updatedAt - 1,
+    })).rejects.toThrow("MATERIAL_CONFLICT");
   });
 });

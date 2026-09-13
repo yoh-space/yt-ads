@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import type { QueryCtx, MutationCtx } from "../_generated/server";
 import { requireOwner, requirePermission } from "../users";
 import { runDatabaseFirstSeed } from "./seedDatabaseFirst";
+import { validateNumber } from "../systemConfigs";
 
 // Helper to query dynamically added database-first tables
 const qTable = (ctx: QueryCtx | MutationCtx, table: string): any => (ctx.db.query as any)(table);
@@ -192,7 +193,7 @@ export const getMaterialCatalogItem = query({
 
 export const upsertMaterialCatalogItem = mutation({
   args: {
-    id: v.string(),
+    id: v.optional(v.string()),
     name: v.string(),
     aliases: v.optional(v.array(v.string())),
     category: v.string(),
@@ -203,6 +204,8 @@ export const upsertMaterialCatalogItem = mutation({
     rollWidth: v.optional(v.number()),
     sheetWidth: v.optional(v.number()),
     sheetLength: v.optional(v.number()),
+    thickness: v.optional(v.number()),
+    attributes: v.optional(v.record(v.string(), v.union(v.string(), v.number()))),
     specificationOptions: v.optional(v.array(v.string())),
     compatibleMachineTypes: v.optional(v.array(v.string())),
     storageLocation: v.optional(v.string()),
@@ -210,25 +213,106 @@ export const upsertMaterialCatalogItem = mutation({
     catalogDimensions: v.optional(v.string()),
     catalogVariant: v.optional(v.string()),
     active: v.boolean(),
+    expectedUpdatedAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     await requireOwner(ctx);
+    const normalize = (value: string) => value.trim().replace(/\s+/g, " ");
+    const name = normalize(args.name);
+    const category = normalize(args.category);
+    const catalogFamily = normalize(args.catalogFamily).toUpperCase();
+    const baseUnit = normalize(args.baseUnit);
+    const purchaseUnit = normalize(args.purchaseUnit).toLowerCase();
+    if (!name) throw new Error("Material name is required.");
+    if (!category) throw new Error("Material category is required.");
+    if (!catalogFamily) throw new Error("Material catalog family is required.");
+    if (!baseUnit) throw new Error("Material base unit is required.");
+    if (!purchaseUnit) throw new Error("Material purchase unit is required.");
+
+    validateNumber(args.conversionRatio, "Conversion ratio", { min: 0 });
+    if (args.conversionRatio <= 0) throw new Error("Conversion ratio must be greater than zero.");
+    if (args.rollWidth !== undefined) validateNumber(args.rollWidth, "Roll width", { min: 0 });
+    if (args.sheetWidth !== undefined) validateNumber(args.sheetWidth, "Sheet width", { min: 0 });
+    if (args.sheetLength !== undefined) validateNumber(args.sheetLength, "Sheet length", { min: 0 });
+    if (args.thickness !== undefined) validateNumber(args.thickness, "Thickness", { min: 0 });
+    if (catalogFamily === "ROLL" && (!args.rollWidth || args.rollWidth <= 0)) {
+      throw new Error("ROLL materials require a rollWidth greater than zero.");
+    }
+    if (catalogFamily === "RIGID_SHEET" && (!args.sheetWidth || args.sheetWidth <= 0)) {
+      throw new Error("RIGID_SHEET materials require a sheetWidth greater than zero.");
+    }
+    if (catalogFamily === "RIGID_SHEET" && (!args.sheetLength || args.sheetLength <= 0)) {
+      throw new Error("RIGID_SHEET materials require a sheetLength greater than zero.");
+    }
+    if (catalogFamily === "INK_SOLVENT" && !["L", "ml", "mL", "liter", "litre"].includes(baseUnit)) {
+      throw new Error("INK_SOLVENT materials require a volume baseUnit such as L or ml.");
+    }
+    if (args.attributes) {
+      for (const [key, value] of Object.entries(args.attributes)) {
+        if (!key.trim()) throw new Error("Material attribute keys cannot be empty.");
+        if (typeof value === "number") validateNumber(value, `Material attribute ${key}`);
+      }
+    }
+
     const now = Date.now();
+    const id = normalize(args.id ?? "") || name.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
     const existing = await qTable(ctx, "materialCatalog")
-      .withIndex("by_material_id", (q: any) => q.eq("id", args.id))
+      .withIndex("by_material_id", (q: any) => q.eq("id", id))
       .first();
 
+    const aliases = (args.aliases ?? []).map(normalize).filter(Boolean);
+    const allMaterials: any[] = await qTable(ctx, "materialCatalog").collect();
+    const duplicate = allMaterials.find((row) => {
+      if (existing && row._id === existing._id) return false;
+      const names = [row.name, ...(row.aliases ?? [])].map((value: string) => normalize(value).toLowerCase());
+      return names.includes(name.toLowerCase()) || aliases.some((alias) => names.includes(alias.toLowerCase()));
+    });
+    if (duplicate) throw new Error(`A material named ${name} already exists.`);
+
+    if (existing && args.expectedUpdatedAt !== undefined && existing.updatedAt !== args.expectedUpdatedAt) {
+      throw new Error("MATERIAL_CONFLICT: this material changed since you opened it. Reload and retry.");
+    }
+
+    if (existing && (normalize(existing.name).toLowerCase() !== name.toLowerCase() || existing.active !== args.active)) {
+      const oldNames = new Set([normalize(existing.name).toLowerCase(), normalize(existing.id).toLowerCase()]);
+      const routes: any[] = await qTable(ctx, "serviceRoutes").collect();
+      const referenced = routes.filter((route) => route.active && oldNames.has(normalize(route.preferredMaterialName).toLowerCase()));
+      if (referenced.length > 0) {
+        throw new Error(`MATERIAL_REFERENCED: ${existing.name} is used by active service routes: ${referenced.map((route) => route.serviceId).join(", ")}. Update those routes before renaming or deactivating this material.`);
+      }
+    }
+
+    const payload = {
+      id,
+      name,
+      aliases: aliases.length ? aliases : undefined,
+      category,
+      catalogFamily,
+      baseUnit,
+      purchaseUnit,
+      conversionRatio: args.conversionRatio,
+      rollWidth: args.rollWidth,
+      sheetWidth: args.sheetWidth,
+      sheetLength: args.sheetLength,
+      thickness: args.thickness,
+      attributes: args.attributes,
+      specificationOptions: args.specificationOptions,
+      compatibleMachineTypes: args.compatibleMachineTypes,
+      storageLocation: args.storageLocation,
+      averageUse: args.averageUse,
+      catalogDimensions: args.catalogDimensions,
+      catalogVariant: args.catalogVariant,
+      active: args.active,
+      updatedAt: now,
+    };
+
     if (existing) {
-      await ctx.db.patch(existing._id, {
-        ...args,
-        updatedAt: now,
-      });
+      await ctx.db.patch(existing._id, payload);
       return existing._id;
     } else {
       return await ctx.db.insert("materialCatalog", {
-        ...args,
+        ...payload,
         createdAt: now,
-        updatedAt: now,
       });
     }
   },
@@ -242,6 +326,14 @@ export const toggleMaterialCatalogActive = mutation({
       .withIndex("by_material_id", (q: any) => q.eq("id", args.id))
       .first();
     if (!item) throw new Error(`Material spec ${args.id} not found`);
+    if (item.active && !args.active) {
+      const routes: any[] = await qTable(ctx, "serviceRoutes").collect();
+      const itemNames = new Set([String(item.name).trim().toLowerCase(), String(item.id).trim().toLowerCase()]);
+      const referenced = routes.filter((route) => route.active && itemNames.has(String(route.preferredMaterialName).trim().toLowerCase()));
+      if (referenced.length > 0) {
+        throw new Error(`MATERIAL_REFERENCED: ${item.name} is used by active service routes: ${referenced.map((route) => route.serviceId).join(", ")}. Update those routes before deactivating this material.`);
+      }
+    }
     await ctx.db.patch(item._id, { active: args.active, updatedAt: Date.now() });
   },
 });

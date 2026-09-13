@@ -12,7 +12,7 @@ import { unitConversionRule } from "./schema";
  */
 export const CONFIG_KEY = "default";
 
-function validateNumber(value: number, label: string, options: { min?: number; max?: number } = {}) {
+export function validateNumber(value: number, label: string, options: { min?: number; max?: number } = {}) {
   if (!Number.isFinite(value)) throw new Error(`${label} must be a finite number.`);
   if (options.min !== undefined && value < options.min) {
     throw new Error(`${label} must be at least ${options.min}.`);

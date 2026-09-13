@@ -1347,6 +1347,10 @@ export default defineSchema({
     rollWidth: v.optional(v.number()),
     sheetWidth: v.optional(v.number()),
     sheetLength: v.optional(v.number()),
+    /** Material thickness in millimetres for rigid sheets and other thickness-aware variants. */
+    thickness: v.optional(v.number()),
+    /** Category-specific attributes whose keys are owner-managed definitions. */
+    attributes: v.optional(v.record(v.string(), v.union(v.string(), v.number()))),
     specificationOptions: v.optional(v.array(v.string())),
     compatibleMachineTypes: v.optional(v.array(v.string())),
     storageLocation: v.optional(v.string()),
@@ -1359,6 +1363,16 @@ export default defineSchema({
   })
     .index("by_material_id", ["id"])
     .index("by_name", ["name"])
+    .index("by_active", ["active"]),
+  /** Owner-managed metadata describing dynamic material attributes and input types. */
+  materialAttributeDefinitions: defineTable({
+    key: v.string(),
+    label: v.string(),
+    valueType: v.union(v.literal("string"), v.literal("number")),
+    applicableCatalogFamily: v.array(v.string()),
+    active: v.boolean(),
+  })
+    .index("by_key", ["key"])
     .index("by_active", ["active"]),
 
   /** Authoritative service production routing rules (Phase 3). */
