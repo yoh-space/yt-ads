@@ -161,7 +161,7 @@ export function DatabaseCatalogSuite() {
       toast.error(err instanceof Error ? err.message : "Sync failed");
     } finally {
       setIsSyncing(false);
-    }
+    } 
   }
 
   if (syncStatus === undefined) {
