@@ -191,6 +191,16 @@ export const getMaterialCatalogItem = query({
   },
 });
 
+export const listMaterialAttributeDefinitions = query({
+  args: { includeInactive: v.optional(v.boolean()), catalogFamily: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    let rows: any[] = await qTable(ctx, "materialAttributeDefinitions").collect();
+    if (!args.includeInactive) rows = rows.filter((row) => row.active);
+    if (args.catalogFamily) rows = rows.filter((row) => row.applicableCatalogFamily.includes(args.catalogFamily));
+    return rows.sort((left, right) => left.key.localeCompare(right.key));
+  },
+});
+
 export const upsertMaterialCatalogItem = mutation({
   args: {
     id: v.optional(v.string()),
