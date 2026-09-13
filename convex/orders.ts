@@ -1,5 +1,5 @@
-import { internalMutation, internalAction, mutation, query, action } from "./_generated/server";
-import { v } from "convex/values";
+import { internalMutation, internalAction, mutation, query, action, type QueryCtx, type MutationCtx } from "./_generated/server";
+import { v, ConvexError } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import type { Unit } from "./types";
@@ -49,6 +49,33 @@ const ALLOWED_STATUS_TRANSITIONS: Record<string, string[]> = {
 
 export function canTransitionOrderStatus(from: string, to: string): boolean {
   return (ALLOWED_STATUS_TRANSITIONS[from] ?? []).includes(to);
+}
+
+/**
+ * Convex redacts plain `Error` messages from query/mutation failures in
+ * production — the client only ever receives the generic `Server Error` with
+ * no detail, and the real message lives only in the Convex dashboard logs.
+ * `ConvexError` payloads, by contrast, ARE delivered to the client verbatim.
+ *
+ * These helpers wrap the auto-routing preview/confirm handlers and re-throw
+ * whatever `resolveAutoRouting` / `validateDispatchResources` threw as a
+ * ConvexError carrying the original message, so Reception can see exactly why
+ * a job card cannot be issued instead of an opaque failure. Existing guard
+ * messages are never rewritten here.
+ */
+function throwAsConvexError(error: unknown): never {
+  if (error instanceof ConvexError) throw error;
+  const message = error instanceof Error && error.message ? error.message : String(error);
+  throw new ConvexError(message);
+}
+
+/** Runs a handler, converting any plain Error into a client-visible ConvexError. */
+async function runDiagnosable<T>(operation: () => Promise<T>): Promise<T> {
+  try {
+    return await operation();
+  } catch (error) {
+    throwAsConvexError(error);
+  }
 }
 // convex/orders.ts
 
@@ -1064,7 +1091,7 @@ export async function priceOrderInternal(
  * capability / operator role and load-balanced by unfinished job count, and a
  * Standard allocation is computed with the configured waste margin.
  */
-async function resolveAutoRouting(
+export async function resolveAutoRouting(
   ctx: any,
   order: OrderDoc,
   config: { standardWasteMargin?: number; maxAllowedScrapLimit?: number },
@@ -1321,7 +1348,12 @@ function resolveMaterialBreakdown(material: any, order: OrderDoc, config: any): 
  */
 export const previewAutoRouting = query({
   args: { orderId: v.id("customerOrders") },
-  handler: async (ctx, args) => {
+  // Wrap in a dispatcher so routing failures surface to the client as a
+  // ConvexError (message visible) instead of a redacted "Server Error".
+  handler: (ctx, args) => runDiagnosable(() => previewAutoRoutingImpl(ctx, args)),
+});
+
+async function previewAutoRoutingImpl(ctx: QueryCtx, args: { orderId: Id<"customerOrders"> }) {
     await requirePermission(ctx, "order.manage");
     const order = await ctx.db.get(args.orderId);
     if (!order) throw new Error("Order not found.");
@@ -1354,8 +1386,7 @@ export const previewAutoRouting = query({
       inkCheck: resources.ink,
       breakdown,
     };
-  },
-});
+}
 
 /**
  * Reception step 2 of checkout — the single payment-gated entry point to
@@ -1380,7 +1411,29 @@ export const confirmOrderAndIssueJobCard = mutation({
     priority: v.optional(orderPriority),
     deductOnComplete: v.optional(v.boolean()),
   },
-  handler: async (ctx, args) => {
+  // Wrap in a dispatcher so the same routing failures that previewAutoRouting
+  // guards against surface to the client as a ConvexError (message visible)
+  // instead of a redacted "Server Error" at the exact moment Reception tries
+  // to create the job card.
+  handler: (ctx, args) => runDiagnosable(() => confirmOrderAndIssueJobCardImpl(ctx, args)),
+});
+
+type ConfirmOrderAndIssueJobCardArgs = {
+  orderId: Id<"customerOrders">;
+  amount?: number;
+  paymentDecision: "ADVANCE_PAID" | "APPROVED_CREDIT";
+  paymentMethod?: string;
+  paymentReference?: string;
+  advancePaidAmount?: number;
+  machineId?: Id<"machines">;
+  materialId?: Id<"materials">;
+  quantity?: number;
+  unit?: string;
+  priority?: "High" | "Medium" | "Low";
+  deductOnComplete?: boolean;
+};
+
+async function confirmOrderAndIssueJobCardImpl(ctx: MutationCtx, args: ConfirmOrderAndIssueJobCardArgs) {
     const { identity } = await requirePermission(ctx, "order.manage");
     const order = await ctx.db.get(args.orderId);
     if (!order) throw new Error("Order not found.");
@@ -1637,8 +1690,7 @@ export const confirmOrderAndIssueJobCard = mutation({
       standardWasteMargin: allocation.wasteMarginPercent,
       breakdown,
     };
-  },
-});
+}
 
 /** Records the remaining balance exactly once after production is ready for pickup. */
 export const settleOrder = mutation({

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useQuery } from "convex/react";
+import { useQuery, useQuery_experimental } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { ArrowUpRight, CalendarDays, Clock3, Plus, Search, Wrench, X, Copy, Check, Lock, Sparkles, Scissors, Trash2 } from "lucide-react";
@@ -486,8 +486,29 @@ export function OrderConfirmModal({ order, machines, materials, onClose, onSave 
   const [advancePaidAmount, setAdvancePaidAmount] = useState(String(order.advanceDueAmount ?? (order.amount ? order.amount / 2 : "")));
   const [copiedPaymentAccount, setCopiedPaymentAccount] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const dispatchPreview = useQuery(api.orders.previewAutoRouting, { orderId: order.id as Id<"customerOrders"> });
-  const dispatchBlocked = !dispatchPreview || !dispatchPreview.canDispatch;
+  // Non-throwing query form: when the server rejects the routing preview we
+  // render the ConvexError message inline instead of letting the error blow up
+  // the whole workspace with an opaque "Server Error".
+  const previewResult = useQuery_experimental({
+    query: api.orders.previewAutoRouting,
+    args: { orderId: order.id as Id<"customerOrders"> },
+    throwOnError: false,
+  });
+  const dispatchPreviewError =
+    previewResult.status === "error"
+      ? (previewResult.error as Error & { data?: unknown })
+      : null;
+  const dispatchPreview =
+    previewResult.status === "success" ? previewResult.data : null;
+  const previewErrorMessage =
+    dispatchPreviewError &&
+    typeof dispatchPreviewError.data === "string" &&
+    dispatchPreviewError.data.trim()
+      ? dispatchPreviewError.data
+      : dispatchPreviewError?.message ||
+        "Could not preview the production routing for this order.";
+  const dispatchBlocked =
+    !dispatchPreview || !dispatchPreview.canDispatch || Boolean(dispatchPreviewError);
 
   return (
     <ModalShell
@@ -616,7 +637,17 @@ export function OrderConfirmModal({ order, machines, materials, onClose, onSave 
             )}
           </div>
 
-          {dispatchPreview ? (
+          {dispatchPreviewError ? (
+            <div className="rounded-lg border border-danger/40 bg-danger/15 p-3 text-xs text-danger" role="alert">
+              <strong className="block font-bold">Cannot Preview Auto-Routing:</strong>
+              <p className="mt-1 font-mono text-[11px] leading-relaxed break-all">{previewErrorMessage}</p>
+              {!dispatchPreviewError.data ? (
+                <p className="mt-2 text-[10px] text-text-secondary">
+                  Contact the owner to register the routed raw material or machine, then retry.
+                </p>
+              ) : null}
+            </div>
+          ) : dispatchPreview ? (
             <>
               {/* Section 1: Workstation & Material Summary */}
               <div className="grid gap-3 rounded-lg bg-surface-elevated p-3 text-xs sm:grid-cols-2">

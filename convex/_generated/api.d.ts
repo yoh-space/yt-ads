@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as _auditRoutingCoverage from "../_auditRoutingCoverage.js";
 import type * as admin from "../admin.js";
 import type * as admin_common from "../admin/common.js";
 import type * as admin_inventory from "../admin/inventory.js";
@@ -110,6 +111,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  _auditRoutingCoverage: typeof _auditRoutingCoverage;
   admin: typeof admin;
   "admin/common": typeof admin_common;
   "admin/inventory": typeof admin_inventory;
