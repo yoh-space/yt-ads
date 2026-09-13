@@ -239,7 +239,7 @@ export default function OperatorMachineOverview({
               title={
                 hasPendingClearance
                   ? "የዕቃ ቆጠራ ማረጋገጫ ስላልተጠናቀቀ አዲስ ዕቃ መጠየቅ አይቻልም"
-                  : "ከግምጃ ቤት ዕቃ ይጠይቁ"
+                  : "ከዋናው ስቶር ዕቃ ይጠይቁ"
               }
               className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-sm text-xs font-semibold transition-colors ${
                 hasPendingClearance
