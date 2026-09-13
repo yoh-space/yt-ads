@@ -27,10 +27,7 @@ import { SystemResetPanel } from "@/components/dashboard/roles/admin/settings/pa
 type Tab =
   | "profile"
   | "security"
-  | "reports"
-  | "notifications"
   | "payments"
-  | "preferences"
   | "system-reset";
 type PreferenceKey = "inventory" | "approvals" | "reconciliation" | "financial";
 type Channel = "In-App" | "Email" | "Telegram";
@@ -61,9 +58,7 @@ type Draft = {
 const tabs: Array<{ id: Tab; label: string; icon: typeof Building2 }> = [
   { id: "profile", label: "Company Profile", icon: Building2 },
   { id: "security", label: "Account & Security", icon: LockKeyhole },
-  { id: "notifications", label: "Notifications & Alerts", icon: BellRing },
   { id: "payments", label: "Customer Payments", icon: Check },
-  { id: "preferences", label: "System Preferences", icon: Settings2 },
   { id: "system-reset", label: "System Data Reset", icon: AlertTriangle },
 ];
 const preferenceRows: Array<{
@@ -387,7 +382,7 @@ export default function OwnerSettingsPage() {
                         Company logo
                       </p>
                       <p className="mt-1 text-[10px] text-muted-foreground">
-                        PNG, SVG, or JPEG. Used on reports.
+                        PNG, SVG, or JPEG.
                       </p>
                       <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-md border border-border px-3 py-2 text-[10px] font-semibold text-muted-foreground hover:text-foreground">
                         <Upload size={13} /> Upload logo
@@ -422,94 +417,6 @@ export default function OwnerSettingsPage() {
             {tab === "security" ? (
               <div className="p-1">
                 <SecurityPanel isOwner />
-              </div>
-            ) : null}
-            {tab === "reports" ? (
-              <div className="space-y-5 p-5">
-                <div className="flex items-center justify-between rounded-xl border border-border/60 bg-background/30 p-4">
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">
-                      Automated report dispatch
-                    </p>
-                    <p className="mt-1 text-[10px] text-muted-foreground">
-                      Send scheduled PDF or CSV reports to configured
-                      recipients.
-                    </p>
-                  </div>
-                  <Toggle
-                    checked={draft.reportAutomationEnabled}
-                    onChange={value => update("reportAutomationEnabled", value)}
-                  />
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="block text-xs text-muted-foreground">
-                    Delivery frequency
-                    <select
-                      value={draft.reportFrequency}
-                      onChange={event =>
-                        update("reportFrequency", event.target.value)
-                      }
-                      className="mt-1 h-10 w-full rounded-md border border-border bg-background px-3 text-xs text-foreground"
-                    >
-                      <option value="daily">Daily summary</option>
-                      <option value="weekly">Weekly executive digest</option>
-                      <option value="monthly">
-                        Monthly financial statement
-                      </option>
-                    </select>
-                  </label>
-                  <Field
-                    label="Preferred delivery time"
-                    type="time"
-                    value={draft.reportDeliveryTime}
-                    onChange={value => update("reportDeliveryTime", value)}
-                  />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">
-                    Recipient emails
-                  </p>
-                  <div className="mt-1 flex flex-wrap gap-2 rounded-md border border-border bg-background p-2">
-                    {draft.reportRecipients.map(email => (
-                      <span
-                        key={email}
-                        className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-1 text-[10px] text-primary"
-                      >
-                        {email}
-                        <button
-                          type="button"
-                          onClick={() =>
-                            update(
-                              "reportRecipients",
-                              draft.reportRecipients.filter(
-                                item => item !== email
-                              )
-                            )
-                          }
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                    <input
-                      value={recipientInput}
-                      onChange={event => setRecipientInput(event.target.value)}
-                      onKeyDown={event => {
-                        if (event.key === "Enter") {
-                          event.preventDefault();
-                          addRecipient();
-                        }
-                      }}
-                      onBlur={addRecipient}
-                      placeholder="Add email and press Enter"
-                      className="min-w-48 flex-1 bg-transparent px-1 py-1 text-xs text-foreground outline-none"
-                    />
-                  </div>
-                  <p className="mt-1 text-[10px] text-muted-foreground">
-                    Reports are configured here; delivery requires a configured
-                    mail connector.
-                  </p>
-                </div>
               </div>
             ) : null}
             {tab === "payments" ? (
@@ -609,39 +516,7 @@ export default function OwnerSettingsPage() {
                 </div>
               </div>
             ) : null}
-            {tab === "preferences" ? (
-              <div className="space-y-4 p-5">
-                <div className="rounded-xl border border-border/60 bg-background/30 p-4">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                    <Settings2 size={15} className="text-primary" /> System
-                    defaults
-                  </div>
-                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                    <div>
-                      <p className="text-[9px] uppercase tracking-wider text-muted-foreground">
-                        Workspace timezone
-                      </p>
-                      <p className="mt-1 text-xs font-semibold text-foreground">
-                        {draft.timezone}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[9px] uppercase tracking-wider text-muted-foreground">
-                        Security context
-                      </p>
-                      <p className="mt-1 text-xs font-semibold text-success">
-                        Owner-only configuration
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-[11px] text-muted-foreground">
-                  <ShieldCheck size={14} className="mb-2 text-primary" />
-                  Operational thresholds, reorder policy, and valuation rates
-                  are managed from the Operational Configuration workspace.
-                </div>
-              </div>
-            ) : null}
+
             {tab === "system-reset" ? (
               <div className="p-5">
                 <SystemResetPanel />
