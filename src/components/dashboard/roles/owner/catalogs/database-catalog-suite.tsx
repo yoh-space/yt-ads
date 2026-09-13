@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { CheckboxGroupField } from "@/components/dashboard/modals/catalog-select";
 import {
   Database,
   RefreshCw,
@@ -245,6 +246,15 @@ interface CategoryGroupRecord {
   updatedAt?: number;
 }
 
+interface MachineRecord {
+  _id: string;
+  name: string;
+  code: string;
+  type: string;
+  status: string;
+  active: boolean;
+}
+
 export function DatabaseCatalogSuite() {
   const seedMachines = useMutation(api.owner.seedMachines.seedMachines);
   const syncStatus = useQuery(api.catalog.getDatabaseFirstSyncStatus, {});
@@ -265,6 +275,9 @@ export function DatabaseCatalogSuite() {
     includeInactive: true,
   });
   const machines = useQuery(api.machines.list, {});
+  const capabilities = useQuery(api.catalog.listCapabilities, {
+    includeInactive: false,
+  });
   const changeLogs = useQuery(api.catalog.listConfigChangeLog, { limit: 40 });
   const driftReport = useQuery(api.catalog.detectConfigDrift, {});
 
@@ -285,6 +298,9 @@ export function DatabaseCatalogSuite() {
     api.catalog.upsertMaterialCategoryGroup
   );
   const reconcileDriftMutation = useMutation(api.catalog.reconcileConfigDrift);
+  const upsertServiceMachineOptionsMutation = useMutation(
+    api.owner.serviceMachineOptions.upsertServiceMachineOptions
+  );
 
   const [isSyncing, setIsSyncing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -299,10 +315,72 @@ export function DatabaseCatalogSuite() {
     null
   );
   const [editingRoute, setEditingRoute] = useState<RouteRecord | null>(null);
+  const [routeMachineCodes, setRouteMachineCodes] = useState<string[]>([]);
   const [editingRole, setEditingRole] = useState<RoleRecord | null>(null);
   const [editingGroup, setEditingGroup] = useState<CategoryGroupRecord | null>(
     null
   );
+
+  const configuredRouteMachines = useQuery(
+    api.owner.serviceMachineOptions.listServiceMachineOptions,
+    editingRoute?.serviceId ? { serviceId: editingRoute.serviceId } : "skip"
+  );
+
+  function openEditRoute(rt: RouteRecord) {
+    setEditingRoute({ ...rt });
+    setRouteMachineCodes(
+      rt.preferredMachineCode ? [rt.preferredMachineCode] : []
+    );
+  }
+
+  useEffect(() => {
+    if (configuredRouteMachines && configuredRouteMachines.length > 0) {
+      setRouteMachineCodes(configuredRouteMachines.map((o) => o.machineCode));
+    }
+  }, [configuredRouteMachines]);
+
+  // Dynamic checklist options derived from authoritative DB tables
+  const machineTypeOptions = useMemo(() => {
+    const types = new Set<string>();
+    for (const m of (machines as MachineRecord[] | undefined) ?? []) {
+      if (m.type) types.add(m.type);
+    }
+    if (types.size === 0) {
+      [
+        "Large Format Solvent Printer",
+        "Eco-Solvent Printer & Cutter",
+        "UV Flatbed Printer",
+        "DTF Printer",
+        "CO2 Laser Cutter",
+        "Heavy Duty CNC Router",
+      ].forEach((t) => types.add(t));
+    }
+    return Array.from(types).map((t) => ({ value: t, label: t }));
+  }, [machines]);
+
+  const capabilityOptions = useMemo(() => {
+    return ((capabilities as any[]) ?? []).map((c) => ({
+      value: c.code,
+      label: c.name || c.code,
+      description: c.description,
+    }));
+  }, [capabilities]);
+
+  const categoryOptions = useMemo(() => {
+    const cats = new Set<string>();
+    for (const m of (materials as MaterialRecord[] | undefined) ?? []) {
+      if (m.category) cats.add(m.category);
+    }
+    return Array.from(cats).map((c) => ({ value: c, label: c }));
+  }, [materials]);
+
+  const fleetMachineOptions = useMemo(() => {
+    return ((machines as MachineRecord[] | undefined) ?? []).map((m) => ({
+      value: m.code,
+      label: `${m.name} (${m.code})`,
+      description: `${m.type} · ${m.status}`,
+    }));
+  }, [machines]);
 
   const [materialPrice, setMaterialPrice] = useState<number | "">("");
   const [materialCurrency, setMaterialCurrency] = useState<string>("ETB");
@@ -452,17 +530,6 @@ export function DatabaseCatalogSuite() {
       .join(", ");
   }
 
-  function parseList(raw: string): string[] {
-    return raw
-      .split(",")
-      .map(item => item.trim())
-      .filter(Boolean);
-  }
-
-  function formatList(items?: string[]): string {
-    return (items ?? []).join(", ");
-  }
-
   async function saveService() {
     if (!editingService) return;
     setIsSaving(true);
@@ -555,6 +622,8 @@ export function DatabaseCatalogSuite() {
     if (!editingRoute) return;
     setIsSaving(true);
     try {
+      const preferredCode =
+        routeMachineCodes[0] ?? editingRoute.preferredMachineCode;
       await upsertServiceRoute({
         serviceId: editingRoute.serviceId,
         materialType: editingRoute.materialType,
@@ -562,13 +631,25 @@ export function DatabaseCatalogSuite() {
         requiredCapabilities: editingRoute.requiredCapabilities,
         legacyCapabilities: editingRoute.legacyCapabilities,
         operatorRole: editingRoute.operatorRole,
-        preferredMachineCode: editingRoute.preferredMachineCode,
+        preferredMachineCode: preferredCode,
         calculationUnit: editingRoute.calculationUnit,
         defaultWasteMarginPercent: editingRoute.defaultWasteMarginPercent,
         maxScrapLimitPercent: editingRoute.maxScrapLimitPercent,
         active: editingRoute.active,
         expectedUpdatedAt: editingRoute.updatedAt,
       });
+
+      if (routeMachineCodes.length > 0) {
+        try {
+          await upsertServiceMachineOptionsMutation({
+            serviceId: editingRoute.serviceId,
+            machineCodes: routeMachineCodes,
+          });
+        } catch {
+          // ignore non-critical options error
+        }
+      }
+
       toast.success(`Route for ${editingRoute.serviceId} updated`);
       setEditingRoute(null);
     } catch (e) {
@@ -1038,7 +1119,7 @@ export function DatabaseCatalogSuite() {
                         <Button
                           variant="tertiary"
                           className="h-7 px-2 text-xs"
-                          onClick={() => setEditingRoute({ ...rt })}
+                          onClick={() => openEditRoute(rt)}
                         >
                           <Edit3 size={12} className="mr-1" /> Edit
                         </Button>
@@ -1715,11 +1796,15 @@ export function DatabaseCatalogSuite() {
               </label>
               <input
                 type="text"
-                value={formatList(editingMaterial.aliases)}
+                placeholder="e.g. Flex, Banner Roll"
+                value={(editingMaterial.aliases ?? []).join(", ")}
                 onChange={e =>
                   setEditingMaterial({
                     ...editingMaterial,
-                    aliases: parseList(e.target.value),
+                    aliases: e.target.value
+                      .split(",")
+                      .map(s => s.trim())
+                      .filter(Boolean),
                   })
                 }
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-cyan focus:outline-none"
@@ -2283,9 +2368,16 @@ export function DatabaseCatalogSuite() {
               </span>
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">
-                    Estimated Unit Price
-                  </label>
+                  <div className="flex items-center justify-between gap-1 mb-1.5">
+                    <label className="text-xs font-medium text-muted-foreground truncate">
+                      Unit Price ({editingMaterial.purchaseUnit})
+                    </label>
+                    {materialPrice !== "" && Number(materialPrice) > 0 && editingMaterial.conversionRatio > 0 && (
+                      <span className="text-[10px] font-mono font-medium text-cyan bg-cyan/10 px-1.5 py-0.5 rounded shrink-0">
+                        ≈ {(Number(materialPrice) / editingMaterial.conversionRatio).toFixed(2)} {materialCurrency} / {editingMaterial.baseUnit}
+                      </span>
+                    )}
+                  </div>
                   <input
                     type="number"
                     placeholder="0.00"
@@ -2347,6 +2439,20 @@ export function DatabaseCatalogSuite() {
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
               />
             </div>
+
+            <CheckboxGroupField
+              label="Compatible Machine Types"
+              description="Equipment types compatible with this material"
+              options={machineTypeOptions}
+              selected={editingMaterial.compatibleMachineTypes ?? []}
+              onChange={types =>
+                setEditingMaterial({
+                  ...editingMaterial,
+                  compatibleMachineTypes: types,
+                })
+              }
+              columns={2}
+            />
 
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1.5">
@@ -2518,6 +2624,37 @@ export function DatabaseCatalogSuite() {
                 />
               </div>
             </div>
+
+            <CheckboxGroupField
+              label="Required Capabilities"
+              description="Technical capabilities required to produce this service"
+              options={capabilityOptions}
+              selected={editingRoute.requiredCapabilities ?? []}
+              onChange={caps =>
+                setEditingRoute({
+                  ...editingRoute,
+                  requiredCapabilities: caps,
+                })
+              }
+              columns={2}
+            />
+
+            <CheckboxGroupField
+              label="Configured Machines"
+              description="Candidate equipment authorized for this service (load-balanced at dispatch)"
+              options={fleetMachineOptions}
+              selected={routeMachineCodes}
+              onChange={codes => {
+                setRouteMachineCodes(codes);
+                if (codes.length > 0) {
+                  setEditingRoute({
+                    ...editingRoute,
+                    preferredMachineCode: codes[0],
+                  });
+                }
+              }}
+              columns={2}
+            />
 
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1.5">
@@ -2776,22 +2913,19 @@ export function DatabaseCatalogSuite() {
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">
-                Member Categories (comma-separated)
-              </label>
-              <input
-                type="text"
-                value={formatList(editingGroup.memberCategories)}
-                onChange={e =>
-                  setEditingGroup({
-                    ...editingGroup,
-                    memberCategories: parseList(e.target.value),
-                  })
-                }
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-cyan focus:outline-none"
-              />
-            </div>
+            <CheckboxGroupField
+              label="Member Categories"
+              description="Material categories grouped under this taxonomy heading"
+              options={categoryOptions}
+              selected={editingGroup.memberCategories ?? []}
+              onChange={cats =>
+                setEditingGroup({
+                  ...editingGroup,
+                  memberCategories: cats,
+                })
+              }
+              columns={2}
+            />
 
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1.5">

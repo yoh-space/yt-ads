@@ -89,6 +89,24 @@ export const upsertPriceEstimate = mutation({
     const purchaseUnit = args.purchaseUnit.trim().toLowerCase();
     const effectiveAt = args.effectiveAt ?? Date.now();
 
+    // Look up authoritative materialCatalog definition to derive base-unit price
+    const catalogItem = await ctx.db
+      .query("materialCatalog")
+      .withIndex("by_material_id", (q) => q.eq("id", args.materialId))
+      .unique();
+
+    if (!catalogItem) {
+      throw new Error(`Material catalog definition for "${args.materialId}" was not found.`);
+    }
+
+    if (!catalogItem.conversionRatio || catalogItem.conversionRatio <= 0) {
+      throw new Error(
+        `Material "${catalogItem.name}" has an invalid conversion ratio (${catalogItem.conversionRatio}). Conversion ratio must be positive to derive base unit pricing.`,
+      );
+    }
+
+    const baseUnitEquivalent = Number((args.amount / catalogItem.conversionRatio).toFixed(4));
+
     // Deactivate existing active estimate for this material + currency
     const existingActive = await ctx.db
       .query("materialPriceEstimates")
@@ -106,7 +124,7 @@ export const upsertPriceEstimate = mutation({
       amount: args.amount,
       currency,
       purchaseUnit,
-      baseUnitEquivalent: args.baseUnitEquivalent,
+      baseUnitEquivalent,
       effectiveAt,
       source: args.source?.trim(),
       notes: args.notes?.trim(),
@@ -114,6 +132,15 @@ export const upsertPriceEstimate = mutation({
       createdAt: Date.now(),
       createdBy: profile.name || identity._id,
     });
+
+    // Project baseUnitEquivalent onto operational materials table as compatibility valuation
+    const matchingMaterials = await ctx.db
+      .query("materials")
+      .withIndex("by_name", (q) => q.eq("name", catalogItem.name))
+      .collect();
+    for (const mat of matchingMaterials) {
+      await ctx.db.patch(mat._id, { etbValue: baseUnitEquivalent });
+    }
 
     await logConfigChange(ctx, {
       entityType: "material_price_estimate",
@@ -123,6 +150,7 @@ export const upsertPriceEstimate = mutation({
         amount: { from: null, to: args.amount },
         currency: { from: null, to: currency },
         purchaseUnit: { from: null, to: purchaseUnit },
+        baseUnitEquivalent: { from: null, to: baseUnitEquivalent },
         effectiveAt: { from: null, to: effectiveAt },
       },
       changedBy: profile.name || identity._id,

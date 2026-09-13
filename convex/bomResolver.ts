@@ -7,6 +7,7 @@ import {
   type MaterialTypeRoute,
   type OrderForAllocation,
   type MaterialLike,
+  type MachineLike,
   type AllocationConfig,
   type StandardAllocation,
 } from "./orderAutomation";
@@ -108,9 +109,30 @@ export async function loadBomWithRouteOverride(
 /**
  * Resolves candidate machines and selects the optimal machine based on load balancing.
  */
-export async function resolveMachineCandidates(ctx: QueryCtx, route: MaterialTypeRoute) {
+export async function resolveMachineCandidates(ctx: QueryCtx, route: MaterialTypeRoute, serviceId?: string) {
   const allMachines = await ctx.db.query("machines").collect();
-  const compatible = compatibleMachines(route, allMachines);
+  const serviceKey = serviceId ?? route.serviceType;
+  const machineOptions = await ctx.db
+    .query("serviceMachineOptions")
+    .withIndex("by_service", (q: any) => q.eq("serviceId", serviceKey).eq("active", true))
+    .collect();
+
+  let compatible: MachineLike[];
+  if (machineOptions.length > 0) {
+    const allowedCodes = new Set(machineOptions.map((o: any) => o.machineCode));
+    compatible = allMachines.filter(
+      (m: any) =>
+        m.active &&
+        m.status !== "Maintenance" &&
+        m.status !== "Unavailable" &&
+        allowedCodes.has(m.code),
+    );
+    const priorityMap = new Map(machineOptions.map((o: any) => [o.machineCode, o.priority]));
+    compatible.sort((a, b) => Number(priorityMap.get(a.code) ?? 999) - Number(priorityMap.get(b.code) ?? 999));
+  } else {
+    compatible = compatibleMachines(route, allMachines);
+  }
+
   if (compatible.length === 0) return { compatible: [], selected: undefined };
 
   const openJobs = await ctx.db.query("jobCards").collect();
