@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { AlertTriangle, ArrowLeft, Check, Clock3, Search } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Check, Clock3, Copy, Search } from "lucide-react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { CustomerOrderStatus, TrackedOrder } from "@/lib/operations-types";
@@ -35,6 +35,7 @@ export function OrderTracker() {
   const [lookup, setLookup] = useState("");
   const [submittedLookup, setSubmittedLookup] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
+  const [copiedAccount, setCopiedAccount] = useState<string | null>(null);
   const orders = useQuery(api.orders.track, submittedLookup ? { lookup: submittedLookup } : "skip") as TrackedOrder[] | undefined;
   const requestOverdueInquiry = useMutation(api.orders.requestOverdueInquiry);
 
@@ -45,6 +46,16 @@ export function OrderTracker() {
       setNotice("Your update inquiry has been recorded for the workshop team.");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Unable to send the update request.");
+    }
+  }
+
+  async function copyAccount(account: string) {
+    try {
+      await navigator.clipboard.writeText(account);
+      setCopiedAccount(account);
+      window.setTimeout(() => setCopiedAccount(null), 1600);
+    } catch {
+      setCopiedAccount(null);
     }
   }
 
@@ -210,6 +221,29 @@ export function OrderTracker() {
                     })}
                   </div>
                 </div>
+
+                {order.amount !== undefined ? (
+                  <div className={cn("mb-4 rounded-sm border p-3", order.status === "READY_FOR_PICKUP" && order.paymentStatus !== "FULLY_PAID" ? "border-amber-500/40 bg-[#221710]" : "border-white/[0.08] bg-[#0F1014]")}>
+                    <p className="text-xs font-semibold text-[#E5C07B]">Payment summary</p>
+                    <div className="mt-2 grid max-w-sm grid-cols-2 gap-2 text-xs">
+                      <span className="text-neutral-500">Total</span><strong className="text-neutral-200">{order.amount.toFixed(2)} ETB</strong>
+                      <span className="text-neutral-500">Advance paid</span><strong className="text-neutral-200">{(order.advancePaidAmount ?? 0).toFixed(2)} ETB</strong>
+                      <span className="text-neutral-500">Remaining due</span><strong className={order.remainingDueAmount ? "text-[#E5C07B]" : "text-[#48B0A8]"}>{(order.remainingDueAmount ?? 0).toFixed(2)} ETB</strong>
+                    </div>
+                    {order.status === "READY_FOR_PICKUP" && order.paymentStatus !== "FULLY_PAID" ? <p className="mt-3 text-xs text-amber-200">Your order is 100% complete and ready for pickup. Clear the remaining balance at collection or by transfer before pickup.</p> : null}
+                    {order.paymentInstructionsSnapshot?.accounts.length ? (
+                      <div className="mt-3 space-y-2 border-t border-white/[0.08] pt-3">
+                        <p className="text-xs font-semibold text-[#E5C07B]">Payment accounts</p>
+                        {order.paymentInstructionsSnapshot.accounts.map((account) => (
+                          <div key={`${account.channel}-${account.identifier}`} className="flex items-center justify-between gap-3 rounded-sm border border-white/[0.06] bg-[#131418] px-3 py-2">
+                            <div className="min-w-0"><span className="block text-xs font-semibold text-neutral-200">{account.label}</span><span className="block truncate text-[11px] text-neutral-500">{account.name} · {account.identifier}</span></div>
+                            <button type="button" onClick={() => void copyAccount(account.identifier)} className="inline-flex flex-none items-center gap-1 rounded-sm border border-white/[0.12] px-2 py-1 text-[10px] text-neutral-300 hover:border-[#E5C07B] hover:text-[#E5C07B]"><Copy size={11} />{copiedAccount === account.identifier ? "Copied" : "Copy"}</button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
 
                 {/* Overdue alert */}
                 {order.overdue && (

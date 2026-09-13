@@ -50,6 +50,11 @@ export type CustomerOrder = {
   advancePaidAmount?: number;
   remainingDueAmount?: number;
   finalPaidAmount?: number;
+  paymentInstructionsSnapshot?: {
+    version: number;
+    capturedAt: number;
+    accounts: Array<{ label: string; channel: string; name: string; identifier: string }>;
+  };
   paymentConfirmedAt?: number;
   paymentConfirmedBy?: string;
   fileName?: string;
@@ -78,7 +83,7 @@ export type CustomerOrder = {
   overdue: boolean;
 };
 
-export type TrackedOrder = Pick<CustomerOrder, "id" | "code" | "clientName" | "serviceType" | "dimensions" | "quantity" | "preferredDueDate" | "status" | "priority" | "createdAt" | "updatedAt" | "overdue">;
+export type TrackedOrder = Pick<CustomerOrder, "id" | "code" | "clientName" | "serviceType" | "dimensions" | "quantity" | "preferredDueDate" | "status" | "priority" | "createdAt" | "updatedAt" | "overdue" | "amount" | "paymentStatus" | "advanceDueAmount" | "advancePaidAmount" | "remainingDueAmount" | "paymentInstructionsSnapshot">;
 
 export type Accent = "cyan" | "gold" | "violet" | "blue" | "green";
 type ProductionType = "area" | "linear" | "ink" | "unit";

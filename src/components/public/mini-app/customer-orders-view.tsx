@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { getServiceLabel } from "@/shared/services";
-import { Lock, Edit3, Loader2 } from "lucide-react";
+import { Check, Copy, Lock, Edit3, Loader2 } from "lucide-react";
 
 type CustomerOrder = {
   id: string;
@@ -28,6 +28,14 @@ type CustomerOrder = {
   accountType?: "individual" | "corporate" | "government";
   companyLegalName?: string;
   tinNumber?: string;
+  amount?: number;
+  paymentStatus?: string;
+  advanceDueAmount?: number;
+  advancePaidAmount?: number;
+  remainingDueAmount?: number;
+  paymentInstructionsSnapshot?: {
+    accounts: Array<{ label: string; channel: string; name: string; identifier: string }>;
+  };
 };
 
 export function CustomerOrdersView({
@@ -81,6 +89,17 @@ export function CustomerOrdersView({
 
 function OrderDetail({ order, onBack, onEditOrder }: { order: CustomerOrder; onBack: () => void; onEditOrder?: (order: CustomerOrder) => void; }) {
   const specEntries = order.specifications ? Object.entries(order.specifications) : [];
+  const [copiedAccount, setCopiedAccount] = useState<string | null>(null);
+
+  async function copyAccount(account: string) {
+    try {
+      await navigator.clipboard.writeText(account);
+      setCopiedAccount(account);
+      window.setTimeout(() => setCopiedAccount(null), 1600);
+    } catch {
+      setCopiedAccount(null);
+    }
+  }
 
   return (
     <section className="p-4 pb-28 space-y-4 max-w-xl mx-auto">
@@ -105,6 +124,36 @@ function OrderDetail({ order, onBack, onEditOrder }: { order: CustomerOrder; onB
           <div><span className="text-xs text-neutral-500 block">ብዛት</span><strong className="text-neutral-200">{order.quantity}</strong></div>
           <div><span className="text-xs text-neutral-500 block">የመጨረሻ ቀን</span><strong className="text-neutral-200">{new Date(order.preferredDueDate).toLocaleDateString("en-ET")}</strong></div>
         </div>
+        {order.amount !== undefined ? (
+          <div className={`rounded-sm border p-3 ${order.status === "READY_FOR_PICKUP" && order.paymentStatus !== "FULLY_PAID" ? "border-[#E5C07B]/50 bg-[#E5C07B]/10" : "border-white/[0.08] bg-[#0F1014]"}`}>
+            <p className="text-xs font-semibold text-[#E5C07B]">Payment summary</p>
+            <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+              <span className="text-neutral-500">Total</span><strong className="text-neutral-200">{order.amount.toFixed(2)} ETB</strong>
+              <span className="text-neutral-500">Advance paid</span><strong className="text-neutral-200">{(order.advancePaidAmount ?? 0).toFixed(2)} ETB</strong>
+              <span className="text-neutral-500">Remaining due</span><strong className={order.remainingDueAmount ? "text-[#E5C07B]" : "text-[#48B0A8]"}>{(order.remainingDueAmount ?? 0).toFixed(2)} ETB</strong>
+            </div>
+            {order.status === "READY_FOR_PICKUP" && order.paymentStatus !== "FULLY_PAID" ? <p className="mt-3 text-xs text-[#E5C07B]">Your order is 100% complete. Please clear the remaining balance at pickup or by transfer before collection.</p> : null}
+          </div>
+        ) : null}
+        {order.paymentInstructionsSnapshot?.accounts.length ? (
+          <div className="rounded-sm border border-white/[0.08] bg-[#0F1014] p-3">
+            <p className="text-xs font-semibold text-[#E5C07B]">Payment accounts</p>
+            <div className="mt-2 space-y-2">
+              {order.paymentInstructionsSnapshot.accounts.map((account) => (
+                <div key={`${account.channel}-${account.identifier}`} className="flex items-center justify-between gap-3 rounded-sm border border-white/[0.06] bg-[#131418] px-3 py-2">
+                  <div className="min-w-0">
+                    <span className="block text-xs font-semibold text-neutral-200">{account.label}</span>
+                    <span className="block truncate text-[11px] text-neutral-500">{account.name} · {account.identifier}</span>
+                  </div>
+                  <button type="button" onClick={() => void copyAccount(account.identifier)} className="inline-flex flex-none items-center gap-1 rounded-sm border border-white/[0.12] px-2 py-1 text-[10px] text-neutral-300 hover:border-[#E5C07B] hover:text-[#E5C07B]">
+                    {copiedAccount === account.identifier ? <Check size={11} /> : <Copy size={11} />}
+                    {copiedAccount === account.identifier ? "Copied" : "Copy"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
         {specEntries.length > 0 ? (
           <div className="pt-2 border-t border-white/[0.06]">
             <span className="text-xs text-neutral-500 block mb-2">የቦታ መጠመኛ</span>

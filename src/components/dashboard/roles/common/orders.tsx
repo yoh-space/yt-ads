@@ -487,6 +487,7 @@ export function OrderConfirmModal({ order, machines, materials, onClose, onSave 
   const [paymentDecision, setPaymentDecision] = useState<"ADVANCE_PAID" | "APPROVED_CREDIT">("ADVANCE_PAID");
   const [paymentMethod, setPaymentMethod] = useState("");
   const [advancePaidAmount, setAdvancePaidAmount] = useState(String(order.advanceDueAmount ?? (order.amount ? order.amount / 2 : "")));
+  const [copiedPaymentAccount, setCopiedPaymentAccount] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const dispatchPreview = useQuery(api.orders.previewAutoRouting, { orderId: order.id as Id<"customerOrders"> });
   const dispatchBlocked = !dispatchPreview || !dispatchPreview.canDispatch;
@@ -583,6 +584,27 @@ export function OrderConfirmModal({ order, machines, materials, onClose, onSave 
               />
             </label>
           )}
+          {order.paymentInstructionsSnapshot?.accounts.length ? (
+            <div className="mt-4 space-y-2 border-t border-gold/20 pt-3">
+              <span className="block text-xs font-semibold text-navy">Customer payment accounts</span>
+              {order.paymentInstructionsSnapshot.accounts.map((account) => (
+                <div key={`${account.channel}-${account.identifier}`} className="flex items-center justify-between gap-3 rounded-md border border-line bg-white px-3 py-2">
+                  <div className="min-w-0">
+                    <span className="block text-[11px] font-semibold text-navy">{account.label}</span>
+                    <span className="block truncate text-[11px] text-gray-500">{account.name} · {account.identifier}</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="inline-flex flex-none items-center gap-1 rounded-md border border-line px-2 py-1 text-[10px] font-semibold text-gray-600 hover:border-cyan hover:text-navy"
+                    onClick={() => copyToClipboard(account.identifier, `payment-${account.channel}`, setCopiedPaymentAccount)}
+                  >
+                    {copiedPaymentAccount === `payment-${account.channel}` ? <Check size={11} /> : <Copy size={11} />}
+                    {copiedPaymentAccount === `payment-${account.channel}` ? "Copied" : "Copy"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
 
         <div className="space-y-4 rounded-xl border border-border-token bg-surface p-4">
