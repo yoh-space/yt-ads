@@ -85,7 +85,6 @@ export function MaterialRequestsPanel({
       <PanelHeader
         kicker="FLOOR MATERIAL REQUISITIONS"
         title="የኦፕሬተሮች የዕቃ ጥያቄ መከታተያ"
-        subtitle="Operator requests awaiting physical stock handover"
         icon={<ClipboardList size={17} />}
         action={
           <span className="rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-wider text-amber-400">

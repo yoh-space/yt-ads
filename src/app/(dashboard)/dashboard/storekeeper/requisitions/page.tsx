@@ -46,7 +46,6 @@ export default function StorekeeperRequisitionsPage() {
       <WorkspacePageHeader
         kicker="Material Requisitions · የዕቃ ጥያቄዎች"
         title="Requisitions"
-        subtitle="Operator material requests awaiting handover, acknowledgement, and short-stock handling."
       />
 
       <WorkspaceModuleGate context={accessContext} moduleId="inventory.requisitions">

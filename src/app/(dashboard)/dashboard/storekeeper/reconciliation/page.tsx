@@ -67,8 +67,7 @@ export default function StorekeeperReconciliationPage() {
       <div className="space-y-6">
         <header className="flex flex-col gap-2 border-b border-border pb-5">
           <span className="font-mono text-xs uppercase tracking-widest text-primary">Parent Store Control</span>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">የዋና ግምጃ ቤት ቆጠራ</h1>
-          <p className="text-sm text-muted-foreground">Reconcile physical rolls, sheets, and canisters. Financial values and operator clearance approvals are not shown here.</p>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">የዋና መጋዘን ቤት ቆጠራ</h1>
         </header>
 
         <section className="grid gap-4 sm:grid-cols-3">

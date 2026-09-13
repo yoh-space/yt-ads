@@ -10,7 +10,7 @@ export const storekeeperNavItems: WorkspaceNavItem[] = [
   {
     href: "/dashboard/storekeeper/inventory",
     label: "Inventory",
-    english: "የዋና እቃ ግምጃ ቤት",
+    english: "የዋና መጋዘን እቃዎች",
     icon: "boxes",
   },
   {
@@ -22,7 +22,7 @@ export const storekeeperNavItems: WorkspaceNavItem[] = [
   {
     href: "/dashboard/storekeeper/reconciliation",
     label: "Reconciliation",
-    english: "ማስታረቅ",
+    english: "የእቃ ቆጠራ",
     icon: "scale",
   },
   {

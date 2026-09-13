@@ -82,9 +82,8 @@ export default function StorekeeperInventoryPage() {
   return (
     <div className="space-y-6">
       <WorkspacePageHeader
-        kicker="Parent Inventory · የዋና ዕቃ ግምጃ ቤት"
+        kicker="Main Store · የዋና ዕቃ መጋዘንስ"
         title="Inventory"
-        subtitle="Central package stock ledger for the main store."
       />
 
       <WorkspaceModuleGate context={accessContext} moduleId="inventory.parent-stock">
@@ -92,8 +91,8 @@ export default function StorekeeperInventoryPage() {
           <div className="flex flex-col gap-4 border-b border-border p-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary">የግምጃ ቤት እቃዎች</p>
-                <h2 className="mt-1 text-lg font-bold text-foreground">የዋና ግምጃ ቤት ዕቃዎች ዝርዝር</h2>
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary">የዋና መጋዘን እቃዎች</p>
+                <h2 className="mt-1 text-lg font-bold text-foreground">የዋና መጋዘን ዕቃዎች ዝርዝር</h2>
                 <p className="mt-1 text-xs text-muted-foreground">Showing {filteredItems.length} of {items.length} Items</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -101,7 +100,7 @@ export default function StorekeeperInventoryPage() {
                   onClick={() => setStockInOpen(true)}
                   className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-xs font-bold text-primary-foreground transition hover:bg-primary/90"
                 >
-                  <Plus size={14} /> አዲስ እቃ ገቢ አድርግ
+                  <Plus size={14} /> አዲስ እቃ ገቢ እና ወጭ አድርግ
                 </button>
                 <div className="relative w-full sm:w-72">
                   <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />

@@ -314,7 +314,7 @@ export async function runDatabaseFirstSeed(ctx: MutationCtx) {
       routePrefix: "/dashboard/storekeeper",
       allowedRoles: ["storekeeper", "admin", "owner"],
       label: "Store & Inventory",
-      labelAm: "የዕቃ ግምጃ ቤት",
+      labelAm: "የዕቃ ቤት",
       sortOrder: 4,
     },
     {

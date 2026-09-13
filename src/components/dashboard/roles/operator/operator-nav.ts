@@ -46,7 +46,7 @@ export function operatorNavItems(machineSlug: string): WorkspaceNavItem[] {
     {
       href: `${base}/reconciliation`,
       label: "Reconciliation",
-      english: "ማስታረቅ",
+      english: "የእቃ ቆጠራ",
       icon: "scale",
     },
     {

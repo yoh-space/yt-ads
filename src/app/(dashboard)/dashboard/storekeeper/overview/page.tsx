@@ -61,7 +61,7 @@ export default function StorekeeperOverviewPage() {
   return (
     <div className="space-y-6">
       <WorkspacePageHeader
-        kicker="Storekeeper Overview · የመጋዘን ማጠቃለያ"
+        kicker="Storekeeper Overview"
         title="Overview"
       />
 
@@ -106,7 +106,6 @@ export default function StorekeeperOverviewPage() {
       <Panel>
         <PanelHeader
           title="Storekeeper Actions"
-          subtitle="የመጋዘን ሥራዎች"
           kicker="Quick Actions"
           icon={<Warehouse size={16} />}
         />
@@ -127,7 +126,7 @@ export default function StorekeeperOverviewPage() {
             onClick={() => setStockInOpen(true)}
             className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-xs font-bold text-primary-foreground transition hover:bg-primary/90"
           >
-            <Plus size={14} /> አዲስ እቃ ገቢ አድርግ
+            <Plus size={14} /> አዲስ እቃ ገቢ እና ወጭ አድርግ
           </button>
         </div>
       </Panel>
