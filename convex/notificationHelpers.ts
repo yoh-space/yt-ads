@@ -26,6 +26,7 @@ export type NotifyByPolicyInput = {
   cooldownHours?: number;
 };
 
+/** Dispatches a notification to active recipients allowed by the central policy. */
 export async function notifyByPolicy(ctx: MutationCtx, input: NotifyByPolicyInput) {
   // 1. Resolve context
   const resolvedContext = await resolveNotificationContext(ctx, {
@@ -128,6 +129,7 @@ export async function notifyByPolicy(ctx: MutationCtx, input: NotifyByPolicyInpu
   }
 }
 
+/** Dispatches a policy-checked notification to one application user. */
 export async function notifyUser(
   ctx: MutationCtx,
   recipientAuthUserId: string,
@@ -149,6 +151,7 @@ export async function notifyUser(
   });
 }
 
+/** Dispatches a policy-checked notification to active users in the given roles. */
 export async function notifyRoles(
   ctx: MutationCtx,
   roles: Role[],

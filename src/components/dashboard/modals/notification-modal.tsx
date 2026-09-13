@@ -154,6 +154,7 @@ function getContextualEmptyState(role?: string, category?: CategoryFilter): { ti
   };
 }
 
+/** Renders the role-scoped notification inbox with category and read controls. */
 export function NotificationModal({
   role,
   notifications,

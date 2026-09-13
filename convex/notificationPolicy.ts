@@ -87,10 +87,12 @@ export const NOTIFICATION_TYPE_DOMAIN_MAP: Record<NotificationType, Notification
   account_update: "account",
 };
 
+/** Returns the operational domain associated with a notification type. */
 export function getNotificationDomain(type: NotificationType): NotificationDomain {
   return NOTIFICATION_TYPE_DOMAIN_MAP[type] ?? "operations";
 }
 
+/** Returns the notification domains visible to a role. */
 export function getAllowedDomainsForRole(role: Role): NotificationDomain[] {
   if (MANAGEMENT_ROLES.includes(role)) {
     return ["orders", "inventory", "operations", "account"];
@@ -107,11 +109,13 @@ export function getAllowedDomainsForRole(role: Role): NotificationDomain[] {
   return [];
 }
 
+/** Returns the category filters available to a role, including the aggregate view. */
 export function getNotificationCategoriesForRole(role: Role): NotificationCategory[] {
   const domains = getAllowedDomainsForRole(role);
   return ["all", ...domains];
 }
 
+/** Replaces stored relation IDs with labels and redacts unresolved legacy IDs. */
 export function replaceIds(message: string, replacements: Array<[string | undefined, string | undefined]>) {
   const resolved = replacements.reduce((current, [id, label]) => {
     if (!id || !label || id === label) return current;
@@ -121,6 +125,7 @@ export function replaceIds(message: string, replacements: Array<[string | undefi
   return resolved.replace(/\b[a-z][a-z0-9]{19,}\b/gi, "related item");
 }
 
+/** Resolves display labels and machine scope from a notification's related record. */
 export async function resolveNotificationContext(
   ctx: DbCtx,
   notification: { relatedTable?: string; relatedId?: string; message: string },
@@ -225,6 +230,7 @@ export async function resolveNotificationContext(
   }
 }
 
+/** Determines whether a notification is visible to a user in its resolved context. */
 export function canViewNotification(
   profile: UserProfile,
   notification: NotificationRecord,

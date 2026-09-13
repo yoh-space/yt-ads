@@ -39,6 +39,7 @@ async function resolveVisibleNotifications(
   );
 }
 
+/** Lists the current user's visible notifications, optionally filtered by category. */
 export const list = query({
   args: {
     category: v.optional(notificationCategory),
@@ -101,6 +102,7 @@ export const list = query({
   },
 });
 
+/** Counts unread notifications visible to the current user and optional category. */
 export const unreadCount = query({
   args: {
     category: v.optional(notificationCategory),
@@ -136,6 +138,7 @@ export const unreadCount = query({
   },
 });
 
+/** Marks one policy-visible notification owned by the current user as read. */
 export const markRead = mutation({
   args: { notificationId: v.id("notifications") },
   handler: async (ctx, args) => {
@@ -162,6 +165,7 @@ export const markRead = mutation({
   },
 });
 
+/** Marks all policy-visible notifications in an optional category as read. */
 export const markAllRead = mutation({
   args: {
     category: v.optional(notificationCategory),

@@ -26,6 +26,7 @@ function useClock(): string {
   return now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 }
 
+/** Renders dashboard navigation, activity, and notification controls for a user. */
 export function Topbar({
   activeView,
   onMenu,
