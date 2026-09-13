@@ -6,7 +6,7 @@ export interface LogConfigChangeArgs {
   entityType: "material" | "service" | "role" | "route" | "group" | "permission" | "ink_rule" | string;
   entityId: string;
   action: ConfigAction;
-  fieldChanges?: Record<string, { from: any; to: any }>;
+  fieldChanges?: Record<string, { from?: any; to: any }>;
   changedBy: string;
   changedAt?: number;
 }
@@ -37,9 +37,9 @@ export function computeFieldChanges(
   oldDoc: Record<string, any> | null | undefined,
   newDoc: Record<string, any>,
   ignoredKeys: string[] = ["createdAt", "updatedAt", "createdBy", "updatedBy", "_id", "_creationTime"],
-): Record<string, { from: any; to: any }> | undefined {
+): Record<string, { from?: any; to: any }> | undefined {
   if (!oldDoc) return undefined;
-  const changes: Record<string, { from: any; to: any }> = {};
+  const changes: Record<string, { from?: any; to: any }> = {};
 
   const allKeys = new Set([...Object.keys(oldDoc), ...Object.keys(newDoc)]);
   for (const key of allKeys) {

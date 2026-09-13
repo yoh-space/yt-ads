@@ -1513,7 +1513,7 @@ export default defineSchema({
     entityId: v.string(),
     action: v.union(v.literal("create"), v.literal("update"), v.literal("deactivate")),
     fieldChanges: v.optional(v.record(v.string(), v.object({
-      from: v.any(),
+      from: v.optional(v.any()),
       to: v.any(),
     }))),
     changedBy: v.string(),
