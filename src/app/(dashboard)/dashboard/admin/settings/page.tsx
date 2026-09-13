@@ -78,29 +78,6 @@ export default function AdminSettingsPage() {
           )}
         </Panel>
       </div>
-
-      <Panel>
-        <PanelHeader
-          title="Automated Reporting Schedules"
-          subtitle="አውቶማቲክ ሪፖርቶች"
-          kicker="Schedules"
-          icon={<CalendarClock size={16} />}
-        />
-        <div className="px-[17px] grid gap-3 sm:grid-cols-2 py-4">
-          <div className="rounded-lg border border-border/60 bg-background/40 px-3 py-2.5">
-            <SectionLabel tone="cyan">Daily report · የዕለት ሪፖርት</SectionLabel>
-            <p className="mt-1 text-[12px] text-muted-foreground">
-              {company?.dailyReportEnabled ? "Enabled" : "Disabled"}
-            </p>
-          </div>
-          <div className="rounded-lg border border-border/60 bg-background/40 px-3 py-2.5">
-            <SectionLabel tone="cyan">Monthly audit · ወርሃዊ ምርመራ</SectionLabel>
-            <p className="mt-1 text-[12px] text-muted-foreground">
-              {company?.monthlyAuditEnabled ? "Enabled" : "Disabled"}
-            </p>
-          </div>
-        </div>
-      </Panel>
     </div>
   );
 }

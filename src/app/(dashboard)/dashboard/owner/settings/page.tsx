@@ -61,7 +61,6 @@ type Draft = {
 const tabs: Array<{ id: Tab; label: string; icon: typeof Building2 }> = [
   { id: "profile", label: "Company Profile", icon: Building2 },
   { id: "security", label: "Account & Security", icon: LockKeyhole },
-  { id: "reports", label: "Automated Reporting", icon: FileBarChart },
   { id: "notifications", label: "Notifications & Alerts", icon: BellRing },
   { id: "payments", label: "Customer Payments", icon: Check },
   { id: "preferences", label: "System Preferences", icon: Settings2 },
@@ -298,7 +297,6 @@ export default function OwnerSettingsPage() {
       <OwnerPageHeader
         kicker="Settings · ማስተካከያ"
         title="Workspace Control Center"
-        subtitle="Manage company identity, security, reporting, notifications, and system preferences."
       />
       <div className="grid gap-5 lg:grid-cols-[220px_1fr]">
         <nav className="h-fit rounded-xl border border-border bg-card p-2 lg:sticky lg:top-4">
@@ -512,47 +510,6 @@ export default function OwnerSettingsPage() {
                     mail connector.
                   </p>
                 </div>
-              </div>
-            ) : null}
-            {tab === "notifications" ? (
-              <div className="divide-y divide-border/60 p-5">
-                {preferenceRows.map(row => (
-                  <div
-                    key={row.key}
-                    className="grid gap-3 py-4 first:pt-0 sm:grid-cols-[1fr_repeat(3,90px)] sm:items-center"
-                  >
-                    <div>
-                      <p className="text-sm font-semibold text-foreground">
-                        {row.label}
-                      </p>
-                      <p className="mt-1 text-[10px] text-muted-foreground">
-                        {row.description}
-                      </p>
-                    </div>
-                    {channels.map(channel => {
-                      const suffix = channel === "In-App" ? "InApp" : channel;
-                      const key =
-                        `${row.key}${suffix}` as keyof Draft["notifications"];
-                      return (
-                        <label
-                          key={channel}
-                          className="flex items-center justify-between gap-2 text-[10px] text-muted-foreground sm:flex-col sm:justify-center"
-                        >
-                          <span>{channel}</span>
-                          <Toggle
-                            checked={draft.notifications[key]}
-                            onChange={value =>
-                              update("notifications", {
-                                ...draft.notifications,
-                                [key]: value,
-                              })
-                            }
-                          />
-                        </label>
-                      );
-                    })}
-                  </div>
-                ))}
               </div>
             ) : null}
             {tab === "payments" ? (

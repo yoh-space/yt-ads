@@ -78,29 +78,6 @@ export default function OwnerTeamPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <Panel>
-          <PanelHeader
-            title="Staff by Role"
-            subtitle="በሚና የተከፋፈለ"
-            kicker="Composition"
-            icon={<Users size={16} />}
-          />
-          <div className="p-[17px] space-y-3">
-            {byRole.length === 0 ? (
-              <p className="text-[12px] text-muted-foreground">No staff profiles yet.</p>
-            ) : (
-              byRole.map(([role, count]) => (
-                <div
-                  key={role}
-                  className="flex items-center justify-between rounded-lg border border-border/60 bg-background/40 px-3 py-2.5"
-                >
-                  <span className="text-[12px] text-muted-foreground">{role}</span>
-                  <span className="font-mono text-[13px] font-bold text-foreground">{count}</span>
-                </div>
-              ))
-            )}
-          </div>
-        </Panel>
 
         <Panel className="lg:col-span-2">
           <PanelHeader
