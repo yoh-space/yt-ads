@@ -41,7 +41,14 @@ const SERVICE_CATEGORIES = [
   { key: "SPECIALTY_FINISHING", nameEn: "Specialty & Finishing" },
 ];
 
-const CATALOG_FAMILIES = ["ROLL", "RIGID_SHEET", "INK_SOLVENT", "HARDWARE"] as const;
+const CATALOG_FAMILIES = [
+  "ROLL",
+  "RIGID_SHEET",
+  "INK_SOLVENT",
+  "HARDWARE",
+  "ILLUMINATED_DISPLAY_SYSTEM",
+  "SIGNAGE_FRAME_PROFILE",
+] as const;
 const BASE_UNITS = ["m²", "m", "sheet", "piece", "pcs", "L", "mL"] as const;
 const PURCHASE_UNITS = ["roll", "sheet", "liter", "piece", "canister", "box", "pack"] as const;
 const GROUP_TONES = ["cyan", "blue", "violet", "gold", "green", "slate"] as const;
@@ -243,6 +250,20 @@ export function DatabaseCatalogSuite() {
   const [editingRole, setEditingRole] = useState<RoleRecord | null>(null);
   const [editingGroup, setEditingGroup] = useState<CategoryGroupRecord | null>(null);
 
+  const [materialPrice, setMaterialPrice] = useState<number | "">("");
+  const [materialCurrency, setMaterialCurrency] = useState<string>("ETB");
+  const [reorderLevel, setReorderLevel] = useState<number | "">("");
+  const upsertPriceEstimateMutation = useMutation(
+    (api.owner.databaseFirstCatalogs as any).upsertPriceEstimate ?? api.owner.databaseFirstCatalogs.seedDatabaseFirstCatalogs
+  );
+
+  function openEditMaterial(mat: MaterialRecord) {
+    setEditingMaterial({ ...mat });
+    setMaterialPrice(typeof mat.attributes?.estimatedUnitPrice === "number" ? mat.attributes.estimatedUnitPrice : "");
+    setMaterialCurrency(typeof mat.attributes?.priceCurrency === "string" ? mat.attributes.priceCurrency : "ETB");
+    setReorderLevel(typeof mat.attributes?.reorderLevel === "number" ? mat.attributes.reorderLevel : "");
+  }
+
   // Elevated permission modal state (Section 7.2)
   const [pendingPermissionToggle, setPendingPermissionToggle] = useState<{
     roleCode: string;
@@ -394,6 +415,12 @@ export function DatabaseCatalogSuite() {
     if (!editingMaterial) return;
     setIsSaving(true);
     try {
+      const updatedAttributes = {
+        ...editingMaterial.attributes,
+        ...(materialPrice !== "" ? { estimatedUnitPrice: Number(materialPrice), priceCurrency: materialCurrency } : {}),
+        ...(reorderLevel !== "" ? { reorderLevel: Number(reorderLevel) } : {}),
+      };
+
       await upsertMaterialMutation({
         id: editingMaterial.id,
         name: editingMaterial.name,
@@ -407,7 +434,7 @@ export function DatabaseCatalogSuite() {
         sheetWidth: editingMaterial.sheetWidth,
         sheetLength: editingMaterial.sheetLength,
         thickness: editingMaterial.thickness,
-        attributes: editingMaterial.attributes,
+        attributes: updatedAttributes,
         specificationOptions: editingMaterial.specificationOptions,
         compatibleMachineTypes: editingMaterial.compatibleMachineTypes,
         storageLocation: editingMaterial.storageLocation,
@@ -417,6 +444,20 @@ export function DatabaseCatalogSuite() {
         active: editingMaterial.active,
         expectedUpdatedAt: editingMaterial.updatedAt,
       });
+
+      if (materialPrice !== "" && Number(materialPrice) >= 0) {
+        try {
+          await upsertPriceEstimateMutation({
+            materialId: editingMaterial.id,
+            amount: Number(materialPrice),
+            currency: materialCurrency,
+            purchaseUnit: editingMaterial.purchaseUnit,
+          });
+        } catch {
+          // ignore non-critical price estimate errors
+        }
+      }
+
       toast.success(`Material ${editingMaterial.name} updated`);
       setEditingMaterial(null);
     } catch (e) {
@@ -758,7 +799,7 @@ export function DatabaseCatalogSuite() {
                           <Button
                             variant="tertiary"
                             className="h-7 px-2 text-xs"
-                            onClick={() => setEditingMaterial({ ...mat })}
+                            onClick={() => openEditMaterial(mat)}
                           >
                             <Edit3 size={12} className="mr-1" /> Edit
                           </Button>
@@ -1404,24 +1445,45 @@ export function DatabaseCatalogSuite() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Roll Width (m)</label>
-                <input
-                  type="number"
-                  value={editingMaterial.rollWidth ?? ""}
-                  onChange={(e) =>
-                    setEditingMaterial({
-                      ...editingMaterial,
-                      rollWidth: e.target.value === "" ? undefined : Number(e.target.value),
-                    })
-                  }
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
-                />
+            {/* Category-Driven Physical Specifications */}
+            {editingMaterial.catalogFamily === "ROLL" && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Roll Width (m)</label>
+                  <input
+                    type="number"
+                    value={editingMaterial.rollWidth ?? ""}
+                    onChange={(e) =>
+                      setEditingMaterial({
+                        ...editingMaterial,
+                        rollWidth: e.target.value === "" ? undefined : Number(e.target.value),
+                      })
+                    }
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Media Finish / Surface</label>
+                  <input
+                    type="text"
+                    placeholder="Glossy, Matte, Frontlit"
+                    value={String(editingMaterial.attributes?.finish ?? "")}
+                    onChange={(e) =>
+                      setEditingMaterial({
+                        ...editingMaterial,
+                        attributes: { ...editingMaterial.attributes, finish: e.target.value },
+                      })
+                    }
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-cyan focus:outline-none"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Sheet Dimensions (W × L)</label>
-                <div className="flex gap-1">
+            )}
+
+            {editingMaterial.catalogFamily === "RIGID_SHEET" && (
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Sheet Width (m)</label>
                   <input
                     type="number"
                     placeholder="W"
@@ -1432,8 +1494,11 @@ export function DatabaseCatalogSuite() {
                         sheetWidth: e.target.value === "" ? undefined : Number(e.target.value),
                       })
                     }
-                    className="w-1/2 rounded-lg border border-border bg-background px-2 py-2 text-sm font-mono focus:border-cyan focus:outline-none"
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
                   />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Sheet Length (m)</label>
                   <input
                     type="number"
                     placeholder="L"
@@ -1444,23 +1509,305 @@ export function DatabaseCatalogSuite() {
                         sheetLength: e.target.value === "" ? undefined : Number(e.target.value),
                       })
                     }
-                    className="w-1/2 rounded-lg border border-border bg-background px-2 py-2 text-sm font-mono focus:border-cyan focus:outline-none"
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Thickness (mm)</label>
+                  <input
+                    type="number"
+                    value={editingMaterial.thickness ?? ""}
+                    onChange={(e) =>
+                      setEditingMaterial({
+                        ...editingMaterial,
+                        thickness: e.target.value === "" ? undefined : Number(e.target.value),
+                      })
+                    }
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
                   />
                 </div>
               </div>
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Thickness (mm)</label>
-                <input
-                  type="number"
-                  value={editingMaterial.thickness ?? ""}
-                  onChange={(e) =>
-                    setEditingMaterial({
-                      ...editingMaterial,
-                      thickness: e.target.value === "" ? undefined : Number(e.target.value),
-                    })
-                  }
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
-                />
+            )}
+
+            {editingMaterial.catalogFamily === "INK_SOLVENT" && (
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Ink Color Channel</label>
+                  <input
+                    type="text"
+                    placeholder="Cyan, Magenta, Yellow, Black"
+                    value={String(editingMaterial.attributes?.inkColor ?? "")}
+                    onChange={(e) =>
+                      setEditingMaterial({
+                        ...editingMaterial,
+                        attributes: { ...editingMaterial.attributes, inkColor: e.target.value },
+                      })
+                    }
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-cyan focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Container / Bottle Size</label>
+                  <input
+                    type="text"
+                    placeholder="1L, 5L Canister"
+                    value={String(editingMaterial.attributes?.containerSize ?? "")}
+                    onChange={(e) =>
+                      setEditingMaterial({
+                        ...editingMaterial,
+                        attributes: { ...editingMaterial.attributes, containerSize: e.target.value },
+                      })
+                    }
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-cyan focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Chemistry / Solvent Base</label>
+                  <input
+                    type="text"
+                    placeholder="Eco-Solvent, UV, Dye-Sub"
+                    value={String(editingMaterial.attributes?.chemistry ?? "")}
+                    onChange={(e) =>
+                      setEditingMaterial({
+                        ...editingMaterial,
+                        attributes: { ...editingMaterial.attributes, chemistry: e.target.value },
+                      })
+                    }
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-cyan focus:outline-none"
+                  />
+                </div>
+              </div>
+            )}
+
+            {editingMaterial.catalogFamily === "ILLUMINATED_DISPLAY_SYSTEM" && (
+              <div className="space-y-3 rounded-lg border border-border/70 bg-card/40 p-3">
+                <span className="block text-[11px] font-semibold uppercase tracking-wider text-cyan">
+                  Illuminated Display System Specifications
+                </span>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1.5">Display Width (mm)</label>
+                    <input
+                      type="number"
+                      placeholder="e.g. 1200"
+                      value={String(editingMaterial.attributes?.displayWidth ?? "")}
+                      onChange={(e) =>
+                        setEditingMaterial({
+                          ...editingMaterial,
+                          attributes: { ...editingMaterial.attributes, displayWidth: Number(e.target.value) || e.target.value },
+                        })
+                      }
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-mono focus:border-cyan focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1.5">Display Height (mm)</label>
+                    <input
+                      type="number"
+                      placeholder="e.g. 800"
+                      value={String(editingMaterial.attributes?.displayHeight ?? "")}
+                      onChange={(e) =>
+                        setEditingMaterial({
+                          ...editingMaterial,
+                          attributes: { ...editingMaterial.attributes, displayHeight: Number(e.target.value) || e.target.value },
+                        })
+                      }
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-mono focus:border-cyan focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1.5">Depth (mm)</label>
+                    <input
+                      type="number"
+                      placeholder="e.g. 80"
+                      value={String(editingMaterial.attributes?.displayDepth ?? "")}
+                      onChange={(e) =>
+                        setEditingMaterial({
+                          ...editingMaterial,
+                          attributes: { ...editingMaterial.attributes, displayDepth: Number(e.target.value) || e.target.value },
+                        })
+                      }
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-mono focus:border-cyan focus:outline-none"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1.5">Face / Screen Material</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Fabric SEG, Acrylic, Soft Film"
+                      value={String(editingMaterial.attributes?.faceMaterial ?? "")}
+                      onChange={(e) =>
+                        setEditingMaterial({
+                          ...editingMaterial,
+                          attributes: { ...editingMaterial.attributes, faceMaterial: e.target.value },
+                        })
+                      }
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-cyan focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1.5">Illumination Voltage</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 12V DC, 220V AC"
+                      value={String(editingMaterial.attributes?.voltage ?? "")}
+                      onChange={(e) =>
+                        setEditingMaterial({
+                          ...editingMaterial,
+                          attributes: { ...editingMaterial.attributes, voltage: e.target.value },
+                        })
+                      }
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-cyan focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {editingMaterial.catalogFamily === "SIGNAGE_FRAME_PROFILE" && (
+              <div className="space-y-3 rounded-lg border border-border/70 bg-card/40 p-3">
+                <span className="block text-[11px] font-semibold uppercase tracking-wider text-cyan">
+                  Signage Frame Profile Specifications
+                </span>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1.5">Bar Length (m)</label>
+                    <input
+                      type="number"
+                      placeholder="e.g. 6.0"
+                      value={String(editingMaterial.attributes?.barLength ?? "")}
+                      onChange={(e) =>
+                        setEditingMaterial({
+                          ...editingMaterial,
+                          attributes: { ...editingMaterial.attributes, barLength: Number(e.target.value) || e.target.value },
+                        })
+                      }
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-mono focus:border-cyan focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1.5">Face Channel (mm)</label>
+                    <input
+                      type="number"
+                      placeholder="e.g. 3, 5, 8"
+                      value={String(editingMaterial.attributes?.compatibleFaceThickness ?? "")}
+                      onChange={(e) =>
+                        setEditingMaterial({
+                          ...editingMaterial,
+                          attributes: { ...editingMaterial.attributes, compatibleFaceThickness: Number(e.target.value) || e.target.value },
+                        })
+                      }
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-mono focus:border-cyan focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1.5">Finish / Alloy</label>
+                    <input
+                      type="text"
+                      placeholder="Anodized Aluminum, Black Powder"
+                      value={String(editingMaterial.attributes?.finish ?? "")}
+                      onChange={(e) =>
+                        setEditingMaterial({
+                          ...editingMaterial,
+                          attributes: { ...editingMaterial.attributes, finish: e.target.value },
+                        })
+                      }
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-cyan focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {editingMaterial.catalogFamily === "HARDWARE" && (
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Pieces per Package</label>
+                  <input
+                    type="number"
+                    placeholder="e.g. 50"
+                    value={String(editingMaterial.attributes?.pieceQty ?? "")}
+                    onChange={(e) =>
+                      setEditingMaterial({
+                        ...editingMaterial,
+                        attributes: { ...editingMaterial.attributes, pieceQty: Number(e.target.value) || e.target.value },
+                      })
+                    }
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-mono focus:border-cyan focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Voltage / Power (W)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 1.5W / 12V"
+                    value={String(editingMaterial.attributes?.voltage ?? "")}
+                    onChange={(e) =>
+                      setEditingMaterial({
+                        ...editingMaterial,
+                        attributes: { ...editingMaterial.attributes, voltage: e.target.value },
+                      })
+                    }
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-cyan focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Compatibility</label>
+                  <input
+                    type="text"
+                    placeholder="Universal / LED Box"
+                    value={String(editingMaterial.attributes?.compatibility ?? "")}
+                    onChange={(e) =>
+                      setEditingMaterial({
+                        ...editingMaterial,
+                        attributes: { ...editingMaterial.attributes, compatibility: e.target.value },
+                      })
+                    }
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-cyan focus:outline-none"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Reorder Policy & Price Estimate Section */}
+            <div className="rounded-lg border border-border/80 bg-secondary/30 p-3 space-y-3">
+              <span className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Reorder Policy & Acquisition Price
+              </span>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Estimated Unit Price</label>
+                  <input
+                    type="number"
+                    placeholder="0.00"
+                    value={materialPrice}
+                    onChange={(e) => setMaterialPrice(e.target.value === "" ? "" : Number(e.target.value))}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-mono focus:border-cyan focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Currency</label>
+                  <select
+                    value={materialCurrency}
+                    onChange={(e) => setMaterialCurrency(e.target.value)}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-cyan focus:outline-none"
+                  >
+                    <option value="ETB">ETB (Birr)</option>
+                    <option value="USD">USD ($)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Reorder Level ({editingMaterial.purchaseUnit})</label>
+                  <input
+                    type="number"
+                    placeholder="e.g. 5"
+                    value={reorderLevel}
+                    onChange={(e) => setReorderLevel(e.target.value === "" ? "" : Number(e.target.value))}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-mono focus:border-cyan focus:outline-none"
+                  />
+                </div>
               </div>
             </div>
 
