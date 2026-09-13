@@ -17,6 +17,13 @@ import {
   EyeOff,
   Sliders,
   Edit3,
+  PlusCircle,
+  History,
+  AlertTriangle,
+  CheckCircle2,
+  Lock,
+  ShieldAlert,
+  HelpCircle,
 } from "lucide-react";
 import { StatCard } from "@/components/shared/ui/stat-card";
 import { Panel, PanelHeader } from "@/components/shared/ui/panel";
@@ -25,6 +32,85 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/shared/ui
 import { InventoryLoader } from "@/components/dashboard/widgets/inventory-loader";
 import { SlidePanel } from "@/components/dashboard/modals/slide-panel";
 import { toast } from "sonner";
+
+const SERVICE_CATEGORIES = [
+  { key: "PRINTING", nameEn: "Printing & Stickers" },
+  { key: "FABRICATION_SIGNAGE", nameEn: "Fabrication & Signage" },
+  { key: "DISPLAY_ACCESSORIES", nameEn: "Displays & Accessories" },
+  { key: "GARMENT_PRINTING", nameEn: "Garment & Promotional" },
+  { key: "SPECIALTY_FINISHING", nameEn: "Specialty & Finishing" },
+];
+
+const CATALOG_FAMILIES = ["ROLL", "RIGID_SHEET", "INK_SOLVENT", "HARDWARE"] as const;
+const BASE_UNITS = ["m²", "m", "sheet", "piece", "pcs", "L", "mL"] as const;
+const PURCHASE_UNITS = ["roll", "sheet", "liter", "piece", "canister", "box", "pack"] as const;
+const GROUP_TONES = ["cyan", "blue", "violet", "gold", "green", "slate"] as const;
+const GROUP_ICONS = [
+  "ScrollText",
+  "Tags",
+  "Layers",
+  "FlaskConical",
+  "Cable",
+  "Boxes",
+  "Wrench",
+  "Sliders",
+  "ShieldCheck",
+  "FolderTree",
+] as const;
+
+const PERMISSION_GROUPS: Record<string, { label: string; permissions: string[] }> = {
+  jobs: {
+    label: "Job Management",
+    permissions: ["job.view", "job.create", "job.complete", "job.record_production"],
+  },
+  materials: {
+    label: "Materials & Store",
+    permissions: [
+      "material.view",
+      "material.create",
+      "material.edit",
+      "material.delete",
+      "stock.record",
+      "stock.exception",
+      "offcut.view",
+      "offcut.create",
+      "scrap.view",
+      "scrap.create",
+      "request.view",
+      "request.create",
+      "request.issue",
+      "request.acknowledge",
+    ],
+  },
+  machines: {
+    label: "Machines",
+    permissions: ["machine.view", "machine.create", "machine.update", "machine.delete"],
+  },
+  orders: {
+    label: "Orders & Front Desk",
+    permissions: ["order.view", "order.create", "order.manage"],
+  },
+  admin: {
+    label: "Admin & Governance",
+    permissions: [
+      "dashboard.view",
+      "team.view",
+      "team.manage",
+      "company_settings.update",
+      "reports.view",
+      "audit.view",
+    ],
+  },
+  reconciliation: {
+    label: "Reconciliation",
+    permissions: [
+      "reconciliation.record",
+      "reconciliation.review",
+      "reconciliation.operator",
+      "reconciliation.clearance",
+    ],
+  },
+};
 
 interface ServiceRecord {
   id: string;
@@ -37,6 +123,8 @@ interface ServiceRecord {
   sortOrder: number;
   active: boolean;
   publishable: boolean;
+  attributes?: Record<string, string | number>;
+  updatedAt?: number;
 }
 
 interface MaterialRecord {
@@ -75,6 +163,17 @@ interface RouteRecord {
   defaultWasteMarginPercent: number;
   maxScrapLimitPercent: number;
   active: boolean;
+  updatedAt?: number;
+}
+
+interface RoleRecord {
+  code: string;
+  labelEn: string;
+  labelAm: string;
+  workspaceId: string;
+  active: boolean;
+  attributes?: Record<string, string | number>;
+  updatedAt?: number;
 }
 
 interface RoleConfigRecord {
@@ -83,6 +182,7 @@ interface RoleConfigRecord {
   homeRoute: string;
   machineSlug?: string;
   active: boolean;
+  updatedAt?: number;
 }
 
 interface PermissionRecord {
@@ -102,6 +202,7 @@ interface CategoryGroupRecord {
   memberCategories: string[];
   sortOrder: number;
   active: boolean;
+  updatedAt?: number;
 }
 
 export function DatabaseCatalogSuite() {
@@ -109,27 +210,45 @@ export function DatabaseCatalogSuite() {
   const services = useQuery(api.catalog.listServices, { includeInactive: true });
   const materials = useQuery(api.catalog.listMaterialsCatalog, { includeInactive: true });
   const routes = useQuery(api.catalog.listServiceRoutes, { includeInactive: true });
+  const roles = useQuery(api.catalog.listRoles, { includeInactive: true });
   const roleConfigs = useQuery(api.catalog.listRoleWorkspaceConfigs, {});
+  const workspaceRoutes = useQuery(api.catalog.listWorkspaceRoutes, {});
   const permissions = useQuery(api.catalog.listRolePermissions, {});
   const categoryGroups = useQuery(api.catalog.listMaterialCategoryGroups, { includeInactive: true });
+  const machines = useQuery(api.machines.list, {});
+  const changeLogs = useQuery(api.catalog.listConfigChangeLog, { limit: 40 });
+  const driftReport = useQuery(api.catalog.detectConfigDrift, {});
 
   const seedCatalogs = useMutation(api.catalog.seedDatabaseFirstCatalogs);
   const toggleService = useMutation(api.catalog.toggleServiceActive);
   const toggleMaterial = useMutation(api.catalog.toggleMaterialCatalogActive);
+  const toggleRoleActive = useMutation(api.catalog.toggleRoleActive);
+  const toggleRolePermissionMutation = useMutation(api.catalog.toggleRolePermission);
   const upsertServiceRoute = useMutation(api.catalog.upsertServiceRoute);
   const upsertServiceMutation = useMutation(api.catalog.upsertService);
   const upsertMaterialMutation = useMutation(api.catalog.upsertMaterialCatalogItem);
-  const upsertRoleConfigMutation = useMutation(api.catalog.upsertRoleWorkspaceConfig);
+  const upsertRoleMutation = useMutation(api.catalog.upsertRole);
   const upsertGroupMutation = useMutation(api.catalog.upsertMaterialCategoryGroup);
+  const reconcileDriftMutation = useMutation(api.catalog.reconcileConfigDrift);
 
   const [isSyncing, setIsSyncing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isReconciling, setIsReconciling] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Slide panel state
   const [editingService, setEditingService] = useState<ServiceRecord | null>(null);
   const [editingMaterial, setEditingMaterial] = useState<MaterialRecord | null>(null);
   const [editingRoute, setEditingRoute] = useState<RouteRecord | null>(null);
-  const [editingRole, setEditingRole] = useState<RoleConfigRecord | null>(null);
+  const [editingRole, setEditingRole] = useState<RoleRecord | null>(null);
   const [editingGroup, setEditingGroup] = useState<CategoryGroupRecord | null>(null);
+
+  // Elevated permission modal state (Section 7.2)
+  const [pendingPermissionToggle, setPendingPermissionToggle] = useState<{
+    roleCode: string;
+    permission: string;
+    granting: boolean;
+  } | null>(null);
 
   // Filtered lists
   const filteredServices = useMemo<ServiceRecord[]>(() => {
@@ -138,7 +257,7 @@ export function DatabaseCatalogSuite() {
     if (!searchQuery.trim()) return list;
     const q = searchQuery.toLowerCase();
     return list.filter(
-      (s: ServiceRecord) =>
+      (s) =>
         s.id.toLowerCase().includes(q) ||
         s.labelEn.toLowerCase().includes(q) ||
         s.labelAm.toLowerCase().includes(q) ||
@@ -152,10 +271,11 @@ export function DatabaseCatalogSuite() {
     if (!searchQuery.trim()) return list;
     const q = searchQuery.toLowerCase();
     return list.filter(
-      (m: MaterialRecord) =>
+      (m) =>
         m.name.toLowerCase().includes(q) ||
         m.category.toLowerCase().includes(q) ||
-        m.catalogFamily.toLowerCase().includes(q),
+        m.catalogFamily.toLowerCase().includes(q) ||
+        (m.aliases ?? []).some((a) => a.toLowerCase().includes(q)),
     );
   }, [materials, searchQuery]);
 
@@ -165,38 +285,58 @@ export function DatabaseCatalogSuite() {
     if (!searchQuery.trim()) return list;
     const q = searchQuery.toLowerCase();
     return list.filter(
-      (r: RouteRecord) =>
+      (r) =>
         r.serviceId.toLowerCase().includes(q) ||
+        r.preferredMachineCode.toLowerCase().includes(q) ||
         r.preferredMaterialName.toLowerCase().includes(q) ||
-        r.preferredMachineCode.toLowerCase().includes(q),
+        r.operatorRole.toLowerCase().includes(q),
     );
   }, [routes, searchQuery]);
+
+  const distinctMaterialCategories = useMemo<string[]>(() => {
+    if (!materials) return [];
+    const set = new Set((materials as MaterialRecord[]).map((m) => m.category).filter(Boolean));
+    return Array.from(set).sort();
+  }, [materials]);
 
   async function handleSyncAll() {
     setIsSyncing(true);
     try {
-      const res = await seedCatalogs();
+      const res = await seedCatalogs({});
       toast.success(
-        `Synchronized successfully: ${res.servicesCount} services, ${res.materialsCount} materials, ${res.routesCount} routes, ${res.roleConfigsCount} roles.`,
+        `Catalogs synchronized: ${res.servicesCount} services, ${res.materialsCount} materials, ${res.rolesCount ?? 0} roles.`,
       );
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Sync failed");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to sync catalogs");
     } finally {
       setIsSyncing(false);
-    } 
+    }
   }
 
-  function parseList(value: string): string[] {
-    return value.split(",").map((s) => s.trim()).filter(Boolean);
+  async function handleReconcileDrift() {
+    setIsReconciling(true);
+    try {
+      const res = await reconcileDriftMutation({});
+      toast.success(`Reconciled ${res.reconciledCount} non-canonical records.`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to reconcile drift");
+    } finally {
+      setIsReconciling(false);
+    }
   }
 
-  function formatList(value?: string[]): string {
-    return (value ?? []).join(", ");
+  function handleConflictError(e: unknown, fallback: string) {
+    const msg = e instanceof Error ? e.message : fallback;
+    if (msg.includes("CONFIG_CONFLICT") || msg.includes("MATERIAL_CONFLICT")) {
+      toast.error("Conflict detected: This record changed since you opened it. Reload to review the latest changes.");
+    } else {
+      toast.error(msg);
+    }
   }
 
-  function parseAttributes(value: string): Record<string, string | number> {
+  function parseAttributes(raw: string): Record<string, string | number> {
     const result: Record<string, string | number> = {};
-    for (const pair of value.split(",")) {
+    for (const pair of raw.split(",")) {
       const [key, val] = pair.split("=").map((s) => s.trim());
       if (key) {
         const num = Number(val);
@@ -210,6 +350,17 @@ export function DatabaseCatalogSuite() {
     return Object.entries(value ?? {})
       .map(([k, v]) => `${k}=${v}`)
       .join(", ");
+  }
+
+  function parseList(raw: string): string[] {
+    return raw
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  function formatList(items?: string[]): string {
+    return (items ?? []).join(", ");
   }
 
   async function saveService() {
@@ -227,11 +378,13 @@ export function DatabaseCatalogSuite() {
         sortOrder: editingService.sortOrder,
         active: editingService.active,
         publishable: editingService.publishable,
+        attributes: editingService.attributes,
+        expectedUpdatedAt: editingService.updatedAt,
       });
       toast.success(`Service ${editingService.id} updated`);
       setEditingService(null);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to update service");
+      handleConflictError(e, "Failed to update service");
     } finally {
       setIsSaving(false);
     }
@@ -267,7 +420,7 @@ export function DatabaseCatalogSuite() {
       toast.success(`Material ${editingMaterial.name} updated`);
       setEditingMaterial(null);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to update material");
+      handleConflictError(e, "Failed to update material");
     } finally {
       setIsSaving(false);
     }
@@ -289,11 +442,12 @@ export function DatabaseCatalogSuite() {
         defaultWasteMarginPercent: editingRoute.defaultWasteMarginPercent,
         maxScrapLimitPercent: editingRoute.maxScrapLimitPercent,
         active: editingRoute.active,
+        expectedUpdatedAt: editingRoute.updatedAt,
       });
-      toast.success("Route updated successfully");
+      toast.success(`Route for ${editingRoute.serviceId} updated`);
       setEditingRoute(null);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to update route");
+      handleConflictError(e, "Failed to update route");
     } finally {
       setIsSaving(false);
     }
@@ -303,17 +457,19 @@ export function DatabaseCatalogSuite() {
     if (!editingRole) return;
     setIsSaving(true);
     try {
-      await upsertRoleConfigMutation({
-        roleCode: editingRole.roleCode,
+      await upsertRoleMutation({
+        code: editingRole.code,
+        labelEn: editingRole.labelEn,
+        labelAm: editingRole.labelAm,
         workspaceId: editingRole.workspaceId,
-        homeRoute: editingRole.homeRoute,
-        machineSlug: editingRole.machineSlug,
         active: editingRole.active,
+        attributes: editingRole.attributes,
+        expectedUpdatedAt: editingRole.updatedAt,
       });
-      toast.success(`Role ${editingRole.roleCode} updated`);
+      toast.success(`Role ${editingRole.code} saved successfully`);
       setEditingRole(null);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to update role");
+      handleConflictError(e, "Failed to save role");
     } finally {
       setIsSaving(false);
     }
@@ -334,13 +490,31 @@ export function DatabaseCatalogSuite() {
         memberCategories: editingGroup.memberCategories,
         sortOrder: editingGroup.sortOrder,
         active: editingGroup.active,
+        expectedUpdatedAt: editingGroup.updatedAt,
       });
       toast.success(`Group ${editingGroup.labelEn} updated`);
       setEditingGroup(null);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to update group");
+      handleConflictError(e, "Failed to update group");
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function confirmPermissionToggle() {
+    if (!pendingPermissionToggle) return;
+    const { roleCode, permission, granting } = pendingPermissionToggle;
+    try {
+      await toggleRolePermissionMutation({
+        roleCode,
+        permission,
+        active: granting,
+        elevatedConfirmed: true,
+      });
+      toast.success(`Permission '${permission}' ${granting ? "granted to" : "revoked from"} ${roleCode}`);
+      setPendingPermissionToggle(null);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to toggle permission");
     }
   }
 
@@ -354,68 +528,72 @@ export function DatabaseCatalogSuite() {
 
   return (
     <div className="space-y-6">
-      {/* Overview Stat Cards */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      {/* Header Metrics */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard
-          icon={<Sparkles size={18} className="text-cyan" />}
-          label="Services"
-          value={syncStatus.services.total}
-          subtitle={`${syncStatus.services.active} active · ${syncStatus.services.publishable} published`}
+          label="Services Catalog"
+          value={`${syncStatus.services.active} / ${syncStatus.services.total}`}
+          description={`${syncStatus.services.publishable} published`}
+          icon={<Database size={18} />}
         />
         <StatCard
-          icon={<Layers size={18} className="text-amber-400" />}
-          label="Materials"
-          value={syncStatus.materials.total}
-          subtitle={`${syncStatus.materials.active} active in DB`}
+          label="Material Catalog"
+          value={`${syncStatus.materials.active} / ${syncStatus.materials.total}`}
+          description="Database Authority"
+          icon={<Layers size={18} />}
         />
         <StatCard
-          icon={<Route size={18} className="text-blue-400" />}
-          label="Routes"
-          value={syncStatus.routes.total}
-          subtitle={`${syncStatus.routes.active} active service routes`}
+          label="Production Routes"
+          value={`${syncStatus.routes.active} / ${syncStatus.routes.total}`}
+          description="Configured"
+          icon={<Route size={18} />}
         />
         <StatCard
-          icon={<Wrench size={18} className="text-purple-400" />}
-          label="Cap Links"
-          value={syncStatus.capabilityLinks.total}
-          subtitle={`${syncStatus.capabilityLinks.active} machine links`}
+          label="Canonical Roles"
+          value={`${(roles as any[])?.length ?? 0}`}
+          description="Data-Only Authority"
+          icon={<ShieldCheck size={18} />}
         />
         <StatCard
-          icon={<ShieldCheck size={18} className="text-emerald-400" />}
-          label="Roles & Workspaces"
-          value={syncStatus.roleConfigs.total}
-          subtitle={`${syncStatus.rolePermissions.total} permissions active`}
-        />
-        <StatCard
-          icon={<FolderTree size={18} className="text-slate-400" />}
           label="Category Groups"
-          value={syncStatus.categoryGroups.total}
-          subtitle="Main inventory visual groups"
+          value={`${syncStatus.categoryGroups.active} / ${syncStatus.categoryGroups.total}`}
+          description="UI Design Tokens"
+          icon={<FolderTree size={18} />}
         />
       </div>
 
-      {/* Action Banner */}
-      <Panel className="border-cyan/30 bg-gradient-to-r from-cyan/10 via-background to-background p-4">
-        <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-          <div className="flex items-center gap-3">
-            <div className="rounded-xl border border-cyan/40 bg-cyan/20 p-2.5 text-cyan">
-              <Database size={22} />
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-foreground">Authoritative Database Catalogs</h3>
-              <p className="text-xs text-muted-foreground">
-                All production catalogs are served from Convex database tables. Updates take effect immediately without code redeployments.
-              </p>
-            </div>
+      {/* Synchronize & Status Banner */}
+      <Panel className="p-4 bg-card/60 backdrop-blur border-border flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="rounded-lg bg-cyan/10 p-2 text-cyan">
+            <Sparkles size={20} />
           </div>
+          <div>
+            <h3 className="font-semibold text-foreground text-sm">Owner Full-Authority Catalogs</h3>
+            <p className="text-xs text-muted-foreground">
+              Master business catalogs runtime-backed in Convex. Zero code redeployments required.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {driftReport && !driftReport.clean ? (
+            <span className="flex items-center gap-1 text-xs text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-md border border-amber-500/20">
+              <AlertTriangle size={13} /> {driftReport.totalIssues} drift issues
+            </span>
+          ) : (
+            <span className="flex items-center gap-1 text-xs text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-md border border-emerald-500/20">
+              <CheckCircle2 size={13} /> Normalized
+            </span>
+          )}
           <Button
-            type="button"
-            variant="primary"
-            disabled={isSyncing}
+            variant="secondary"
+            size="small"
             onClick={handleSyncAll}
+            disabled={isSyncing}
             className="flex items-center gap-2 whitespace-nowrap"
           >
-            <RefreshCw size={15} className={isSyncing ? "animate-spin" : ""} />
+            <RefreshCw size={14} className={isSyncing ? "animate-spin" : ""} />
             {isSyncing ? "Syncing Catalogs…" : "Reseed & Sync Catalogs"}
           </Button>
         </div>
@@ -428,8 +606,13 @@ export function DatabaseCatalogSuite() {
             <TabsTrigger value="services">Services ({services?.length ?? 0})</TabsTrigger>
             <TabsTrigger value="materials">Materials ({materials?.length ?? 0})</TabsTrigger>
             <TabsTrigger value="routes">Service Routes ({routes?.length ?? 0})</TabsTrigger>
-            <TabsTrigger value="roles">Roles & Access ({roleConfigs?.length ?? 0})</TabsTrigger>
+            <TabsTrigger value="roles">Roles & Access ({(roles as any[])?.length ?? 0})</TabsTrigger>
             <TabsTrigger value="groups">Groups ({categoryGroups?.length ?? 0})</TabsTrigger>
+            <TabsTrigger value="audit">
+              <span className="flex items-center gap-1.5">
+                <History size={13} /> Audit & Drift
+              </span>
+            </TabsTrigger>
           </TabsList>
 
           <div className="relative w-full max-w-xs">
@@ -452,72 +635,63 @@ export function DatabaseCatalogSuite() {
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="border-b border-border bg-secondary/30 text-muted-foreground">
-                    <th className="p-3">Order</th>
-                    <th className="p-3">Service Slug</th>
-                    <th className="p-3">English Label</th>
-                    <th className="p-3">Amharic Label</th>
-                    <th className="p-3">Category</th>
-                    <th className="p-3 text-center">Customer Visible</th>
-                    <th className="p-3 text-center">Status</th>
-                    <th className="p-3 text-right">Actions</th>
+                    <th className="p-3 font-medium">Service Key</th>
+                    <th className="p-3 font-medium">English Name</th>
+                    <th className="p-3 font-medium">Amharic Name</th>
+                    <th className="p-3 font-medium">Category</th>
+                    <th className="p-3 font-medium">Order</th>
+                    <th className="p-3 font-medium">Customer View</th>
+                    <th className="p-3 font-medium">Status</th>
+                    <th className="p-3 font-medium text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border font-sans">
-                  {filteredServices.map((service: ServiceRecord) => (
-                    <tr key={service.id} className="hover:bg-secondary/20 transition-colors">
-                      <td className="p-3 font-mono text-muted-foreground">{service.sortOrder}</td>
-                      <td className="p-3 font-mono font-medium text-cyan">{service.id}</td>
-                      <td className="p-3 font-medium text-foreground">{service.labelEn}</td>
-                      <td className="p-3 font-amharic text-muted-foreground">{service.labelAm}</td>
+                <tbody className="divide-y divide-border">
+                  {filteredServices.map((svc) => (
+                    <tr key={svc.id} className="hover:bg-secondary/20 transition-colors">
+                      <td className="p-3 font-mono font-medium text-foreground">{svc.id}</td>
+                      <td className="p-3 text-foreground">{svc.labelEn}</td>
+                      <td className="p-3 font-amharic text-muted-foreground">{svc.labelAm}</td>
                       <td className="p-3">
-                        <span className="rounded bg-secondary px-2 py-0.5 text-[11px] text-foreground">
-                          {service.categoryNameEn}
+                        <span className="rounded bg-secondary px-2 py-0.5 text-[11px] font-mono text-muted-foreground">
+                          {svc.categoryNameEn}
                         </span>
                       </td>
-                      <td className="p-3 text-center">
-                        {service.publishable ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] text-emerald-400">
-                            <Eye size={12} /> Yes
+                      <td className="p-3 font-mono text-muted-foreground">#{svc.sortOrder}</td>
+                      <td className="p-3">
+                        {svc.publishable ? (
+                          <span className="flex items-center gap-1 text-emerald-400">
+                            <Eye size={12} /> Published
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                          <span className="flex items-center gap-1 text-muted-foreground">
                             <EyeOff size={12} /> Hidden
                           </span>
                         )}
                       </td>
-                      <td className="p-3 text-center">
-                        {service.active ? (
-                          <span className="rounded bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-400">
-                            Active
-                          </span>
-                        ) : (
-                          <span className="rounded bg-rose-500/10 px-2 py-0.5 text-[11px] text-rose-400">
-                            Archived
-                          </span>
-                        )}
+                      <td className="p-3">
+                        <span
+                          className={`rounded px-2 py-0.5 text-[10px] font-semibold uppercase ${
+                            svc.active ? "bg-emerald-500/10 text-emerald-400" : "bg-zinc-500/10 text-zinc-400"
+                          }`}
+                        >
+                          {svc.active ? "Active" : "Archived"}
+                        </span>
                       </td>
                       <td className="p-3 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-end gap-1">
                           <Button
                             variant="tertiary"
                             className="h-7 px-2 text-xs"
-                            onClick={() => setEditingService({ ...service })}
+                            onClick={() => setEditingService({ ...svc })}
                           >
                             <Edit3 size={12} className="mr-1" /> Edit
                           </Button>
                           <Button
                             variant="tertiary"
                             className="h-7 px-2 text-xs"
-                            onClick={async () => {
-                              try {
-                                await toggleService({ serviceId: service.id, active: !service.active });
-                                toast.success(`Service ${service.id} ${service.active ? "disabled" : "enabled"}`);
-                              } catch (e) {
-                                toast.error(e instanceof Error ? e.message : "Update failed");
-                              }
-                            }}
+                            onClick={() => toggleService({ serviceId: svc.id, active: !svc.active })}
                           >
-                            {service.active ? "Deactivate" : "Activate"}
+                            {svc.active ? "Deactivate" : "Activate"}
                           </Button>
                         </div>
                       </td>
@@ -529,54 +703,58 @@ export function DatabaseCatalogSuite() {
           </Panel>
         </TabsContent>
 
-        {/* Tab 2: Materials */}
+        {/* Tab 2: Materials Catalog */}
         <TabsContent value="materials">
           <Panel>
-            <PanelHeader title="Material Specifications Catalog" subtitle="Master specification registry and conversion parameters." />
+            <PanelHeader title="Material Specifications Catalog" subtitle="Canonical substrate, ink, sheet, and hardware specifications." />
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="border-b border-border bg-secondary/30 text-muted-foreground">
-                    <th className="p-3">Material Name</th>
-                    <th className="p-3">Category</th>
-                    <th className="p-3">Family</th>
-                    <th className="p-3">Purchase Unit</th>
-                    <th className="p-3">Base Unit</th>
-                    <th className="p-3 text-right">Ratio</th>
-                    <th className="p-3">Dimensions / Roll</th>
-                    <th className="p-3 text-center">Status</th>
-                    <th className="p-3 text-right">Actions</th>
+                    <th className="p-3 font-medium">Material Name</th>
+                    <th className="p-3 font-medium">Family</th>
+                    <th className="p-3 font-medium">Base Unit</th>
+                    <th className="p-3 font-medium">Purchase Unit</th>
+                    <th className="p-3 font-medium">Ratio</th>
+                    <th className="p-3 font-medium">Dimensions / Variant</th>
+                    <th className="p-3 font-medium">Status</th>
+                    <th className="p-3 font-medium text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {filteredMaterials.map((mat: MaterialRecord) => (
+                  {filteredMaterials.map((mat) => (
                     <tr key={mat.id} className="hover:bg-secondary/20 transition-colors">
-                      <td className="p-3 font-medium text-foreground">{mat.name}</td>
-                      <td className="p-3 text-muted-foreground">{mat.category}</td>
+                      <td className="p-3 font-medium text-foreground">
+                        <div>{mat.name}</div>
+                        {mat.aliases && mat.aliases.length > 0 && (
+                          <div className="text-[10px] text-muted-foreground">Aliases: {mat.aliases.join(", ")}</div>
+                        )}
+                      </td>
                       <td className="p-3">
-                        <span className="rounded bg-cyan/10 px-2 py-0.5 text-[11px] font-medium text-cyan">
+                        <span className="rounded bg-cyan/10 px-2 py-0.5 text-[10px] font-semibold text-cyan uppercase">
                           {mat.catalogFamily}
                         </span>
                       </td>
-                      <td className="p-3 text-muted-foreground">{mat.purchaseUnit}</td>
-                      <td className="p-3 font-medium text-foreground">{mat.baseUnit}</td>
-                      <td className="p-3 text-right font-mono">{mat.conversionRatio}</td>
+                      <td className="p-3 font-mono text-muted-foreground">{mat.baseUnit}</td>
+                      <td className="p-3 font-mono text-muted-foreground">{mat.purchaseUnit}</td>
+                      <td className="p-3 font-mono text-muted-foreground">1 : {mat.conversionRatio}</td>
                       <td className="p-3 text-muted-foreground">
-                        {mat.rollWidth ? `${mat.rollWidth}m width` : mat.catalogDimensions ?? "—"}
+                        {mat.rollWidth ? `${mat.rollWidth}m roll` : ""}
+                        {mat.sheetWidth && mat.sheetLength ? `${mat.sheetWidth}m × ${mat.sheetLength}m` : ""}
+                        {mat.thickness ? ` (${mat.thickness}mm)` : ""}
+                        {!mat.rollWidth && !mat.sheetWidth && !mat.thickness ? mat.catalogDimensions ?? "—" : ""}
                       </td>
-                      <td className="p-3 text-center">
-                        {mat.active ? (
-                          <span className="rounded bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-400">
-                            Active
-                          </span>
-                        ) : (
-                          <span className="rounded bg-rose-500/10 px-2 py-0.5 text-[11px] text-rose-400">
-                            Inactive
-                          </span>
-                        )}
+                      <td className="p-3">
+                        <span
+                          className={`rounded px-2 py-0.5 text-[10px] font-semibold uppercase ${
+                            mat.active ? "bg-emerald-500/10 text-emerald-400" : "bg-zinc-500/10 text-zinc-400"
+                          }`}
+                        >
+                          {mat.active ? "Active" : "Archived"}
+                        </span>
                       </td>
                       <td className="p-3 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-end gap-1">
                           <Button
                             variant="tertiary"
                             className="h-7 px-2 text-xs"
@@ -587,14 +765,7 @@ export function DatabaseCatalogSuite() {
                           <Button
                             variant="tertiary"
                             className="h-7 px-2 text-xs"
-                            onClick={async () => {
-                              try {
-                                await toggleMaterial({ id: mat.id, active: !mat.active });
-                                toast.success(`Material ${mat.name} ${mat.active ? "disabled" : "enabled"}`);
-                              } catch (e) {
-                                toast.error(e instanceof Error ? e.message : "Update failed");
-                              }
-                            }}
+                            onClick={() => toggleMaterial({ id: mat.id, active: !mat.active })}
                           >
                             {mat.active ? "Deactivate" : "Activate"}
                           </Button>
@@ -611,42 +782,46 @@ export function DatabaseCatalogSuite() {
         {/* Tab 3: Service Routes */}
         <TabsContent value="routes">
           <Panel>
-            <PanelHeader title="Service Production Routes" subtitle="Live machine routing rules, waste margins, and scrap tolerances." />
+            <PanelHeader title="Service Production Routes" subtitle="Deterministic material, machine, and operator dispatch policies." />
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="border-b border-border bg-secondary/30 text-muted-foreground">
-                    <th className="p-3">Service</th>
-                    <th className="p-3">Preferred Material</th>
-                    <th className="p-3">Assigned Machine</th>
-                    <th className="p-3">Operator Role</th>
-                    <th className="p-3 text-right">Waste Margin</th>
-                    <th className="p-3 text-right">Max Scrap</th>
-                    <th className="p-3 text-center">Status</th>
-                    <th className="p-3 text-right">Configure</th>
+                    <th className="p-3 font-medium">Service ID</th>
+                    <th className="p-3 font-medium">Preferred Machine</th>
+                    <th className="p-3 font-medium">Substrate / Material</th>
+                    <th className="p-3 font-medium">Operator Role</th>
+                    <th className="p-3 font-medium">Waste Margin</th>
+                    <th className="p-3 font-medium">Scrap Limit</th>
+                    <th className="p-3 font-medium">Status</th>
+                    <th className="p-3 font-medium text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {filteredRoutes.map((route: RouteRecord) => (
-                    <tr key={route.serviceId} className="hover:bg-secondary/20 transition-colors">
-                      <td className="p-3 font-mono font-medium text-cyan">{route.serviceId}</td>
-                      <td className="p-3 text-foreground">{route.preferredMaterialName}</td>
-                      <td className="p-3 font-mono font-medium text-purple-400">{route.preferredMachineCode}</td>
-                      <td className="p-3 text-muted-foreground">{route.operatorRole}</td>
-                      <td className="p-3 text-right font-mono">{route.defaultWasteMarginPercent}%</td>
-                      <td className="p-3 text-right font-mono">{route.maxScrapLimitPercent}%</td>
-                      <td className="p-3 text-center">
-                        <span className="rounded bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-400">
-                          Active
+                  {filteredRoutes.map((rt) => (
+                    <tr key={rt.serviceId} className="hover:bg-secondary/20 transition-colors">
+                      <td className="p-3 font-mono font-medium text-cyan">{rt.serviceId}</td>
+                      <td className="p-3 font-mono text-foreground">{rt.preferredMachineCode}</td>
+                      <td className="p-3 text-foreground">{rt.preferredMaterialName}</td>
+                      <td className="p-3 font-mono text-muted-foreground">{rt.operatorRole}</td>
+                      <td className="p-3 font-mono text-muted-foreground">{rt.defaultWasteMarginPercent}%</td>
+                      <td className="p-3 font-mono text-muted-foreground">{rt.maxScrapLimitPercent}%</td>
+                      <td className="p-3">
+                        <span
+                          className={`rounded px-2 py-0.5 text-[10px] font-semibold uppercase ${
+                            rt.active ? "bg-emerald-500/10 text-emerald-400" : "bg-zinc-500/10 text-zinc-400"
+                          }`}
+                        >
+                          {rt.active ? "Active" : "Inactive"}
                         </span>
                       </td>
                       <td className="p-3 text-right">
                         <Button
                           variant="tertiary"
                           className="h-7 px-2 text-xs"
-                          onClick={() => setEditingRoute({ ...route })}
+                          onClick={() => setEditingRoute({ ...rt })}
                         >
-                          <Sliders size={12} className="mr-1" /> Edit
+                          <Edit3 size={12} className="mr-1" /> Edit
                         </Button>
                       </td>
                     </tr>
@@ -657,35 +832,82 @@ export function DatabaseCatalogSuite() {
           </Panel>
         </TabsContent>
 
-        {/* Tab 4: Roles & Access */}
-        <TabsContent value="roles">
+        {/* Tab 4: Roles & Permissions Matrix (Stage 3) */}
+        <TabsContent value="roles" className="space-y-6">
+          {/* Top Banner: Data-only vs Structural Roles */}
+          <div className="rounded-lg border border-cyan/20 bg-cyan/5 p-4 text-xs text-foreground flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-1.5 font-semibold text-cyan">
+                <ShieldCheck size={16} /> Canonical Role Authority (Section 8)
+              </div>
+              <p className="text-muted-foreground">
+                The owner has full authority to configure data-only roles that reuse existing workspace routes and permission primitives.
+                New hardware workflows or custom UI structures require engineering capability requests.
+              </p>
+            </div>
+            <Button
+              variant="primary"
+              size="small"
+              onClick={() =>
+                setEditingRole({
+                  code: "",
+                  labelEn: "",
+                  labelAm: "",
+                  workspaceId: "operator",
+                  active: true,
+                })
+              }
+              className="flex items-center gap-1.5 whitespace-nowrap"
+            >
+              <PlusCircle size={14} /> Add Role
+            </Button>
+          </div>
+
           <div className="grid gap-6 lg:grid-cols-2">
+            {/* Roles List */}
             <Panel>
-              <PanelHeader title="Role Workspace Configuration" subtitle="Routing destinations and workspace boundaries." />
-              <div className="divide-y divide-border text-xs">
-                {(roleConfigs as RoleConfigRecord[] | undefined)?.map((cfg: RoleConfigRecord) => (
-                  <div key={cfg.roleCode} className="flex items-center justify-between p-3">
+              <PanelHeader title="Canonical Roles" subtitle="Data-backed roles and workspace routing destinations." />
+              <div className="divide-y divide-border text-xs max-h-[600px] overflow-y-auto">
+                {(roles as RoleRecord[] | undefined)?.map((r) => (
+                  <div key={r.code} className="flex items-center justify-between p-3.5 hover:bg-secondary/20 transition-colors">
                     <div>
-                      <p className="font-mono font-medium text-foreground">{cfg.roleCode}</p>
-                      <p className="text-[11px] text-muted-foreground">
-                        Workspace: <span className="text-cyan">{cfg.workspaceId}</span> · Home:{" "}
-                        <span className="font-mono">{cfg.homeRoute}</span>
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {cfg.machineSlug ? (
-                        <span className="rounded bg-purple-500/10 px-2 py-0.5 text-[11px] text-purple-400">
-                          {cfg.machineSlug}
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-semibold text-foreground">{r.code}</span>
+                        <span
+                          className={`rounded px-1.5 py-0.5 text-[9px] uppercase font-bold ${
+                            r.active ? "bg-emerald-500/10 text-emerald-400" : "bg-zinc-500/10 text-zinc-400"
+                          }`}
+                        >
+                          {r.active ? "Active" : "Archived"}
                         </span>
-                      ) : (
-                        <span className="text-[11px] text-muted-foreground">Global</span>
-                      )}
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        {r.labelEn} · <span className="font-amharic">{r.labelAm}</span>
+                      </p>
+                      <p className="text-[10px] text-cyan mt-0.5">Workspace: {r.workspaceId}</p>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
                       <Button
                         variant="tertiary"
                         className="h-7 px-2 text-xs"
-                        onClick={() => setEditingRole({ ...cfg })}
+                        onClick={() => setEditingRole({ ...r })}
                       >
                         <Edit3 size={12} className="mr-1" /> Edit
+                      </Button>
+                      <Button
+                        variant="tertiary"
+                        className="h-7 px-2 text-xs"
+                        onClick={async () => {
+                          try {
+                            await toggleRoleActive({ code: r.code, active: !r.active });
+                            toast.success(`Role ${r.code} ${r.active ? "deactivated" : "activated"}`);
+                          } catch (e) {
+                            toast.error(e instanceof Error ? e.message : "Failed to toggle role active state");
+                          }
+                        }}
+                      >
+                        {r.active ? "Deactivate" : "Activate"}
                       </Button>
                     </div>
                   </div>
@@ -693,36 +915,56 @@ export function DatabaseCatalogSuite() {
               </div>
             </Panel>
 
+            {/* Interactive Permission Matrix */}
             <Panel>
-              <PanelHeader title="Database Permissions Summary" subtitle="Permissions granted to each role." />
-              <div
-                className="max-h-[500px] overflow-y-auto divide-y divide-border text-xs [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-              >
-                {(roleConfigs as RoleConfigRecord[] | undefined)?.map((cfg: RoleConfigRecord) => {
-                  const rolePerms = ((permissions as PermissionRecord[] | undefined) ?? []).filter(
-                    (p: PermissionRecord) => p.roleCode === cfg.roleCode,
-                  );
-                  return (
-                    <div key={cfg.roleCode} className="p-3 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="font-mono font-semibold text-cyan">{cfg.roleCode}</span>
-                        <span className="text-[11px] text-muted-foreground">{rolePerms.length} permissions</span>
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {rolePerms.slice(0, 8).map((p: PermissionRecord) => (
-                          <span key={p.permission} className="rounded bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                            {p.permission}
-                          </span>
-                        ))}
-                        {rolePerms.length > 8 ? (
-                          <span className="rounded bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                            +{rolePerms.length - 8} more
-                          </span>
-                        ) : null}
-                      </div>
+              <PanelHeader
+                title="Interactive Permission Matrix"
+                subtitle="Owner-gated RBAC enforcement. Granting capabilities triggers elevated confirmation."
+              />
+              <div className="p-3 text-xs space-y-4 max-h-[600px] overflow-y-auto">
+                {Object.entries(PERMISSION_GROUPS).map(([groupKey, groupDef]) => (
+                  <div key={groupKey} className="rounded-lg border border-border bg-card/40 p-3 space-y-2.5">
+                    <h5 className="font-semibold text-foreground text-xs uppercase tracking-wider text-cyan">
+                      {groupDef.label}
+                    </h5>
+                    <div className="space-y-1.5 divide-y divide-border/40">
+                      {groupDef.permissions.map((perm) => (
+                        <div key={perm} className="pt-1.5 first:pt-0">
+                          <div className="flex items-center justify-between py-1">
+                            <span className="font-mono text-[11px] text-foreground font-medium">{perm}</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5 mt-1">
+                            {(roles as RoleRecord[] | undefined)?.map((r) => {
+                              const isGranted = (permissions as PermissionRecord[] | undefined)?.some(
+                                (p) => p.roleCode === r.code && p.permission === perm,
+                              );
+                              return (
+                                <button
+                                  key={r.code}
+                                  type="button"
+                                  onClick={() => {
+                                    setPendingPermissionToggle({
+                                      roleCode: r.code,
+                                      permission: perm,
+                                      granting: !isGranted,
+                                    });
+                                  }}
+                                  className={`rounded px-2 py-0.5 text-[10px] font-mono transition-all ${
+                                    isGranted
+                                      ? "bg-cyan/15 text-cyan border border-cyan/30 hover:bg-cyan/25"
+                                      : "bg-secondary/40 text-muted-foreground border border-transparent hover:border-border hover:text-foreground"
+                                  }`}
+                                >
+                                  {r.code.replace(/_operator$/, "")}: {isGranted ? "✓" : "—"}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  );
-                })}
+                  </div>
+                ))}
               </div>
             </Panel>
           </div>
@@ -752,6 +994,10 @@ export function DatabaseCatalogSuite() {
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground">{group.descriptionEn}</p>
+                <div className="border-t border-border pt-2 flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Tone: <span className="text-foreground font-mono">{group.tone}</span></span>
+                  <span className="text-muted-foreground">Icon: <span className="text-foreground font-mono">{group.iconName}</span></span>
+                </div>
                 <div className="border-t border-border pt-2">
                   <p className="text-[11px] font-medium text-foreground mb-1">Member Categories:</p>
                   <div className="flex flex-wrap gap-1">
@@ -766,13 +1012,169 @@ export function DatabaseCatalogSuite() {
             ))}
           </div>
         </TabsContent>
+
+        {/* Tab 6: Audit & Drift Detection (Stage 5) */}
+        <TabsContent value="audit" className="space-y-6">
+          <div className="grid gap-6 lg:grid-cols-3">
+            {/* Drift Detection Report */}
+            <Panel className="lg:col-span-1 p-4 space-y-4">
+              <PanelHeader
+                title="Configuration Drift Scanner"
+                subtitle="Detects non-canonical strings and orphaned routes."
+              />
+              <div className="rounded-lg border border-border p-3 space-y-2 bg-secondary/10">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Status:</span>
+                  {driftReport?.clean ? (
+                    <span className="text-xs font-semibold text-emerald-400">Zero Drift Detected</span>
+                  ) : (
+                    <span className="text-xs font-semibold text-amber-400">
+                      {driftReport?.totalIssues ?? 0} Issue(s) Found
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Last Scan:</span>
+                  <span className="text-xs font-mono text-muted-foreground">
+                    {driftReport?.scannedAt ? new Date(driftReport.scannedAt).toLocaleTimeString() : "—"}
+                  </span>
+                </div>
+              </div>
+
+              {driftReport && driftReport.issues && driftReport.issues.length > 0 ? (
+                <div className="space-y-2 max-h-[300px] overflow-y-auto divide-y divide-border/60">
+                  {driftReport.issues.map((issue, idx) => (
+                    <div key={idx} className="pt-2 first:pt-0 text-xs space-y-1">
+                      <div className="font-semibold text-amber-300">{issue.entityName}</div>
+                      <div className="text-muted-foreground">{issue.reason}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+
+              <Button
+                variant="secondary"
+                size="small"
+                className="w-full"
+                onClick={handleReconcileDrift}
+                disabled={isReconciling || !driftReport || driftReport.clean}
+              >
+                {isReconciling ? "Reconciling…" : "One-Click Non-Destructive Reconcile"}
+              </Button>
+            </Panel>
+
+            {/* Audit Change Log */}
+            <Panel className="lg:col-span-2 p-4 space-y-3">
+              <PanelHeader
+                title="Configuration Audit Trail (configChangeLog)"
+                subtitle="Immutable ledger of all owner configuration actions across tables."
+              />
+              <div className="overflow-x-auto max-h-[450px] overflow-y-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-border bg-secondary/30 text-muted-foreground">
+                      <th className="p-2.5 font-medium">Timestamp</th>
+                      <th className="p-2.5 font-medium">Entity Type</th>
+                      <th className="p-2.5 font-medium">Entity ID</th>
+                      <th className="p-2.5 font-medium">Action</th>
+                      <th className="p-2.5 font-medium">Field Diffs</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {changeLogs?.map((log: any) => (
+                      <tr key={log._id} className="hover:bg-secondary/15 transition-colors">
+                        <td className="p-2.5 font-mono text-muted-foreground whitespace-nowrap">
+                          {new Date(log.changedAt).toLocaleString()}
+                        </td>
+                        <td className="p-2.5 font-mono text-cyan">{log.entityType}</td>
+                        <td className="p-2.5 font-mono font-medium text-foreground">{log.entityId}</td>
+                        <td className="p-2.5">
+                          <span
+                            className={`rounded px-1.5 py-0.5 text-[9px] uppercase font-bold ${
+                              log.action === "create"
+                                ? "bg-emerald-500/10 text-emerald-400"
+                                : log.action === "update"
+                                ? "bg-blue-500/10 text-blue-400"
+                                : "bg-red-500/10 text-red-400"
+                            }`}
+                          >
+                            {log.action}
+                          </span>
+                        </td>
+                        <td className="p-2.5 text-[11px] text-muted-foreground max-w-xs truncate">
+                          {log.fieldChanges
+                            ? Object.entries(log.fieldChanges)
+                                .map(([k, v]: [string, any]) => `${k}: ${v.from ?? "null"} → ${v.to ?? "null"}`)
+                                .join(", ")
+                            : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Panel>
+          </div>
+        </TabsContent>
       </Tabs>
+
+      {/* Elevated Confirmation Modal for RBAC Permission Changes (Section 7.2) */}
+      {pendingPermissionToggle ? (
+        <SlidePanel
+          title="Elevated Confirmation: Role Permission"
+          subtitle="Modifying access permissions expands operational authority."
+          open
+          onClose={() => setPendingPermissionToggle(null)}
+          footer={
+            <>
+              <Button variant="tertiary" onClick={() => setPendingPermissionToggle(null)}>
+                Cancel
+              </Button>
+              <Button variant="primary" onClick={confirmPermissionToggle}>
+                {pendingPermissionToggle.granting ? "Grant Permission" : "Revoke Permission"}
+              </Button>
+            </>
+          }
+        >
+          <div className="space-y-4 text-xs">
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3.5 text-amber-300 flex items-start gap-3">
+              <ShieldAlert size={20} className="shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-semibold text-sm">Elevated Governance Action</p>
+                <p className="text-amber-200/90 leading-relaxed">
+                  You are about to {pendingPermissionToggle.granting ? "grant" : "revoke"} permission{" "}
+                  <strong className="font-mono">{pendingPermissionToggle.permission}</strong> for role{" "}
+                  <strong className="font-mono">{pendingPermissionToggle.roleCode}</strong>.
+                  This change takes effect immediately across all active accounts assigned to this role.
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-border bg-card p-3 space-y-2">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Target Role:</span>
+                <span className="font-mono font-semibold text-foreground">{pendingPermissionToggle.roleCode}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Permission:</span>
+                <span className="font-mono text-cyan">{pendingPermissionToggle.permission}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Action:</span>
+                <span className="font-bold text-foreground">
+                  {pendingPermissionToggle.granting ? "GRANT AUTHORITY" : "REVOKE AUTHORITY"}
+                </span>
+              </div>
+            </div>
+          </div>
+        </SlidePanel>
+      ) : null}
 
       {/* Service Edit Panel */}
       {editingService ? (
         <SlidePanel
           title={`Edit Service: ${editingService.id}`}
-          subtitle="Database-backed service definition and customer availability."
+          subtitle="Define service metadata and catalog availability."
           open
           onClose={() => setEditingService(null)}
           footer={
@@ -786,102 +1188,98 @@ export function DatabaseCatalogSuite() {
             </>
           }
         >
-          <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1.5">English Label</label>
-            <input
-              type="text"
-              value={editingService.labelEn}
-              onChange={(e) => setEditingService({ ...editingService, labelEn: e.target.value })}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-cyan focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1.5">Amharic Label</label>
-            <input
-              type="text"
-              value={editingService.labelAm}
-              onChange={(e) => setEditingService({ ...editingService, labelAm: e.target.value })}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-amharic focus:border-cyan focus:outline-none"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Category Key</label>
-              <input
-                type="text"
-                value={editingService.categoryKey}
-                onChange={(e) =>
-                  setEditingService({ ...editingService, categoryKey: e.target.value })
-                }
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
-              />
+          <div className="space-y-4 text-xs">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">English Label</label>
+                <input
+                  type="text"
+                  value={editingService.labelEn}
+                  onChange={(e) => setEditingService({ ...editingService, labelEn: e.target.value })}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-cyan focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Amharic Label</label>
+                <input
+                  type="text"
+                  value={editingService.labelAm}
+                  onChange={(e) => setEditingService({ ...editingService, labelAm: e.target.value })}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-amharic focus:border-cyan focus:outline-none"
+                />
+              </div>
             </div>
+
+            {/* Normalized Service Category Dropdown (Section 4.2) */}
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Category Name (EN)</label>
-              <input
-                type="text"
-                value={editingService.categoryNameEn}
-                onChange={(e) =>
-                  setEditingService({ ...editingService, categoryNameEn: e.target.value })
-                }
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-cyan focus:outline-none"
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Category Name (AM)</label>
-              <input
-                type="text"
-                value={editingService.categoryNameAm ?? ""}
-                onChange={(e) =>
-                  setEditingService({ ...editingService, categoryNameAm: e.target.value })
-                }
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-amharic focus:border-cyan focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Icon Key</label>
-              <input
-                type="text"
-                value={editingService.iconKey ?? ""}
-                onChange={(e) => setEditingService({ ...editingService, iconKey: e.target.value })}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Sort Order</label>
-              <input
-                type="number"
-                value={editingService.sortOrder}
-                onChange={(e) =>
-                  setEditingService({ ...editingService, sortOrder: Number(e.target.value) })
-                }
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Customer Visible</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Service Category</label>
               <select
-                value={editingService.publishable ? "yes" : "no"}
-                onChange={(e) =>
-                  setEditingService({ ...editingService, publishable: e.target.value === "yes" })
-                }
+                value={editingService.categoryKey}
+                onChange={(e) => {
+                  const selectedCat = SERVICE_CATEGORIES.find((c) => c.key === e.target.value);
+                  setEditingService({
+                    ...editingService,
+                    categoryKey: e.target.value,
+                    categoryNameEn: selectedCat ? selectedCat.nameEn : editingService.categoryNameEn,
+                  });
+                }}
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-cyan focus:outline-none"
               >
-                <option value="yes">Visible</option>
-                <option value="no">Hidden</option>
+                {SERVICE_CATEGORIES.map((c) => (
+                  <option key={c.key} value={c.key}>
+                    {c.nameEn} ({c.key})
+                  </option>
+                ))}
               </select>
             </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Sort Order</label>
+                <input
+                  type="number"
+                  value={editingService.sortOrder}
+                  onChange={(e) => setEditingService({ ...editingService, sortOrder: Number(e.target.value) })}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Publish to Customers</label>
+                <select
+                  value={editingService.publishable ? "yes" : "no"}
+                  onChange={(e) => setEditingService({ ...editingService, publishable: e.target.value === "yes" })}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-cyan focus:outline-none"
+                >
+                  <option value="yes">Published (Visible in mini-app)</option>
+                  <option value="no">Unpublished (Hidden)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Stage 6 Extensibility: Dynamic Attributes */}
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+                Dynamic Attributes (key=val, comma-separated)
+              </label>
+              <input
+                type="text"
+                placeholder="featured=true, badge=Popular"
+                value={formatAttributes(editingService.attributes)}
+                onChange={(e) =>
+                  setEditingService({
+                    ...editingService,
+                    attributes: parseAttributes(e.target.value),
+                  })
+                }
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
+              />
+            </div>
+
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1.5">Status</label>
               <select
                 value={editingService.active ? "active" : "archived"}
-                onChange={(e) =>
-                  setEditingService({ ...editingService, active: e.target.value === "active" })
-                }
+                onChange={(e) => setEditingService({ ...editingService, active: e.target.value === "active" })}
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-cyan focus:outline-none"
               >
                 <option value="active">Active</option>
@@ -896,7 +1294,7 @@ export function DatabaseCatalogSuite() {
       {editingMaterial ? (
         <SlidePanel
           title={`Edit Material: ${editingMaterial.name}`}
-          subtitle="Master specification registry and conversion parameters."
+          subtitle="Configure substrate specs, physical dimensions, and consumption profile."
           open
           onClose={() => setEditingMaterial(null)}
           footer={
@@ -910,239 +1308,200 @@ export function DatabaseCatalogSuite() {
             </>
           }
         >
-          <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1.5">Material Name</label>
-            <input
-              type="text"
-              value={editingMaterial.name}
-              onChange={(e) => setEditingMaterial({ ...editingMaterial, name: e.target.value })}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-cyan focus:outline-none"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-4 text-xs">
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Category</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Material Name</label>
               <input
                 type="text"
-                value={editingMaterial.category}
-                onChange={(e) => setEditingMaterial({ ...editingMaterial, category: e.target.value })}
+                value={editingMaterial.name}
+                onChange={(e) => setEditingMaterial({ ...editingMaterial, name: e.target.value })}
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-cyan focus:outline-none"
               />
             </div>
+
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Catalog Family</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Aliases (comma-separated)</label>
               <input
                 type="text"
-                value={editingMaterial.catalogFamily}
+                value={formatList(editingMaterial.aliases)}
                 onChange={(e) =>
-                  setEditingMaterial({ ...editingMaterial, catalogFamily: e.target.value })
-                }
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Base Unit</label>
-              <input
-                type="text"
-                value={editingMaterial.baseUnit}
-                onChange={(e) => setEditingMaterial({ ...editingMaterial, baseUnit: e.target.value })}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Purchase Unit</label>
-              <input
-                type="text"
-                value={editingMaterial.purchaseUnit}
-                onChange={(e) =>
-                  setEditingMaterial({ ...editingMaterial, purchaseUnit: e.target.value })
-                }
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Conversion Ratio</label>
-              <input
-                type="number"
-                value={editingMaterial.conversionRatio}
-                onChange={(e) =>
-                  setEditingMaterial({
-                    ...editingMaterial,
-                    conversionRatio: Number(e.target.value),
-                  })
-                }
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Roll Width (m)</label>
-              <input
-                type="number"
-                value={editingMaterial.rollWidth ?? ""}
-                onChange={(e) =>
-                  setEditingMaterial({
-                    ...editingMaterial,
-                    rollWidth: e.target.value === "" ? undefined : Number(e.target.value),
-                  })
-                }
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Catalog Dimensions</label>
-              <input
-                type="text"
-                value={editingMaterial.catalogDimensions ?? ""}
-                onChange={(e) =>
-                  setEditingMaterial({ ...editingMaterial, catalogDimensions: e.target.value })
+                  setEditingMaterial({ ...editingMaterial, aliases: parseList(e.target.value) })
                 }
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-cyan focus:outline-none"
               />
             </div>
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Sheet Width (m)</label>
-              <input
-                type="number"
-                value={editingMaterial.sheetWidth ?? ""}
-                onChange={(e) =>
-                  setEditingMaterial({
-                    ...editingMaterial,
-                    sheetWidth: e.target.value === "" ? undefined : Number(e.target.value),
-                  })
-                }
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
-              />
+
+            {/* Normalized Dropdowns (Section 4.2) */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Category</label>
+                <input
+                  type="text"
+                  list="category-suggestions"
+                  value={editingMaterial.category}
+                  onChange={(e) => setEditingMaterial({ ...editingMaterial, category: e.target.value })}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-cyan focus:outline-none"
+                />
+                <datalist id="category-suggestions">
+                  {distinctMaterialCategories.map((c) => (
+                    <option key={c} value={c} />
+                  ))}
+                </datalist>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Catalog Family</label>
+                <select
+                  value={editingMaterial.catalogFamily}
+                  onChange={(e) => setEditingMaterial({ ...editingMaterial, catalogFamily: e.target.value })}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
+                >
+                  {CATALOG_FAMILIES.map((f) => (
+                    <option key={f} value={f}>
+                      {f}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Sheet Length (m)</label>
-              <input
-                type="number"
-                value={editingMaterial.sheetLength ?? ""}
-                onChange={(e) =>
-                  setEditingMaterial({
-                    ...editingMaterial,
-                    sheetLength: e.target.value === "" ? undefined : Number(e.target.value),
-                  })
-                }
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
-              />
+
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Base Unit</label>
+                <select
+                  value={editingMaterial.baseUnit}
+                  onChange={(e) => setEditingMaterial({ ...editingMaterial, baseUnit: e.target.value })}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
+                >
+                  {BASE_UNITS.map((u) => (
+                    <option key={u} value={u}>
+                      {u}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Purchase Unit</label>
+                <select
+                  value={editingMaterial.purchaseUnit}
+                  onChange={(e) => setEditingMaterial({ ...editingMaterial, purchaseUnit: e.target.value })}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
+                >
+                  {PURCHASE_UNITS.map((u) => (
+                    <option key={u} value={u}>
+                      {u}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Conversion Ratio</label>
+                <input
+                  type="number"
+                  value={editingMaterial.conversionRatio}
+                  onChange={(e) => setEditingMaterial({ ...editingMaterial, conversionRatio: Number(e.target.value) })}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Thickness</label>
-              <input
-                type="number"
-                value={editingMaterial.thickness ?? ""}
-                onChange={(e) =>
-                  setEditingMaterial({
-                    ...editingMaterial,
-                    thickness: e.target.value === "" ? undefined : Number(e.target.value),
-                  })
-                }
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
-              />
+
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Roll Width (m)</label>
+                <input
+                  type="number"
+                  value={editingMaterial.rollWidth ?? ""}
+                  onChange={(e) =>
+                    setEditingMaterial({
+                      ...editingMaterial,
+                      rollWidth: e.target.value === "" ? undefined : Number(e.target.value),
+                    })
+                  }
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Sheet Dimensions (W × L)</label>
+                <div className="flex gap-1">
+                  <input
+                    type="number"
+                    placeholder="W"
+                    value={editingMaterial.sheetWidth ?? ""}
+                    onChange={(e) =>
+                      setEditingMaterial({
+                        ...editingMaterial,
+                        sheetWidth: e.target.value === "" ? undefined : Number(e.target.value),
+                      })
+                    }
+                    className="w-1/2 rounded-lg border border-border bg-background px-2 py-2 text-sm font-mono focus:border-cyan focus:outline-none"
+                  />
+                  <input
+                    type="number"
+                    placeholder="L"
+                    value={editingMaterial.sheetLength ?? ""}
+                    onChange={(e) =>
+                      setEditingMaterial({
+                        ...editingMaterial,
+                        sheetLength: e.target.value === "" ? undefined : Number(e.target.value),
+                      })
+                    }
+                    className="w-1/2 rounded-lg border border-border bg-background px-2 py-2 text-sm font-mono focus:border-cyan focus:outline-none"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Thickness (mm)</label>
+                <input
+                  type="number"
+                  value={editingMaterial.thickness ?? ""}
+                  onChange={(e) =>
+                    setEditingMaterial({
+                      ...editingMaterial,
+                      thickness: e.target.value === "" ? undefined : Number(e.target.value),
+                    })
+                  }
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
+                />
+              </div>
             </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
+
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Storage Location</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+                Dynamic Attributes (key=val, comma-separated)
+              </label>
               <input
                 type="text"
-                value={editingMaterial.storageLocation ?? ""}
+                placeholder="color=Blue, gsm=440"
+                value={formatAttributes(editingMaterial.attributes)}
                 onChange={(e) =>
-                  setEditingMaterial({ ...editingMaterial, storageLocation: e.target.value })
+                  setEditingMaterial({
+                    ...editingMaterial,
+                    attributes: parseAttributes(e.target.value),
+                  })
                 }
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-cyan focus:outline-none"
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
               />
             </div>
+
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Average Use</label>
-              <input
-                type="text"
-                value={editingMaterial.averageUse ?? ""}
-                onChange={(e) =>
-                  setEditingMaterial({ ...editingMaterial, averageUse: e.target.value })
-                }
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Status</label>
+              <select
+                value={editingMaterial.active ? "active" : "archived"}
+                onChange={(e) => setEditingMaterial({ ...editingMaterial, active: e.target.value === "active" })}
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-cyan focus:outline-none"
-              />
+              >
+                <option value="active">Active</option>
+                <option value="archived">Archived</option>
+              </select>
             </div>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1.5">Aliases (comma-separated)</label>
-            <input
-              type="text"
-              value={formatList(editingMaterial.aliases)}
-              onChange={(e) =>
-                setEditingMaterial({ ...editingMaterial, aliases: parseList(e.target.value) })
-              }
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-cyan focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1.5">Specification Options (comma-separated)</label>
-            <input
-              type="text"
-              value={formatList(editingMaterial.specificationOptions)}
-              onChange={(e) =>
-                setEditingMaterial({
-                  ...editingMaterial,
-                  specificationOptions: parseList(e.target.value),
-                })
-              }
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-cyan focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1.5">Compatible Machine Types (comma-separated)</label>
-            <input
-              type="text"
-              value={formatList(editingMaterial.compatibleMachineTypes)}
-              onChange={(e) =>
-                setEditingMaterial({
-                  ...editingMaterial,
-                  compatibleMachineTypes: parseList(e.target.value),
-                })
-              }
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-cyan focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1.5">Attributes (key=value, comma-separated)</label>
-            <input
-              type="text"
-              value={formatAttributes(editingMaterial.attributes)}
-              onChange={(e) =>
-                setEditingMaterial({ ...editingMaterial, attributes: parseAttributes(e.target.value) })
-              }
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1.5">Status</label>
-            <select
-              value={editingMaterial.active ? "active" : "inactive"}
-              onChange={(e) =>
-                setEditingMaterial({ ...editingMaterial, active: e.target.value === "active" })
-              }
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-cyan focus:outline-none"
-            >
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
           </div>
         </SlidePanel>
       ) : null}
 
-      {/* Route Edit Panel */}
+      {/* Service Route Edit Panel */}
       {editingRoute ? (
         <SlidePanel
           title={`Edit Route: ${editingRoute.serviceId}`}
-          subtitle="Live machine routing rules, waste margins, and scrap tolerances."
+          subtitle="Configure default production routing, scrap thresholds, and dispatch."
           open
           onClose={() => setEditingRoute(null)}
           footer={
@@ -1156,125 +1515,118 @@ export function DatabaseCatalogSuite() {
             </>
           }
         >
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Preferred Machine</label>
-              <input
-                type="text"
-                value={editingRoute.preferredMachineCode}
-                onChange={(e) =>
-                  setEditingRoute({ ...editingRoute, preferredMachineCode: e.target.value })
-                }
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
-              />
+          <div className="space-y-4 text-xs">
+            {/* Normalized Route Dropdowns (Section 4.2) */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Preferred Machine</label>
+                <select
+                  value={editingRoute.preferredMachineCode}
+                  onChange={(e) => setEditingRoute({ ...editingRoute, preferredMachineCode: e.target.value })}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
+                >
+                  {(machines as any[] | undefined)?.map((m) => (
+                    <option key={m.code} value={m.code}>
+                      {m.code} ({m.name})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Preferred Material</label>
+                <select
+                  value={editingRoute.preferredMaterialName}
+                  onChange={(e) => setEditingRoute({ ...editingRoute, preferredMaterialName: e.target.value })}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-cyan focus:outline-none"
+                >
+                  {(materials as MaterialRecord[] | undefined)?.map((m) => (
+                    <option key={m.id} value={m.name}>
+                      {m.name} ({m.catalogFamily})
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Operator Role</label>
+                <select
+                  value={editingRoute.operatorRole}
+                  onChange={(e) => setEditingRoute({ ...editingRoute, operatorRole: e.target.value })}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
+                >
+                  {(roles as RoleRecord[] | undefined)?.map((r) => (
+                    <option key={r.code} value={r.code}>
+                      {r.code} ({r.labelEn})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Calculation Unit</label>
+                <select
+                  value={editingRoute.calculationUnit}
+                  onChange={(e) => setEditingRoute({ ...editingRoute, calculationUnit: e.target.value })}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
+                >
+                  {BASE_UNITS.map((u) => (
+                    <option key={u} value={u}>
+                      {u}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Default Waste Margin (%)</label>
+                <input
+                  type="number"
+                  value={editingRoute.defaultWasteMarginPercent}
+                  onChange={(e) =>
+                    setEditingRoute({
+                      ...editingRoute,
+                      defaultWasteMarginPercent: Number(e.target.value),
+                    })
+                  }
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Max Scrap Limit (%)</label>
+                <input
+                  type="number"
+                  value={editingRoute.maxScrapLimitPercent}
+                  onChange={(e) =>
+                    setEditingRoute({ ...editingRoute, maxScrapLimitPercent: Number(e.target.value) })
+                  }
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
+                />
+              </div>
+            </div>
+
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Preferred Material</label>
-              <input
-                type="text"
-                value={editingRoute.preferredMaterialName}
-                onChange={(e) =>
-                  setEditingRoute({ ...editingRoute, preferredMaterialName: e.target.value })
-                }
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Status</label>
+              <select
+                value={editingRoute.active ? "active" : "inactive"}
+                onChange={(e) => setEditingRoute({ ...editingRoute, active: e.target.value === "active" })}
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-cyan focus:outline-none"
-              />
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
             </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Operator Role</label>
-              <input
-                type="text"
-                value={editingRoute.operatorRole}
-                onChange={(e) => setEditingRoute({ ...editingRoute, operatorRole: e.target.value })}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Calculation Unit</label>
-              <input
-                type="text"
-                value={editingRoute.calculationUnit}
-                onChange={(e) =>
-                  setEditingRoute({ ...editingRoute, calculationUnit: e.target.value })
-                }
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Default Waste Margin (%)</label>
-              <input
-                type="number"
-                value={editingRoute.defaultWasteMarginPercent}
-                onChange={(e) =>
-                  setEditingRoute({
-                    ...editingRoute,
-                    defaultWasteMarginPercent: Number(e.target.value),
-                  })
-                }
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Max Scrap Limit (%)</label>
-              <input
-                type="number"
-                value={editingRoute.maxScrapLimitPercent}
-                onChange={(e) =>
-                  setEditingRoute({ ...editingRoute, maxScrapLimitPercent: Number(e.target.value) })
-                }
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
-              />
-            </div>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1.5">Required Capabilities (comma-separated)</label>
-            <input
-              type="text"
-              value={formatList(editingRoute.requiredCapabilities)}
-              onChange={(e) =>
-                setEditingRoute({
-                  ...editingRoute,
-                  requiredCapabilities: parseList(e.target.value),
-                })
-              }
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-cyan focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1.5">Legacy Capabilities (comma-separated)</label>
-            <input
-              type="text"
-              value={formatList(editingRoute.legacyCapabilities)}
-              onChange={(e) =>
-                setEditingRoute({ ...editingRoute, legacyCapabilities: parseList(e.target.value) })
-              }
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-cyan focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1.5">Status</label>
-            <select
-              value={editingRoute.active ? "active" : "inactive"}
-              onChange={(e) =>
-                setEditingRoute({ ...editingRoute, active: e.target.value === "active" })
-              }
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-cyan focus:outline-none"
-            >
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
           </div>
         </SlidePanel>
       ) : null}
 
-      {/* Role Workspace Edit Panel */}
+      {/* Role Edit & Creation Panel (Stage 3 Data-Only Roles) */}
       {editingRole ? (
         <SlidePanel
-          title={`Edit Role: ${editingRole.roleCode}`}
-          subtitle="Routing destinations and workspace boundaries."
+          title={editingRole.code ? `Edit Role: ${editingRole.code}` : "Create Data-Only Role"}
+          subtitle="Configure role slug, bilingual labels, and workspace assignment."
           open
           onClose={() => setEditingRole(null)}
           footer={
@@ -1283,57 +1635,90 @@ export function DatabaseCatalogSuite() {
                 Cancel
               </Button>
               <Button variant="primary" onClick={saveRole} disabled={isSaving}>
-                {isSaving ? "Saving…" : "Save Changes"}
+                {isSaving ? "Saving…" : "Save Role"}
               </Button>
             </>
           }
         >
-          <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1.5">Role Code</label>
-            <input
-              type="text"
-              value={editingRole.roleCode}
-              onChange={(e) => setEditingRole({ ...editingRole, roleCode: e.target.value })}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1.5">Workspace</label>
-            <input
-              type="text"
-              value={editingRole.workspaceId}
-              onChange={(e) => setEditingRole({ ...editingRole, workspaceId: e.target.value })}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1.5">Home Route</label>
-            <input
-              type="text"
-              value={editingRole.homeRoute}
-              onChange={(e) => setEditingRole({ ...editingRole, homeRoute: e.target.value })}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1.5">Machine Slug (optional)</label>
-            <input
-              type="text"
-              value={editingRole.machineSlug ?? ""}
-              onChange={(e) => setEditingRole({ ...editingRole, machineSlug: e.target.value })}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1.5">Status</label>
-            <select
-              value={editingRole.active ? "active" : "inactive"}
-              onChange={(e) => setEditingRole({ ...editingRole, active: e.target.value === "active" })}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-cyan focus:outline-none"
-            >
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
+          <div className="space-y-4 text-xs">
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Role Code (Slug)</label>
+              <input
+                type="text"
+                placeholder="e.g. digital_print_assistant"
+                value={editingRole.code}
+                onChange={(e) => setEditingRole({ ...editingRole, code: e.target.value })}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">English Label</label>
+                <input
+                  type="text"
+                  placeholder="Assistant Operator"
+                  value={editingRole.labelEn}
+                  onChange={(e) => setEditingRole({ ...editingRole, labelEn: e.target.value })}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-cyan focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Amharic Label</label>
+                <input
+                  type="text"
+                  placeholder="ረዳት ኦፕሬተር"
+                  value={editingRole.labelAm}
+                  onChange={(e) => setEditingRole({ ...editingRole, labelAm: e.target.value })}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-amharic focus:border-cyan focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Target Workspace</label>
+              <select
+                value={editingRole.workspaceId}
+                onChange={(e) => setEditingRole({ ...editingRole, workspaceId: e.target.value })}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
+              >
+                {(workspaceRoutes as any[] | undefined)?.map((w) => (
+                  <option key={w.workspaceId} value={w.workspaceId}>
+                    {w.label} ({w.workspaceId})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+                Dynamic Attributes (key=val, comma-separated)
+              </label>
+              <input
+                type="text"
+                placeholder="department=Production, shift=Morning"
+                value={formatAttributes(editingRole.attributes)}
+                onChange={(e) =>
+                  setEditingRole({
+                    ...editingRole,
+                    attributes: parseAttributes(e.target.value),
+                  })
+                }
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Status</label>
+              <select
+                value={editingRole.active ? "active" : "inactive"}
+                onChange={(e) => setEditingRole({ ...editingRole, active: e.target.value === "active" })}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-cyan focus:outline-none"
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
           </div>
         </SlidePanel>
       ) : null}
@@ -1342,7 +1727,7 @@ export function DatabaseCatalogSuite() {
       {editingGroup ? (
         <SlidePanel
           title={`Edit Group: ${editingGroup.labelEn}`}
-          subtitle="Main inventory visual grouping."
+          subtitle="Main inventory visual grouping and design tokens."
           open
           onClose={() => setEditingGroup(null)}
           footer={
@@ -1356,100 +1741,82 @@ export function DatabaseCatalogSuite() {
             </>
           }
         >
-          <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-4 text-xs">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">English Label</label>
+                <input
+                  type="text"
+                  value={editingGroup.labelEn}
+                  onChange={(e) => setEditingGroup({ ...editingGroup, labelEn: e.target.value })}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-cyan focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Amharic Label</label>
+                <input
+                  type="text"
+                  value={editingGroup.labelAm}
+                  onChange={(e) => setEditingGroup({ ...editingGroup, labelAm: e.target.value })}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-amharic focus:border-cyan focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Design Tone</label>
+                <select
+                  value={editingGroup.tone}
+                  onChange={(e) => setEditingGroup({ ...editingGroup, tone: e.target.value })}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
+                >
+                  {GROUP_TONES.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Icon Token</label>
+                <select
+                  value={editingGroup.iconName}
+                  onChange={(e) => setEditingGroup({ ...editingGroup, iconName: e.target.value })}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
+                >
+                  {GROUP_ICONS.map((i) => (
+                    <option key={i} value={i}>
+                      {i}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">English Label</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Member Categories (comma-separated)</label>
               <input
                 type="text"
-                value={editingGroup.labelEn}
-                onChange={(e) => setEditingGroup({ ...editingGroup, labelEn: e.target.value })}
+                value={formatList(editingGroup.memberCategories)}
+                onChange={(e) =>
+                  setEditingGroup({ ...editingGroup, memberCategories: parseList(e.target.value) })
+                }
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-cyan focus:outline-none"
               />
             </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Amharic Label</label>
-              <input
-                type="text"
-                value={editingGroup.labelAm}
-                onChange={(e) => setEditingGroup({ ...editingGroup, labelAm: e.target.value })}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-amharic focus:border-cyan focus:outline-none"
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Description (EN)</label>
-              <input
-                type="text"
-                value={editingGroup.descriptionEn ?? ""}
-                onChange={(e) => setEditingGroup({ ...editingGroup, descriptionEn: e.target.value })}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-cyan focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Description (AM)</label>
-              <input
-                type="text"
-                value={editingGroup.descriptionAm ?? ""}
-                onChange={(e) => setEditingGroup({ ...editingGroup, descriptionAm: e.target.value })}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-amharic focus:border-cyan focus:outline-none"
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Icon Name</label>
-              <input
-                type="text"
-                value={editingGroup.iconName}
-                onChange={(e) => setEditingGroup({ ...editingGroup, iconName: e.target.value })}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Tone</label>
-              <input
-                type="text"
-                value={editingGroup.tone}
-                onChange={(e) => setEditingGroup({ ...editingGroup, tone: e.target.value })}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Sort Order</label>
-              <input
-                type="number"
-                value={editingGroup.sortOrder}
-                onChange={(e) => setEditingGroup({ ...editingGroup, sortOrder: Number(e.target.value) })}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:border-cyan focus:outline-none"
-              />
-            </div>
+
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1.5">Status</label>
               <select
                 value={editingGroup.active ? "active" : "inactive"}
-                onChange={(e) =>
-                  setEditingGroup({ ...editingGroup, active: e.target.value === "active" })
-                }
+                onChange={(e) => setEditingGroup({ ...editingGroup, active: e.target.value === "active" })}
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-cyan focus:outline-none"
               >
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
               </select>
             </div>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1.5">Member Categories (comma-separated)</label>
-            <input
-              type="text"
-              value={formatList(editingGroup.memberCategories)}
-              onChange={(e) =>
-                setEditingGroup({ ...editingGroup, memberCategories: parseList(e.target.value) })
-              }
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-cyan focus:outline-none"
-            />
           </div>
         </SlidePanel>
       ) : null}
