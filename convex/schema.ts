@@ -1330,6 +1330,8 @@ export default defineSchema({
     sortOrder: v.number(),
     active: v.boolean(),
     publishable: v.boolean(),    // visible to customers
+    /** Optional dynamic attributes for owner-managed extension. */
+    attributes: v.optional(v.record(v.string(), v.union(v.string(), v.number()))),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -1448,6 +1450,21 @@ export default defineSchema({
   })
     .index("by_workspace", ["workspaceId"]),
 
+  /** Canonical roles catalog (owner full-authority configuration). */
+  roles: defineTable({
+    code: v.string(), // stable slug, e.g. "crystal_jet_operator"
+    labelEn: v.string(),
+    labelAm: v.string(),
+    workspaceId: v.string(), // FK-like reference to workspaceRoutes
+    active: v.boolean(),
+    attributes: v.optional(v.record(v.string(), v.union(v.string(), v.number()))),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_code", ["code"])
+    .index("by_workspace", ["workspaceId"])
+    .index("by_active", ["active"]),
+
   /** Dynamic permission assignment matrix (Phase 7). */
   rolePermissions: defineTable({
     roleCode: v.string(),
@@ -1475,4 +1492,19 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_active", ["active", "sortOrder"]),
+
+  /** Configuration change log: auditable history of all owner catalog mutations (Section 7.1). */
+  configChangeLog: defineTable({
+    entityType: v.string(), // "material" | "service" | "role" | "route" | "group" | "permission"
+    entityId: v.string(),
+    action: v.union(v.literal("create"), v.literal("update"), v.literal("deactivate")),
+    fieldChanges: v.optional(v.record(v.string(), v.object({
+      from: v.any(),
+      to: v.any(),
+    }))),
+    changedBy: v.string(),
+    changedAt: v.number(),
+  })
+    .index("by_entity", ["entityType", "entityId"])
+    .index("by_changedAt", ["changedAt"]),
 });

@@ -15,7 +15,7 @@ import { classifyMaterialProductionType, effectiveConsumptionRate, resolveEtbVal
 import { assertServiceIdsMatchSchema } from "./services";
 import { MATERIAL_TYPE_CATALOG } from "./orderAutomation";
 import { CANONICAL_SERVICE_ROUTES, CAPABILITY_REGISTRY } from "../src/shared/production-manifest";
-import { normalizeInkColor } from "./utils/inkColor";
+import { normalizeInkColor, normalizeCompositeInkColors } from "./utils/inkColor";
 
 /**
  * Full field set for a seeded material, matching what the production
@@ -2433,21 +2433,24 @@ export const seedMachineConfiguration = mutation({
         const material = materials.find((m) => m.name === rule.materialName && m.active);
         if (!material) continue;
 
-        await ctx.db.insert("machineInkConsumptionRules", {
-          machineId: machine._id,
-          materialId: material._id,
-          inkColor: normalizeInkColor(rule.inkColor),
-          consumptionUnit: rule.unit,
-          rate: rule.rate,
-          wasteAllowancePercent: rule.wastePercent,
-          isDefault: true,
-          active: true,
-          createdAt: now,
-          updatedAt: now,
-          createdBy: createdById,
-          updatedBy: createdById,
-        });
-        counts.inkRules++;
+        const expandedColors = normalizeCompositeInkColors(rule.inkColor);
+        for (const inkColor of expandedColors) {
+          await ctx.db.insert("machineInkConsumptionRules", {
+            machineId: machine._id,
+            materialId: material._id,
+            inkColor,
+            consumptionUnit: rule.unit,
+            rate: rule.rate,
+            wasteAllowancePercent: rule.wastePercent,
+            isDefault: true,
+            active: true,
+            createdAt: now,
+            updatedAt: now,
+            createdBy: createdById,
+            updatedBy: createdById,
+          });
+          counts.inkRules++;
+        }
       }
     }
 

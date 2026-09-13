@@ -4,9 +4,22 @@ import type { QueryCtx, MutationCtx } from "../_generated/server";
 import { requireOwner, requirePermission } from "../users";
 import { runDatabaseFirstSeed } from "./seedDatabaseFirst";
 import { validateNumber } from "../systemConfigs";
+import { logConfigChange, computeFieldChanges } from "./configAudit";
+import {
+  normalizeText,
+  deriveSlug,
+  normalizeCatalogFamily,
+  normalizeBaseUnit,
+  normalizePurchaseUnit,
+  normalizeGroupTone,
+  normalizeGroupIcon,
+} from "../utils/normalizer";
 
 // Helper to query dynamically added database-first tables
 const qTable = (ctx: QueryCtx | MutationCtx, table: string): any => (ctx.db.query as any)(table);
+
+// Re-export drift detection endpoints
+export { detectConfigDrift, reconcileConfigDrift } from "./driftDetection";
 
 // ─── Unified Seeder & Sync Status ──────────────────────────────────────────
 
@@ -28,6 +41,7 @@ export const getDatabaseFirstSyncStatus = query({
       routes,
       capLinks,
       specFields,
+      roles,
       roleConfigs,
       workspaceRoutes,
       rolePermissions,
@@ -38,6 +52,7 @@ export const getDatabaseFirstSyncStatus = query({
       qTable(ctx, "serviceRoutes").collect(),
       qTable(ctx, "machineCapabilityLinks").collect(),
       qTable(ctx, "serviceSpecFields").collect(),
+      qTable(ctx, "roles").collect(),
       qTable(ctx, "roleWorkspaceConfig").collect(),
       qTable(ctx, "workspaceRoutes").collect(),
       qTable(ctx, "rolePermissions").collect(),
@@ -65,6 +80,10 @@ export const getDatabaseFirstSyncStatus = query({
       specFields: {
         total: specFields.length,
         active: specFields.filter((f: any) => f.active).length,
+      },
+      roles: {
+        total: roles.length,
+        active: roles.filter((r: any) => r.active).length,
       },
       roleConfigs: {
         total: roleConfigs.length,
@@ -120,49 +139,112 @@ export const upsertService = mutation({
     sortOrder: v.number(),
     active: v.boolean(),
     publishable: v.boolean(),
+    attributes: v.optional(v.record(v.string(), v.union(v.string(), v.number()))),
+    expectedUpdatedAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    await requireOwner(ctx);
+    const { profile } = await requireOwner(ctx);
     const now = Date.now();
+    const id = normalizeText(args.id);
+    const labelEn = normalizeText(args.labelEn);
+    const labelAm = normalizeText(args.labelAm);
+    const categoryKey = normalizeText(args.categoryKey).toUpperCase();
+    const categoryNameEn = normalizeText(args.categoryNameEn);
+
+    if (!id) throw new Error("Service ID is required.");
+    if (!labelEn) throw new Error("English label is required.");
+    if (!labelAm) throw new Error("Amharic label is required.");
+    if (!categoryKey) throw new Error("Category key is required.");
+
     const existing = await qTable(ctx, "serviceCatalog")
-      .withIndex("by_service_id", (q: any) => q.eq("id", args.id))
+      .withIndex("by_service_id", (q: any) => q.eq("id", id))
       .first();
 
+    if (existing && args.expectedUpdatedAt !== undefined && existing.updatedAt !== args.expectedUpdatedAt) {
+      throw new Error("CONFIG_CONFLICT: Service was modified since you opened it. Reload to review the latest changes.");
+    }
+
+    const payload = {
+      id,
+      labelEn,
+      labelAm,
+      categoryKey,
+      categoryNameEn,
+      categoryNameAm: args.categoryNameAm ? normalizeText(args.categoryNameAm) : undefined,
+      iconKey: args.iconKey ? normalizeText(args.iconKey) : undefined,
+      sortOrder: args.sortOrder,
+      active: args.active,
+      publishable: args.publishable,
+      attributes: args.attributes,
+      updatedAt: now,
+    };
+
+    let resultId: string;
     if (existing) {
-      await ctx.db.patch(existing._id, {
-        ...args,
-        updatedAt: now,
+      await ctx.db.patch(existing._id, payload);
+      resultId = existing._id;
+      await logConfigChange(ctx, {
+        entityType: "service",
+        entityId: id,
+        action: "update",
+        fieldChanges: computeFieldChanges(existing, payload),
+        changedBy: profile._id,
       });
-      return existing._id;
     } else {
-      return await ctx.db.insert("serviceCatalog", {
-        ...args,
+      resultId = await ctx.db.insert("serviceCatalog", {
+        ...payload,
         createdAt: now,
-        updatedAt: now,
+      });
+      await logConfigChange(ctx, {
+        entityType: "service",
+        entityId: id,
+        action: "create",
+        changedBy: profile._id,
       });
     }
+
+    return resultId;
   },
 });
 
 export const toggleServiceActive = mutation({
   args: { serviceId: v.string(), active: v.boolean() },
   handler: async (ctx, args) => {
-    await requireOwner(ctx);
+    const { profile } = await requireOwner(ctx);
     const item = await qTable(ctx, "serviceCatalog")
       .withIndex("by_service_id", (q: any) => q.eq("id", args.serviceId))
       .first();
     if (!item) throw new Error(`Service ${args.serviceId} not found`);
-    await ctx.db.patch(item._id, { active: args.active, updatedAt: Date.now() });
+
+    if (item.active && !args.active) {
+      // Referential integrity check (Section 6.1)
+      const routes: any[] = await qTable(ctx, "serviceRoutes").collect();
+      const activeRoutes = routes.filter((r) => r.active && r.serviceId === args.serviceId);
+      if (activeRoutes.length > 0) {
+        throw new Error(
+          `SERVICE_REFERENCED: Service ${args.serviceId} is used by active service route(s). Deactivate or update those routes before deactivating this service.`,
+        );
+      }
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(item._id, { active: args.active, updatedAt: now });
+    await logConfigChange(ctx, {
+      entityType: "service",
+      entityId: args.serviceId,
+      action: args.active ? "update" : "deactivate",
+      fieldChanges: { active: { from: item.active, to: args.active } },
+      changedBy: profile._id,
+    });
   },
 });
 
 export async function validateServiceType(ctx: QueryCtx | MutationCtx, serviceId: string): Promise<boolean> {
-    const service = await qTable(ctx, "serviceCatalog")
-      .withIndex("by_service_id", (q: any) => q.eq("id", serviceId))
+  const service = await qTable(ctx, "serviceCatalog")
+    .withIndex("by_service_id", (q: any) => q.eq("id", serviceId))
     .first();
 
   if (service) return service.active;
-  // Fallback to static lookup during transitional states
   return true;
 }
 
@@ -226,18 +308,15 @@ export const upsertMaterialCatalogItem = mutation({
     expectedUpdatedAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    await requireOwner(ctx);
-    const normalize = (value: string) => value.trim().replace(/\s+/g, " ");
-    const name = normalize(args.name);
-    const category = normalize(args.category);
-    const catalogFamily = normalize(args.catalogFamily).toUpperCase();
-    const baseUnit = normalize(args.baseUnit);
-    const purchaseUnit = normalize(args.purchaseUnit).toLowerCase();
+    const { profile } = await requireOwner(ctx);
+    const name = normalizeText(args.name);
+    const category = normalizeText(args.category);
+    const catalogFamily = normalizeCatalogFamily(args.catalogFamily);
+    const baseUnit = normalizeBaseUnit(args.baseUnit);
+    const purchaseUnit = normalizePurchaseUnit(args.purchaseUnit);
+
     if (!name) throw new Error("Material name is required.");
     if (!category) throw new Error("Material category is required.");
-    if (!catalogFamily) throw new Error("Material catalog family is required.");
-    if (!baseUnit) throw new Error("Material base unit is required.");
-    if (!purchaseUnit) throw new Error("Material purchase unit is required.");
 
     validateNumber(args.conversionRatio, "Conversion ratio", { min: 0 });
     if (args.conversionRatio <= 0) throw new Error("Conversion ratio must be greater than zero.");
@@ -245,6 +324,7 @@ export const upsertMaterialCatalogItem = mutation({
     if (args.sheetWidth !== undefined) validateNumber(args.sheetWidth, "Sheet width", { min: 0 });
     if (args.sheetLength !== undefined) validateNumber(args.sheetLength, "Sheet length", { min: 0 });
     if (args.thickness !== undefined) validateNumber(args.thickness, "Thickness", { min: 0 });
+
     if (catalogFamily === "ROLL" && (!args.rollWidth || args.rollWidth <= 0)) {
       throw new Error("ROLL materials require a rollWidth greater than zero.");
     }
@@ -254,8 +334,8 @@ export const upsertMaterialCatalogItem = mutation({
     if (catalogFamily === "RIGID_SHEET" && (!args.sheetLength || args.sheetLength <= 0)) {
       throw new Error("RIGID_SHEET materials require a sheetLength greater than zero.");
     }
-    if (catalogFamily === "INK_SOLVENT" && !["L", "ml", "mL", "liter", "litre"].includes(baseUnit)) {
-      throw new Error("INK_SOLVENT materials require a volume baseUnit such as L or ml.");
+    if (catalogFamily === "INK_SOLVENT" && !["L", "mL", "ml"].includes(baseUnit)) {
+      throw new Error("INK_SOLVENT materials require a volume baseUnit such as L or mL.");
     }
     if (args.attributes) {
       for (const [key, value] of Object.entries(args.attributes)) {
@@ -265,30 +345,33 @@ export const upsertMaterialCatalogItem = mutation({
     }
 
     const now = Date.now();
-    const id = normalize(args.id ?? "") || name.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+    const id = normalizeText(args.id ?? "") || deriveSlug(name);
     const existing = await qTable(ctx, "materialCatalog")
       .withIndex("by_material_id", (q: any) => q.eq("id", id))
       .first();
 
-    const aliases = (args.aliases ?? []).map(normalize).filter(Boolean);
+    const aliases = (args.aliases ?? []).map(normalizeText).filter(Boolean);
     const allMaterials: any[] = await qTable(ctx, "materialCatalog").collect();
     const duplicate = allMaterials.find((row) => {
       if (existing && row._id === existing._id) return false;
-      const names = [row.name, ...(row.aliases ?? [])].map((value: string) => normalize(value).toLowerCase());
+      const names = [row.name, ...(row.aliases ?? [])].map((value: string) => normalizeText(value).toLowerCase());
       return names.includes(name.toLowerCase()) || aliases.some((alias) => names.includes(alias.toLowerCase()));
     });
     if (duplicate) throw new Error(`A material named ${name} already exists.`);
 
     if (existing && args.expectedUpdatedAt !== undefined && existing.updatedAt !== args.expectedUpdatedAt) {
-      throw new Error("MATERIAL_CONFLICT: this material changed since you opened it. Reload and retry.");
+      throw new Error("CONFIG_CONFLICT: MATERIAL_CONFLICT: this material changed since you opened it. Reload and retry.");
     }
 
-    if (existing && (normalize(existing.name).toLowerCase() !== name.toLowerCase() || existing.active !== args.active)) {
-      const oldNames = new Set([normalize(existing.name).toLowerCase(), normalize(existing.id).toLowerCase()]);
+    // Referential integrity check before renaming or changing active status (Section 6.1)
+    if (existing && (normalizeText(existing.name).toLowerCase() !== name.toLowerCase() || existing.active !== args.active)) {
+      const oldNames = new Set([normalizeText(existing.name).toLowerCase(), normalizeText(existing.id).toLowerCase()]);
       const routes: any[] = await qTable(ctx, "serviceRoutes").collect();
-      const referenced = routes.filter((route) => route.active && oldNames.has(normalize(route.preferredMaterialName).toLowerCase()));
+      const referenced = routes.filter((route) => route.active && oldNames.has(normalizeText(route.preferredMaterialName).toLowerCase()));
       if (referenced.length > 0) {
-        throw new Error(`MATERIAL_REFERENCED: ${existing.name} is used by active service routes: ${referenced.map((route) => route.serviceId).join(", ")}. Update those routes before renaming or deactivating this material.`);
+        throw new Error(
+          `MATERIAL_REFERENCED: ${existing.name} is used by active service routes: ${referenced.map((route) => route.serviceId).join(", ")}. Update those routes before renaming or deactivating this material.`,
+        );
       }
     }
 
@@ -308,43 +391,71 @@ export const upsertMaterialCatalogItem = mutation({
       attributes: args.attributes,
       specificationOptions: args.specificationOptions,
       compatibleMachineTypes: args.compatibleMachineTypes,
-      storageLocation: args.storageLocation,
-      averageUse: args.averageUse,
-      catalogDimensions: args.catalogDimensions,
-      catalogVariant: args.catalogVariant,
+      storageLocation: args.storageLocation ? normalizeText(args.storageLocation) : undefined,
+      averageUse: args.averageUse ? normalizeText(args.averageUse) : undefined,
+      catalogDimensions: args.catalogDimensions ? normalizeText(args.catalogDimensions) : undefined,
+      catalogVariant: args.catalogVariant ? normalizeText(args.catalogVariant) : undefined,
       active: args.active,
       updatedAt: now,
     };
 
+    let resultId: string;
     if (existing) {
       await ctx.db.patch(existing._id, payload);
-      return existing._id;
+      resultId = existing._id;
+      await logConfigChange(ctx, {
+        entityType: "material",
+        entityId: id,
+        action: "update",
+        fieldChanges: computeFieldChanges(existing, payload),
+        changedBy: profile._id,
+      });
     } else {
-      return await ctx.db.insert("materialCatalog", {
+      resultId = await ctx.db.insert("materialCatalog", {
         ...payload,
         createdAt: now,
       });
+      await logConfigChange(ctx, {
+        entityType: "material",
+        entityId: id,
+        action: "create",
+        changedBy: profile._id,
+      });
     }
+
+    return resultId;
   },
 });
 
 export const toggleMaterialCatalogActive = mutation({
   args: { id: v.string(), active: v.boolean() },
   handler: async (ctx, args) => {
-    await requireOwner(ctx);
+    const { profile } = await requireOwner(ctx);
     const item = await qTable(ctx, "materialCatalog")
       .withIndex("by_material_id", (q: any) => q.eq("id", args.id))
       .first();
     if (!item) throw new Error(`Material spec ${args.id} not found`);
+
     if (item.active && !args.active) {
       const routes: any[] = await qTable(ctx, "serviceRoutes").collect();
       const itemNames = new Set([String(item.name).trim().toLowerCase(), String(item.id).trim().toLowerCase()]);
       const referenced = routes.filter((route) => route.active && itemNames.has(String(route.preferredMaterialName).trim().toLowerCase()));
       if (referenced.length > 0) {
-        throw new Error(`MATERIAL_REFERENCED: ${item.name} is used by active service routes: ${referenced.map((route) => route.serviceId).join(", ")}. Update those routes before deactivating this material.`);
+        throw new Error(
+          `MATERIAL_REFERENCED: ${item.name} is used by active service routes: ${referenced.map((route) => route.serviceId).join(", ")}. Update those routes before deactivating this material.`,
+        );
       }
     }
-    await ctx.db.patch(item._id, { active: args.active, updatedAt: Date.now() });
+
+    const now = Date.now();
+    await ctx.db.patch(item._id, { active: args.active, updatedAt: now });
+    await logConfigChange(ctx, {
+      entityType: "material",
+      entityId: args.id,
+      action: args.active ? "update" : "deactivate",
+      fieldChanges: { active: { from: item.active, to: args.active } },
+      changedBy: profile._id,
+    });
   },
 });
 
@@ -374,31 +485,256 @@ export const upsertServiceRoute = mutation({
     defaultWasteMarginPercent: v.number(),
     maxScrapLimitPercent: v.number(),
     active: v.boolean(),
+    expectedUpdatedAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    await requireOwner(ctx);
+    const { profile } = await requireOwner(ctx);
+    const serviceId = normalizeText(args.serviceId);
+    const preferredMachineCode = normalizeText(args.preferredMachineCode);
+    const preferredMaterialName = normalizeText(args.preferredMaterialName);
+
+    // Referential integrity validations (Section 4.2 & Section 6)
+    const service = await qTable(ctx, "serviceCatalog")
+      .withIndex("by_service_id", (q: any) => q.eq("id", serviceId))
+      .first();
+    if (!service) {
+      throw new Error(`Referenced serviceId '${serviceId}' does not exist in serviceCatalog.`);
+    }
+
+    const machine = (await ctx.db.query("machines").collect()).find(
+      (m: any) => m.code === preferredMachineCode,
+    );
+    if (!machine) {
+      throw new Error(`Referenced preferredMachineCode '${preferredMachineCode}' does not exist in machines table.`);
+    }
+
+    // Verify preferred material exists in materialCatalog by id or name/alias
+    const allMaterials: any[] = await qTable(ctx, "materialCatalog").collect();
+    const materialMatch = allMaterials.find((m: any) => {
+      const names = [m.id, m.name, ...(m.aliases ?? [])].map((v: string) => normalizeText(v).toLowerCase());
+      return names.includes(preferredMaterialName.toLowerCase());
+    });
+    if (!materialMatch) {
+      throw new Error(`Referenced preferredMaterialName '${preferredMaterialName}' does not exist in materialCatalog.`);
+    }
+
+    validateNumber(args.defaultWasteMarginPercent, "Default waste margin", { min: 0, max: 100 });
+    validateNumber(args.maxScrapLimitPercent, "Max scrap limit", { min: 0, max: 100 });
+
     const now = Date.now();
     const existing = await qTable(ctx, "serviceRoutes")
-      .withIndex("by_service_active", (q: any) => q.eq("serviceId", args.serviceId).eq("active", true))
+      .withIndex("by_service_active", (q: any) => q.eq("serviceId", serviceId).eq("active", true))
       .first();
 
+    if (existing && args.expectedUpdatedAt !== undefined && existing.updatedAt !== args.expectedUpdatedAt) {
+      throw new Error("CONFIG_CONFLICT: this service route changed since you opened it. Reload and retry.");
+    }
+
+    const payload = {
+      serviceId,
+      materialType: normalizeText(args.materialType),
+      preferredMaterialName: materialMatch.name, // normalize to authoritative catalog name
+      requiredCapabilities: args.requiredCapabilities.map(normalizeText).filter(Boolean),
+      legacyCapabilities: args.legacyCapabilities.map(normalizeText).filter(Boolean),
+      operatorRole: normalizeText(args.operatorRole),
+      preferredMachineCode,
+      calculationUnit: normalizeBaseUnit(args.calculationUnit),
+      defaultWasteMarginPercent: args.defaultWasteMarginPercent,
+      maxScrapLimitPercent: args.maxScrapLimitPercent,
+      active: args.active,
+      updatedAt: now,
+    };
+
+    let resultId: string;
     if (existing) {
-      await ctx.db.patch(existing._id, {
-        ...args,
-        updatedAt: now,
+      await ctx.db.patch(existing._id, payload);
+      resultId = existing._id;
+      await logConfigChange(ctx, {
+        entityType: "route",
+        entityId: serviceId,
+        action: "update",
+        fieldChanges: computeFieldChanges(existing, payload),
+        changedBy: profile._id,
       });
-      return existing._id;
     } else {
-      return await ctx.db.insert("serviceRoutes", {
-        ...args,
+      resultId = await ctx.db.insert("serviceRoutes", {
+        ...payload,
         createdAt: now,
-        updatedAt: now,
+      });
+      await logConfigChange(ctx, {
+        entityType: "route",
+        entityId: serviceId,
+        action: "create",
+        changedBy: profile._id,
       });
     }
+
+    return resultId;
   },
 });
 
-// ─── Phase 6: Role Workspace Routing Endpoints ─────────────────────────────
+// ─── Phase 6: Canonical Roles Catalog Endpoints (Section 8.1) ──────────────
+
+export const listRoles = query({
+  args: { includeInactive: v.optional(v.boolean()) },
+  handler: async (ctx, args) => {
+    let rows: any[] = await qTable(ctx, "roles").collect();
+    if (!args.includeInactive) {
+      rows = rows.filter((r) => r.active);
+    }
+    return rows.sort((a, b) => a.code.localeCompare(b.code));
+  },
+});
+
+export const getRole = query({
+  args: { code: v.string() },
+  handler: async (ctx, args) => {
+    return qTable(ctx, "roles")
+      .withIndex("by_code", (q: any) => q.eq("code", args.code))
+      .first();
+  },
+});
+
+export const upsertRole = mutation({
+  args: {
+    code: v.string(),
+    labelEn: v.string(),
+    labelAm: v.string(),
+    workspaceId: v.string(),
+    active: v.boolean(),
+    attributes: v.optional(v.record(v.string(), v.union(v.string(), v.number()))),
+    expectedUpdatedAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const { profile } = await requireOwner(ctx);
+    const code = deriveSlug(args.code);
+    const labelEn = normalizeText(args.labelEn);
+    const labelAm = normalizeText(args.labelAm);
+    const workspaceId = normalizeText(args.workspaceId);
+
+    if (!code) throw new Error("Role code is required.");
+    if (!labelEn) throw new Error("Role English label is required.");
+    if (!labelAm) throw new Error("Role Amharic label is required.");
+
+    // Verify workspaceId exists in workspaceRoutes
+    const workspace = await qTable(ctx, "workspaceRoutes")
+      .withIndex("by_workspace", (q: any) => q.eq("workspaceId", workspaceId))
+      .first();
+    if (!workspace) {
+      throw new Error(`Referenced workspaceId '${workspaceId}' does not exist in workspaceRoutes.`);
+    }
+
+    const existing = await qTable(ctx, "roles")
+      .withIndex("by_code", (q: any) => q.eq("code", code))
+      .first();
+
+    if (existing && args.expectedUpdatedAt !== undefined && existing.updatedAt !== args.expectedUpdatedAt) {
+      throw new Error("CONFIG_CONFLICT: this role changed since you opened it. Reload and retry.");
+    }
+
+    const now = Date.now();
+    const payload = {
+      code,
+      labelEn,
+      labelAm,
+      workspaceId,
+      active: args.active,
+      attributes: args.attributes,
+      updatedAt: now,
+    };
+
+    let resultId: string;
+    if (existing) {
+      await ctx.db.patch(existing._id, payload);
+      resultId = existing._id;
+      await logConfigChange(ctx, {
+        entityType: "role",
+        entityId: code,
+        action: "update",
+        fieldChanges: computeFieldChanges(existing, payload),
+        changedBy: profile._id,
+      });
+    } else {
+      resultId = await ctx.db.insert("roles", {
+        ...payload,
+        createdAt: now,
+      });
+      await logConfigChange(ctx, {
+        entityType: "role",
+        entityId: code,
+        action: "create",
+        changedBy: profile._id,
+      });
+    }
+
+    // Maintain corresponding roleWorkspaceConfig
+    const existingConfig = await qTable(ctx, "roleWorkspaceConfig")
+      .withIndex("by_role", (q: any) => q.eq("roleCode", code))
+      .first();
+    if (!existingConfig) {
+      await ctx.db.insert("roleWorkspaceConfig", {
+        roleCode: code,
+        workspaceId,
+        homeRoute: workspace.routePrefix,
+        active: args.active,
+        createdAt: now,
+        updatedAt: now,
+      });
+    } else {
+      await ctx.db.patch(existingConfig._id, {
+        workspaceId,
+        active: args.active,
+        updatedAt: now,
+      });
+    }
+
+    return resultId;
+  },
+});
+
+export const toggleRoleActive = mutation({
+  args: { code: v.string(), active: v.boolean() },
+  handler: async (ctx, args) => {
+    const { profile } = await requireOwner(ctx);
+    const role = await qTable(ctx, "roles")
+      .withIndex("by_code", (q: any) => q.eq("code", args.code))
+      .first();
+    if (!role) throw new Error(`Role ${args.code} not found.`);
+
+    if (role.active && !args.active) {
+      // Referential integrity check (Section 6.1)
+      const activeUsers = (await ctx.db.query("users").collect()).filter(
+        (u: any) => u.active && u.role === args.code,
+      );
+      if (activeUsers.length > 0) {
+        throw new Error(
+          `ROLE_REFERENCED: Cannot deactivate role '${args.code}' because ${activeUsers.length} active staff profile(s) are assigned to it (${activeUsers.map((u: any) => u.email || u.name).join(", ")}). Reassign these users first.`,
+        );
+      }
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(role._id, { active: args.active, updatedAt: now });
+
+    // Also toggle roleWorkspaceConfig
+    const config = await qTable(ctx, "roleWorkspaceConfig")
+      .withIndex("by_role", (q: any) => q.eq("roleCode", args.code))
+      .first();
+    if (config) {
+      await ctx.db.patch(config._id, { active: args.active, updatedAt: now });
+    }
+
+    await logConfigChange(ctx, {
+      entityType: "role",
+      entityId: args.code,
+      action: args.active ? "update" : "deactivate",
+      fieldChanges: { active: { from: role.active, to: args.active } },
+      changedBy: profile._id,
+    });
+  },
+});
+
+// ─── Role Workspace Routing Endpoints ─────────────────────────────────────
 
 export const listRoleWorkspaceConfigs = query({
   args: {},
@@ -415,27 +751,57 @@ export const upsertRoleWorkspaceConfig = mutation({
     homeRoute: v.string(),
     machineSlug: v.optional(v.string()),
     active: v.boolean(),
+    expectedUpdatedAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    await requireOwner(ctx);
+    const { profile } = await requireOwner(ctx);
     const now = Date.now();
+    const roleCode = deriveSlug(args.roleCode);
+    const workspaceId = normalizeText(args.workspaceId);
+    const homeRoute = normalizeText(args.homeRoute);
+
     const existing = await qTable(ctx, "roleWorkspaceConfig")
-      .withIndex("by_role", (q: any) => q.eq("roleCode", args.roleCode))
+      .withIndex("by_role", (q: any) => q.eq("roleCode", roleCode))
       .first();
 
+    if (existing && args.expectedUpdatedAt !== undefined && existing.updatedAt !== args.expectedUpdatedAt) {
+      throw new Error("CONFIG_CONFLICT: this role workspace config changed since you opened it. Reload and retry.");
+    }
+
+    const payload = {
+      roleCode,
+      workspaceId,
+      homeRoute,
+      machineSlug: args.machineSlug ? normalizeText(args.machineSlug) : undefined,
+      active: args.active,
+      updatedAt: now,
+    };
+
+    let id: string;
     if (existing) {
-      await ctx.db.patch(existing._id, {
-        ...args,
-        updatedAt: now,
+      await ctx.db.patch(existing._id, payload);
+      id = existing._id;
+      await logConfigChange(ctx, {
+        entityType: "role_workspace",
+        entityId: roleCode,
+        action: "update",
+        fieldChanges: computeFieldChanges(existing, payload),
+        changedBy: profile._id,
       });
-      return existing._id;
     } else {
-      return await ctx.db.insert("roleWorkspaceConfig", {
-        ...args,
+      id = await ctx.db.insert("roleWorkspaceConfig", {
+        ...payload,
         createdAt: now,
-        updatedAt: now,
+      });
+      await logConfigChange(ctx, {
+        entityType: "role_workspace",
+        entityId: roleCode,
+        action: "create",
+        changedBy: profile._id,
       });
     }
+
+    return id;
   },
 });
 
@@ -461,24 +827,50 @@ export const listRolePermissions = query({
 });
 
 export const toggleRolePermission = mutation({
-  args: { roleCode: v.string(), permission: v.string(), active: v.boolean() },
+  args: {
+    roleCode: v.string(),
+    permission: v.string(),
+    active: v.boolean(),
+    elevatedConfirmed: v.optional(v.boolean()),
+  },
   handler: async (ctx, args) => {
-    await requireOwner(ctx);
+    const { profile } = await requireOwner(ctx);
+    const roleCode = normalizeText(args.roleCode);
+    const permission = normalizeText(args.permission);
+
+    // Section 7.2: Elevated confirmation check for highest-risk permission alterations
+    if (args.active && !args.elevatedConfirmed) {
+      throw new Error("ELEVATED_CONFIRMATION_REQUIRED: Modifying role permissions requires explicit elevated confirmation.");
+    }
+
     const existing = await qTable(ctx, "rolePermissions")
-      .withIndex("by_role", (q: any) => q.eq("roleCode", args.roleCode))
-      .filter((q: any) => q.eq(q.field("permission"), args.permission))
+      .withIndex("by_role", (q: any) => q.eq("roleCode", roleCode))
+      .filter((q: any) => q.eq(q.field("permission"), permission))
       .first();
 
     const now = Date.now();
     if (existing) {
       await ctx.db.patch(existing._id, { active: args.active, updatedAt: now });
+      await logConfigChange(ctx, {
+        entityType: "permission",
+        entityId: `${roleCode}:${permission}`,
+        action: args.active ? "update" : "deactivate",
+        fieldChanges: { active: { from: existing.active, to: args.active } },
+        changedBy: profile._id,
+      });
     } else if (args.active) {
       await ctx.db.insert("rolePermissions", {
-        roleCode: args.roleCode,
-        permission: args.permission,
+        roleCode,
+        permission,
         active: true,
         createdAt: now,
         updatedAt: now,
+      });
+      await logConfigChange(ctx, {
+        entityType: "permission",
+        entityId: `${roleCode}:${permission}`,
+        action: "create",
+        changedBy: profile._id,
       });
     }
   },
@@ -509,26 +901,81 @@ export const upsertMaterialCategoryGroup = mutation({
     memberCategories: v.array(v.string()),
     sortOrder: v.number(),
     active: v.boolean(),
+    expectedUpdatedAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    await requireOwner(ctx);
+    const { profile } = await requireOwner(ctx);
     const now = Date.now();
+    const id = deriveSlug(args.id);
+    const labelEn = normalizeText(args.labelEn);
+    const labelAm = normalizeText(args.labelAm);
+    const tone = normalizeGroupTone(args.tone);
+    const iconName = normalizeGroupIcon(args.iconName);
+
     const existing = await qTable(ctx, "materialCategoryGroups")
-      .filter((q: any) => q.eq(q.field("id"), args.id))
+      .filter((q: any) => q.eq(q.field("id"), id))
       .first();
 
+    if (existing && args.expectedUpdatedAt !== undefined && existing.updatedAt !== args.expectedUpdatedAt) {
+      throw new Error("CONFIG_CONFLICT: this category group changed since you opened it. Reload and retry.");
+    }
+
+    const payload = {
+      id,
+      labelEn,
+      labelAm,
+      descriptionEn: args.descriptionEn ? normalizeText(args.descriptionEn) : undefined,
+      descriptionAm: args.descriptionAm ? normalizeText(args.descriptionAm) : undefined,
+      iconName,
+      tone,
+      memberCategories: args.memberCategories.map(normalizeText).filter(Boolean),
+      sortOrder: args.sortOrder,
+      active: args.active,
+      updatedAt: now,
+    };
+
+    let resultId: string;
     if (existing) {
-      await ctx.db.patch(existing._id, {
-        ...args,
-        updatedAt: now,
+      await ctx.db.patch(existing._id, payload);
+      resultId = existing._id;
+      await logConfigChange(ctx, {
+        entityType: "group",
+        entityId: id,
+        action: "update",
+        fieldChanges: computeFieldChanges(existing, payload),
+        changedBy: profile._id,
       });
-      return existing._id;
     } else {
-      return await ctx.db.insert("materialCategoryGroups", {
-        ...args,
+      resultId = await ctx.db.insert("materialCategoryGroups", {
+        ...payload,
         createdAt: now,
-        updatedAt: now,
+      });
+      await logConfigChange(ctx, {
+        entityType: "group",
+        entityId: id,
+        action: "create",
+        changedBy: profile._id,
       });
     }
+
+    return resultId;
+  },
+});
+
+// ─── Phase 9: Configuration Change Log Endpoints (Section 7.1) ─────────────
+
+export const listConfigChangeLog = query({
+  args: {
+    limit: v.optional(v.number()),
+    entityType: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await requirePermission(ctx, "audit.view");
+    const limit = args.limit ?? 50;
+    let logs: any[] = await qTable(ctx, "configChangeLog").collect();
+    if (args.entityType) {
+      logs = logs.filter((l) => l.entityType === args.entityType);
+    }
+    return logs.sort((a, b) => b.changedAt - a.changedAt).slice(0, limit);
   },
 });

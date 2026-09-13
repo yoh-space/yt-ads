@@ -1810,6 +1810,20 @@ export const recordExceptionStockOut = mutation({
     if (args.unit !== baseUnit) throw new Error(`Direct exception stock-out must use the material base unit (${baseUnit}).`);
     if (!Number.isFinite(args.quantity) || args.quantity <= 0) throw new Error("Exception quantity must be greater than zero.");
     if (args.quantity > material.quantity) throw new Error(`Insufficient ${material.name} stock for this exception.`);
+
+    const config = await ensureSystemConfig(ctx);
+    if (config.requireAdminPinForExceptions) {
+      if (!args.authorizationNote || !args.authorizationNote.trim()) {
+        throw new Error("ADMIN_PIN_REQUIRED: Authorization note or PIN reference is required for direct exception stock-outs.");
+      }
+    }
+    if (config.maxDirectStockOutEtb > 0) {
+      const etbRate = typeof material.etbValue === "number" && material.etbValue > 0 ? material.etbValue : 0;
+      const totalEtb = args.quantity * etbRate;
+      if (totalEtb > config.maxDirectStockOutEtb) {
+        throw new Error(`EXCEEDS_MAX_DIRECT_STOCK_OUT: Direct exception value (${totalEtb.toFixed(2)} ETB) exceeds maximum direct stock-out limit (${config.maxDirectStockOutEtb} ETB). Admin or owner elevation required.`);
+      }
+    }
     const now = Date.now();
     const exceptionId = await ctx.db.insert("stockExceptions", {
       materialId: args.materialId,
