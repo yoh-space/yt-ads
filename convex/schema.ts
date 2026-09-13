@@ -30,6 +30,8 @@ export const materialCatalogFamily = v.union(
   v.literal("RIGID_SHEET"),
   v.literal("INK_SOLVENT"),
   v.literal("HARDWARE"),
+  v.literal("ILLUMINATED_DISPLAY_SYSTEM"),
+  v.literal("SIGNAGE_FRAME_PROFILE"),
 );
 
 export const materialFamily = v.union(
@@ -400,6 +402,16 @@ export default defineSchema({
     /** Deprecated materialized base balance; ledger events are authoritative. */
     quantity: v.number(),
     reorderAt: v.number(),
+    reorderPolicy: v.optional(
+      v.object({
+        enabled: v.boolean(),
+        level: v.number(),
+        unit: v.string(),
+        leadTimeDays: v.optional(v.number()),
+        safetyStock: v.optional(v.number()),
+        alertCooldownHours: v.optional(v.number()),
+      })
+    ),
     rollEquivalent: v.optional(v.number()),
     sheetEquivalent: v.optional(v.number()),
     storageLocation: v.optional(v.string()),
@@ -1507,4 +1519,21 @@ export default defineSchema({
   })
     .index("by_entity", ["entityType", "entityId"])
     .index("by_changedAt", ["changedAt"]),
+
+  /** Owner-maintained material acquisition price estimates (valuation & estimation). */
+  materialPriceEstimates: defineTable({
+    materialId: v.string(),
+    amount: v.number(),
+    currency: v.string(),
+    purchaseUnit: v.string(),
+    baseUnitEquivalent: v.optional(v.number()),
+    effectiveAt: v.number(),
+    source: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    active: v.boolean(),
+    createdAt: v.number(),
+    createdBy: v.string(),
+  })
+    .index("by_material_active", ["materialId", "active"])
+    .index("by_material_effective", ["materialId", "effectiveAt"]),
 });

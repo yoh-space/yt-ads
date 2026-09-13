@@ -27,6 +27,7 @@ export const getMaterialsSummary = query({
         unit: m.baseUnit ?? m.unit ?? "pcs",
         quantity: m.quantity,
         reorderAt: m.reorderAt,
+        reorderPolicy: m.reorderPolicy,
       })),
     };
   },
@@ -45,8 +46,10 @@ export const listForConfiguration = query({
         id: material._id,
         name: material.name,
         category: material.category,
+        catalogFamily: material.catalogFamily,
         unit: material.baseUnit ?? material.unit ?? "pcs",
         reorderAt: material.reorderAt,
+        reorderPolicy: material.reorderPolicy,
       }));
   },
 });
@@ -63,14 +66,62 @@ export const updateReorderLevel = mutation({
     }
     const material = await ctx.db.get(args.materialId);
     if (!material || !material.active) throw new Error("Material not found.");
-    await ctx.db.patch(material._id, { reorderAt: args.reorderAt });
+    
+    const reorderPolicy = {
+      enabled: args.reorderAt > 0,
+      level: args.reorderAt,
+      unit: material.baseUnit ?? material.unit ?? "pcs",
+    };
+
+    await ctx.db.patch(material._id, {
+      reorderAt: args.reorderAt,
+      reorderPolicy,
+    });
+
     await ctx.db.insert("configurationChanges", {
       configKey: `material:${material._id}`,
-      changedFields: ["reorderAt"],
+      changedFields: ["reorderAt", "reorderPolicy"],
       reason: `Reorder level updated for ${material.name}`,
       actorAuthUserId: profile.authUserId,
       createdAt: Date.now(),
     });
-    return { id: material._id, reorderAt: args.reorderAt };
+    return { id: material._id, reorderAt: args.reorderAt, reorderPolicy };
+  },
+});
+
+export const updateReorderPolicy = mutation({
+  args: {
+    materialId: v.id("materials"),
+    reorderPolicy: v.object({
+      enabled: v.boolean(),
+      level: v.number(),
+      unit: v.string(),
+      leadTimeDays: v.optional(v.number()),
+      safetyStock: v.optional(v.number()),
+      alertCooldownHours: v.optional(v.number()),
+    }),
+  },
+  handler: async (ctx, args) => {
+    const { profile } = await requireOwner(ctx);
+    if (!Number.isFinite(args.reorderPolicy.level) || args.reorderPolicy.level < 0) {
+      throw new Error("Choose a valid reorder level.");
+    }
+    const material = await ctx.db.get(args.materialId);
+    if (!material || !material.active) throw new Error("Material not found.");
+
+    const reorderAt = args.reorderPolicy.enabled ? args.reorderPolicy.level : 0;
+    await ctx.db.patch(material._id, {
+      reorderAt,
+      reorderPolicy: args.reorderPolicy,
+    });
+
+    await ctx.db.insert("configurationChanges", {
+      configKey: `material:${material._id}`,
+      changedFields: ["reorderAt", "reorderPolicy"],
+      reason: `Reorder policy updated for ${material.name}`,
+      actorAuthUserId: profile.authUserId,
+      createdAt: Date.now(),
+    });
+    return { id: material._id, reorderAt, reorderPolicy: args.reorderPolicy };
   },
 });

@@ -13,6 +13,8 @@ export const ALLOWED_CATALOG_FAMILIES = [
   "RIGID_SHEET",
   "INK_SOLVENT",
   "HARDWARE",
+  "ILLUMINATED_DISPLAY_SYSTEM",
+  "SIGNAGE_FRAME_PROFILE",
 ] as const;
 
 export type AllowedCatalogFamily = (typeof ALLOWED_CATALOG_FAMILIES)[number];
@@ -80,8 +82,8 @@ export function deriveSlug(name?: string | null): string {
 }
 
 /**
- * Normalizes and validates a catalog family value against the 4 canonical families:
- * ROLL | RIGID_SHEET | INK_SOLVENT | HARDWARE
+ * Normalizes and validates a catalog family value against canonical families:
+ * ROLL | RIGID_SHEET | INK_SOLVENT | HARDWARE | ILLUMINATED_DISPLAY_SYSTEM | SIGNAGE_FRAME_PROFILE
  */
 export function normalizeCatalogFamily(raw?: string | null): AllowedCatalogFamily {
   const text = normalizeText(raw).toUpperCase().replace(/[\s-]+/g, "_");
@@ -103,6 +105,34 @@ export function normalizeCatalogFamily(raw?: string | null): AllowedCatalogFamil
   }
   if (text === "HARDWARE" || text === "ACCESSORY" || text === "ACCESSORIES" || text === "ELECTRICAL") {
     return "HARDWARE";
+  }
+  if (
+    text === "ILLUMINATED_DISPLAY_SYSTEM" ||
+    text === "LIGHTBOX" ||
+    text === "LIGHT_BOX" ||
+    text === "SCREEN_LIGHTBOX" ||
+    text === "SCREEN_LIGHT_BOX" ||
+    text === "FABRIC_LIGHTBOX" ||
+    text === "SEG_LIGHTBOX" ||
+    text === "ILLUMINATED_DISPLAY" ||
+    text === "BACKLIT_DISPLAY"
+  ) {
+    return "ILLUMINATED_DISPLAY_SYSTEM";
+  }
+  if (
+    text === "SIGNAGE_FRAME_PROFILE" ||
+    text === "FRAME_PROFILE" ||
+    text === "EXTRUSION" ||
+    text === "EXTRUSIONS" ||
+    text === "FRAME" ||
+    text === "FRAMING" ||
+    text === "METAL_PROFILE" ||
+    text === "LIGHTBOX_FRAME" ||
+    text === "LIGHTBOX_BARS" ||
+    text === "SIGNAGE_BARS" ||
+    text === "ALUMINUM_PROFILE"
+  ) {
+    return "SIGNAGE_FRAME_PROFILE";
   }
 
   if (ALLOWED_CATALOG_FAMILIES.includes(text as AllowedCatalogFamily)) {

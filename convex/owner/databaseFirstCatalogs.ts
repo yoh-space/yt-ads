@@ -21,6 +21,14 @@ const qTable = (ctx: QueryCtx | MutationCtx, table: string): any => (ctx.db.quer
 // Re-export drift detection endpoints
 export { detectConfigDrift, reconcileConfigDrift } from "./driftDetection";
 
+// Re-export price estimates endpoints
+export {
+  listPriceEstimates,
+  getActivePriceEstimate,
+  upsertPriceEstimate,
+  deactivatePriceEstimate,
+} from "./priceEstimates";
+
 // ─── Unified Seeder & Sync Status ──────────────────────────────────────────
 
 export const seedDatabaseFirstCatalogs = mutation({
