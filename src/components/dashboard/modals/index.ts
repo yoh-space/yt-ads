@@ -1,3 +1,4 @@
+export * from "./slide-panel";
 export * from "./modal-shell";
 export * from "./modal-context";
 export * from "./notification-modal";
