@@ -71,6 +71,7 @@ import type * as owner_materials from "../owner/materials.js";
 import type * as owner_migrateMachineConfig from "../owner/migrateMachineConfig.js";
 import type * as owner_orders from "../owner/orders.js";
 import type * as owner_overview from "../owner/overview.js";
+import type * as owner_priceEstimates from "../owner/priceEstimates.js";
 import type * as owner_reconciliation from "../owner/reconciliation.js";
 import type * as owner_revenue from "../owner/revenue.js";
 import type * as owner_seedDatabaseFirst from "../owner/seedDatabaseFirst.js";
@@ -172,6 +173,7 @@ declare const fullApi: ApiFromModules<{
   "owner/migrateMachineConfig": typeof owner_migrateMachineConfig;
   "owner/orders": typeof owner_orders;
   "owner/overview": typeof owner_overview;
+  "owner/priceEstimates": typeof owner_priceEstimates;
   "owner/reconciliation": typeof owner_reconciliation;
   "owner/revenue": typeof owner_revenue;
   "owner/seedDatabaseFirst": typeof owner_seedDatabaseFirst;
