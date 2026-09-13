@@ -26,6 +26,7 @@ function useClock(): string {
   return now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 }
 
+/** Renders dashboard navigation, activity, and notification controls for a user. */
 export function Topbar({
   activeView,
   onMenu,
@@ -134,9 +135,10 @@ export function Topbar({
 
       {notificationsOpen && notifications ? (
         <NotificationModal
+          role={profile?.role}
           notifications={notifications}
           onMarkRead={(id) => void markRead({ notificationId: id as Id<"notifications"> })}
-          onMarkAllRead={() => void markAllRead()}
+          onMarkAllRead={(category) => void markAllRead({ category })}
           onClose={() => setNotificationsOpen(false)}
         />
       ) : null}

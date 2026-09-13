@@ -21,6 +21,7 @@
     "@hookform/resolvers": "^5.9.1",
     "@tauri-apps/api": "^2.11.1",
     "@tauri-apps/plugin-updater": "^2.11.0",
+    "@uploadthing/react": "^7.3.3",
     "better-auth": "~1.6.15",
     "clsx": "^2.1.1",
     "convex": "^1.25.0",
@@ -33,6 +34,7 @@
     "recharts": "^3.10.1",
     "sonner": "^2.0.8",
     "tailwind-merge": "^2.6.1",
+    "uploadthing": "^7.7.4",
     "zod": "^4.5.4",
     "zustand": "^4.5.7"
   },

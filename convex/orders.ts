@@ -1137,16 +1137,40 @@ export async function resolveAutoRouting(
     throw new Error(`No active raw material is registered for ${route.materialType}.`);
   }
 
-  const [machines, jobs] = await Promise.all([
+  const [machines, jobs, machineOptions] = await Promise.all([
     ctx.db.query("machines").collect(),
     ctx.db.query("jobCards").collect(),
+    ctx.db
+      .query("serviceMachineOptions")
+      .withIndex("by_service", (q: any) =>
+        q.eq("serviceId", order.serviceId ?? order.serviceType).eq("active", true),
+      )
+      .collect(),
   ]);
   const loadByMachineId = new Map<string, number>();
   for (const job of jobs) {
     if (job.status === "Completed") continue;
     loadByMachineId.set(job.machineId, (loadByMachineId.get(job.machineId) ?? 0) + 1);
   }
-  const machine = selectMachineByLoad(compatibleMachines(route, machines), loadByMachineId);
+
+  // Explicit owner-configured serviceMachineOptions take precedence over heuristic role matching
+  let candidates: any[];
+  if (machineOptions.length > 0) {
+    const allowedCodes = new Set(machineOptions.map((o: any) => o.machineCode));
+    candidates = machines.filter(
+      (m: any) =>
+        m.active &&
+        m.status !== "Maintenance" &&
+        m.status !== "Unavailable" &&
+        allowedCodes.has(m.code),
+    );
+    const priorityMap = new Map(machineOptions.map((o: any) => [o.machineCode, o.priority]));
+    candidates.sort((a, b) => Number(priorityMap.get(a.code) ?? 999) - Number(priorityMap.get(b.code) ?? 999));
+  } else {
+    candidates = compatibleMachines(route, machines);
+  }
+
+  const machine = selectMachineByLoad(candidates, loadByMachineId);
   if (!machine) {
     throw new Error(`No available machine can produce ${route.materialType} right now.`);
   }
