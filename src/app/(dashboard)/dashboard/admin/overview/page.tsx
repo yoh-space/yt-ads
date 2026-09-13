@@ -92,7 +92,7 @@ export default function AdminOverviewPage() {
         <Panel>
           <PanelHeader
             title="Pending Clearance"
-            subtitle="የእቃ ማሳወቂያ Clearance"
+            subtitle="የእቃ ቆጠራ Clearance"
             kicker="Approvals"
             icon={<Scale size={16} />}
           />
