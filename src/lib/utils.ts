@@ -8,3 +8,14 @@ import { twMerge } from "tailwind-merge";
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
+
+export function formatInkColorLabel(colorKey?: string): string {
+  switch (colorKey?.trim().toUpperCase()) {
+    case "CYAN": return "Blue (Cyan)";
+    case "MAGENTA": return "Red (Magenta)";
+    case "YELLOW": return "Yellow";
+    case "BLACK": return "Black";
+    case "WHITE": return "White";
+    default: return colorKey?.trim() || "Unknown";
+  }
+}

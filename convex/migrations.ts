@@ -4,6 +4,7 @@ import { internal } from "./_generated/api";
 import { requirePermission } from "./users";
 import { MACHINE_CATALOG } from "../src/shared/machine-catalog";
 import { findMaterialSpecification } from "../src/shared/material-specifications";
+import { normalizeInkColor } from "./utils/inkColor";
 
 /**
  * Canonical `customerOrders.status` values. Any stored value outside this set
@@ -379,12 +380,13 @@ export const materialNormalization = internalMutation({
       let inkColor = mat.inkColor;
       if (!inkColor && (materialFamily === "INK" || mat.category === "Ink")) {
         const lower = mat.name.toLowerCase();
-        if (lower.includes("cyan")) inkColor = "Cyan";
-        else if (lower.includes("magenta")) inkColor = "Magenta";
-        else if (lower.includes("yellow")) inkColor = "Yellow";
-        else if (lower.includes("black")) inkColor = "Black";
-        else if (lower.includes("white")) inkColor = "White";
+        if (lower.includes("cyan")) inkColor = "CYAN";
+        else if (lower.includes("magenta")) inkColor = "MAGENTA";
+        else if (lower.includes("yellow")) inkColor = "YELLOW";
+        else if (lower.includes("black")) inkColor = "BLACK";
+        else if (lower.includes("white")) inkColor = "WHITE";
       }
+      if (inkColor) inkColor = normalizeInkColor(inkColor);
 
       await ctx.db.patch(mat._id, {
         materialFamily,
@@ -423,11 +425,11 @@ export const backfillMachineCompatibility = internalMutation({
       const inkReqs = machine.inkRequirements ?? catalogEntry.compatibleInkNames.map((name) => {
         let inkColor: string | undefined;
         const lower = name.toLowerCase();
-        if (lower.includes("cyan")) inkColor = "Cyan";
-        else if (lower.includes("magenta")) inkColor = "Magenta";
-        else if (lower.includes("yellow")) inkColor = "Yellow";
-        else if (lower.includes("black")) inkColor = "Black";
-        else if (lower.includes("white")) inkColor = "White";
+        if (lower.includes("cyan")) inkColor = "CYAN";
+        else if (lower.includes("magenta")) inkColor = "MAGENTA";
+        else if (lower.includes("yellow")) inkColor = "YELLOW";
+        else if (lower.includes("black")) inkColor = "BLACK";
+        else if (lower.includes("white")) inkColor = "WHITE";
         return {
           materialName: name,
           inkColor,
@@ -445,6 +447,60 @@ export const backfillMachineCompatibility = internalMutation({
     }
 
     await ctx.db.insert("migrations", { key: "machineCompatibility", ranAt: Date.now() });
+    return { patched };
+  },
+});
+
+/** Backfills canonical ink colors across all color-bearing operational rows. */
+export const normalizeInkColors = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const key = "inkColorNormalization";
+    const existing = await ctx.db.query("migrations").withIndex("by_key", (q) => q.eq("key", key)).unique();
+    if (existing) return { patched: 0, skipped: true };
+
+    let patched = 0;
+    const materials = await ctx.db.query("materials").collect();
+    const colorByMaterial = new Map<string, string>();
+    for (const material of materials) {
+      if (!material.inkColor) continue;
+      const inkColor = normalizeInkColor(material.inkColor);
+      colorByMaterial.set(material._id, inkColor);
+      if (material.inkColor !== inkColor) {
+        await ctx.db.patch(material._id, { inkColor });
+        patched++;
+      }
+    }
+
+    for (const rule of await ctx.db.query("machineInkConsumptionRules").collect()) {
+      const inkColor = normalizeInkColor(rule.inkColor);
+      if (rule.inkColor !== inkColor) {
+        await ctx.db.patch(rule._id, { inkColor });
+        patched++;
+      }
+    }
+
+    for (const machine of await ctx.db.query("machines").collect()) {
+      if (!machine.inkRequirements) continue;
+      const inkRequirements = machine.inkRequirements.map((requirement) => ({
+        ...requirement,
+        inkColor: requirement.inkColor ? normalizeInkColor(requirement.inkColor) : undefined,
+      }));
+      if (JSON.stringify(inkRequirements) !== JSON.stringify(machine.inkRequirements)) {
+        await ctx.db.patch(machine._id, { inkRequirements });
+        patched++;
+      }
+    }
+
+    for (const batch of await ctx.db.query("operatorSubStock").collect()) {
+      const inkColor = colorByMaterial.get(batch.materialId);
+      if (inkColor && batch.inkColor !== inkColor) {
+        await ctx.db.patch(batch._id, { inkColor });
+        patched++;
+      }
+    }
+
+    await ctx.db.insert("migrations", { key, ranAt: Date.now() });
     return { patched };
   },
 });

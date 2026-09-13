@@ -11,6 +11,7 @@ import { classifyMaterialProductionType, computeJobArea, resolveConversionRatio,
 import { recordInventoryEvent } from "./inventoryLedger";
 import { requireNoUnresolvedShortage } from "./reconciliation";
 import type { Role } from "./types";
+import { normalizeInkColor } from "./utils/inkColor";
 
 /**
  * Two-tier inventory. Tier 1 (`parentInventory`) tracks whole packaging units
@@ -204,6 +205,7 @@ export const issueStockToOperator = mutation({
     const newStockId = await ctx.db.insert("operatorSubStock", {
       parentInventoryId: item._id,
       materialId: item.materialId,
+      inkColor: material.inkColor ? normalizeInkColor(material.inkColor) : undefined,
       operatorId: args.operatorId.trim(),
       machineId: args.machineId,
       issuedUnits: args.units,

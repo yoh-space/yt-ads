@@ -92,7 +92,7 @@ describe("Phase 8: materialNormalization migration", () => {
 
     const cyan = docs.get("mat_1");
     expect(cyan.materialFamily).toBe("INK");
-    expect(cyan.inkColor).toBe("Cyan");
+    expect(cyan.inkColor).toBe("CYAN");
     expect(cyan.isSolvent).toBe(false);
 
     const solvent = docs.get("mat_2");

@@ -15,6 +15,7 @@ import { classifyMaterialProductionType, effectiveConsumptionRate, resolveEtbVal
 import { assertServiceIdsMatchSchema } from "./services";
 import { MATERIAL_TYPE_CATALOG } from "./orderAutomation";
 import { CANONICAL_SERVICE_ROUTES, CAPABILITY_REGISTRY } from "../src/shared/production-manifest";
+import { normalizeInkColor } from "./utils/inkColor";
 
 /**
  * Full field set for a seeded material, matching what the production
@@ -52,7 +53,7 @@ function materialMasterFields(material: MaterialSpecificationDefinition) {
       category: material.category,
       name: material.name,
     }),
-    inkColor: material.inkColor,
+    inkColor: material.inkColor ? normalizeInkColor(material.inkColor) : undefined,
     conversionRatio: material.conversionRatio,
     rollEquivalent: material.purchaseUnit === "roll" ? material.conversionRatio : undefined,
     sheetEquivalent: material.purchaseUnit === "sheet" ? material.conversionRatio : undefined,
@@ -93,6 +94,7 @@ export async function seedDemoData(ctx: MutationCtx, createdById: string) {
       baseUnit: material.baseUnit,
       purchaseUnit: material.purchaseUnit,
       conversionRatio: material.conversionRatio,
+      inkColor: material.inkColor ? normalizeInkColor(material.inkColor) : undefined,
       rollEquivalent: material.purchaseUnit === "roll" ? material.conversionRatio : undefined,
       sheetEquivalent: material.purchaseUnit === "sheet" ? material.conversionRatio : undefined,
       displayUnit: material.displayUnit,
@@ -1746,10 +1748,12 @@ export const seedDemoLifecycle = mutation({
       const materialId = materialIds[assignment.materialName];
       const parentId = parentIds[assignment.materialName];
       const operatorAuthId = operatorIds[assignment.operatorRole];
+      const sourceMaterial = await ctx.db.get(materialId);
       const issuedBase = qty(assignment.packages * (material.conversionRatio ?? 1));
       const subStockId = await ctx.db.insert("operatorSubStock", {
         parentInventoryId: parentId,
         materialId,
+        inkColor: sourceMaterial?.inkColor ? normalizeInkColor(sourceMaterial.inkColor) : undefined,
         operatorId: operatorAuthId,
         machineId: machineIds[assignment.machineCode],
         issuedUnits: assignment.packages,
@@ -2432,7 +2436,7 @@ export const seedMachineConfiguration = mutation({
         await ctx.db.insert("machineInkConsumptionRules", {
           machineId: machine._id,
           materialId: material._id,
-          inkColor: rule.inkColor,
+          inkColor: normalizeInkColor(rule.inkColor),
           consumptionUnit: rule.unit,
           rate: rule.rate,
           wasteAllowancePercent: rule.wastePercent,

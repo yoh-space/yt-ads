@@ -2,6 +2,7 @@ import { mutation, query } from "../_generated/server";
 import { v } from "convex/values";
 import { inkConsumptionUnit } from "../schema";
 import { requireOwner } from "../users";
+import { normalizeInkColor } from "../utils/inkColor";
 
 export const list = query({
   args: {
@@ -48,13 +49,14 @@ export const upsert = mutation({
     if (args.wasteAllowancePercent !== undefined && (args.wasteAllowancePercent < 0 || args.wasteAllowancePercent > 100)) {
       throw new Error("Waste allowance must be between 0 and 100 percent.");
     }
+    const inkColor = normalizeInkColor(args.inkColor);
 
     // Enforce single default per machine/color
     if (args.isDefault) {
       const existingDefaults = (await ctx.db
         .query("machineInkConsumptionRules")
         .withIndex("by_machine_material_color", (q) =>
-          q.eq("machineId", args.machineId).eq("materialId", args.materialId).eq("inkColor", args.inkColor)
+          q.eq("machineId", args.machineId).eq("materialId", args.materialId).eq("inkColor", inkColor)
         )
         .collect())
         .filter((r) => r.active && r.isDefault && r._id !== args.id);
@@ -67,7 +69,7 @@ export const upsert = mutation({
     const payload = {
       machineId: args.machineId,
       materialId: args.materialId,
-      inkColor: args.inkColor,
+      inkColor,
       consumptionUnit: args.consumptionUnit,
       rate: Number(args.rate.toFixed(6)),
       wasteAllowancePercent: args.wasteAllowancePercent !== undefined ? Number(args.wasteAllowancePercent.toFixed(3)) : undefined,

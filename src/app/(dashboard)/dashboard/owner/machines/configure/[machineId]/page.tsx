@@ -13,6 +13,7 @@ import { Factory, Droplets, Link2, Route, Package, AlertTriangle, Plus, Pencil, 
 import { useParams, useRouter } from "next/navigation";
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { toast } from "sonner";
+import { formatInkColorLabel } from "@/lib/utils";
 
 export default function MachineConfigurePage() {
   const params = useParams();
@@ -451,7 +452,7 @@ function InkRuleForm({ machineId, item, materialMap, materials, onDone }: { mach
   const inkMaterials = useMemo(() => materials.filter((m) => m.materialFamily === "INK" || m.name.toLowerCase().includes("ink")), [materials]);
   const [form, setForm] = useState({
     materialId: item?.materialId ?? inkMaterials[0]?._id ?? "",
-    inkColor: item?.inkColor ?? "Cyan",
+    inkColor: item?.inkColor ?? "CYAN",
     consumptionUnit: item?.consumptionUnit ?? "ml_per_sqm",
     rate: item?.rate?.toString() ?? "1",
     wasteAllowancePercent: item?.wasteAllowancePercent?.toString() ?? "",
@@ -493,7 +494,7 @@ function InkRuleForm({ machineId, item, materialMap, materials, onDone }: { mach
       <div className="grid grid-cols-2 gap-3">
         <Field label="Ink Color *">
           <select value={form.inkColor} onChange={(e) => setForm({ ...form, inkColor: e.target.value })} className="h-9 w-full rounded-md border border-border bg-background px-3 text-xs text-foreground outline-none focus:border-primary">
-            {["Cyan", "Magenta", "Yellow", "Black", "White", "Red", "Green", "Blue"].map((c) => <option key={c} value={c}>{c}</option>)}
+            {["CYAN", "MAGENTA", "YELLOW", "BLACK", "WHITE"].map((c) => <option key={c} value={c}>{formatInkColorLabel(c)}</option>)}
           </select>
         </Field>
         <Field label="Unit *">

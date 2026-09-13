@@ -1047,6 +1047,7 @@ export default defineSchema({
     materialId: v.id("materials"),
     operatorId: v.string(),
     machineId: v.id("machines"),
+    inkColor: v.optional(v.string()),
     issuedUnits: v.number(),
     issuedQuantity: v.number(),
     currentRemaining: v.number(),
@@ -1086,6 +1087,7 @@ export default defineSchema({
     .index("by_machine", ["machineId"])
     .index("by_operator", ["operatorId"])
     .index("by_material_machine", ["materialId", "machineId"])
+    .index("by_machine_ink_color", ["machineId", "inkColor"])
     .index("by_status", ["status"]),
 
   /** Owner/admin-managed raw-material recipe for a customer service. */
