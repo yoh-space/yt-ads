@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 
 const jobsApi = (api.receptionist as unknown as { jobs: { list: typeof api.receptionist.orders.list } }).jobs;
 const copy = {
-  title: "Job Cards", amTitle: "የሥራ ካርዶች", kicker: "Reception Desk", subtitle: "Live production tracking for customer-order job cards.",
+  title: "Job Cards", amTitle: "የሥራ ካርዶች", kicker: "Reception Desk",
   total: "Total Issued", totalAm: "ጠቅላላ የተሰጡ", production: "In Production", productionAm: "በምርት ላይ ያሉ", ready: "Ready for Pickup", readyAm: "ለርክክብ የተዘጋጁ", overdue: "Overdue / Delayed", overdueAm: "ጊዜ ያለፈባቸው",
 };
 const statusLabels: Record<string, string> = { Queued: "QUEUED", "In production": "IN_PRODUCTION", Completed: "COMPLETED", Paused: "PAUSED" };

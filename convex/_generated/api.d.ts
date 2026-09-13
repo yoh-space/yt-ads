@@ -59,7 +59,9 @@ import type * as overuseExceptions from "../overuseExceptions.js";
 import type * as owner_analytics from "../owner/analytics.js";
 import type * as owner_audit from "../owner/audit.js";
 import type * as owner_common from "../owner/common.js";
+import type * as owner_configAudit from "../owner/configAudit.js";
 import type * as owner_databaseFirstCatalogs from "../owner/databaseFirstCatalogs.js";
+import type * as owner_driftDetection from "../owner/driftDetection.js";
 import type * as owner_inventory from "../owner/inventory.js";
 import type * as owner_machineInkRules from "../owner/machineInkRules.js";
 import type * as owner_machineMaterialLinks from "../owner/machineMaterialLinks.js";
@@ -97,6 +99,7 @@ import type * as types from "../types.js";
 import type * as units from "../units.js";
 import type * as users from "../users.js";
 import type * as utils_inkColor from "../utils/inkColor.js";
+import type * as utils_normalizer from "../utils/normalizer.js";
 import type * as validation from "../validation.js";
 
 import type {
@@ -157,7 +160,9 @@ declare const fullApi: ApiFromModules<{
   "owner/analytics": typeof owner_analytics;
   "owner/audit": typeof owner_audit;
   "owner/common": typeof owner_common;
+  "owner/configAudit": typeof owner_configAudit;
   "owner/databaseFirstCatalogs": typeof owner_databaseFirstCatalogs;
+  "owner/driftDetection": typeof owner_driftDetection;
   "owner/inventory": typeof owner_inventory;
   "owner/machineInkRules": typeof owner_machineInkRules;
   "owner/machineMaterialLinks": typeof owner_machineMaterialLinks;
@@ -195,6 +200,7 @@ declare const fullApi: ApiFromModules<{
   units: typeof units;
   users: typeof users;
   "utils/inkColor": typeof utils_inkColor;
+  "utils/normalizer": typeof utils_normalizer;
   validation: typeof validation;
 }>;
 
