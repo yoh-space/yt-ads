@@ -5,6 +5,7 @@ import { CANONICAL_SERVICE_ROUTES } from "../../src/shared/production-manifest";
 import { SERVICE_SPECIFICATION_FIELDS } from "../../src/shared/service-specifications";
 import { ROLE_PERMISSIONS } from "../../src/shared/role-permissions";
 import { ROLE_HOME_ROUTE } from "../../src/lib/role-routing";
+import { roleLabels } from "../../src/lib/operations-types";
 
 const qTable = (ctx: MutationCtx, table: string): any => (ctx.db.query as any)(table);
 
@@ -369,15 +370,49 @@ export async function runDatabaseFirstSeed(ctx: MutationCtx) {
     }
   }
 
-  // 7. Seed Role Permissions (Phase 7)
+  // 6b. Seed Canonical Roles Catalog (Section 8.1)
+  let rolesCount = 0;
+  for (const [code, meta] of Object.entries(roleLabels)) {
+    const workspaceId = code.endsWith("_operator") ? "operator" : code;
+    const existing = await qTable(ctx, "roles")
+      .withIndex("by_code", (q: any) => q.eq("code", code))
+      .first();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        labelEn: meta.en,
+        labelAm: meta.am,
+        workspaceId,
+        active: true,
+        updatedAt: now,
+      });
+    } else {
+      await ctx.db.insert("roles", {
+        code,
+        labelEn: meta.en,
+        labelAm: meta.am,
+        workspaceId,
+        active: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+    rolesCount++;
+  }
+
+  // 7. Seed Role Permissions (Phase 7 - Idempotent on retry)
   for (const [roleCode, permissions] of Object.entries(ROLE_PERMISSIONS)) {
     for (const permission of permissions) {
       const existing = await qTable(ctx, "rolePermissions")
-        .withIndex("by_role", (q: any) => q.eq("roleCode", roleCode).eq("active", true))
+        .withIndex("by_role", (q: any) => q.eq("roleCode", roleCode))
         .filter((q: any) => q.eq(q.field("permission"), permission))
         .first();
 
-      if (!existing) {
+      if (existing) {
+        if (!existing.active) {
+          await ctx.db.patch(existing._id, { active: true, updatedAt: now });
+        }
+      } else {
         await ctx.db.insert("rolePermissions", {
           roleCode,
           permission,
@@ -385,8 +420,8 @@ export async function runDatabaseFirstSeed(ctx: MutationCtx) {
           createdAt: now,
           updatedAt: now,
         });
-        permissionsCount++;
       }
+      permissionsCount++;
     }
   }
 
@@ -498,6 +533,7 @@ export async function runDatabaseFirstSeed(ctx: MutationCtx) {
     capLinksCount,
     specFieldsCount,
     roleConfigsCount,
+    rolesCount,
     permissionsCount,
     categoryGroupsCount,
     seededAt: now,

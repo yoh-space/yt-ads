@@ -78,8 +78,11 @@ export async function deductJobRequirements(
         const activeInkRules = machineInkRules.filter((r) => r.active && r.materialId === req.materialId);
         
         if (activeInkRules.length > 0) {
-          // Use machine-specific ink rule
-          const rule = activeInkRules[0];
+          // Use machine-specific ink rule matching the material's ink color if available
+          const normalizedColor = material.inkColor ? material.inkColor.toUpperCase() : null;
+          const rule = (normalizedColor
+            ? activeInkRules.find((r) => r.inkColor.toUpperCase() === normalizedColor)
+            : null) ?? activeInkRules[0];
           const printedArea = args.actualOutputQuantity ?? 0;
           const rate = rule.rate;
           const requiredMl = printedArea * rate;
