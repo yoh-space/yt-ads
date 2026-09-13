@@ -430,10 +430,12 @@ export default defineSchema({
     isSolvent: v.optional(v.boolean()),
     materialFamily: v.optional(materialFamily),
     inkColor: v.optional(v.string()),
+    catalogMaterialId: v.optional(v.id("materialCatalog")),
   })
     .index("by_category", ["category"])
     .index("by_name", ["name"])
-    .index("by_unit", ["unit"]),
+    .index("by_unit", ["unit"])
+    .index("by_catalog_material", ["catalogMaterialId"]),
 
   machines: defineTable({
     /** Stable catalog identity used by seed reconciliation and aliases. */
@@ -1536,4 +1538,28 @@ export default defineSchema({
   })
     .index("by_material_active", ["materialId", "active"])
     .index("by_material_effective", ["materialId", "effectiveAt"]),
+
+  /** Owner-configured multi-machine options per service with priority ordering. */
+  serviceMachineOptions: defineTable({
+    serviceId: v.string(),       // FK -> serviceCatalog.id
+    machineCode: v.string(),     // FK -> machines.code
+    priority: v.number(),       // owner preference order (0 = top preference)
+    active: v.boolean(),
+    createdAt: v.optional(v.number()),
+    updatedAt: v.optional(v.number()),
+  })
+    .index("by_service", ["serviceId", "active"])
+    .index("by_machine", ["machineCode"]),
+
+  /** Customer order reference attachments and proof images. */
+  orderAttachments: defineTable({
+    orderId: v.id("customerOrders"),
+    fileUrl: v.string(),
+    fileKey: v.string(),
+    fileName: v.optional(v.string()),
+    fileSize: v.optional(v.number()),
+    mimeType: v.optional(v.string()),
+    uploadedAt: v.number(),
+    uploadedBy: v.optional(v.string()),
+  }).index("by_order", ["orderId"]),
 });

@@ -163,10 +163,25 @@ describe("Owner-Managed Materials, Pricing & Category Configuration", () => {
           effectiveAt: 1000,
         },
       ];
+      const catalogs = [
+        {
+          id: "banner_flex",
+          name: "Banner Flex",
+          conversionRatio: 50, // 50 m² per roll
+          active: true,
+        },
+      ];
+      const materials = [
+        {
+          _id: "mat_banner",
+          name: "Banner Flex",
+          etbValue: 5,
+        },
+      ];
       const inserted: Array<any> = [];
 
       const mockDb = {
-        query: () => ({
+        query: (table: string) => ({
           withIndex: (_idx: string, fn: any) => {
             const filters: Record<string, any> = {};
             const q = {
@@ -177,18 +192,37 @@ describe("Owner-Managed Materials, Pricing & Category Configuration", () => {
             };
             fn(q);
             return {
-              collect: async () =>
-                docs.filter(
+              collect: async () => {
+                if (table === "materialCatalog") {
+                  return catalogs.filter(
+                    (c) => !filters.id || c.id === filters.id,
+                  );
+                }
+                if (table === "materials") {
+                  return materials.filter(
+                    (m) => !filters.name || m.name === filters.name,
+                  );
+                }
+                return docs.filter(
                   (d) =>
                     (!filters.materialId || d.materialId === filters.materialId) &&
                     (filters.active === undefined || d.active === filters.active),
-                ),
+                );
+              },
+              unique: async () => {
+                if (table === "materialCatalog") {
+                  return catalogs.find((c) => !filters.id || c.id === filters.id) ?? null;
+                }
+                return null;
+              },
             };
           },
         }),
         patch: async (id: string, patch: any) => {
           const target = docs.find((d) => d._id === id);
           if (target) Object.assign(target, patch);
+          const matTarget = materials.find((m) => m._id === id);
+          if (matTarget) Object.assign(matTarget, patch);
         },
         insert: async (table: string, doc: any) => {
           if (table === "materialPriceEstimates") {
@@ -227,6 +261,10 @@ describe("Owner-Managed Materials, Pricing & Category Configuration", () => {
       expect(activeEst?.currency).toBe("ETB");
       expect(activeEst?.active).toBe(true);
       expect(activeEst?.source).toBe("Supplier Alpha Invoice #991");
+      // Derived baseUnitEquivalent: 280 / 50 = 5.6
+      expect(activeEst?.baseUnitEquivalent).toBe(5.6);
+      // Materials etbValue projection updated
+      expect(materials[0].etbValue).toBe(5.6);
     });
 
     it("rejects negative price amounts", async () => {

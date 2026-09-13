@@ -59,6 +59,7 @@ export interface WorkspaceNavItem {
   label: string;
   english: string;
   icon: WorkspaceIconName;
+  section?: string;
 }
 
 function WorkspaceSidebar({
@@ -87,35 +88,48 @@ function WorkspaceSidebar({
       aria-label={`${brandLabel} navigation`}
       className="flex flex-1 flex-col gap-1 overflow-y-auto overscroll-contain p-3 [scrollbar-color:hsl(var(--border))_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-thumb:hover]:bg-primary"
     >
-      {navItems.map((item) => {
+      {navItems.map((item, index) => {
         const Icon = workspaceIcons[item.icon];
         const active = pathname === item.href;
+        const showSection = item.section && (index === 0 || navItems[index - 1].section !== item.section);
         return (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={onClose}
-            title={collapsed ? item.english : undefined}
-            aria-current={active ? "page" : undefined}
-            className={cn(
-              "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors",
-              collapsed && "justify-center px-0",
-              active
-                ? "bg-primary/10 text-primary border-l-2 border-primary"
-                : "text-muted-foreground hover:bg-muted/10 hover:text-foreground border-l-2 border-transparent",
+          <div key={item.href} className="flex flex-col gap-1">
+            {showSection && (
+              <div
+                className={cn(
+                  "px-3 pt-3 pb-1 text-[10px] font-mono uppercase tracking-wider text-muted-foreground/60 select-none",
+                  index === 0 && "pt-1",
+                  collapsed && "hidden",
+                )}
+              >
+                {item.section}
+              </div>
             )}
-          >
-            <Icon size={16} className={cn("shrink-0", active ? "text-primary" : "text-muted-foreground")} />
-            <span className={cn("truncate", collapsed && "hidden")}>
-              <span className="block leading-tight">{item.label}</span>
-              <span className="block text-[10px] text-muted-foreground/70 leading-tight">{item.english}</span>
-            </span>
-            {collapsed && (
-              <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 whitespace-nowrap rounded-md border border-border bg-card px-2.5 py-1.5 text-xs text-foreground opacity-0 shadow-xl transition-opacity group-hover:opacity-100">
-                {item.english}
+            <Link
+              href={item.href}
+              onClick={onClose}
+              title={collapsed ? item.english : undefined}
+              aria-current={active ? "page" : undefined}
+              className={cn(
+                "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors",
+                collapsed && "justify-center px-0",
+                active
+                  ? "bg-primary/10 text-primary border-l-2 border-primary"
+                  : "text-muted-foreground hover:bg-muted/10 hover:text-foreground border-l-2 border-transparent",
+              )}
+            >
+              <Icon size={16} className={cn("shrink-0", active ? "text-primary" : "text-muted-foreground")} />
+              <span className={cn("truncate", collapsed && "hidden")}>
+                <span className="block leading-tight">{item.label}</span>
+                <span className="block text-[10px] text-muted-foreground/70 leading-tight">{item.english}</span>
               </span>
-            )}
-          </Link>
+              {collapsed && (
+                <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 whitespace-nowrap rounded-md border border-border bg-card px-2.5 py-1.5 text-xs text-foreground opacity-0 shadow-xl transition-opacity group-hover:opacity-100">
+                  {item.english}
+                </span>
+              )}
+            </Link>
+          </div>
         );
       })}
     </nav>
