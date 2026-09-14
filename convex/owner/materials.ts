@@ -2,7 +2,8 @@ import { mutation, query } from "../_generated/server";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { requireOwner } from "../users";
-import { unit, purchaseUnit, materialCatalogFamily } from "../schema";
+import { unit, purchaseUnit, materialCatalogFamily, materialFamily } from "../schema";
+import { normalizeInkColor } from "../utils/inkColor";
 
 function deriveSlug(name: string): string {
   return name
@@ -189,6 +190,8 @@ export const listRawMaterials = query({
           storageLocation: m.storageLocation ?? "Central store",
           displayUnit: m.displayUnit,
           averageUse: m.averageUse,
+          inkColor: m.inkColor,
+          materialFamily: m.materialFamily,
           active: m.active,
         };
       });
@@ -212,6 +215,8 @@ export const createRawMaterial = mutation({
     storageLocation: v.optional(v.string()),
     displayUnit: v.optional(v.string()),
     averageUse: v.optional(v.string()),
+    inkColor: v.optional(v.string()),
+    materialFamily: v.optional(materialFamily),
   },
   handler: async (ctx, args) => {
     const { profile } = await requireOwner(ctx);
@@ -229,7 +234,16 @@ export const createRawMaterial = mutation({
     }
 
     const now = Date.now();
-    const slug = deriveSlug(name);
+    const rawColor = args.inkColor?.trim();
+    const normalizedColor = rawColor ? normalizeInkColor(rawColor) : undefined;
+    const isInkOrSolvent = args.catalogFamily === "INK_SOLVENT" || args.category.toLowerCase().includes("ink");
+    const isSolvent = isInkOrSolvent && (name.toLowerCase().includes("solvent") || name.toLowerCase().includes("cleaner"));
+    const resolvedMaterialFamily = args.materialFamily ?? (isInkOrSolvent ? (isSolvent ? "SOLVENT" : "INK") : undefined);
+
+    const slugBase = normalizedColor && !name.toLowerCase().includes(normalizedColor.toLowerCase())
+      ? `${name}_${normalizedColor}`
+      : name;
+    const slug = deriveSlug(slugBase);
     const baseUnitVal = args.baseUnit ?? args.unit;
     const purchaseUnitVal = args.purchaseUnit ?? "roll";
 
@@ -253,6 +267,7 @@ export const createRawMaterial = mutation({
         sheetWidth: args.sheetWidth,
         sheetLength: args.sheetLength,
         thickness: args.thickness,
+        inkColor: normalizedColor,
         storageLocation: args.storageLocation,
         averageUse: args.averageUse,
         active: true,
@@ -271,6 +286,7 @@ export const createRawMaterial = mutation({
         sheetWidth: args.sheetWidth,
         sheetLength: args.sheetLength,
         thickness: args.thickness,
+        inkColor: normalizedColor,
         storageLocation: args.storageLocation,
         averageUse: args.averageUse,
         active: true,
@@ -281,12 +297,22 @@ export const createRawMaterial = mutation({
 
     // 2. Upsert into materials (Operational Entity)
     let materialId: Id<"materials">;
+    const accentColor = normalizedColor === "MAGENTA"
+      ? "violet"
+      : normalizedColor === "YELLOW"
+      ? "gold"
+      : normalizedColor === "BLACK"
+      ? "blue"
+      : "cyan";
+
     if (existing) {
       materialId = existing._id;
       await ctx.db.patch(materialId, {
         catalogMaterialId: catalogId,
         category: args.category,
         catalogFamily: args.catalogFamily,
+        materialFamily: resolvedMaterialFamily,
+        inkColor: normalizedColor,
         unit: args.unit,
         baseUnit: baseUnitVal,
         purchaseUnit: purchaseUnitVal,
@@ -306,6 +332,8 @@ export const createRawMaterial = mutation({
         name,
         category: args.category,
         catalogFamily: args.catalogFamily,
+        materialFamily: resolvedMaterialFamily,
+        inkColor: normalizedColor,
         unit: args.unit,
         baseUnit: baseUnitVal,
         purchaseUnit: purchaseUnitVal,
@@ -318,7 +346,7 @@ export const createRawMaterial = mutation({
         storageLocation: args.storageLocation,
         displayUnit: args.displayUnit,
         averageUse: args.averageUse,
-        accent: "cyan",
+        accent: accentColor,
         active: true,
       });
     }
@@ -380,6 +408,8 @@ export const updateRawMaterial = mutation({
     storageLocation: v.optional(v.string()),
     displayUnit: v.optional(v.string()),
     averageUse: v.optional(v.string()),
+    inkColor: v.optional(v.string()),
+    materialFamily: v.optional(materialFamily),
     active: v.boolean(),
   },
   handler: async (ctx, args) => {
@@ -395,12 +425,19 @@ export const updateRawMaterial = mutation({
     const now = Date.now();
     const baseUnitVal = args.baseUnit ?? args.unit;
     const purchaseUnitVal = args.purchaseUnit ?? material.purchaseUnit ?? "roll";
+    const rawColor = args.inkColor !== undefined ? args.inkColor.trim() : material.inkColor;
+    const normalizedColor = rawColor ? normalizeInkColor(rawColor) : undefined;
+    const isInkOrSolvent = args.catalogFamily === "INK_SOLVENT" || args.category.toLowerCase().includes("ink");
+    const isSolvent = isInkOrSolvent && (name.toLowerCase().includes("solvent") || name.toLowerCase().includes("cleaner"));
+    const resolvedMaterialFamily = args.materialFamily ?? material.materialFamily ?? (isInkOrSolvent ? (isSolvent ? "SOLVENT" : "INK") : undefined);
 
     // 1. Update materials record
     await ctx.db.patch(material._id, {
       name,
       category: args.category,
       catalogFamily: args.catalogFamily,
+      materialFamily: resolvedMaterialFamily,
+      inkColor: normalizedColor,
       unit: args.unit,
       baseUnit: baseUnitVal,
       purchaseUnit: purchaseUnitVal,
@@ -428,6 +465,7 @@ export const updateRawMaterial = mutation({
         sheetWidth: args.sheetWidth,
         sheetLength: args.sheetLength,
         thickness: args.thickness,
+        inkColor: normalizedColor,
         storageLocation: args.storageLocation,
         averageUse: args.averageUse,
         active: args.active,

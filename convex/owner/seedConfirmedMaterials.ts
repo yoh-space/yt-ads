@@ -76,6 +76,7 @@ export const seedConfirmedMaterials = mutation({
           averageUse: spec.averageUse,
           catalogDimensions: spec.catalogDimensions,
           catalogVariant: spec.catalogVariant,
+          inkColor: spec.inkColor,
           active: true,
           updatedAt: now,
         });
@@ -102,6 +103,7 @@ export const seedConfirmedMaterials = mutation({
           averageUse: spec.averageUse,
           catalogDimensions: spec.catalogDimensions,
           catalogVariant: spec.catalogVariant,
+          inkColor: spec.inkColor,
           active: true,
           createdAt: now,
           updatedAt: now,

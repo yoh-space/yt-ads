@@ -189,6 +189,7 @@ interface MaterialRecord {
   averageUse?: string;
   catalogDimensions?: string;
   catalogVariant?: string;
+  inkColor?: string;
   active: boolean;
   updatedAt?: number;
 }
@@ -612,6 +613,7 @@ export function DatabaseCatalogSuite() {
         averageUse: editingMaterial.averageUse,
         catalogDimensions: editingMaterial.catalogDimensions,
         catalogVariant: editingMaterial.catalogVariant,
+        inkColor: editingMaterial.inkColor || (updatedAttributes?.inkColor ? String(updatedAttributes.inkColor) : undefined),
         active: editingMaterial.active,
         expectedUpdatedAt: editingMaterial.updatedAt,
       });
@@ -2072,10 +2074,11 @@ export function DatabaseCatalogSuite() {
                   <input
                     type="text"
                     placeholder="Cyan, Magenta, Yellow, Black"
-                    value={String(editingMaterial.attributes?.inkColor ?? "")}
+                    value={String(editingMaterial.inkColor ?? editingMaterial.attributes?.inkColor ?? "")}
                     onChange={e =>
                       setEditingMaterial({
                         ...editingMaterial,
+                        inkColor: e.target.value,
                         attributes: {
                           ...editingMaterial.attributes,
                           inkColor: e.target.value,

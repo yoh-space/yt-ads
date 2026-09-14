@@ -7,7 +7,8 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { toast } from "sonner";
 import { ModalShell } from "@/components/dashboard/modals/modal-shell";
 import { Button, Input, Select } from "@/components/shared/ui";
-import { Save, Layers } from "lucide-react";
+import { Save, Layers, Droplet } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export type RawMaterialItem = {
   _id: Id<"materials">;
@@ -29,8 +30,18 @@ export type RawMaterialItem = {
   thickness?: number;
   storageLocation?: string;
   averageUse?: string;
+  inkColor?: string;
+  materialFamily?: string;
   active: boolean;
 };
+
+export const INK_COLORS = [
+  { value: "CYAN", label: "Blue (Cyan)", bg: "bg-cyan-500", border: "border-cyan-500" },
+  { value: "MAGENTA", label: "Red (Magenta)", bg: "bg-pink-500", border: "border-pink-500" },
+  { value: "YELLOW", label: "Yellow", bg: "bg-yellow-400", border: "border-yellow-400" },
+  { value: "BLACK", label: "Black", bg: "bg-neutral-900", border: "border-neutral-700" },
+  { value: "WHITE", label: "White", bg: "bg-white", border: "border-neutral-300" },
+] as const;
 
 const CATEGORY_FAMILIES = [
   { value: "ROLL", label: "Roll (Banner, Vinyl, Sticker, Canvas, Mesh)" },
@@ -93,6 +104,7 @@ export function RawMaterialModal({ material, onClose }: RawMaterialModalProps) {
   const [reorderAt, setReorderAt] = useState(material?.reorderAt?.toString() ?? "5");
   const [storageLocation, setStorageLocation] = useState(material?.storageLocation ?? "Central store");
   const [averageUse, setAverageUse] = useState(material?.averageUse ?? "");
+  const [inkColor, setInkColor] = useState(material?.inkColor ?? "CYAN");
   const [active, setActive] = useState(material?.active ?? true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -165,6 +177,7 @@ export function RawMaterialModal({ material, onClose }: RawMaterialModalProps) {
     }
 
     setIsSubmitting(true);
+    const isInkMaterial = catalogFamily === "INK_SOLVENT" || category.toLowerCase().includes("ink");
     try {
       if (isEditing && material) {
         await updateMaterial({
@@ -180,6 +193,7 @@ export function RawMaterialModal({ material, onClose }: RawMaterialModalProps) {
           sheetWidth: sheetWidth ? parseFloat(sheetWidth) : undefined,
           sheetLength: sheetLength ? parseFloat(sheetLength) : undefined,
           thickness: thickness ? parseFloat(thickness) : undefined,
+          inkColor: isInkMaterial ? inkColor : undefined,
           reorderAt: reorderNum,
           storageLocation: storageLocation.trim() || undefined,
           averageUse: averageUse.trim() || undefined,
@@ -199,6 +213,7 @@ export function RawMaterialModal({ material, onClose }: RawMaterialModalProps) {
           sheetWidth: sheetWidth ? parseFloat(sheetWidth) : undefined,
           sheetLength: sheetLength ? parseFloat(sheetLength) : undefined,
           thickness: thickness ? parseFloat(thickness) : undefined,
+          inkColor: isInkMaterial ? inkColor : undefined,
           reorderAt: reorderNum,
           storageLocation: storageLocation.trim() || undefined,
           averageUse: averageUse.trim() || undefined,
@@ -388,6 +403,46 @@ export function RawMaterialModal({ material, onClose }: RawMaterialModalProps) {
                   placeholder="3 or 5"
                 />
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Ink Color Selector (for INK_SOLVENT family or Ink category) */}
+        {(catalogFamily === "INK_SOLVENT" || category.toLowerCase().includes("ink")) && (
+          <div className="rounded-lg border border-border/70 bg-secondary/20 p-3">
+            <div className="mb-2 flex items-center justify-between">
+              <label className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                <Droplet size={13} className="text-cyan-500" />
+                Ink Color Channel *
+              </label>
+              <span className="text-[10px] text-muted-foreground">Each color is an independent raw material</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+              {INK_COLORS.map((c) => {
+                const isSelected = inkColor === c.value;
+                return (
+                  <button
+                    key={c.value}
+                    type="button"
+                    onClick={() => {
+                      setInkColor(c.value);
+                      if (!isEditing && name.trim()) {
+                        const cleanName = name.replace(/\s*-\s*(Cyan|Magenta|Yellow|Black|White|Blue|Red)/gi, "").trim();
+                        setName(`${cleanName} - ${c.value.charAt(0) + c.value.slice(1).toLowerCase()}`);
+                      }
+                    }}
+                    className={cn(
+                      "flex items-center gap-2 rounded-lg border p-2 text-xs font-medium transition-all",
+                      isSelected
+                        ? "border-primary bg-primary/10 text-foreground ring-1 ring-primary"
+                        : "border-border bg-background text-muted-foreground hover:bg-secondary/40"
+                    )}
+                  >
+                    <span className={cn("h-3.5 w-3.5 rounded-full border", c.bg, c.border)} />
+                    <span>{c.label}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}

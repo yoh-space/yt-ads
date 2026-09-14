@@ -3,7 +3,7 @@ import { MATERIAL_SPECIFICATIONS, findMaterialSpecification } from "./material-s
 
 describe("YT Advertisement material specifications", () => {
   it("contains the ten canonical specification families", () => {
-    expect(MATERIAL_SPECIFICATIONS).toHaveLength(28);
+    expect(MATERIAL_SPECIFICATIONS).toHaveLength(42);
     expect(findMaterialSpecification("Neon Light")?.specificationOptions).toEqual([
       "White (Warm White, Cool White)",
       "White",
@@ -41,5 +41,20 @@ describe("YT Advertisement material specifications", () => {
   it("identifies solvents as excluded from per-job synchronous deduction", () => {
     expect(findMaterialSpecification("Solvents")?.isSolvent).toBe(true);
     expect(findMaterialSpecification("Banner Solvent")?.isSolvent).toBe(true);
+  });
+
+  it("ensures each ink specification has independent color property and ink materialFamily", () => {
+    const inks = MATERIAL_SPECIFICATIONS.filter((m) => m.category === "Ink");
+    expect(inks).toHaveLength(18);
+    for (const ink of inks) {
+      expect(ink.materialFamily).toBe("INK");
+      expect(ink.catalogFamily).toBe("INK_SOLVENT");
+      expect(["CYAN", "MAGENTA", "YELLOW", "BLACK", "WHITE"]).toContain(ink.inkColor);
+    }
+    // Verify specific color lookups
+    expect(findMaterialSpecification("Banner Ink Cyan")?.inkColor).toBe("CYAN");
+    expect(findMaterialSpecification("Banner Ink 5L Canister - Magenta")?.inkColor).toBe("MAGENTA");
+    expect(findMaterialSpecification("DTF Ink 1L Canister - White")?.inkColor).toBe("WHITE");
+    expect(findMaterialSpecification("UV Ink 1L Canister - Black")?.inkColor).toBe("BLACK");
   });
 });

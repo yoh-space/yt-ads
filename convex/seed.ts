@@ -94,6 +94,7 @@ export async function seedDemoData(ctx: MutationCtx, createdById: string) {
       baseUnit: material.baseUnit,
       purchaseUnit: material.purchaseUnit,
       conversionRatio: material.conversionRatio,
+      materialFamily: material.materialFamily ?? (material.category === "Ink" ? "INK" : undefined),
       inkColor: material.inkColor ? normalizeInkColor(material.inkColor) : undefined,
       rollEquivalent: material.purchaseUnit === "roll" ? material.conversionRatio : undefined,
       sheetEquivalent: material.purchaseUnit === "sheet" ? material.conversionRatio : undefined,
@@ -128,7 +129,7 @@ export async function seedDemoData(ctx: MutationCtx, createdById: string) {
   const matAcrylic = await createDemoMaterial(definition("Mica"), 54.8, 65, "violet", "3mm");
   const matVinyl = await createDemoMaterial(definition("Frosted Sticker"), 417, 240, "gold", "1.2m × 50m (60 m²)");
   const matLed = await createDemoMaterial(definition("LED Modules"), 1260, 800, "blue", "Cool White (6000K-6500K)");
-  const matInk = await createDemoMaterial(definition("DTF Ink 1L Canister"), 18.2, 12, "green", "White");
+  const matInk = await createDemoMaterial(definition("DTF Ink 1L Canister - White"), 18.2, 12, "green", "White");
   const matMdf = await createDemoMaterial(definition("Foam Board"), 91.4, 45, "gold", "18mm");
 
   const mLaser = await ctx.db.insert("machines", {

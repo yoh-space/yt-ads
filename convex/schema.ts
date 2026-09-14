@@ -437,7 +437,9 @@ export default defineSchema({
     .index("by_category", ["category"])
     .index("by_name", ["name"])
     .index("by_unit", ["unit"])
-    .index("by_catalog_material", ["catalogMaterialId"]),
+    .index("by_catalog_material", ["catalogMaterialId"])
+    .index("by_category_ink_color", ["category", "inkColor"])
+    .index("by_ink_color", ["inkColor"]),
 
   machines: defineTable({
     /** Stable catalog identity used by seed reconciliation and aliases. */
@@ -1377,13 +1379,16 @@ export default defineSchema({
     averageUse: v.optional(v.string()),
     catalogDimensions: v.optional(v.string()),
     catalogVariant: v.optional(v.string()),
+    inkColor: v.optional(v.string()),
     active: v.boolean(),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_material_id", ["id"])
     .index("by_name", ["name"])
-    .index("by_active", ["active"]),
+    .index("by_active", ["active"])
+    .index("by_category_ink_color", ["category", "inkColor"])
+    .index("by_ink_color", ["inkColor"]),
   /** Owner-managed metadata describing dynamic material attributes and input types. */
   materialAttributeDefinitions: defineTable({
     key: v.string(),

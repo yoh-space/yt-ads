@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { RawMaterialModal, type RawMaterialItem } from "./raw-material-modal";
 import { ModalShell } from "@/components/dashboard/modals/modal-shell";
+import { cn } from "@/lib/utils";
 
 export function RawMaterialsView() {
   const materials = useQuery(api.owner.materials.listRawMaterials, { includeInactive: true });
@@ -52,6 +53,7 @@ export function RawMaterialsView() {
       return (
         m.name.toLowerCase().includes(q) ||
         m.category.toLowerCase().includes(q) ||
+        (m.inkColor && m.inkColor.toLowerCase().includes(q)) ||
         (m.storageLocation && m.storageLocation.toLowerCase().includes(q))
       );
     });
@@ -223,7 +225,41 @@ export function RawMaterialsView() {
                 return (
                   <tr key={item._id} className="transition-colors hover:bg-secondary/20">
                     <td className="px-4 py-3.5">
-                      <div className="font-semibold text-foreground">{item.name}</div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-semibold text-foreground">{item.name}</span>
+                        {item.inkColor && (
+                          <span
+                            className={cn(
+                              "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold border",
+                              item.inkColor === "CYAN"
+                                ? "bg-cyan-500/10 text-cyan-500 border-cyan-500/30"
+                                : item.inkColor === "MAGENTA"
+                                ? "bg-pink-500/10 text-pink-500 border-pink-500/30"
+                                : item.inkColor === "YELLOW"
+                                ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30 dark:text-yellow-400"
+                                : item.inkColor === "BLACK"
+                                ? "bg-neutral-800/10 text-neutral-800 border-neutral-400 dark:bg-neutral-800 dark:text-neutral-200"
+                                : "bg-neutral-100 text-neutral-700 border-neutral-300 dark:bg-neutral-800 dark:text-neutral-300"
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                "h-1.5 w-1.5 rounded-full",
+                                item.inkColor === "CYAN"
+                                  ? "bg-cyan-500"
+                                  : item.inkColor === "MAGENTA"
+                                  ? "bg-pink-500"
+                                  : item.inkColor === "YELLOW"
+                                  ? "bg-yellow-400"
+                                  : item.inkColor === "BLACK"
+                                  ? "bg-neutral-900 dark:bg-neutral-100"
+                                  : "bg-white border border-neutral-400"
+                              )}
+                            />
+                            {item.inkColor}
+                          </span>
+                        )}
+                      </div>
                       <div className="text-xs text-muted-foreground">{item.category}</div>
                     </td>
 

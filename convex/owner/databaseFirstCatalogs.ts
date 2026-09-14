@@ -14,6 +14,7 @@ import {
   normalizeGroupTone,
   normalizeGroupIcon,
 } from "../utils/normalizer";
+import { normalizeInkColor } from "../utils/inkColor";
 
 // Helper to query dynamically added database-first tables
 const qTable = (ctx: QueryCtx | MutationCtx, table: string): any => (ctx.db.query as any)(table);
@@ -586,6 +587,7 @@ export const upsertMaterialCatalogItem = mutation({
     averageUse: v.optional(v.string()),
     catalogDimensions: v.optional(v.string()),
     catalogVariant: v.optional(v.string()),
+    inkColor: v.optional(v.string()),
     active: v.boolean(),
     expectedUpdatedAt: v.optional(v.number()),
   },
@@ -677,6 +679,7 @@ export const upsertMaterialCatalogItem = mutation({
       averageUse: args.averageUse ? normalizeText(args.averageUse) : undefined,
       catalogDimensions: args.catalogDimensions ? normalizeText(args.catalogDimensions) : undefined,
       catalogVariant: args.catalogVariant ? normalizeText(args.catalogVariant) : undefined,
+      inkColor: args.inkColor ? normalizeInkColor(args.inkColor) : undefined,
       active: args.active,
       updatedAt: now,
     };
