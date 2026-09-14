@@ -28,7 +28,7 @@ export function UserMenu({ profile, onOpenSettings }: { profile: Profile | null;
 
   async function signOut() {
     await authClient.signOut();
-    router.push("/sign-in");
+    router.replace("/sign-in");
   }
 
   const role = profile?.role ?? "storekeeper";

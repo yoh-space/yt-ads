@@ -257,6 +257,7 @@ interface MachineRecord {
 }
 
 export function DatabaseCatalogSuite() {
+  const seedConfirmedMaterial = useMutation(api.owner.seedConfirmedMaterials.seedConfirmedMaterials)
   const seedMachines = useMutation(api.owner.seedMachines.seedMachines);
   const syncStatus = useQuery(api.catalog.getDatabaseFirstSyncStatus, {});
   const services = useQuery(api.catalog.listServices, {
@@ -467,7 +468,15 @@ export function DatabaseCatalogSuite() {
     );
     return Array.from(set).sort();
   }, [materials]);
-
+  async function seedMaterial() {
+    try {
+      await seedConfirmedMaterial({});
+      toast.success("Materilas records seeded successfully");
+    }
+    catch(e) {
+      toast.error(e instanceof Error ? e.message : "Failed to seed materials");
+    }
+  }
   async function seedMachine() {
     try {
       await seedMachines({});
@@ -800,6 +809,16 @@ export function DatabaseCatalogSuite() {
               <CheckCircle2 size={13} /> Normalized
             </span>
           )}
+          <Button
+            variant="secondary"
+            size="small"
+            onClick={seedMaterial}
+            disabled={isSyncing}
+            className="flex items-center gap-2 whitespace-nowrap"
+          >
+            <RefreshCw size={14} className={isSyncing ? "animate-spin" : ""} />
+            {isSyncing ? "Seeding..." : "Seed Machines"}
+          </Button>
           <Button
             variant="secondary"
             size="small"

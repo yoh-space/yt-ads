@@ -8,17 +8,17 @@ import {
   isValidRole,
 } from "./lib/role-routing";
 import type { Role } from "./lib/operations-types";
+import {
+  ROLE_COOKIE_MAX_AGE,
+  ROLE_COOKIE_NAME,
+  ROLE_COOKIE_PATH,
+  decodeRoleCookie,
+  encodeRoleCookie,
+  fingerprintSession,
+} from "./lib/role-cookie";
 
 const COOKIE_SESSION_NAME = "better-auth.session_token";
 const COOKIE_SECURE_SESSION_NAME = "__Secure-better-auth.session_token";
-const COOKIE_ROLE_NAME = "user_role";
-
-/**
- * Role cookie max-age in seconds. Set to 1 hour to limit staleness window.
- * The cookie is a routing hint only — Convex enforces the actual authorization.
- * A shorter lifetime ensures role changes propagate within a reasonable window.
- */
-const ROLE_COOKIE_MAX_AGE = 60 * 60; // 1 hour
 
 async function resolveRoleFromConvex(sessionToken: string, cookieName: string): Promise<Role | null> {
   const siteUrl = process.env.NEXT_PUBLIC_CONVEX_SITE_URL;
@@ -68,9 +68,10 @@ async function resolveRoleFromConvex(sessionToken: string, cookieName: string): 
  * Handles primary request interception, session token verification, role landing dispatch,
  * and unauthorized route redirects.
  *
- * Staleness note: The user_role cookie is a routing hint with a short TTL (1 hour).
- * Convex backend enforces the actual authorization on every business operation.
- * If a role changes, the worst case is a temporary wrong route shell until the cookie
+ * Staleness note: The user_role cookie is a routing hint with a short TTL (1 hour)
+ * and is bound to the session that minted it via a session fingerprint. Convex
+ * backend enforces the actual authorization on every business operation. If a
+ * role changes, the worst case is a temporary wrong route shell until the cookie
  * expires or is refreshed by a successful Convex query.
  */
 export async function proxy(request: NextRequest) {
@@ -93,13 +94,16 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(signInUrl);
   }
 
-  // 3. Resolve role: check fast cookie cache first, fallback to Convex API query
-  // The cookie is treated as a routing hint, not the final security boundary.
-  // Convex backend enforces the actual authorization on every business operation.
+  // 3. Resolve role: the cached hint is trusted only while it belongs to the
+  // SAME Better Auth session (fingerprint match on the session token). Any other
+  // case — missing cache, legacy cookie, or a different session (e.g. another
+  // account just signed in) — re-resolves the true role from Convex. The cookie
+  // is a routing hint only; Convex enforces the actual authorization.
+  const sessionFingerprint = fingerprintSession(sessionToken);
   let role: Role | null = null;
-  const cachedRole = request.cookies.get(COOKIE_ROLE_NAME)?.value;
-  if (isValidRole(cachedRole)) {
-    role = cachedRole;
+  const cachedRole = decodeRoleCookie(request.cookies.get(ROLE_COOKIE_NAME)?.value);
+  if (cachedRole && cachedRole.fingerprint === sessionFingerprint) {
+    role = cachedRole.role;
   } else {
     role = await resolveRoleFromConvex(sessionToken, sessionCookie?.name ?? COOKIE_SESSION_NAME);
   }
@@ -111,6 +115,9 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(signInUrl);
   }
 
+  const roleCookieValue = encodeRoleCookie(role, sessionFingerprint);
+  const currentRoleCookieValue = request.cookies.get(ROLE_COOKIE_NAME)?.value;
+
   // 4. Resolve route redirects (root /dashboard, /inventory, unauthorized paths) via unified contract
   const redirectTarget = getLegacyRouteRedirect(pathname, role);
   if (redirectTarget && !isRedirectLoop(pathname, redirectTarget)) {
@@ -119,8 +126,8 @@ export async function proxy(request: NextRequest) {
       redirectUrl.searchParams.set("unauthorized", "1");
     }
     const response = NextResponse.redirect(redirectUrl);
-    response.cookies.set(COOKIE_ROLE_NAME, role, {
-      path: "/",
+    response.cookies.set(ROLE_COOKIE_NAME, roleCookieValue, {
+      path: ROLE_COOKIE_PATH,
       sameSite: "lax",
       maxAge: ROLE_COOKIE_MAX_AGE,
     });
@@ -129,9 +136,9 @@ export async function proxy(request: NextRequest) {
 
   // 7. Authorized route: proceed and keep role cookie in sync
   const response = NextResponse.next();
-  if (cachedRole !== role) {
-    response.cookies.set(COOKIE_ROLE_NAME, role, {
-      path: "/",
+  if (currentRoleCookieValue !== roleCookieValue) {
+    response.cookies.set(ROLE_COOKIE_NAME, roleCookieValue, {
+      path: ROLE_COOKIE_PATH,
       sameSite: "lax",
       maxAge: ROLE_COOKIE_MAX_AGE,
     });

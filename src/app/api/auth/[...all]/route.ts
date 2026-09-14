@@ -1,6 +1,8 @@
 import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import { fetchQuery } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
+import { ROLE_COOKIE_NAME, ROLE_COOKIE_PATH } from "@/lib/role-cookie";
 
 export const dynamic = "force-dynamic";
 
@@ -116,6 +118,21 @@ export async function POST(request: NextRequest) {
   const pathname = new URL(request.url).pathname;
   if (pathname.includes("/sign-in/")) {
     void sendOwnerLoginAlert(request, response).catch(() => {});
+  }
+  if (pathname.endsWith("/sign-out")) {
+    // Drop the role routing hint together with the session so a subsequent
+    // sign-in with a different account can never inherit the previous role.
+    const body = await response.text();
+    const cleared = new NextResponse(body, {
+      status: response.status,
+      headers: response.headers,
+    });
+    cleared.cookies.set(ROLE_COOKIE_NAME, "", {
+      path: ROLE_COOKIE_PATH,
+      sameSite: "lax",
+      maxAge: 0,
+    });
+    return cleared;
   }
   return response;
 }
