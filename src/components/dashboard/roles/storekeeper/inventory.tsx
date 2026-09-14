@@ -26,6 +26,7 @@ import {
 import { InventoryLoader } from "../../widgets/inventory-loader";
 import { useDashboardModal } from "../../modals/modal-context";
 import { OPERATOR_ROLES } from "../operator/operator-nav";
+import { RawMaterialStockInModal } from "@/components/dashboard/modals/raw-material-stock-in-modal";
 import { cn } from "@/lib/utils";
 
 type InventoryView = "main" | "substock";
@@ -140,12 +141,13 @@ export function InventoryManagementInterface({ initialView }: { initialView: Inv
   const canViewMain = Boolean(profile && ["owner", "manager", "admin", "storekeeper"].includes(profile.role));
   const isOperator = Boolean(profile && OPERATOR_ROLES.includes(profile.role));
   const canReconcile = isOperator && profile?.active === true;
-  const { openModal } = useDashboardModal();
+  const { openModal, modal, closeModal } = useDashboardModal();
   const exhaustStock = useMutation(api.inventory.exhaustOperatorStock);
   const [activeView, setActiveView] = useState<InventoryView>(canViewMain ? initialView : "substock");
   const [packageFilter, setPackageFilter] = useState<PackageFilter>("ALL");
   const [searchTerm, setSearchTerm] = useState("");
   const [exhaustingId, setExhaustingId] = useState<string | null>(null);
+  const [stockInOpen, setStockInOpen] = useState(false);
 
   const parentInventory = useQuery(api.inventory.listParentInventory, canViewMain && isActive ? {} : "skip");
   const floorStock = useQuery(api.inventory.listOperatorMachineStock, isActive ? {} : "skip");
@@ -228,7 +230,7 @@ export function InventoryManagementInterface({ initialView }: { initialView: Inv
         </div>
         <button
           type="button"
-          onClick={() => openModal("stock")}
+          onClick={() => setStockInOpen(true)}
           disabled={!canViewMain}
           className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand-primary to-brand-primary-light px-5 py-3 text-sm font-extrabold text-main shadow-brand-glow transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
         >
@@ -335,6 +337,15 @@ export function InventoryManagementInterface({ initialView }: { initialView: Inv
           </div>
         </section>
       ) : null}
+
+      {(stockInOpen || modal === "stock") && (
+        <RawMaterialStockInModal
+          onClose={() => {
+            setStockInOpen(false);
+            closeModal();
+          }}
+        />
+      )}
     </div>
   );
 }
