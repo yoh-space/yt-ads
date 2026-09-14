@@ -182,10 +182,6 @@ export default function StorekeeperInventoryPage() {
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-5 py-3 text-[11px] text-muted-foreground">
-            <span className="inline-flex items-center gap-2">
-              <Package size={13} /> Physical Store Ledger: Verified by Head Storekeeper
-              {systemConfig.updatedAt ? " · Config synced" : ""}
-            </span>
             <button onClick={exportCsv} className="inline-flex items-center gap-1 font-semibold text-primary hover:text-primary/80">
               <Download size={13} /> Export Discrete Inventory CSV →
             </button>
