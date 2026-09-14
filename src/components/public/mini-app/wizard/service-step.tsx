@@ -1,11 +1,17 @@
 "use client";
 
-import { SERVICE_CATEGORIES } from "@/shared/services";
-import { getServiceLabel } from "@/constants/services";
 import { Printer, Layers, Scissors, SunMedium, Zap, FolderDown, Shirt, Sparkles } from "lucide-react";
 import type { ComponentType } from "react";
 
 const SERVICE_ICONS: Record<string, ComponentType<{ size?: number; className?: string }>> = {
+  Printer,
+  Layers,
+  Scissors,
+  SunMedium,
+  Zap,
+  FolderDown,
+  Shirt,
+  Sparkles,
   banner_print: Printer,
   sticker_white: Layers,
   sticker_transparent: Layers,
@@ -35,21 +41,31 @@ interface StepProps {
   watch: any;
   setValue: any;
   errors: any;
+  categories?: any[];
+  allServices?: any[];
   onNext: () => void;
   onBack?: () => void;
 }
 
-export function ServiceStep({ control, watch, setValue, errors, onNext, onBack }: StepProps) {
+export function ServiceStep({
+  control,
+  watch,
+  setValue,
+  errors,
+  categories = [],
+  allServices = [],
+  onNext,
+  onBack,
+}: StepProps) {
   const selectedService = watch("serviceId") as string | undefined;
   const selectedCatId = watch("_selectedCategoryId") as string | undefined;
 
-  // Flatten all services for easy lookup
-  const allServices = SERVICE_CATEGORIES.flatMap((cat) => cat.items);
-
   // Filter by selected category if one is chosen, otherwise show all
   const services = selectedCatId
-    ? SERVICE_CATEGORIES.find((c) => c.categoryId === selectedCatId)?.items ?? []
-    : allServices;
+    ? categories.find((c) => c.categoryId === selectedCatId)?.items ?? []
+    : allServices.length > 0
+    ? allServices
+    : categories.flatMap((c) => c.items ?? []);
 
   return (
     <section className="p-4 space-y-4">
@@ -59,8 +75,8 @@ export function ServiceStep({ control, watch, setValue, errors, onNext, onBack }
       </div>
 
       <div className="space-y-2">
-        {services.map((service) => {
-          const Icon = SERVICE_ICONS[service.id] ?? Printer;
+        {services.map((service: any) => {
+          const Icon = (service.iconKey && SERVICE_ICONS[service.iconKey]) ?? SERVICE_ICONS[service.id] ?? Printer;
           const isSelected = selectedService === service.id;
           return (
             <button
@@ -76,8 +92,8 @@ export function ServiceStep({ control, watch, setValue, errors, onNext, onBack }
               <div className="flex items-center gap-3">
                 <Icon size={18} className={isSelected ? "text-[#E5C07B]" : "text-neutral-500"} />
                 <div className="flex-1">
-                  <span className="font-semibold text-sm block">{getServiceLabel(service.id, "am") ?? service.label}</span>
-                  <span className="text-xs text-neutral-500">{service.label}</span>
+                  <span className="font-semibold text-sm block">{service.labelAm ?? service.labelEn ?? service.label}</span>
+                  <span className="text-xs text-neutral-500">{service.labelEn ?? service.label}</span>
                 </div>
               </div>
             </button>

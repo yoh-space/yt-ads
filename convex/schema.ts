@@ -645,9 +645,9 @@ export default defineSchema({
     code: v.string(),
     clientName: v.string(),
     phone: v.string(),
-    serviceType: serviceType,
+    serviceType: v.string(),
     /** Canonical intake identifier retained separately for downstream integrations. */
-    serviceId: v.optional(serviceType),
+    serviceId: v.optional(v.string()),
     /** Validated selections from the canonical material specification catalog. */
     specifications: v.optional(v.record(v.string(), v.string())),
     dimensions: v.string(),
@@ -824,7 +824,7 @@ export default defineSchema({
     length: v.optional(v.number()),
     width: v.optional(v.number()),
     deductOnComplete: v.optional(v.boolean()),
-    serviceType: v.optional(serviceType),
+    serviceType: v.optional(v.string()),
     specifications: v.optional(v.record(v.string(), v.string())),
     /** Gross material deducted from stock at dispatch (rollWidth × jobLength × qty). */
     grossDeductedQuantity: v.optional(v.number()),
@@ -1436,7 +1436,8 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   })
-    .index("by_service", ["serviceId", "active"]),
+    .index("by_service", ["serviceId", "active"])
+    .index("by_service_all", ["serviceId"]),
 
   /** Database-backed Role workspace mapping (Phase 6). */
   roleWorkspaceConfig: defineTable({

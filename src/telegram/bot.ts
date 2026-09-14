@@ -35,7 +35,6 @@ import {
   t,
 } from "./i18n";
 import type { ServiceId } from "@/constants/services";
-import { serviceSpecificationFields } from "@/shared/service-specifications";
 import {
   isOrderCode,
   looksLikePhone,
@@ -281,19 +280,44 @@ async function handleReceptionCallback(ctx: MyContext, data: string) {
 
 async function startNewOrder(ctx: MyContext) {
   ctx.session.draft = {};
-  await ctx.reply(t(ctx.session.language, "serviceChoice"), { reply_markup: servicePicker(ctx.session.language) });
+  const catalog = await fetchQuery(api.catalog.getPublishedCatalog, {});
+  if (!catalog || catalog.length === 0) {
+    await ctx.reply(
+      ctx.session.language === "am"
+        ? "ይቅርታ፣ በአሁኑ ጊዜ ምንም አገልግሎቶች አይገኙም። እባክዎ ትንሽ ቆይተው እንደገና ይሞክሩ።"
+        : "Sorry, no services are currently available for ordering. Please check back shortly.",
+    );
+    return;
+  }
+  await ctx.reply(t(ctx.session.language, "serviceChoice"), {
+    reply_markup: servicePicker(ctx.session.language, catalog),
+  });
 }
 
 async function promptNextSpecification(ctx: MyContext, fieldIndex: number) {
   const draft = ctx.session.draft ?? {};
-  const fields = serviceSpecificationFields(draft.serviceType ?? "");
+  const serviceId = draft.serviceType ?? "";
+  const fields = await fetchQuery(api.catalog.listServiceSpecFields, { serviceId });
   const field = fields[fieldIndex];
   if (!field) {
     ctx.session.step = "dimensions";
     await ctx.reply(t(ctx.session.language, "dimensionsPrompt"));
     return;
   }
-  await ctx.reply(`${field.label}:`, { reply_markup: specificationPicker(field, fieldIndex, ctx.session.language) });
+  const fieldLabel = ctx.session.language === "am" ? (field.labelAm || field.labelEn) : field.labelEn;
+  await ctx.reply(`${fieldLabel}:`, {
+    reply_markup: specificationPicker(
+      {
+        key: field.fieldKey,
+        label: field.labelEn,
+        labelEn: field.labelEn,
+        labelAm: field.labelAm,
+        options: field.options ?? [],
+      },
+      fieldIndex,
+      ctx.session.language,
+    ),
+  });
 }
 
 async function handleSpecificationSelection(ctx: MyContext, data: string) {
@@ -301,11 +325,12 @@ async function handleSpecificationSelection(ctx: MyContext, data: string) {
   const fieldIndex = Number(fieldIndexRaw);
   const optionIndex = Number(optionIndexRaw);
   const draft = ctx.session.draft ?? {};
-  const fields = serviceSpecificationFields(draft.serviceType ?? "");
+  const serviceId = draft.serviceType ?? "";
+  const fields = await fetchQuery(api.catalog.listServiceSpecFields, { serviceId });
   const field = fields[fieldIndex];
-  const option = field?.options[optionIndex];
+  const option = field?.options?.[optionIndex];
   if (!field || !option) return;
-  draft.specifications = { ...(draft.specifications ?? {}), [field.key]: option };
+  draft.specifications = { ...(draft.specifications ?? {}), [field.fieldKey]: option };
   ctx.session.draft = draft;
   await promptNextSpecification(ctx, fieldIndex + 1);
 }
@@ -757,9 +782,9 @@ function createBot(token: string): Bot<MyContext> {
       ctx.session.draft = {};
       const serviceId = data.replace("srv:", "");
       const draft = ctx.session.draft ?? {};
-      // If the user picked a specific service id, store it and advance to dimensions
       draft.serviceType = serviceId;
-      draft.serviceLabel = serviceLabel(lang, serviceId);
+      const svc = await fetchQuery(api.catalog.getService, { serviceId });
+      draft.serviceLabel = lang === "am" ? (svc?.labelAm || svc?.labelEn || serviceLabel(lang, serviceId)) : (svc?.labelEn || serviceLabel(lang, serviceId));
       draft.specifications = {};
       ctx.session.draft = draft;
       await promptNextSpecification(ctx, 0);

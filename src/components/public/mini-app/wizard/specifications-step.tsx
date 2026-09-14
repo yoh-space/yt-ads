@@ -2,10 +2,13 @@
 
 import { useController } from "react-hook-form";
 
-interface SpecificationField {
+export interface SpecificationField {
   key: string;
   label: string;
+  labelEn?: string;
+  labelAm?: string;
   options: readonly string[];
+  required?: boolean;
 }
 
 interface StepProps {
@@ -56,7 +59,7 @@ export function SpecificationsStep({ control, watch, setValue, errors, serviceFi
   }
 
   const allSelected = serviceFields.every(
-    (f) => specifications?.[f.key] && f.options.includes(specifications[f.key]),
+    (f) => f.required === false || (specifications?.[f.key] && f.options.includes(specifications[f.key])),
   );
 
   return (
@@ -69,9 +72,13 @@ export function SpecificationsStep({ control, watch, setValue, errors, serviceFi
       <div className="space-y-4">
         {serviceFields.map((field) => {
           const currentValue = specifications?.[field.key] ?? "";
+          const displayLabel = field.labelAm || field.labelEn || field.label;
           return (
             <div key={field.key} className="space-y-1">
-              <label className="text-xs font-semibold text-neutral-300 block">{field.label}</label>
+              <label className="text-xs font-semibold text-neutral-300 block">
+                {displayLabel}
+                {field.required !== false && <span className="text-[#E5C07B] ml-1">*</span>}
+              </label>
               <select
                 value={currentValue}
                 onChange={(e) => {
@@ -85,8 +92,8 @@ export function SpecificationsStep({ control, watch, setValue, errors, serviceFi
                 }}
                 className="w-full h-12 px-4 rounded-sm bg-[#131418] text-white text-sm border border-white/[0.12] outline-none focus:border-[#E5C07B] transition-colors appearance-none"
               >
-                <option value="" disabled>
-                  Choose an option...
+                <option value="" disabled={field.required !== false}>
+                  {field.required === false ? "None (Optional)" : "Choose an option..."}
                 </option>
                 {field.options.map((opt) => (
                   <option key={opt} value={opt}>
@@ -94,7 +101,9 @@ export function SpecificationsStep({ control, watch, setValue, errors, serviceFi
                   </option>
                 ))}
               </select>
-              {!currentValue && <p className="text-xs text-rose-400">{field.label} is required.</p>}
+              {field.required !== false && !currentValue && (
+                <p className="text-xs text-rose-400">{displayLabel} is required.</p>
+              )}
             </div>
           );
         })}

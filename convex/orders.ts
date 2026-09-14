@@ -22,6 +22,7 @@ import { loadActiveBomForService, resolveServiceRoute, resolveInkRequirements, r
 import { calculateOffCutAndScrap, type OffCutScrapResult } from "../src/shared/material-calc";
 import { assertPaymentAmount, paymentBreakdown, snapshotPaymentInstructions, type PaymentInstructions } from "./payment";
 import { validateServiceSpecifications } from "../src/shared/service-specifications";
+import { validateServiceSpecificationsAgainstDb } from "./owner/databaseFirstCatalogs";
 import { resolveRollSubstrate, type RollResolution } from "../src/shared/roll-width";
 import { normalizePhone as normalizePhoneUtil } from "../src/shared/phone-normalization";
 
@@ -336,8 +337,8 @@ export const submit = mutation({
     phone: v.optional(v.string()),
     telegramId: v.optional(v.string()),
     telegramInitData: v.optional(v.string()),
-    serviceType: serviceType,
-    serviceId: v.optional(serviceType),
+    serviceType: v.string(),
+    serviceId: v.optional(v.string()),
     specifications: v.optional(v.record(v.string(), v.string())),
     dimensions: v.string(),
     quantity: v.string(),
@@ -360,9 +361,10 @@ export const submit = mutation({
     const dimensions = args.dimensions.trim();
     const parsedDimensions = parseDimensions(dimensions);
     const orderWidth = args.width ?? parsedDimensions?.width;
+    const validatedSpecs = await validateServiceSpecificationsAgainstDb(ctx, serviceId, args.specifications);
     const specifications = withDerivedRollSubstrate(
       serviceId,
-      validateServiceSpecifications(serviceId, args.specifications),
+      validatedSpecs,
       orderWidth,
     );
     const quantity = args.quantity.trim();
@@ -605,7 +607,7 @@ export const updateCustomerOrder = mutation({
     accountType: v.optional(accountTypeValidator),
     companyLegalName: v.optional(v.string()),
     tinNumber: v.optional(v.string()),
-    serviceId: v.optional(serviceType),
+    serviceId: v.optional(v.string()),
     specifications: v.optional(v.record(v.string(), v.string())),
     dimensions: v.optional(v.string()),
     quantity: v.optional(v.string()),
@@ -691,9 +693,14 @@ let nextDimensions = order.dimensions;
       throw new Error("Quantity must be a positive whole number.");
     }
 
+    const validatedNextSpecs = await validateServiceSpecificationsAgainstDb(
+      ctx,
+      nextServiceId,
+      args.specifications ?? order.specifications,
+    );
     const nextSpecifications = withDerivedRollSubstrate(
       nextServiceId,
-      validateServiceSpecifications(nextServiceId, args.specifications ?? order.specifications),
+      validatedNextSpecs,
       nextWidth,
     );
 
@@ -1941,8 +1948,8 @@ export const createTelegramOrder = mutation({
   args: {
     telegramChatId: v.string(),
     customerName: v.string(),
-    serviceType: serviceType,
-    serviceId: v.optional(serviceType),
+    serviceType: v.string(),
+    serviceId: v.optional(v.string()),
     specifications: v.optional(v.record(v.string(), v.string())),
     dimensions: v.optional(v.string()),
     quantity: v.optional(v.string()),
@@ -1959,9 +1966,10 @@ export const createTelegramOrder = mutation({
     const serviceType = serviceTypeRaw as typeof args.serviceType;
     const serviceId = (args.serviceId ?? serviceType) as string;
     const orderWidth = args.width ?? (args.dimensions ? parseDimensions(args.dimensions)?.width : undefined);
+    const validatedSpecs = await validateServiceSpecificationsAgainstDb(ctx, serviceId, args.specifications);
     const specifications = withDerivedRollSubstrate(
       serviceId,
-      validateServiceSpecifications(serviceId, args.specifications),
+      validatedSpecs,
       orderWidth,
     );
     if (!customerName || !serviceType) {

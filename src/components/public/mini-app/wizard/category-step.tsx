@@ -1,16 +1,27 @@
 "use client";
 
-import { SERVICE_CATEGORIES } from "@/shared/services";
-import { getServiceLabel } from "@/constants/services";
 import { Printer, Layers, Scissors, SunMedium, Zap, FolderDown, Shirt, Sparkles } from "lucide-react";
 import type { ComponentType } from "react";
 
 const CATEGORY_ICONS: Record<string, ComponentType<{ size?: number; className?: string }>> = {
+  Layers,
+  Printer,
+  Scissors,
+  SunMedium,
+  Zap,
+  FolderDown,
+  Shirt,
+  Sparkles,
   LARGE_FORMAT_PRINTING: Layers,
   SIGNAGE_AND_DISPLAYS: SunMedium,
   FLATBED_UV_PRINTING: Printer,
   CNC_AND_LASER: Scissors,
   TEXTILE_AND_APPAREL: Shirt,
+  PRINTING: Layers,
+  SIGNAGE: SunMedium,
+  UV: Printer,
+  CNC: Scissors,
+  APPAREL: Shirt,
 };
 
 interface StepProps {
@@ -18,11 +29,12 @@ interface StepProps {
   watch: any;
   setValue: any;
   errors: any;
+  categories?: any[];
   onNext: () => void;
   onBack?: () => void;
 }
 
-export function CategoryStep({ control, watch, setValue, errors, onNext, onBack }: StepProps) {
+export function CategoryStep({ control, watch, setValue, errors, categories = [], onNext, onBack }: StepProps) {
   const selectedCategory = watch("serviceId");
   const selectedCatId = watch("_selectedCategoryId") as string | undefined;
 
@@ -34,8 +46,8 @@ export function CategoryStep({ control, watch, setValue, errors, onNext, onBack 
       </div>
 
       <div className="space-y-3">
-        {SERVICE_CATEGORIES.map((category) => {
-          const Icon = CATEGORY_ICONS[category.categoryId] ?? Layers;
+        {categories.map((category) => {
+          const Icon = (category.iconKey && CATEGORY_ICONS[category.iconKey]) ?? CATEGORY_ICONS[category.categoryId] ?? Layers;
           const isSelected = selectedCatId === category.categoryId;
           return (
             <button
@@ -44,7 +56,7 @@ export function CategoryStep({ control, watch, setValue, errors, onNext, onBack 
               onClick={() => {
                 setValue("_selectedCategoryId" as any, category.categoryId, { shouldValidate: false });
                 // Auto-select first service in category
-                if (category.items.length > 0) {
+                if (category.items && category.items.length > 0) {
                   setValue("serviceId", category.items[0].id as any, { shouldValidate: true });
                 }
               }}
@@ -57,8 +69,8 @@ export function CategoryStep({ control, watch, setValue, errors, onNext, onBack 
               <div className="flex items-center gap-3">
                 <Icon size={18} className={isSelected ? "text-[#E5C07B]" : "text-neutral-500"} />
                 <div>
-                  <span className="font-semibold text-sm block">{category.categoryName}</span>
-                  <span className="text-xs text-neutral-500 block">{category.items.length} አይነቶች</span>
+                  <span className="font-semibold text-sm block">{category.categoryNameAm || category.categoryName}</span>
+                  <span className="text-xs text-neutral-500 block">{(category.items || []).length} አይነቶች</span>
                 </div>
               </div>
             </button>

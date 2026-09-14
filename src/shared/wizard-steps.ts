@@ -16,16 +16,17 @@ export type WizardStep =
 export interface WizardNavigationOptions {
   accountType?: "individual" | "corporate" | "government";
   serviceId?: ServiceId | string;
+  hasSpecifications?: boolean;
   isEdit?: boolean;
 }
 
 /**
  * A service only shows the Specifications step when it has customer-entered
- * specification fields. Roll-based services (banners, stickers, canvas) now
- * derive their roll substrate automatically from the job width on the backend,
- * so that step is skipped entirely.
+ * specification fields. Configured dynamically from the database, or
+ * checked against canonical definitions if hasSpecifications is omitted.
  */
-function serviceNeedsSpecifications(serviceId?: string): boolean {
+function serviceNeedsSpecifications(serviceId?: string, hasSpecifications?: boolean): boolean {
+  if (hasSpecifications !== undefined) return hasSpecifications;
   if (!serviceId) return true;
   return serviceSpecificationFields(serviceId).length > 0;
 }
@@ -40,7 +41,7 @@ export function getActiveWizardSteps(options?: WizardNavigationOptions): WizardS
     "category",
     "service",
     "dimensions",
-    ...(serviceNeedsSpecifications(options?.serviceId) ? (["specifications"] as WizardStep[]) : []),
+    ...(serviceNeedsSpecifications(options?.serviceId, options?.hasSpecifications) ? (["specifications"] as WizardStep[]) : []),
     "artwork",
     "review",
   ];

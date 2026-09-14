@@ -58,7 +58,7 @@ export const CustomerProfileSchema = z.object({
 export type CustomerProfileInput = z.infer<typeof CustomerProfileSchema>;
 
 export const ServiceSelectionSchema = z.object({
-  serviceId: z.enum(SERVICE_IDS as unknown as [ServiceId, ...ServiceId[]]),
+  serviceId: z.string().trim().min(1, "Service selection is required."),
 });
 
 export type ServiceSelectionInput = z.infer<typeof ServiceSelectionSchema>;
@@ -142,7 +142,7 @@ export const CompleteOrderPayloadSchema = z
     accountType: AccountTypeSchema,
     companyLegalName: z.optional(CompanyLegalNameSchema),
     tinNumber: z.optional(TIN_SCHEMA),
-    serviceId: z.enum(SERVICE_IDS as unknown as [ServiceId, ...ServiceId[]]),
+    serviceId: z.string().trim().min(1, "Service is required."),
     specifications: SpecificationsSchema.optional(),
     dimensions: DimensionsSchema,
     quantity: QuantitySchema,

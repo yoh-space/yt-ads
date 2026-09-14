@@ -102,17 +102,28 @@ describe("Order Zod schemas", () => {
     expect(result.success).toBe(false);
   });
 
-  it("rejects an unknown service id", () => {
-    const result = CompleteOrderPayloadSchema.safeParse({
+  it("rejects an empty service id and accepts valid dynamic service slugs", () => {
+    const emptyResult = CompleteOrderPayloadSchema.safeParse({
       customerName: "Test",
       phone: "0912345678",
       accountType: "individual",
-      serviceId: "unknown_service",
+      serviceId: "   ",
       dimensions: "2m x 3m",
       quantity: "1",
       preferredDueDate: Date.now() + 86400000,
     });
-    expect(result.success).toBe(false);
+    expect(emptyResult.success).toBe(false);
+
+    const validResult = CompleteOrderPayloadSchema.safeParse({
+      customerName: "Test",
+      phone: "0912345678",
+      accountType: "individual",
+      serviceId: "custom_admin_service",
+      dimensions: "2m x 3m",
+      quantity: "1",
+      preferredDueDate: Date.now() + 86400000,
+    });
+    expect(validResult.success).toBe(true);
   });
 });
 
