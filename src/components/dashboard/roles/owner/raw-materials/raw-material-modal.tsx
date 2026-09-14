@@ -41,6 +41,15 @@ const CATEGORY_FAMILIES = [
   { value: "HARDWARE", label: "General Hardware & Auxiliary Parts" },
 ] as const;
 
+export const CATEGORY_OPTIONS_BY_FAMILY: Record<string, string[]> = {
+  ROLL: ["Banner", "Sticker roll", "Mesh", "Canvas", "Film"],
+  RIGID_SHEET: ["Foam board", "Mica sheet", "Acrylic", "Cladding"],
+  INK_SOLVENT: ["Ink", "Solvent", "Cleaner"],
+  BARS: ["Aluminum Extrusion", "Neon Flex", "Profile Frame"],
+  PACKAGES: ["Roll-Up Stand", "Display hardware", "Fasteners"],
+  HARDWARE: ["Hardware", "Fasteners", "Mounting Brackets", "Power Supply", "LED Module"],
+};
+
 const BASE_UNITS = [
   { value: "m²", label: "m² (Square Metres - Area)" },
   { value: "m", label: "m (Linear Metres - Length)" },
@@ -70,13 +79,14 @@ export function RawMaterialModal({ material, onClose }: RawMaterialModalProps) {
   const createMaterial = useMutation(api.owner.materials.createRawMaterial);
   const updateMaterial = useMutation(api.owner.materials.updateRawMaterial);
 
-  const [name, setName] = useState(material?.name ?? "");
-  const [category, setCategory] = useState(material?.category ?? "");
   const [catalogFamily, setCatalogFamily] = useState(material?.catalogFamily ?? "ROLL");
+  const [category, setCategory] = useState(material?.category ?? "Banner");
+  const [isCustomCategory, setIsCustomCategory] = useState(false);
+  const [name, setName] = useState(material?.name ?? "");
   const [unit, setUnit] = useState(material?.unit ?? "m²");
   const [purchaseUnit, setPurchaseUnit] = useState(material?.purchaseUnit ?? "roll");
   const [conversionRatio, setConversionRatio] = useState(material?.conversionRatio?.toString() ?? "50");
-  const [rollWidth, setRollWidth] = useState(material?.rollWidth?.toString() ?? "");
+  const [rollWidth, setRollWidth] = useState(material?.rollWidth?.toString() ?? "3.2");
   const [sheetWidth, setSheetWidth] = useState(material?.sheetWidth?.toString() ?? "");
   const [sheetLength, setSheetLength] = useState(material?.sheetLength?.toString() ?? "");
   const [thickness, setThickness] = useState(material?.thickness?.toString() ?? "");
@@ -86,34 +96,52 @@ export function RawMaterialModal({ material, onClose }: RawMaterialModalProps) {
   const [active, setActive] = useState(material?.active ?? true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Auto-adjust default units based on category family if creating new
+  // Available categories for the currently selected family
+  const availableCategories = CATEGORY_OPTIONS_BY_FAMILY[catalogFamily] ?? [];
+
+  // If editing an item with a category not in the pre-defined list, handle custom
   useEffect(() => {
-    if (isEditing) return;
-    if (catalogFamily === "ROLL") {
+    if (material && !availableCategories.includes(material.category)) {
+      setIsCustomCategory(true);
+    }
+  }, [material, availableCategories]);
+
+  // When catalogFamily changes in create mode, automatically auto-fill corresponding category & units
+  function handleFamilyChange(newFamily: string) {
+    setCatalogFamily(newFamily);
+    setIsCustomCategory(false);
+
+    const familyCategories = CATEGORY_OPTIONS_BY_FAMILY[newFamily] ?? [];
+    if (familyCategories.length > 0) {
+      setCategory(familyCategories[0]);
+    }
+
+    if (newFamily === "ROLL") {
       setUnit("m²");
       setPurchaseUnit("roll");
       setConversionRatio("50");
       setRollWidth("3.2");
-    } else if (catalogFamily === "RIGID_SHEET") {
+    } else if (newFamily === "RIGID_SHEET") {
       setUnit("m²");
       setPurchaseUnit("sheet");
       setConversionRatio("2.98");
       setSheetWidth("1.22");
       setSheetLength("2.44");
-    } else if (catalogFamily === "INK_SOLVENT") {
+      setThickness("3");
+    } else if (newFamily === "INK_SOLVENT") {
       setUnit("L");
       setPurchaseUnit("canister");
       setConversionRatio("5");
-    } else if (catalogFamily === "BARS") {
+    } else if (newFamily === "BARS") {
       setUnit("m");
       setPurchaseUnit("piece");
       setConversionRatio("6");
-    } else if (catalogFamily === "PACKAGES" || catalogFamily === "HARDWARE") {
+    } else if (newFamily === "PACKAGES" || newFamily === "HARDWARE") {
       setUnit("pcs");
       setPurchaseUnit("piece");
       setConversionRatio("1");
     }
-  }, [catalogFamily, isEditing]);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -122,7 +150,7 @@ export function RawMaterialModal({ material, onClose }: RawMaterialModalProps) {
       return;
     }
     if (!category.trim()) {
-      toast.error("Please provide a material category.");
+      toast.error("Please select or enter a material category.");
       return;
     }
     const ratioNum = parseFloat(conversionRatio);
@@ -191,15 +219,98 @@ export function RawMaterialModal({ material, onClose }: RawMaterialModalProps) {
       subtitle={
         isEditing
           ? "Update operational and blueprint attributes across the factory ledger."
-          : "Define a canonical raw material blueprint used across inventory, orders, and production."
+          : "Define a canonical raw material blueprint with streamlined category and form-factor controls."
       }
       kicker="RAW MATERIAL BLUEPRINT · ነጠላ የመረጃ ምንጭ"
       onClose={onClose}
       className="max-w-2xl"
     >
       <form onSubmit={handleSubmit} className="space-y-4 p-4">
-        {/* Core details */}
+        {/* 1. Category Family (Selected First) */}
+        <div>
+          <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <Layers size={13} className="text-cyan-dark" />
+            Category Family (Single Source of Truth) *
+          </label>
+          <Select
+            value={catalogFamily}
+            onChange={(e) => handleFamilyChange(e.target.value)}
+            className="w-full bg-background"
+          >
+            {CATEGORY_FAMILIES.map((fam) => (
+              <option key={fam.value} value={fam.value}>
+                {fam.label}
+              </option>
+            ))}
+          </Select>
+        </div>
+
+        {/* 2. Core details: Category Dropdown (Filtered) + Material Name */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {/* Smart Category Dropdown */}
+          <div>
+            <div className="mb-1.5 flex items-center justify-between">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Category *
+              </label>
+              {!isCustomCategory ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCustomCategory(true);
+                    setCategory("");
+                  }}
+                  className="text-[11px] font-medium text-cyan-dark hover:underline"
+                >
+                  + Custom Category
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCustomCategory(false);
+                    setCategory(availableCategories[0] || "Banner");
+                  }}
+                  className="text-[11px] font-medium text-cyan-dark hover:underline"
+                >
+                  Back to list
+                </button>
+              )}
+            </div>
+
+            {isCustomCategory ? (
+              <Input
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                placeholder="Enter custom category name"
+                required
+                autoFocus
+              />
+            ) : (
+              <Select
+                value={category}
+                onChange={(e) => {
+                  if (e.target.value === "__CUSTOM__") {
+                    setIsCustomCategory(true);
+                    setCategory("");
+                  } else {
+                    setCategory(e.target.value);
+                  }
+                }}
+                className="w-full bg-background"
+                required
+              >
+                {availableCategories.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+                <option value="__CUSTOM__">+ Enter Custom Category…</option>
+              </Select>
+            )}
+          </div>
+
+          {/* Material Name */}
           <div>
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Material Name *
@@ -211,37 +322,6 @@ export function RawMaterialModal({ material, onClose }: RawMaterialModalProps) {
               required
             />
           </div>
-
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Category *
-            </label>
-            <Input
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              placeholder="e.g. Banner, Sticker, Rigid Board, Ink, Hardware"
-              required
-            />
-          </div>
-        </div>
-
-        {/* Category Family */}
-        <div>
-          <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            <Layers size={13} className="text-cyan-dark" />
-            Category Family (Single Source of Truth) *
-          </label>
-          <Select
-            value={catalogFamily}
-            onChange={(e) => setCatalogFamily(e.target.value)}
-            className="w-full bg-background"
-          >
-            {CATEGORY_FAMILIES.map((fam) => (
-              <option key={fam.value} value={fam.value}>
-                {fam.label}
-              </option>
-            ))}
-          </Select>
         </div>
 
         {/* Dynamic Dimensions based on Category Family */}
