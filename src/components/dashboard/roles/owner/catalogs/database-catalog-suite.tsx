@@ -25,6 +25,7 @@ import {
   Lock,
   ShieldAlert,
   HelpCircle,
+  Trash2,
 } from "lucide-react";
 import { StatCard } from "@/components/shared/ui/stat-card";
 import { Panel, PanelHeader } from "@/components/shared/ui/panel";
@@ -1742,6 +1743,11 @@ export function DatabaseCatalogSuite() {
                 <option value="archived">Archived</option>
               </select>
             </div>
+
+            {/* Stage 5: Service Specification Fields */}
+            <div className="pt-4 border-t border-border/40">
+              <ServiceSpecFieldsManager serviceId={editingService.id} />
+            </div>
           </div>
         </SlidePanel>
       ) : null}
@@ -2948,6 +2954,275 @@ export function DatabaseCatalogSuite() {
           </div>
         </SlidePanel>
       ) : null}
+    </div>
+  );
+}
+
+function ServiceSpecFieldsManager({ serviceId }: { serviceId: string }) {
+  const specFields = useQuery(api.catalog.listServiceSpecFields, {
+    serviceId,
+    includeInactive: true,
+  });
+  const upsertField = useMutation(api.catalog.upsertServiceSpecField);
+  const toggleActive = useMutation(api.catalog.toggleServiceSpecFieldActive);
+  const deleteField = useMutation(api.catalog.deleteServiceSpecField);
+
+  const [isAdding, setIsAdding] = useState(false);
+  const [fieldKey, setFieldKey] = useState("");
+  const [labelEn, setLabelEn] = useState("");
+  const [labelAm, setLabelAm] = useState("");
+  const [optionsStr, setOptionsStr] = useState("");
+  const [required, setRequired] = useState(true);
+  const [sortOrder, setSortOrder] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!fieldKey.trim() || !labelEn.trim()) {
+      toast.error("Field Key and English Label are required.");
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const options = optionsStr
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+
+      await upsertField({
+        serviceId,
+        fieldKey: fieldKey.trim(),
+        labelEn: labelEn.trim(),
+        labelAm: labelAm.trim() || undefined,
+        options: options.length > 0 ? options : undefined,
+        required,
+        sortOrder: Number(sortOrder) || 1,
+        active: true,
+      });
+
+      toast.success(`Specification field "${fieldKey}" saved.`);
+      setFieldKey("");
+      setLabelEn("");
+      setLabelAm("");
+      setOptionsStr("");
+      setRequired(true);
+      setSortOrder((specFields?.length ?? 0) + 2);
+      setIsAdding(false);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to save specification field.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <span>Wizard Specification Fields</span>
+            <span className="text-xs font-mono bg-cyan/10 text-cyan px-2 py-0.5 rounded-full border border-cyan/20">
+              {specFields?.length ?? 0}
+            </span>
+          </h4>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Custom dropdowns & inputs presented in the Customer Order Wizard.
+          </p>
+        </div>
+        {!isAdding && (
+          <Button
+            size="small"
+            variant="secondary"
+            onClick={() => {
+              setSortOrder((specFields?.length ?? 0) + 1);
+              setIsAdding(true);
+            }}
+            className="text-xs h-8"
+          >
+            <PlusCircle className="h-3.5 w-3.5 mr-1" />
+            Add Field
+          </Button>
+        )}
+      </div>
+
+      {/* Field List */}
+      {specFields && specFields.length > 0 ? (
+        <div className="space-y-2">
+          {specFields.map((field: any) => (
+            <div
+              key={field._id}
+              className={`p-3 rounded-lg border text-xs transition-colors ${
+                field.active
+                  ? "border-border/60 bg-muted/20"
+                  : "border-border/30 bg-muted/5 opacity-60"
+              }`}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-foreground font-mono">{field.fieldKey}</span>
+                    <span className="text-muted-foreground">— {field.labelEn}</span>
+                    {field.labelAm && (
+                      <span className="text-neutral-400">({field.labelAm})</span>
+                    )}
+                    {field.required ? (
+                      <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 text-[10px] font-medium border border-amber-500/20">
+                        Required
+                      </span>
+                    ) : (
+                      <span className="px-1.5 py-0.5 rounded bg-neutral-500/10 text-neutral-400 text-[10px]">
+                        Optional
+                      </span>
+                    )}
+                  </div>
+                  {field.options && field.options.length > 0 && (
+                    <div className="flex flex-wrap gap-1 pt-1">
+                      {field.options.map((opt: string) => (
+                        <span
+                          key={opt}
+                          className="px-1.5 py-0.5 rounded bg-background text-neutral-300 text-[10px] border border-border"
+                        >
+                          {opt}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button
+                    size="small"
+                    variant="ghost"
+                    onClick={async () => {
+                      try {
+                        await toggleActive({ id: field._id, active: !field.active });
+                        toast.success(`Field ${field.active ? "deactivated" : "activated"}.`);
+                      } catch (err: any) {
+                        toast.error(err?.message || "Failed to update status.");
+                      }
+                    }}
+                    className="h-7 px-2 text-[11px]"
+                  >
+                    {field.active ? "Active" : "Disabled"}
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="ghost"
+                    onClick={async () => {
+                      if (!confirm(`Delete specification field "${field.fieldKey}"?`)) return;
+                      try {
+                        await deleteField({ id: field._id });
+                        toast.success("Field deleted.");
+                      } catch (err: any) {
+                        toast.error(err?.message || "Failed to delete.");
+                      }
+                    }}
+                    className="h-7 px-2 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="p-3 text-center rounded-lg border border-dashed border-border/40 text-xs text-muted-foreground">
+          No specification fields configured for this service.
+        </div>
+      )}
+
+      {/* Add Field Form */}
+      {isAdding && (
+        <form onSubmit={handleSave} className="p-3 rounded-lg border border-cyan/30 bg-cyan/5 space-y-3">
+          <div className="text-xs font-semibold text-cyan">New Specification Field</div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-[11px] text-muted-foreground mb-1">Field Key (camelCase)</label>
+              <input
+                type="text"
+                placeholder="e.g. powerSupply"
+                value={fieldKey}
+                onChange={(e) => setFieldKey(e.target.value)}
+                className="w-full rounded border border-border bg-background px-2.5 py-1.5 text-xs text-foreground font-mono focus:border-cyan focus:outline-none"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] text-muted-foreground mb-1">Sort Order</label>
+              <input
+                type="number"
+                value={sortOrder}
+                onChange={(e) => setSortOrder(Number(e.target.value))}
+                className="w-full rounded border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:border-cyan focus:outline-none"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-[11px] text-muted-foreground mb-1">Label [EN]</label>
+              <input
+                type="text"
+                placeholder="e.g. Power Supply"
+                value={labelEn}
+                onChange={(e) => setLabelEn(e.target.value)}
+                className="w-full rounded border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:border-cyan focus:outline-none"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] text-muted-foreground mb-1">Label [AM] (Optional)</label>
+              <input
+                type="text"
+                placeholder="e.g. የኃይል አቅርቦት"
+                value={labelAm}
+                onChange={(e) => setLabelAm(e.target.value)}
+                className="w-full rounded border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:border-cyan focus:outline-none"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-[11px] text-muted-foreground mb-1">Dropdown Options (comma-separated)</label>
+            <input
+              type="text"
+              placeholder="e.g. 100W, 200W, 300W, 400W"
+              value={optionsStr}
+              onChange={(e) => setOptionsStr(e.target.value)}
+              className="w-full rounded border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:border-cyan focus:outline-none"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="req-checkbox"
+              checked={required}
+              onChange={(e) => setRequired(e.target.checked)}
+              className="rounded border-border"
+            />
+            <label htmlFor="req-checkbox" className="text-xs text-foreground cursor-pointer">
+              Required field in customer wizard
+            </label>
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <Button
+              type="button"
+              variant="tertiary"
+              size="small"
+              onClick={() => setIsAdding(false)}
+              className="h-7 text-xs"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              size="small"
+              disabled={isSubmitting}
+              className="h-7 text-xs bg-cyan text-cyan-foreground hover:bg-cyan/90"
+            >
+              {isSubmitting ? "Saving..." : "Save Field"}
+            </Button>
+          </div>
+        </form>
+      )}
     </div>
   );
 }

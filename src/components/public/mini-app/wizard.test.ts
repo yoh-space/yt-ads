@@ -189,4 +189,25 @@ describe("Wizard Form and Payload Schemas", () => {
     expect(specSteps.indexOf("dimensions")).toBeLessThan(specSteps.indexOf("specifications"));
     expect(specSteps.indexOf("specifications")).toBeLessThan(specSteps.indexOf("artwork"));
   });
+
+  it("dynamically skips or includes specifications step when hasSpecifications is explicitly provided", () => {
+    // Custom database service with spec fields
+    const customWithSpecs = getActiveWizardSteps({
+      accountType: "individual",
+      serviceId: "custom_service_xyz",
+      hasSpecifications: true,
+    });
+    expect(customWithSpecs).toContain("specifications");
+    expect(nextStep("dimensions", { accountType: "individual", serviceId: "custom_service_xyz", hasSpecifications: true })).toBe("specifications");
+    expect(nextStep("specifications", { accountType: "individual", serviceId: "custom_service_xyz", hasSpecifications: true })).toBe("artwork");
+
+    // Custom database service without spec fields
+    const customWithoutSpecs = getActiveWizardSteps({
+      accountType: "individual",
+      serviceId: "custom_service_xyz",
+      hasSpecifications: false,
+    });
+    expect(customWithoutSpecs).not.toContain("specifications");
+    expect(nextStep("dimensions", { accountType: "individual", serviceId: "custom_service_xyz", hasSpecifications: false })).toBe("artwork");
+  });
 });

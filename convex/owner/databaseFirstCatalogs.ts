@@ -253,8 +253,282 @@ export async function validateServiceType(ctx: QueryCtx | MutationCtx, serviceId
     .first();
 
   if (service) return service.active;
-  return true;
+  return false;
 }
+
+export async function validateServiceSpecificationsAgainstDb(
+  ctx: QueryCtx | MutationCtx,
+  serviceId: string,
+  input?: Record<string, string>,
+): Promise<Record<string, string> | undefined> {
+  const service = await qTable(ctx, "serviceCatalog")
+    .withIndex("by_service_id", (q: any) => q.eq("id", serviceId))
+    .first();
+
+  if (!service || !service.active) {
+    throw new Error(`Service "${serviceId}" is not available in the service catalog.`);
+  }
+
+  const specFields: any[] = await qTable(ctx, "serviceSpecFields")
+    .withIndex("by_service", (q: any) => q.eq("serviceId", serviceId).eq("active", true))
+    .collect();
+
+  specFields.sort((a, b) => a.sortOrder - b.sortOrder);
+
+  if (specFields.length === 0) {
+    return input && Object.keys(input).length ? input : undefined;
+  }
+
+  if (!input) {
+    throw new Error(`Select the required material specifications for ${service.labelEn}.`);
+  }
+
+  const normalized: Record<string, string> = {};
+  for (const field of specFields) {
+    const value = input[field.fieldKey]?.trim();
+    if (field.required && !value) {
+      throw new Error(`${field.labelEn} is required.`);
+    }
+    if (value) {
+      if (field.options && field.options.length > 0 && !field.options.includes(value)) {
+        throw new Error(`${field.labelEn} must be selected from the confirmed options.`);
+      }
+      normalized[field.fieldKey] = value;
+    }
+  }
+
+  return normalized;
+}
+
+/**
+ * Authoritative customer-facing catalog query.
+ * Sourced directly from `serviceCatalog` and `serviceSpecFields`.
+ * Convex database is the single source of truth; no static fallback.
+ */
+export const getPublishedCatalog = query({
+  args: {},
+  handler: async (ctx) => {
+    const services: any[] = await qTable(ctx, "serviceCatalog")
+      .withIndex("by_active", (q: any) => q.eq("active", true))
+      .collect();
+
+    const publishable = services
+      .filter((s) => s.publishable)
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+
+    if (publishable.length === 0) {
+      return [];
+    }
+
+    const allSpecFields: any[] = await qTable(ctx, "serviceSpecFields").collect();
+    const activeSpecFields = allSpecFields.filter((f) => f.active);
+
+    const specFieldsByService = new Map<string, any[]>();
+    for (const field of activeSpecFields) {
+      const list = specFieldsByService.get(field.serviceId) ?? [];
+      list.push({
+        key: field.fieldKey,
+        label: field.labelEn,
+        labelEn: field.labelEn,
+        labelAm: field.labelAm,
+        materialName: field.materialName,
+        options: field.options ?? [],
+        required: field.required,
+        sortOrder: field.sortOrder,
+      });
+      specFieldsByService.set(field.serviceId, list);
+    }
+
+    for (const list of specFieldsByService.values()) {
+      list.sort((a, b) => a.sortOrder - b.sortOrder);
+    }
+
+    const categoryMap = new Map<
+      string,
+      {
+        categoryId: string;
+        categoryName: string;
+        categoryNameEn: string;
+        categoryNameAm: string;
+        iconKey?: string;
+        sortOrder: number;
+        items: any[];
+      }
+    >();
+
+    for (const svc of publishable) {
+      const catKey = svc.categoryKey;
+      let cat = categoryMap.get(catKey);
+      if (!cat) {
+        cat = {
+          categoryId: catKey,
+          categoryName: svc.categoryNameAm ?? svc.categoryNameEn,
+          categoryNameEn: svc.categoryNameEn,
+          categoryNameAm: svc.categoryNameAm ?? svc.categoryNameEn,
+          iconKey: svc.iconKey,
+          sortOrder: svc.sortOrder,
+          items: [],
+        };
+        categoryMap.set(catKey, cat);
+      }
+
+      cat.items.push({
+        id: svc.id,
+        label: svc.labelEn,
+        labelEn: svc.labelEn,
+        labelAm: svc.labelAm,
+        iconKey: svc.iconKey,
+        sortOrder: svc.sortOrder,
+        attributes: svc.attributes,
+        specFields: specFieldsByService.get(svc.id) ?? [],
+      });
+    }
+
+    return Array.from(categoryMap.values()).sort((a, b) => a.sortOrder - b.sortOrder);
+  },
+});
+
+// ─── Service Specification Fields (Owner Management) ──────────────────────
+
+export const listServiceSpecFields = query({
+  args: {
+    serviceId: v.string(),
+    includeInactive: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    let rows: any[] = await qTable(ctx, "serviceSpecFields")
+      .withIndex("by_service_all", (q: any) => q.eq("serviceId", args.serviceId))
+      .collect();
+
+    if (!args.includeInactive) {
+      rows = rows.filter((r) => r.active);
+    }
+    return rows.sort((a, b) => a.sortOrder - b.sortOrder);
+  },
+});
+
+export const upsertServiceSpecField = mutation({
+  args: {
+    serviceId: v.string(),
+    fieldKey: v.string(),
+    labelEn: v.string(),
+    labelAm: v.optional(v.string()),
+    materialName: v.optional(v.string()),
+    options: v.optional(v.array(v.string())),
+    required: v.boolean(),
+    sortOrder: v.number(),
+    active: v.boolean(),
+    expectedUpdatedAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const { profile } = await requireOwner(ctx);
+    const now = Date.now();
+    const serviceId = normalizeText(args.serviceId);
+    const fieldKey = normalizeText(args.fieldKey);
+    const labelEn = normalizeText(args.labelEn);
+    const labelAm = args.labelAm ? normalizeText(args.labelAm) : undefined;
+    const materialName = args.materialName ? normalizeText(args.materialName) : undefined;
+
+    if (!serviceId) throw new Error("Service ID is required.");
+    if (!fieldKey) throw new Error("Field key is required.");
+    if (!labelEn) throw new Error("English label is required.");
+
+    const service = await qTable(ctx, "serviceCatalog")
+      .withIndex("by_service_id", (q: any) => q.eq("id", serviceId))
+      .first();
+    if (!service) throw new Error(`Service "${serviceId}" does not exist in serviceCatalog.`);
+
+    const existing = await qTable(ctx, "serviceSpecFields")
+      .withIndex("by_service_all", (q: any) => q.eq("serviceId", serviceId))
+      .filter((q: any) => q.eq(q.field("fieldKey"), fieldKey))
+      .first();
+
+    if (existing && args.expectedUpdatedAt !== undefined && existing.updatedAt !== args.expectedUpdatedAt) {
+      throw new Error("CONFIG_CONFLICT: Specification field was modified since you opened it. Reload to review changes.");
+    }
+
+    const payload = {
+      serviceId,
+      fieldKey,
+      labelEn,
+      labelAm,
+      materialName,
+      options: args.options?.map((o) => normalizeText(o)).filter(Boolean),
+      required: args.required,
+      sortOrder: args.sortOrder,
+      active: args.active,
+      updatedAt: now,
+    };
+
+    let resultId: string;
+    if (existing) {
+      await ctx.db.patch(existing._id, payload);
+      resultId = existing._id;
+      await logConfigChange(ctx, {
+        entityType: "spec_field",
+        entityId: `${serviceId}:${fieldKey}`,
+        action: "update",
+        fieldChanges: computeFieldChanges(existing, payload),
+        changedBy: profile._id,
+      });
+    } else {
+      resultId = await ctx.db.insert("serviceSpecFields", {
+        ...payload,
+        createdAt: now,
+      });
+      await logConfigChange(ctx, {
+        entityType: "spec_field",
+        entityId: `${serviceId}:${fieldKey}`,
+        action: "create",
+        changedBy: profile._id,
+      });
+    }
+
+    return resultId;
+  },
+});
+
+export const toggleServiceSpecFieldActive = mutation({
+  args: {
+    id: v.id("serviceSpecFields"),
+    active: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const { profile } = await requireOwner(ctx);
+    const item = await ctx.db.get(args.id);
+    if (!item) throw new Error("Specification field not found.");
+
+    const now = Date.now();
+    await ctx.db.patch(args.id, { active: args.active, updatedAt: now });
+    await logConfigChange(ctx, {
+      entityType: "spec_field",
+      entityId: `${item.serviceId}:${item.fieldKey}`,
+      action: args.active ? "update" : "deactivate",
+      fieldChanges: { active: { from: item.active, to: args.active } },
+      changedBy: profile._id,
+    });
+  },
+});
+
+export const deleteServiceSpecField = mutation({
+  args: {
+    id: v.id("serviceSpecFields"),
+  },
+  handler: async (ctx, args) => {
+    const { profile } = await requireOwner(ctx);
+    const item = await ctx.db.get(args.id);
+    if (!item) throw new Error("Specification field not found.");
+
+    await ctx.db.delete(args.id);
+    await logConfigChange(ctx, {
+      entityType: "spec_field",
+      entityId: `${item.serviceId}:${item.fieldKey}`,
+      action: "deactivate",
+      fieldChanges: { deleted: { from: false, to: true } },
+      changedBy: profile._id,
+    });
+  },
+});
 
 // ─── Phase 2: Material Specifications Catalog Endpoints ────────────────────
 

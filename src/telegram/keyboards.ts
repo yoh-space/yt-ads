@@ -1,7 +1,5 @@
 import { InlineKeyboard, Keyboard } from "grammy";
 import type { Language } from "./types";
-import { getServiceLabel, SERVICE_CATEGORIES } from "@/constants/services";
-import type { ServiceSpecificationField } from "@/shared/service-specifications";
 
 export const REPLY_NEW_ORDER = "main.order";
 export const REPLY_MINI_APP = "main.miniapp";
@@ -75,28 +73,51 @@ export function shareContactKeyboard(): Keyboard {
   return new Keyboard().requestContact(SHARE_CONTACT_LABEL).resized();
 }
 
-export function servicePicker(lang: Language): InlineKeyboard {
+export interface PublishedCategoryItem {
+  id: string;
+  label: string;
+  labelEn?: string;
+  labelAm?: string;
+}
+
+export interface PublishedCategoryGroup {
+  categoryId: string;
+  categoryName: string;
+  categoryNameEn?: string;
+  categoryNameAm?: string;
+  items: PublishedCategoryItem[];
+}
+
+export interface SpecificationPickerField {
+  key: string;
+  label: string;
+  labelEn?: string;
+  labelAm?: string;
+  options: readonly string[] | string[];
+}
+
+export function servicePicker(lang: Language, catalog: PublishedCategoryGroup[]): InlineKeyboard {
   const keyboard = new InlineKeyboard();
-  for (const cat of SERVICE_CATEGORIES) {
-    // Telegram inline keyboards have no disabled label element, so headers use
-    // a harmless callback that the bot acknowledges without changing the flow.
-    keyboard.text(`▰ ${cat.categoryName}`, `category:${cat.categoryId}`).row();
-    // Add sub-service buttons in rows of up to 2
+  for (const cat of catalog) {
+    const catName = lang === "am" ? (cat.categoryNameAm || cat.categoryName) : (cat.categoryNameEn || cat.categoryName);
+    keyboard.text(`▰ ${catName}`, `category:${cat.categoryId}`).row();
     let rowCount = 0;
     for (const svc of cat.items) {
-      const label = getServiceLabel(svc.id, lang === "am" ? "am" : "en") ?? svc.label;
-      // callback data: srv:<id>
+      const label = lang === "am" ? (svc.labelAm || svc.labelEn || svc.label) : (svc.labelEn || svc.label);
       keyboard.text(label, `srv:${svc.id}`);
       rowCount += 1;
       if (rowCount % 2 === 0) keyboard.row();
     }
-    // Ensure a row break between categories
     keyboard.row();
   }
   return keyboard.text("❌ " + (lang === "am" ? "ሰርዝ" : "Cancel"), "flow:cancel");
 }
 
-export function specificationPicker(field: ServiceSpecificationField, fieldIndex: number, lang: Language): InlineKeyboard {
+export function specificationPicker(
+  field: SpecificationPickerField,
+  fieldIndex: number,
+  lang: Language,
+): InlineKeyboard {
   const keyboard = new InlineKeyboard();
   field.options.forEach((option, optionIndex) => {
     keyboard.text(option, `spec:${fieldIndex}:${optionIndex}`).row();

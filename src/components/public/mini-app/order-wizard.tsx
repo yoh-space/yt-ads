@@ -82,6 +82,8 @@ export function OrderWizard({
   const verifiedPhone = launchPhone ?? userProfile?.phone ?? null;
   const phoneReady = Boolean(verifiedPhone);
 
+  const publishedCatalog = useQuery(api.catalog.getPublishedCatalog, {});
+
   const [step, setStep] = useState<WizardStep>(isEdit ? "category" : "welcome");
   const [file, setFile] = useState<File | null>(null);
   const [fileUrl, setFileUrl] = useState<string | null>(null);
@@ -162,14 +164,31 @@ export function OrderWizard({
     return null;
   }, [currentValues.length, currentValues.width, currentValues.quantity]);
 
-  const serviceFields = useMemo(() => {
-    if (!currentValues.serviceId) return [];
-    const { serviceSpecificationFields } = require("@/shared/service-specifications");
-    return serviceSpecificationFields(currentValues.serviceId as string);
-  }, [currentValues.serviceId]);
+  const allServices = useMemo(() => {
+    if (!publishedCatalog) return [];
+    return publishedCatalog.flatMap((cat: any) => cat.items ?? []);
+  }, [publishedCatalog]);
 
-  const currentStepIdx = stepNumber(step, { accountType: currentValues.accountType, serviceId: currentValues.serviceId });
-  const totalStepsCount = totalSteps({ accountType: currentValues.accountType, serviceId: currentValues.serviceId });
+  const selectedService = useMemo(() => {
+    if (!currentValues.serviceId) return undefined;
+    return allServices.find((s: any) => s.id === currentValues.serviceId);
+  }, [allServices, currentValues.serviceId]);
+
+  const serviceFields = useMemo(() => {
+    return selectedService?.specFields ?? [];
+  }, [selectedService]);
+
+  const navOptions = useMemo(
+    () => ({
+      accountType: currentValues.accountType,
+      serviceId: currentValues.serviceId,
+      hasSpecifications: serviceFields.length > 0,
+    }),
+    [currentValues.accountType, currentValues.serviceId, serviceFields.length],
+  );
+
+  const currentStepIdx = stepNumber(step, navOptions);
+  const totalStepsCount = totalSteps(navOptions);
 
   const goNext = async () => {
     setError(null);
@@ -177,8 +196,7 @@ export function OrderWizard({
     const ok = await trigger(fieldsToValidate);
     if (!ok) return;
 
-    // Block widths that cannot fit any available roll before advancing, so the
-    // customer fixes the size instead of the order being rejected on submit.
+    // Block widths that cannot fit any available roll before advancing
     if (step === "dimensions" && currentValues.serviceId && currentValues.width) {
       try {
         const { resolveRollSubstrate } = require("@/shared/roll-width");
@@ -189,7 +207,7 @@ export function OrderWizard({
       }
     }
 
-    const next = nextStep(step, { accountType: currentValues.accountType, serviceId: currentValues.serviceId });
+    const next = nextStep(step, navOptions);
     if (next) {
       // When changing service selection, warn about clearing incompatible specs
       if (step === "service") {
@@ -214,7 +232,7 @@ export function OrderWizard({
   };
 
   const goBack = () => {
-    const prev = prevStep(step, { accountType: currentValues.accountType, serviceId: currentValues.serviceId });
+    const prev = prevStep(step, navOptions);
     if (prev) setStep(prev);
   };
 
@@ -339,6 +357,38 @@ export function OrderWizard({
     }
   }
 
+  if (publishedCatalog === undefined) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center space-y-4 p-8 text-center bg-[#0C0D10] min-h-[400px]">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#E5C07B] border-t-transparent" />
+        <p className="font-mono text-xs text-neutral-400">Loading services...</p>
+      </div>
+    );
+  }
+
+  if (publishedCatalog.length === 0) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center space-y-4 p-8 text-center bg-[#0C0D10] min-h-[400px]">
+        <div className="h-12 w-12 rounded-full bg-[#1A1C23] flex items-center justify-center text-[#E5C07B] text-xl font-bold">
+          YT
+        </div>
+        <h2 className="text-base font-semibold text-white">አገልግሎቶች በቅርቡ ይለቀቃሉ</h2>
+        <p className="max-w-xs text-xs text-neutral-400">
+          No services are currently published for ordering. Please contact reception or check back shortly.
+        </p>
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="h-10 px-6 rounded-sm border border-white/[0.1] font-mono text-xs text-neutral-300 hover:bg-white/[0.05] transition-colors"
+          >
+            Close
+          </button>
+        )}
+      </div>
+    );
+  }
+
   const StepComponent = StepRegistry[step];
 
   return (
@@ -373,6 +423,9 @@ export function OrderWizard({
           fileStorageId={fileStorageId}
           onFileChange={setFile}
           estimatedArea={estimatedArea}
+          categories={publishedCatalog}
+          allServices={allServices}
+          selectedService={selectedService}
           serviceFields={serviceFields}
           orders={undefined}
           onBack={goBack}
