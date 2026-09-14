@@ -1,6 +1,28 @@
 import { mutation, query } from "../_generated/server";
 import { v } from "convex/values";
+import type { Id } from "../_generated/dataModel";
 import { requireOwner } from "../users";
+import { unit, purchaseUnit, materialCatalogFamily } from "../schema";
+
+function deriveSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+function resolveInventoryUnitType(
+  family: string,
+  purchaseUnitValue?: string
+): "ROLL" | "SHEET" | "LITER" {
+  const normFam = family.toUpperCase();
+  const normPu = (purchaseUnitValue ?? "").toLowerCase();
+
+  if (normFam === "ROLL" || normPu === "roll") return "ROLL";
+  if (normFam === "RIGID_SHEET" || normPu === "sheet" || normFam === "BARS") return "SHEET";
+  return "LITER";
+}
 
 /**
  * Simple materials summary for the owner operational-configuration page.
@@ -123,5 +145,390 @@ export const updateReorderPolicy = mutation({
       createdAt: Date.now(),
     });
     return { id: material._id, reorderAt, reorderPolicy: args.reorderPolicy };
+  },
+});
+
+export const listRawMaterials = query({
+  args: {
+    includeInactive: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    await requireOwner(ctx);
+    const materials = await ctx.db.query("materials").collect();
+    const parents = await ctx.db.query("parentInventory").collect();
+    const parentByMaterial = new Map(parents.map((p) => [p.materialId, p]));
+
+    const filtered = args.includeInactive
+      ? materials
+      : materials.filter((m) => m.active);
+
+    return filtered
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((m) => {
+        const parent = parentByMaterial.get(m._id);
+        return {
+          _id: m._id,
+          catalogMaterialId: m.catalogMaterialId,
+          name: m.name,
+          category: m.category,
+          catalogFamily: m.catalogFamily ?? "ROLL",
+          unit: m.unit,
+          baseUnit: m.baseUnit ?? m.unit,
+          purchaseUnit: m.purchaseUnit ?? "roll",
+          packageUnit: m.packageUnit,
+          packageSize: m.packageSize,
+          packageLabel: m.packageLabel,
+          conversionRatio: m.conversionRatio ?? 1,
+          quantity: m.quantity,
+          parentStockQuantity: parent?.totalStockQuantity ?? 0,
+          parentUnitType: parent?.unitType,
+          reorderAt: m.reorderAt,
+          rollWidth: m.rollWidth,
+          sheetWidth: m.sheetWidth,
+          sheetLength: m.sheetLength,
+          storageLocation: m.storageLocation ?? "Central store",
+          displayUnit: m.displayUnit,
+          averageUse: m.averageUse,
+          active: m.active,
+        };
+      });
+  },
+});
+
+export const createRawMaterial = mutation({
+  args: {
+    name: v.string(),
+    category: v.string(),
+    catalogFamily: materialCatalogFamily,
+    unit: unit,
+    baseUnit: v.optional(unit),
+    purchaseUnit: v.optional(purchaseUnit),
+    conversionRatio: v.number(),
+    rollWidth: v.optional(v.number()),
+    sheetWidth: v.optional(v.number()),
+    sheetLength: v.optional(v.number()),
+    thickness: v.optional(v.number()),
+    reorderAt: v.number(),
+    storageLocation: v.optional(v.string()),
+    displayUnit: v.optional(v.string()),
+    averageUse: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { profile } = await requireOwner(ctx);
+    const name = args.name.trim();
+    if (!name) throw new Error("Material name is required.");
+    if (args.conversionRatio <= 0) throw new Error("Conversion ratio must be greater than 0.");
+    if (args.reorderAt < 0) throw new Error("Reorder level must be 0 or greater.");
+
+    const existing = await ctx.db
+      .query("materials")
+      .withIndex("by_name", (q) => q.eq("name", name))
+      .first();
+    if (existing && existing.active) {
+      throw new Error(`An active material named "${name}" already exists.`);
+    }
+
+    const now = Date.now();
+    const slug = deriveSlug(name);
+    const baseUnitVal = args.baseUnit ?? args.unit;
+    const purchaseUnitVal = args.purchaseUnit ?? "roll";
+
+    // 1. Upsert into materialCatalog (Blueprint)
+    let catalogId: Id<"materialCatalog">;
+    const existingCatalog = await ctx.db
+      .query("materialCatalog")
+      .withIndex("by_material_id", (q) => q.eq("id", slug))
+      .first();
+
+    if (existingCatalog) {
+      catalogId = existingCatalog._id;
+      await ctx.db.patch(catalogId, {
+        name,
+        category: args.category,
+        catalogFamily: args.catalogFamily,
+        baseUnit: baseUnitVal,
+        purchaseUnit: purchaseUnitVal,
+        conversionRatio: args.conversionRatio,
+        rollWidth: args.rollWidth,
+        sheetWidth: args.sheetWidth,
+        sheetLength: args.sheetLength,
+        thickness: args.thickness,
+        storageLocation: args.storageLocation,
+        averageUse: args.averageUse,
+        active: true,
+        updatedAt: now,
+      });
+    } else {
+      catalogId = await ctx.db.insert("materialCatalog", {
+        id: slug,
+        name,
+        category: args.category,
+        catalogFamily: args.catalogFamily,
+        baseUnit: baseUnitVal,
+        purchaseUnit: purchaseUnitVal,
+        conversionRatio: args.conversionRatio,
+        rollWidth: args.rollWidth,
+        sheetWidth: args.sheetWidth,
+        sheetLength: args.sheetLength,
+        thickness: args.thickness,
+        storageLocation: args.storageLocation,
+        averageUse: args.averageUse,
+        active: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
+    // 2. Upsert into materials (Operational Entity)
+    let materialId: Id<"materials">;
+    if (existing) {
+      materialId = existing._id;
+      await ctx.db.patch(materialId, {
+        catalogMaterialId: catalogId,
+        category: args.category,
+        catalogFamily: args.catalogFamily,
+        unit: args.unit,
+        baseUnit: baseUnitVal,
+        purchaseUnit: purchaseUnitVal,
+        conversionRatio: args.conversionRatio,
+        rollWidth: args.rollWidth,
+        sheetWidth: args.sheetWidth,
+        sheetLength: args.sheetLength,
+        reorderAt: args.reorderAt,
+        storageLocation: args.storageLocation,
+        displayUnit: args.displayUnit,
+        averageUse: args.averageUse,
+        active: true,
+      });
+    } else {
+      materialId = await ctx.db.insert("materials", {
+        catalogMaterialId: catalogId,
+        name,
+        category: args.category,
+        catalogFamily: args.catalogFamily,
+        unit: args.unit,
+        baseUnit: baseUnitVal,
+        purchaseUnit: purchaseUnitVal,
+        conversionRatio: args.conversionRatio,
+        rollWidth: args.rollWidth,
+        sheetWidth: args.sheetWidth,
+        sheetLength: args.sheetLength,
+        quantity: 0,
+        reorderAt: args.reorderAt,
+        storageLocation: args.storageLocation,
+        displayUnit: args.displayUnit,
+        averageUse: args.averageUse,
+        accent: "cyan",
+        active: true,
+      });
+    }
+
+    // 3. Upsert into parentInventory (Store Packaging Units)
+    const unitType = resolveInventoryUnitType(args.catalogFamily, purchaseUnitVal);
+    const existingParent = await ctx.db
+      .query("parentInventory")
+      .withIndex("by_material", (q) => q.eq("materialId", materialId))
+      .first();
+
+    if (existingParent) {
+      await ctx.db.patch(existingParent._id, {
+        unitType,
+        lengthPerRoll: unitType === "ROLL" ? (args.conversionRatio ?? args.rollWidth) : undefined,
+        areaPerSheet: unitType === "SHEET" ? args.conversionRatio : undefined,
+        volumePerContainer: unitType === "LITER" ? (args.conversionRatio ?? 1) : undefined,
+        updatedAt: now,
+      });
+    } else {
+      await ctx.db.insert("parentInventory", {
+        materialId,
+        unitType,
+        totalStockQuantity: 0,
+        lengthPerRoll: unitType === "ROLL" ? (args.conversionRatio ?? args.rollWidth) : undefined,
+        areaPerSheet: unitType === "SHEET" ? args.conversionRatio : undefined,
+        volumePerContainer: unitType === "LITER" ? (args.conversionRatio ?? 1) : undefined,
+        updatedAt: now,
+      });
+    }
+
+    await ctx.db.insert("configurationChanges", {
+      configKey: `material:${materialId}`,
+      changedFields: ["created", "name", "catalogFamily", "category"],
+      reason: `Owner created raw material "${name}"`,
+      actorAuthUserId: profile.authUserId,
+      createdAt: now,
+    });
+
+    return { materialId, catalogId };
+  },
+});
+
+export const updateRawMaterial = mutation({
+  args: {
+    materialId: v.id("materials"),
+    name: v.string(),
+    category: v.string(),
+    catalogFamily: materialCatalogFamily,
+    unit: unit,
+    baseUnit: v.optional(unit),
+    purchaseUnit: v.optional(purchaseUnit),
+    conversionRatio: v.number(),
+    rollWidth: v.optional(v.number()),
+    sheetWidth: v.optional(v.number()),
+    sheetLength: v.optional(v.number()),
+    thickness: v.optional(v.number()),
+    reorderAt: v.number(),
+    storageLocation: v.optional(v.string()),
+    displayUnit: v.optional(v.string()),
+    averageUse: v.optional(v.string()),
+    active: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const { profile } = await requireOwner(ctx);
+    const material = await ctx.db.get(args.materialId);
+    if (!material) throw new Error("Material not found.");
+
+    const name = args.name.trim();
+    if (!name) throw new Error("Material name is required.");
+    if (args.conversionRatio <= 0) throw new Error("Conversion ratio must be greater than 0.");
+    if (args.reorderAt < 0) throw new Error("Reorder level must be 0 or greater.");
+
+    const now = Date.now();
+    const baseUnitVal = args.baseUnit ?? args.unit;
+    const purchaseUnitVal = args.purchaseUnit ?? material.purchaseUnit ?? "roll";
+
+    // 1. Update materials record
+    await ctx.db.patch(material._id, {
+      name,
+      category: args.category,
+      catalogFamily: args.catalogFamily,
+      unit: args.unit,
+      baseUnit: baseUnitVal,
+      purchaseUnit: purchaseUnitVal,
+      conversionRatio: args.conversionRatio,
+      rollWidth: args.rollWidth,
+      sheetWidth: args.sheetWidth,
+      sheetLength: args.sheetLength,
+      reorderAt: args.reorderAt,
+      storageLocation: args.storageLocation,
+      displayUnit: args.displayUnit,
+      averageUse: args.averageUse,
+      active: args.active,
+    });
+
+    // 2. Update linked materialCatalog
+    if (material.catalogMaterialId) {
+      await ctx.db.patch(material.catalogMaterialId, {
+        name,
+        category: args.category,
+        catalogFamily: args.catalogFamily,
+        baseUnit: baseUnitVal,
+        purchaseUnit: purchaseUnitVal,
+        conversionRatio: args.conversionRatio,
+        rollWidth: args.rollWidth,
+        sheetWidth: args.sheetWidth,
+        sheetLength: args.sheetLength,
+        thickness: args.thickness,
+        storageLocation: args.storageLocation,
+        averageUse: args.averageUse,
+        active: args.active,
+        updatedAt: now,
+      });
+    }
+
+    // 3. Update parentInventory
+    const unitType = resolveInventoryUnitType(args.catalogFamily, purchaseUnitVal);
+    const parent = await ctx.db
+      .query("parentInventory")
+      .withIndex("by_material", (q) => q.eq("materialId", material._id))
+      .first();
+
+    if (parent) {
+      await ctx.db.patch(parent._id, {
+        unitType,
+        lengthPerRoll: unitType === "ROLL" ? (args.conversionRatio ?? args.rollWidth) : undefined,
+        areaPerSheet: unitType === "SHEET" ? args.conversionRatio : undefined,
+        volumePerContainer: unitType === "LITER" ? (args.conversionRatio ?? 1) : undefined,
+        updatedAt: now,
+      });
+    } else if (args.active) {
+      await ctx.db.insert("parentInventory", {
+        materialId: material._id,
+        unitType,
+        totalStockQuantity: 0,
+        lengthPerRoll: unitType === "ROLL" ? (args.conversionRatio ?? args.rollWidth) : undefined,
+        areaPerSheet: unitType === "SHEET" ? args.conversionRatio : undefined,
+        volumePerContainer: unitType === "LITER" ? (args.conversionRatio ?? 1) : undefined,
+        updatedAt: now,
+      });
+    }
+
+    await ctx.db.insert("configurationChanges", {
+      configKey: `material:${material._id}`,
+      changedFields: ["name", "category", "catalogFamily", "conversionRatio", "active"],
+      reason: `Owner updated raw material "${name}"`,
+      actorAuthUserId: profile.authUserId,
+      createdAt: now,
+    });
+
+    return { success: true };
+  },
+});
+
+export const deleteRawMaterial = mutation({
+  args: {
+    materialId: v.id("materials"),
+    force: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const { profile } = await requireOwner(ctx);
+    const material = await ctx.db.get(args.materialId);
+    if (!material) throw new Error("Material not found.");
+
+    const now = Date.now();
+
+    // Check if used by stock movements or active job cards
+    const movements = await ctx.db
+      .query("stock_movements")
+      .withIndex("by_material_created", (q) => q.eq("materialId", material._id))
+      .first();
+
+    const jobs = await ctx.db
+      .query("jobCards")
+      .filter((q) => q.eq(q.field("materialId"), material._id))
+      .first();
+
+    const hasHistory = Boolean(movements || jobs);
+
+    if (hasHistory && !args.force) {
+      // Soft delete to protect ledger history integrity
+      await ctx.db.patch(material._id, { active: false });
+      if (material.catalogMaterialId) {
+        await ctx.db.patch(material.catalogMaterialId, { active: false, updatedAt: now });
+      }
+      return { action: "deactivated", message: "Material deactivated to preserve historical stock records." };
+    }
+
+    // Completely unused or forced: remove
+    await ctx.db.delete(material._id);
+    if (material.catalogMaterialId) {
+      await ctx.db.delete(material.catalogMaterialId);
+    }
+    const parent = await ctx.db
+      .query("parentInventory")
+      .withIndex("by_material", (q) => q.eq("materialId", material._id))
+      .first();
+    if (parent) {
+      await ctx.db.delete(parent._id);
+    }
+
+    await ctx.db.insert("configurationChanges", {
+      configKey: `material:${material._id}`,
+      changedFields: ["deleted"],
+      reason: `Owner deleted raw material "${material.name}"`,
+      actorAuthUserId: profile.authUserId,
+      createdAt: now,
+    });
+
+    return { action: "deleted", message: "Material successfully deleted." };
   },
 });

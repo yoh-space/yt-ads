@@ -32,6 +32,8 @@ export const materialCatalogFamily = v.union(
   v.literal("HARDWARE"),
   v.literal("ILLUMINATED_DISPLAY_SYSTEM"),
   v.literal("SIGNAGE_FRAME_PROFILE"),
+  v.literal("BARS"),
+  v.literal("PACKAGES"),
 );
 
 export const materialFamily = v.union(

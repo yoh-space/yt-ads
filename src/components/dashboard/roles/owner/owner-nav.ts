@@ -17,6 +17,7 @@ export const ownerNavItems: WorkspaceNavItem[] = [
 
   // Configuration
   { href: "/dashboard/owner/operational-configuration", label: "የሥራ ማስተካከያ",  english: "Operational Configuration", icon: "slidersHorizontal", section: "Configuration" },
+  { href: "/dashboard/owner/raw-materials",             label: "ጥሬ ዕቃዎች",        english: "Raw Materials",              icon: "boxes",              section: "Configuration" },
 
   // Administration
   { href: "/dashboard/owner/team",                      label: "የሥራ ቡድን",      english: "Team",                       icon: "users",              section: "Administration" },
