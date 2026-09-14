@@ -105,9 +105,40 @@ describe("operator namespace machine scoping", () => {
     ).toThrow("This machine is not assigned to your operator role.");
   });
 
-  it("rejects an unknown machine slug", () => {
-    expect(() => resolveMachineForRole([PRINTER_MACHINE], "uv", "crystal_jet_operator")).toThrow(
+  it("rejects an unknown machine slug when no machine exists for the role", () => {
+    // "uv" matches no code/type/name, and the only available machine belongs to a
+    // different operator role, so neither slug nor role fallback can resolve it.
+    expect(() => resolveMachineForRole([PRINTER_MACHINE], "uv", "dtf_operator")).toThrow(
       "Machine not found."
+    );
+  });
+
+  it("resolves role-derived slugs that no machine code, type or name tracks", () => {
+    const CrystekMachine: OperatorMachine = {
+      _id: "id_machines_crystek",
+      name: "Crystc Eco-Solvent Printer",
+      code: "CESP-01",
+      type: "Eco-Solvent Printer & Cutter",
+      operatorRole: "crystek_operator",
+      status: "Available",
+      materialUnit: "m²",
+      active: true,
+    };
+    const RicohUvMachine: OperatorMachine = {
+      _id: "id_machines_ricoh",
+      name: "Ricoh Flatbed UV Machine",
+      code: "RUV-01",
+      type: "UV Flatbed Printer",
+      operatorRole: "ricoh_uv_operator",
+      status: "Available",
+      materialUnit: "m²",
+      active: true,
+    };
+    expect(resolveMachineForRole([PRINTER_MACHINE, CrystekMachine], "crystek", "crystek_operator")._id).toBe(
+      "id_machines_crystek"
+    );
+    expect(resolveMachineForRole([PRINTER_MACHINE, RicohUvMachine], "ricoh_uv", "ricoh_uv_operator")._id).toBe(
+      "id_machines_ricoh"
     );
   });
 

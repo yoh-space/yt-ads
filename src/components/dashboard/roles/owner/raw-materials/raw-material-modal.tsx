@@ -98,6 +98,7 @@ export function RawMaterialModal({ material, onClose }: RawMaterialModalProps) {
   const [purchaseUnit, setPurchaseUnit] = useState(material?.purchaseUnit ?? "roll");
   const [conversionRatio, setConversionRatio] = useState(material?.conversionRatio?.toString() ?? "50");
   const [rollWidth, setRollWidth] = useState(material?.rollWidth?.toString() ?? "3.2");
+  const [rollLength, setRollLength] = useState("50");
   const [sheetWidth, setSheetWidth] = useState(material?.sheetWidth?.toString() ?? "");
   const [sheetLength, setSheetLength] = useState(material?.sheetLength?.toString() ?? "");
   const [thickness, setThickness] = useState(material?.thickness?.toString() ?? "");
@@ -118,6 +119,16 @@ export function RawMaterialModal({ material, onClose }: RawMaterialModalProps) {
     }
   }, [material, availableCategories]);
 
+  // Auto-calculate Conversion Ratio (Roll Width × Standard Roll Length) for ROLL family
+  useEffect(() => {
+    if (catalogFamily !== "ROLL") return;
+    const width = parseFloat(rollWidth);
+    const length = parseFloat(rollLength);
+    if (Number.isFinite(width) && Number.isFinite(length) && width > 0 && length > 0) {
+      setConversionRatio(String(Math.round(width * length * 10) / 10));
+    }
+  }, [catalogFamily, rollWidth, rollLength]);
+
   // When catalogFamily changes in create mode, automatically auto-fill corresponding category & units
   function handleFamilyChange(newFamily: string) {
     setCatalogFamily(newFamily);
@@ -131,8 +142,9 @@ export function RawMaterialModal({ material, onClose }: RawMaterialModalProps) {
     if (newFamily === "ROLL") {
       setUnit("m²");
       setPurchaseUnit("roll");
-      setConversionRatio("50");
       setRollWidth("3.2");
+      setRollLength("50");
+      setConversionRatio("160");
     } else if (newFamily === "RIGID_SHEET") {
       setUnit("m²");
       setPurchaseUnit("sheet");
@@ -245,7 +257,7 @@ export function RawMaterialModal({ material, onClose }: RawMaterialModalProps) {
         <div>
           <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             <Layers size={13} className="text-cyan-dark" />
-            Category Family (Single Source of Truth) *
+            Category Family *
           </label>
           <Select
             value={catalogFamily}
@@ -355,14 +367,13 @@ export function RawMaterialModal({ material, onClose }: RawMaterialModalProps) {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs text-muted-foreground">Standard Area Per Roll (m²)</label>
+                <label className="mb-1 block text-xs text-muted-foreground">Standard Roll Length (m)</label>
                 <Input
                   type="number"
-                  step="0.1"
-                  value={conversionRatio}
-                  onChange={(e) => setConversionRatio(e.target.value)}
-                  placeholder="e.g. 160"
-                  required
+                  step="0.01"
+                  value={rollLength}
+                  onChange={(e) => setRollLength(e.target.value)}
+                  placeholder="50"
                 />
               </div>
             </div>
@@ -487,9 +498,13 @@ export function RawMaterialModal({ material, onClose }: RawMaterialModalProps) {
               type="number"
               step="0.001"
               value={conversionRatio}
-              onChange={(e) => setConversionRatio(e.target.value)}
+              onChange={(e) => {
+                if (catalogFamily !== "ROLL") setConversionRatio(e.target.value);
+              }}
               placeholder="e.g. 50"
               required
+              readOnly={catalogFamily === "ROLL"}
+              className={cn(catalogFamily === "ROLL" && "bg-secondary/40 cursor-not-allowed")}
             />
           </div>
         </div>

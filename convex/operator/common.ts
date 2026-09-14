@@ -41,6 +41,11 @@ export function resolveMachineForRole(
 ): OperatorMachine {
   const trimmed = machineSlug.trim();
   const normalized = trimmed.toLowerCase();
+  // Role-derived slugs use underscores/dashes (e.g. "crystal_jet", "ricoh_uv").
+  // Strip non-alphanumeric characters so they can match a machine's name,
+  // code or type after a rename or reseed.
+  const slugKey = normalized.replace(/[^a-z0-9]/g, "");
+  const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
 
   // 1. Exact database machineId match
   let machine = machines.find((entry) => entry._id === trimmed);
@@ -50,17 +55,33 @@ export function resolveMachineForRole(
     machine = machines.find((entry) => entry.code.toLowerCase() === normalized);
   }
 
-  // 3. Legacy slug substring compatibility with ambiguity rejection
+  // 3. Legacy slug substring compatibility with ambiguity rejection.
+  //    The normalized slug is matched against the normalized code, type and
+  //    name so a role-derived slug still resolves even when the machine's
+  //    code or type has drifted from the URL contract.
   if (!machine) {
     const matches = machines.filter(
       (entry) =>
-        entry.code.toLowerCase().includes(normalized) ||
-        entry.type.toLowerCase().includes(normalized),
+        normalize(entry.code).includes(slugKey) ||
+        normalize(entry.type).includes(slugKey) ||
+        normalize(entry.name).includes(slugKey),
     );
     if (matches.length > 1) {
       throw new Error(`AMBIGUOUS_MACHINE_SCOPE: Multiple machines match the slug "${machineSlug}".`);
     }
     machine = matches[0];
+  }
+
+  // 4. Operator-role fallback: each production operator role maps to exactly
+  //    one machine. When the slug no longer tracks the machine's code, type or
+  //    name (e.g. after a reseed), resolve by the caller's role so the
+  //    role-derived URL contract (/dashboard/operator/<role-slot>) keeps working.
+  if (!machine) {
+    const roleMatches = machines.filter((entry) => entry.operatorRole === role);
+    if (roleMatches.length > 1) {
+      throw new Error(`AMBIGUOUS_MACHINE_SCOPE: Multiple machines share the operator role "${role}".`);
+    }
+    machine = roleMatches[0];
   }
 
   if (!machine) throw new Error("Machine not found.");
