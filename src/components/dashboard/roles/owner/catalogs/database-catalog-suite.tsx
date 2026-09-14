@@ -613,7 +613,7 @@ export function DatabaseCatalogSuite() {
         averageUse: editingMaterial.averageUse,
         catalogDimensions: editingMaterial.catalogDimensions,
         catalogVariant: editingMaterial.catalogVariant,
-        inkColor: editingMaterial.inkColor || (updatedAttributes?.inkColor ? String(updatedAttributes.inkColor) : undefined),
+        inkColor: editingMaterial.inkColor || (editingMaterial.attributes?.inkColor ? String(editingMaterial.attributes.inkColor) : undefined),
         active: editingMaterial.active,
         expectedUpdatedAt: editingMaterial.updatedAt,
       });

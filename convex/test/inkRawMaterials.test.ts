@@ -215,7 +215,7 @@ describe("Owner Ink Raw Materials with Independent Color Property", () => {
     const { db } = createMockDb();
     const ctx = { db } as unknown as MutationCtx;
 
-    const res = await (upsertMaterialCatalogItem as any)._handler(ctx, {
+    const id = await (upsertMaterialCatalogItem as any)._handler(ctx, {
       name: "Solvent Ink 5L - Cyan",
       category: "Ink",
       catalogFamily: "INK_SOLVENT",
@@ -226,7 +226,7 @@ describe("Owner Ink Raw Materials with Independent Color Property", () => {
       active: true,
     });
 
-    const catItem = await db.get(res.id);
+    const catItem = await db.get(id);
     expect(catItem.inkColor).toBe("CYAN");
   });
 });

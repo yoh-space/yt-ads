@@ -107,7 +107,7 @@ describe("Database-First Catalog Seeding & Sync", () => {
 
     expect(result.status).toBe("SUCCESS");
     expect(result.servicesCount).toBe(22);
-    expect(result.materialsCount).toBe(28);
+    expect(result.materialsCount).toBe(42);
     expect(result.routesCount).toBe(22);
     expect(result.capLinksCount).toBe(6);
     expect(result.roleConfigsCount).toBe(11);
