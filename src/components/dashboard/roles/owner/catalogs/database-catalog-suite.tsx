@@ -305,6 +305,8 @@ export function DatabaseCatalogSuite() {
   );
 
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isSeedingMaterials, setIsSeedingMaterials] = useState(false);
+  const [isSeedingMachines, setIsSeedingMachines] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isReconciling, setIsReconciling] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -469,21 +471,29 @@ export function DatabaseCatalogSuite() {
     return Array.from(set).sort();
   }, [materials]);
   async function seedMaterial() {
+    setIsSeedingMaterials(true);
     try {
-      await seedConfirmedMaterial({});
-      toast.success("Materilas records seeded successfully");
-    }
-    catch(e) {
-      toast.error(e instanceof Error ? e.message : "Failed to seed materials");
+      const res = await seedConfirmedMaterial({});
+      toast.success(
+        `Raw materials seeded successfully: ${res.materials ?? 0} operational records, ${res.catalogItems ?? 0} catalog specs.`
+      );
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to seed raw materials");
+    } finally {
+      setIsSeedingMaterials(false);
     }
   }
   async function seedMachine() {
+    setIsSeedingMachines(true);
     try {
-      await seedMachines({});
-      toast.success("Machine records seeded successfully");
-    }
-    catch(e) {
-      toast.error(e instanceof Error ? e.message : "Failed to sync catalogs");
+      const res = await seedMachines({});
+      toast.success(
+        `Machines seeded successfully: ${res.machines ?? 0} machines, ${res.capabilities ?? 0} capabilities.`
+      );
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to seed machines");
+    } finally {
+      setIsSeedingMachines(false);
     }
   }
   async function handleSyncAll() {
@@ -813,21 +823,21 @@ export function DatabaseCatalogSuite() {
             variant="secondary"
             size="small"
             onClick={seedMaterial}
-            disabled={isSyncing}
+            disabled={isSeedingMaterials || isSyncing || isSeedingMachines}
             className="flex items-center gap-2 whitespace-nowrap"
           >
-            <RefreshCw size={14} className={isSyncing ? "animate-spin" : ""} />
-            {isSyncing ? "Seeding..." : "Seed Machines"}
+            <RefreshCw size={14} className={isSeedingMaterials ? "animate-spin" : ""} />
+            {isSeedingMaterials ? "Seeding Materials…" : "Seed Raw Materials"}
           </Button>
           <Button
             variant="secondary"
             size="small"
             onClick={seedMachine}
-            disabled={isSyncing}
+            disabled={isSeedingMachines || isSyncing || isSeedingMaterials}
             className="flex items-center gap-2 whitespace-nowrap"
           >
-            <RefreshCw size={14} className={isSyncing ? "animate-spin" : ""} />
-            {isSyncing ? "Seeding..." : "Seed Machines"}
+            <RefreshCw size={14} className={isSeedingMachines ? "animate-spin" : ""} />
+            {isSeedingMachines ? "Seeding Machines…" : "Seed Machines"}
           </Button>
           <Button
             variant="secondary"

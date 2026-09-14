@@ -115,7 +115,10 @@ export const seedConfirmedMaterials = mutation({
         .withIndex("by_name", (q) => q.eq("name", spec.name))
         .first();
 
+      let materialId: Id<"materials">;
+
       if (existingMaterial) {
+        materialId = existingMaterial._id;
         await ctx.db.patch(existingMaterial._id, {
           catalogMaterialId: catalogId,
           category: spec.category,
@@ -136,7 +139,7 @@ export const seedConfirmedMaterials = mutation({
           active: true,
         });
       } else {
-        await ctx.db.insert("materials", {
+        materialId = await ctx.db.insert("materials", {
           catalogMaterialId: catalogId,
           name: spec.name,
           category: spec.category,
@@ -160,6 +163,31 @@ export const seedConfirmedMaterials = mutation({
           active: true,
         });
         counts.materials++;
+      }
+
+      // 3. Upsert parentInventory tier 1 whole-packaging unit record
+      const unitType: "ROLL" | "SHEET" | "LITER" =
+        spec.purchaseUnit === "roll" || spec.catalogFamily === "ROLL"
+          ? "ROLL"
+          : spec.purchaseUnit === "sheet" || spec.catalogFamily === "RIGID_SHEET"
+            ? "SHEET"
+            : "LITER";
+
+      const existingParent = await ctx.db
+        .query("parentInventory")
+        .withIndex("by_material", (q) => q.eq("materialId", materialId))
+        .first();
+
+      if (!existingParent) {
+        await ctx.db.insert("parentInventory", {
+          materialId,
+          unitType,
+          totalStockQuantity: 0,
+          lengthPerRoll: unitType === "ROLL" ? (spec.conversionRatio ?? spec.rollWidth) : undefined,
+          areaPerSheet: unitType === "SHEET" ? spec.conversionRatio : undefined,
+          volumePerContainer: unitType === "LITER" ? (spec.conversionRatio ?? 1) : undefined,
+          updatedAt: now,
+        });
       }
     }
 
