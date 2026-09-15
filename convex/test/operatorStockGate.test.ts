@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { findStockShortages } from "../operator/jobs";
+import { ConvexError } from "convex/values";
+import { assertOperatorCanComplete, findStockShortages, operatorStockShortageError } from "../operator/jobs";
 
 describe("operator production stock gate", () => {
   const required = [{ materialId: "substrate", quantity: 2, materialName: "Banner", unit: "m²" }];
@@ -22,5 +23,16 @@ describe("operator production stock gate", () => {
 
   it("does not treat pending-clearance stock as usable floor stock", () => {
     expect(findStockShortages(required, [{ materialId: "substrate", currentRemaining: 2, machineId: "machine-1", operatorId: "operator-1", status: "PENDING_CLEARANCE" }], "machine-1", ["operator-1", "crystal_jet_operator"])).toHaveLength(1);
+  });
+
+  it("uses ConvexError for diagnosable completion shortage failures", () => {
+    const error = operatorStockShortageError("Insufficient operator stock for Banner");
+    expect(error).toBeInstanceOf(ConvexError);
+    expect(error.message).toBe("Insufficient operator stock for Banner");
+  });
+
+  it("deliberately blocks paused jobs until they are resumed", () => {
+    expect(() => assertOperatorCanComplete("Paused")).toThrow("This job is paused. Resume it before completing.");
+    expect(() => assertOperatorCanComplete("Paused")).toThrowError(ConvexError);
   });
 });

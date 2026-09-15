@@ -25,6 +25,7 @@ import { validateServiceSpecifications } from "../src/shared/service-specificati
 import { validateServiceSpecificationsAgainstDb } from "./owner/databaseFirstCatalogs";
 import { resolveRollSubstrate, type RollResolution } from "../src/shared/roll-width";
 import { normalizePhone as normalizePhoneUtil } from "../src/shared/phone-normalization";
+import { runDiagnosable } from "./utils/diagnostics";
 
 /** Statuses a customer may see through public tracking (EXPIRED stays internal). */
 const PUBLIC_TRACKING_STATUSES = new Set(["PENDING_REVIEW", "RECEPTION_REVIEW", "WAITING_FOR_MATERIAL", "PRICED_AND_PENDING_PAYMENT", "CONFIRMED_PAID_OR_CREDIT", "JOB_CARD_CREATED", "IN_PRODUCTION", "COMPLETED", "READY_FOR_PICKUP"]);
@@ -64,20 +65,6 @@ export function canTransitionOrderStatus(from: string, to: string): boolean {
  * a job card cannot be issued instead of an opaque failure. Existing guard
  * messages are never rewritten here.
  */
-function throwAsConvexError(error: unknown): never {
-  if (error instanceof ConvexError) throw error;
-  const message = error instanceof Error && error.message ? error.message : String(error);
-  throw new ConvexError(message);
-}
-
-/** Runs a handler, converting any plain Error into a client-visible ConvexError. */
-async function runDiagnosable<T>(operation: () => Promise<T>): Promise<T> {
-  try {
-    return await operation();
-  } catch (error) {
-    throwAsConvexError(error);
-  }
-}
 // convex/orders.ts
 
 export const fixStatusCasing = mutation({

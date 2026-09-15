@@ -2,6 +2,7 @@ import { mutation, query } from "../_generated/server";
 import type { Doc } from "../_generated/dataModel";
 import type { Id } from "../_generated/dataModel";
 import { v } from "convex/values";
+import { ConvexError } from "convex/values";
 import { resolveOperatorMachine } from "./common";
 import { completeJobInternal } from "../jobs";
 
@@ -25,6 +26,21 @@ export function findStockShortages(
       .filter((batch) => batch.machineId === machineId && operatorIds.includes(batch.operatorId) && batch.status === "ACTIVE" && batch.materialId === item.materialId)
       .reduce((sum, batch) => sum + Math.max(0, batch.currentRemaining), 0).toFixed(3)),
   })).filter((item) => item.available + 0.0005 < item.quantity);
+}
+
+export function assertOperatorCanComplete(status: string) {
+  if (status === "Completed") return;
+  // Paused jobs stay blocked deliberately; operators must resume production before completion.
+  if (status === "Paused") {
+    throw new ConvexError("This job is paused. Resume it before completing.");
+  }
+  if (status !== "In production") {
+    throw new Error("Only jobs currently in production can be completed.");
+  }
+}
+
+export function operatorStockShortageError(message: string) {
+  return new ConvexError(message);
 }
 
 async function enrichJobs(
@@ -192,15 +208,13 @@ export const complete = mutation({
     if (job.status === "Completed") {
       return { success: true, deduction: undefined };
     }
-    if (job.status !== "In production") {
-      throw new Error("Only jobs currently in production can be completed.");
-    }
+    assertOperatorCanComplete(job.status);
     const stockAudit = await auditJobMaterialAvailability(ctx, job, machine._id, identity._id, profile.role);
     if (!stockAudit.sufficient) {
       const detail = stockAudit.missing
         .map((item) => `${item.materialName}: ${item.available}/${item.required} ${item.unit}`)
         .join("; ");
-      throw new Error(`Insufficient operator stock — request the required materials from the storekeeper before completing this job. ${detail}`);
+      throw operatorStockShortageError(`Insufficient operator stock — request the required materials from the storekeeper before completing this job. ${detail}`);
     }
     return completeJobInternal(ctx, identity, profile, { jobId: args.jobId, requireOperatorStock: true });
   },

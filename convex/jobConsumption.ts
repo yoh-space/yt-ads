@@ -1,5 +1,6 @@
 import type { MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
+import { ConvexError } from "convex/values";
 import { recordInventoryEvent } from "./inventoryLedger";
 import { ensureSystemConfig } from "./systemConfigs";
 import { classifyMaterialProductionType } from "./materialUsage";
@@ -82,7 +83,7 @@ export async function deductJobRequirements(
         .reduce((sum, batch) => sum + batch.currentRemaining, 0)
         .toFixed(3));
       if (available + 0.0005 < required) {
-        throw new Error(`Insufficient operator stock for ${material.name}: ${available}/${required} ${req.baseUnit}. Request the required material from the storekeeper before completing this job.`);
+        throw new ConvexError(`Insufficient operator stock for ${material.name}: ${available}/${required} ${req.baseUnit}. Request the required material from the storekeeper before completing this job.`);
       }
     }
   }
@@ -185,7 +186,7 @@ export async function deductJobRequirements(
     // stock. The preflight above makes this branch unreachable in strict mode,
     // and this guard protects the invariant against future changes.
     if (args.requireOperatorStock && remainingToDeduct > 0) {
-      throw new Error(`Insufficient operator stock for ${material.name}: required ${toDeduct} ${req.baseUnit}. Request the required material from the storekeeper before completing this job.`);
+      throw new ConvexError(`Insufficient operator stock for ${material.name}: required ${toDeduct} ${req.baseUnit}. Request the required material from the storekeeper before completing this job.`);
     }
 
     // Deduct remaining directly from parent inventory if floor stock is exhausted
