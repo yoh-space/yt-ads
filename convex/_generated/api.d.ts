@@ -104,6 +104,7 @@ import type * as telegramSessions from "../telegramSessions.js";
 import type * as types from "../types.js";
 import type * as units from "../units.js";
 import type * as users from "../users.js";
+import type * as utils_diagnostics from "../utils/diagnostics.js";
 import type * as utils_inkColor from "../utils/inkColor.js";
 import type * as utils_normalizer from "../utils/normalizer.js";
 import type * as validation from "../validation.js";
@@ -211,6 +212,7 @@ declare const fullApi: ApiFromModules<{
   types: typeof types;
   units: typeof units;
   users: typeof users;
+  "utils/diagnostics": typeof utils_diagnostics;
   "utils/inkColor": typeof utils_inkColor;
   "utils/normalizer": typeof utils_normalizer;
   validation: typeof validation;
