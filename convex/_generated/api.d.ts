@@ -33,6 +33,7 @@ import type * as inventoryLedger from "../inventoryLedger.js";
 import type * as jobConsumption from "../jobConsumption.js";
 import type * as jobs from "../jobs.js";
 import type * as lowStock from "../lowStock.js";
+import type * as machineMaterialAuthorization from "../machineMaterialAuthorization.js";
 import type * as machines from "../machines.js";
 import type * as manager_inventory from "../manager/inventory.js";
 import type * as manager_machines from "../manager/machines.js";
@@ -107,6 +108,7 @@ import type * as users from "../users.js";
 import type * as utils_diagnostics from "../utils/diagnostics.js";
 import type * as utils_inkColor from "../utils/inkColor.js";
 import type * as utils_normalizer from "../utils/normalizer.js";
+import type * as utils_orderFileName from "../utils/orderFileName.js";
 import type * as validation from "../validation.js";
 
 import type {
@@ -141,6 +143,7 @@ declare const fullApi: ApiFromModules<{
   jobConsumption: typeof jobConsumption;
   jobs: typeof jobs;
   lowStock: typeof lowStock;
+  machineMaterialAuthorization: typeof machineMaterialAuthorization;
   machines: typeof machines;
   "manager/inventory": typeof manager_inventory;
   "manager/machines": typeof manager_machines;
@@ -215,6 +218,7 @@ declare const fullApi: ApiFromModules<{
   "utils/diagnostics": typeof utils_diagnostics;
   "utils/inkColor": typeof utils_inkColor;
   "utils/normalizer": typeof utils_normalizer;
+  "utils/orderFileName": typeof utils_orderFileName;
   validation: typeof validation;
 }>;
 
