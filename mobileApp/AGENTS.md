@@ -1,17 +1,37 @@
-# Expo HAS CHANGED
+# Mobile app guidance (mobileApp/)
 
-Read the exact versioned docs at https://docs.expo.dev/versions/v54.0.0/ before writing any code.
+The YT Advertising mobile client is a second client of the **root Convex backend** and the **shared web type definitions**. It is not a standalone app.
 
-<!-- convex-ai-start -->
+## Convex model
 
-This project uses [Convex](https://convex.dev) as its backend.
+- The database, schema, and functions live in the repo root `convex/`. This app has **no `convex/` folder** of its own and no separate deployment.
+- Import generated API/types via the `@convex/*` alias → root `convex/_generated/*`. Never hand-edit generated files.
+- Persistent operations must be implemented in the root Convex handlers; the mobile app only calls them.
+- When working on root Convex code, first read `convex/_generated/ai/guidelines.md`.
 
-When working on Convex code, **always read
-`convex/_generated/ai/guidelines.md` first** for important guidelines on
-how to correctly use Convex APIs and patterns. The file contains rules that
-override what you may have learned about Convex from training data.
+## Shared code model
 
-Convex agent skills for common tasks can be installed by running
-`npx convex ai-files install`.
+- Import pure TS shared modules via `@shared-lib/*` → root `src/lib/*`: `operations-types.ts` (Role, Profile), `role-routing.ts`, `permissions.ts`, `access-policy.ts`.
+- Do **not** alias into web-only modules (`src/app`, `src/components`, `next/*`).
+- Do not redefine `Role`, `WorkspaceId`, or permissions on mobile. Mobile-specific routing constants live only in `shared/role-navigation.ts`.
 
-<!-- convex-ai-end -->
+## State rules
+
+- Convex queries/mutations are the only data layer. **No offline mode**: no AsyncStorage data caches, no mutation queues, no NetInfo re-sync.
+- Zustand stores must persist nothing operational. The only persisted value on device is the Better Auth session token (expo-secure-store).
+
+## Verification
+
+```bash
+cd mobileApp
+pnpm install
+npx tsc --noEmit
+npx expo export --platform android   # bundles root convex/_generated refs
+```
+
+Root checks (`pnpm test`, `pnpm check` in the repo root) must remain unaffected by mobile changes.
+
+## Rules
+
+- Read the exact versioned Expo docs at https://docs.expo.dev/versions/v54.0.0/ before writing Expo code.
+- Keep the plan in `docs/plan/mobile-expo-refactor-plan.md` up to date as phases land.

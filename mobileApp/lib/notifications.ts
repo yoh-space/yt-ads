@@ -1,6 +1,8 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
+import { LightColors } from '@/constants/theme';
+
 // Set up notification handler
 export function setupNotificationHandler() {
   Notifications.setNotificationHandler({
@@ -21,7 +23,7 @@ export async function setupNotificationChannel() {
       name: 'Default notifications',
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#FF231F7C',
+      lightColor: LightColors.accent,
       sound: 'default',
       enableVibrate: true,
       showBadge: true,

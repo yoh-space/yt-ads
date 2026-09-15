@@ -145,7 +145,6 @@ export default function CashierOverviewPage() {
       <WorkspacePageHeader
         kicker="Cashier Desk · ገንዘብ ተቀባይ"
         title="Payment Verification Queue"
-        subtitle="Verify advance payments and issue payment-gated production job cards."
       />
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">

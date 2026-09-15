@@ -1,5 +1,7 @@
-import { ConvexReactClient } from 'convex/react';
+import { ConvexReactClient } from "convex/react";
 
-export const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL ?? '';
+const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL;
 
-export const convex = new ConvexReactClient(convexUrl || 'https://invalid.convex.cloud');
+export { convexUrl };
+
+export const convex = new ConvexReactClient(convexUrl ?? "https://local-placeholder.convex.cloud");

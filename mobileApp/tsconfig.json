@@ -5,6 +5,12 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "@convex/*": [
+        "../convex/_generated/*"
+      ],
+      "@shared-lib/*": [
+        "../src/lib/*"
       ]
     }
   },

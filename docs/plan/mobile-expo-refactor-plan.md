@@ -52,6 +52,22 @@ Hard constraints:
 
 ---
 
+## Progress (updated 2026-09-15)
+
+- **Phases 1–5 ratified** — mobile app now shares the root Convex deployment and root `src/lib` types with no duplicate backend. Verification passes: `mobileApp` `npx tsc --noEmit` (0 errors) and `npx expo export --platform android` (bundles root `convex/_generated` refs).
+- Auth uses the same Better Auth client as web (`@convex-dev/better-auth` `convexClient()` plugin + `expo-secure-store` storage), wrapped by `ConvexBetterAuthProvider` in `app/_layout.tsx` (`convex.setAuth` token callback also present in `lib/convex.ts`).
+- Routing is live: `(auth)` sign-in gate (`useProfile()`: `isHydrated/isAuthenticated/role`) + `(app)` role-driven `<Tabs>` from `ROLE_TABS`. All 31 per-role screen files generated as `ScreenPlaceholder` stubs (Phase 7 wiring behind them).
+- Demo app removed: `app/(tabs)/`, `app/modal.tsx`, `convex/` (demo backend), `constants/firebase.ts`, `scripts/send-test.mjs`. `+not-found.tsx` redirects to `/sign-in`.
+- Deleted `sign-up.tsx` — onboarding is invite-only through the existing web account flow (web `_app.tsx` has no sign-up either).
+
+**Pinned to Phase 6 (not yet done):** root `deviceTokens` table + `convex/pushes.ts`; push fan-out in `convex/notificationHelpers.ts`; `providers/NotificationProvider.tsx` + `lib/notifications.ts` rewire; `constants/firebase.ts` env-driven config; `google-services.json` replacement; FCM send verification.
+
+**Pinned to Phase 7 (not yet done):** replace the 31 `ScreenPlaceholder` files with live screens reusing root queries/mutations (reception queue, manager/owner overviews, storekeeper stock, cashier payments, operator machine dashboard + job cards, notifications inbox/badge).
+
+**Pinned to Phase 8 (not yet done):** `eas.json` profiles, `.env.local`, EAS builds, end-to-end FCM verify.
+
+---
+
 ## Phase 1 — Workspace wiring (monorepo shared code)
 
 Goal: one repo root, mobile app imports the root backend and pure web libs.
