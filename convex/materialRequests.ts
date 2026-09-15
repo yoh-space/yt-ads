@@ -578,10 +578,10 @@ export async function issueMaterialRequestInternal(
   if (operatorId !== request.requestedBy) throw new Error("Material can only be issued to the requesting operator.");
 
   const requesterProfile = await ctx.db
-    .query("profiles")
-    .withIndex("by_auth_user_id", (q: any) => q.eq("authUserId", request.requestedBy))
+    .query("users")
+    .withIndex("by_auth_user", (q: any) => q.eq("authUserId", request.requestedBy))
     .unique();
-    if (requesterProfile && OPERATOR_ROLES.includes(requesterProfile.role) && requesterProfile.role !== machine.operatorRole) {
+  if (requesterProfile && OPERATOR_ROLES.includes(requesterProfile.role) && requesterProfile.role !== machine.operatorRole) {
     throw new Error(`Requesting operator role (${requesterProfile.role}) does not match the machine operator role (${machine.operatorRole}).`);
   }
 

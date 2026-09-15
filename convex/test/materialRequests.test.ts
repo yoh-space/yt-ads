@@ -122,10 +122,11 @@ describe("materialRequests issuance and acknowledgement invariants", () => {
         machineId: "id_machines_1",
         materialId: "id_materials_1",
       },
-      id_profiles_operator: {
-        _id: "id_profiles_operator",
-        __table: "profiles",
-                authUserId: "user_operator_printer",
+      id_users_operator: {
+        _id: "id_users_operator",
+        __table: "users",
+        authUserId: "user_operator_printer",
+        name: "Printer Operator",
         role: "crystal_jet_operator",
         active: true,
       },
@@ -249,7 +250,7 @@ describe("materialRequests issuance and acknowledgement invariants", () => {
 
   it("rejects issuance when requesting operator role does not match machine role", async () => {
     const state = buildValidState();
-    state.id_profiles_operator.role = "laser_operator"; // Mismatch with crystal_jet_operator machine
+    state.id_users_operator.role = "laser_operator"; // Mismatch with crystal_jet_operator machine
     const { mockCtx } = createMockCtx(state);
 
     await expect(
