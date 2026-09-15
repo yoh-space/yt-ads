@@ -418,14 +418,18 @@ export function JobTicketHero({
                       ? "ጥሬ እቃ ተገጥሟል (Substrate Ready)"
                       : match.status === "ROLL_CHANGE_REQUIRED"
                         ? "ሮል / ጥሬ እቃ መቀየር ያስፈልጋል (Roll Change Required)"
-                        : "በማሽኑ ላይ ጥሬ እቃ አልተመዘገበም (No Substrate Loaded)"}
+                        : match.status === "UNLINKED"
+                          ? "ጥሬ እቃው ለማሽኑ አልተፈቀደም (Material Not Linked)"
+                          : "በማሽኑ ላይ ጥሬ እቃ አልተመዘገበም (No Substrate Loaded)"}
                   </span>
                   <p className="text-[11px] opacity-90 truncate">
                     {match.status === "MATCHED"
                       ? `በማሽኑ ላይ: ${match.materialName} · ${match.remaining} ${match.unit} አለ`
                       : match.status === "ROLL_CHANGE_REQUIRED"
                         ? `የሚፈለገው: ${match.requiredMaterialName} · አሁን የተጫነው: ${match.loadedMaterialName} (${match.loadedRemaining} ${match.unit})`
-                        : `ይህ ሥራ ${match.requiredMaterialName} ይፈልጋል`}
+                        : match.status === "UNLINKED"
+                          ? match.message
+                          : `ይህ ሥራ ${match.requiredMaterialName} ይፈልጋል`}
                   </p>
                 </div>
               </div>

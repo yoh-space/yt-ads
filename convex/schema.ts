@@ -1080,6 +1080,7 @@ export default defineSchema({
    */
   operatorSubStock: defineTable({
     parentInventoryId: v.optional(v.id("parentInventory")),
+    machineMaterialLinkId: v.optional(v.id("machineMaterialLinks")),
     materialId: v.id("materials"),
     operatorId: v.string(),
     machineId: v.id("machines"),

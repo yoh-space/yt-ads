@@ -144,6 +144,15 @@ describe("materialRequests issuance and acknowledgement invariants", () => {
         requestedBy: "user_operator_printer",
         requestedAt: Date.now(),
       },
+      id_machineMaterialLinks_1: {
+        _id: "id_machineMaterialLinks_1",
+        __table: "machineMaterialLinks",
+        machineId: "id_machines_1",
+        materialId: "id_materials_1",
+        relationshipType: "primary",
+        active: true,
+        required: true,
+      },
     };
   }
 
@@ -373,6 +382,24 @@ describe("operator material requests lifecycle and clean custody", () => {
         authUserId: "user_storekeeper",
         role: "storekeeper",
         active: true,
+      },
+      id_machineMaterialLinks_1: {
+        _id: "id_machineMaterialLinks_1",
+        __table: "machineMaterialLinks",
+        machineId: "id_machines_1",
+        materialId: "id_materials_1",
+        relationshipType: "primary",
+        active: true,
+        required: true,
+      },
+      id_machineMaterialLinks_ink: {
+        _id: "id_machineMaterialLinks_ink",
+        __table: "machineMaterialLinks",
+        machineId: "id_machines_1",
+        materialId: "id_materials_ink",
+        relationshipType: "ink",
+        active: true,
+        required: true,
       },
     };
   }

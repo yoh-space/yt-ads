@@ -9,6 +9,10 @@ import { recordInventoryEvent } from "./inventoryLedger";
 import { requireNoUnresolvedShortage } from "./reconciliation";
 import type { Id } from "./_generated/dataModel";
 import type { Role } from "./types";
+import {
+  resolveMachineMaterialAuthorization,
+  assertMachineMaterialAuthorized,
+} from "./machineMaterialAuthorization";
 
 type Unit = Infer<typeof unit>;
 type PackageUnit = Infer<typeof packageUnit>;
@@ -238,6 +242,11 @@ export async function getMaterialRequestEligibilityInternal(
   );
 
   const reconciliations = await ctx.db.query("reconciliations").collect();
+  const authorizedLinksMap = await resolveMachineMaterialAuthorization(
+    ctx,
+    machine._id,
+    Array.from(materialIdSet),
+  );
 
   const allowedMaterials = [];
   const conversionSnapshots = [];
@@ -256,11 +265,19 @@ export async function getMaterialRequestEligibilityInternal(
       (r) => r.materialId === mat._id && r.variance < 0 && r.status !== "Resolved",
     );
 
+    const linkAuth = authorizedLinksMap.get(mat._id);
+
     let priorCustodyState: "NONE" | "USABLE_STOCK" | "DEPLETED" | "PENDING_CLEARANCE" | "SHORTAGE" = "NONE";
     let isBlocked = false;
     let materialBlockReason: string | undefined;
 
-    if (shortage) {
+    if (!linkAuth) {
+      isBlocked = true;
+      materialBlockReason = `Material "${mat.name}" is not linked to machine "${machine.name}". Owner must configure the link before requesting.`;
+      if (isPrimary || req !== undefined) {
+        blockingReasons.push(`Required material "${mat.name}" is not authorized/linked to machine "${machine.name}".`);
+      }
+    } else if (shortage) {
       priorCustodyState = "SHORTAGE";
       isBlocked = true;
       materialBlockReason = `Unresolved shortage reconciliation (${shortage.status ?? "Open"}).`;
@@ -278,7 +295,9 @@ export async function getMaterialRequestEligibilityInternal(
     }
 
     const packageUnit = expectedPackageUnit(mat);
-    const conversionRatio = mat.conversionRatio && mat.conversionRatio > 0 ? mat.conversionRatio : 1;
+    const conversionRatio = linkAuth?.conversionRatioOverride && linkAuth.conversionRatioOverride > 0
+      ? linkAuth.conversionRatioOverride
+      : (mat.conversionRatio && mat.conversionRatio > 0 ? mat.conversionRatio : 1);
     const baseUnit = mat.baseUnit ?? mat.unit;
 
     allowedMaterials.push({
@@ -298,6 +317,11 @@ export async function getMaterialRequestEligibilityInternal(
       isBlocked,
       blockReason: materialBlockReason,
       isPrimary,
+      isLinked: Boolean(linkAuth),
+      linkId: linkAuth?.linkId,
+      relationshipType: linkAuth?.relationshipType,
+      conversionRatioOverride: linkAuth?.conversionRatioOverride,
+      wasteMarginPercent: linkAuth?.wasteMarginPercent,
     });
 
     conversionSnapshots.push({
@@ -393,6 +417,7 @@ export async function createMaterialRequestInternal(
     throw new Error("The requested material and unit must match the job card.");
   }
   for (const line of requestLines) {
+    await assertMachineMaterialAuthorized(ctx, scopeMachine._id, line.materialId);
     const lineMaterial = line.materialId === material._id ? material : await ctx.db.get(line.materialId);
     if (!lineMaterial || !lineMaterial.active) throw new Error("Every requested material must be active.");
     const expectedUnit = lineMaterial.baseUnit ?? lineMaterial.unit;
@@ -598,8 +623,16 @@ export async function issueMaterialRequestInternal(
       : requestedPackageUnit === "CANISTER"
         ? "LITER"
         : undefined;
+  const activeLink = await ctx.db
+    .query("machineMaterialLinks")
+    .withIndex("by_machine_material", (q: any) =>
+      q.eq("machineId", job.machineId).eq("materialId", request.materialId)
+    )
+    .first();
+
   const subStockId = await ctx.db.insert("operatorSubStock", {
     parentInventoryId: parentInventory._id,
+    machineMaterialLinkId: activeLink?._id,
     materialId: request.materialId,
     operatorId,
     machineId: job.machineId,

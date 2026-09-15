@@ -31,6 +31,12 @@ export type SubstrateMatchInfo =
       status: "NO_STOCK";
       materialId: string;
       requiredMaterialName: string;
+    }
+  | {
+      status: "UNLINKED";
+      materialId: string;
+      requiredMaterialName: string;
+      message: string;
     };
 
 /**
@@ -45,18 +51,23 @@ export const getMachineOverview = query({
   },
   handler: async (ctx, args) => {
     const { identity, profile, machine } = await resolveOperatorMachine(ctx, args.machineSlug);
-    const [jobs, orders, materials] = await Promise.all([
+    const [jobs, orders, materials, machineLinks] = await Promise.all([
       ctx.db.query("jobCards").collect(),
       ctx.db.query("customerOrders").collect(),
       ctx.db.query("materials").collect(),
+      ctx.db.query("machineMaterialLinks").withIndex("by_machine", (q: any) => q.eq("machineId", machine._id as Id<"machines">)).collect(),
     ]);
     const orderById = new Map(orders.map((order) => [order._id, order]));
     const materialById = new Map(materials.map((material) => [material._id, material]));
+    const activeLinkByMaterial = new Map(
+      machineLinks.filter((l) => l.active).map((l) => [l.materialId, l])
+    );
 
     const floorStock = await collectFloorStock(ctx, machine, identity, profile.role);
 
+    // Filter non-ink active substrate batches to detect loaded roll/media
     const activeSubstrateBatches = floorStock.filter(
-      (batch) =>
+      (batch: any) =>
         (batch.status === "ACTIVE" || batch.status === "PENDING_CLEARANCE") &&
         batch.materialFamily !== "INK" &&
         !batch.isSolvent &&
@@ -65,8 +76,10 @@ export const getMachineOverview = query({
     const primaryMountedBatch = activeSubstrateBatches[0];
 
     const getSubstrateMatch = (materialId: string): SubstrateMatchInfo => {
-      const directBatch = activeSubstrateBatches.find((b) => b.materialId === materialId);
+      const directBatch = activeSubstrateBatches.find((b: any) => b.materialId === materialId);
       const reqMat = materialById.get(materialId as Id<"materials">);
+      const isLinked = activeLinkByMaterial.has(materialId as Id<"materials">);
+
       if (directBatch) {
         return {
           status: "MATCHED",
@@ -76,6 +89,16 @@ export const getMachineOverview = query({
           unit: directBatch.baseUnit,
         };
       }
+
+      if (!isLinked) {
+        return {
+          status: "UNLINKED",
+          materialId,
+          requiredMaterialName: reqMat?.name ?? "Unknown material",
+          message: `Material "${reqMat?.name ?? materialId}" is not authorized/linked to this machine. Owner must link it before requesting.`,
+        };
+      }
+
       if (primaryMountedBatch) {
         return {
           status: "ROLL_CHANGE_REQUIRED",
