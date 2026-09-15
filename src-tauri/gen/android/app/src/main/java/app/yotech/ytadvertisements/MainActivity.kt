@@ -1,4 +1,4 @@
-package com.ytadvertisements.desktop
+package app.yotech.ytadvertisements
 
 import android.os.Bundle
 import androidx.activity.enableEdgeToEdge
