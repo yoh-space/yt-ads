@@ -498,7 +498,7 @@ export function RawMaterialModal({ material, onClose }: RawMaterialModalProps) {
           <div className="mb-2 flex items-center justify-between">
             <label className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
               <Scissors size={13} className="text-cyan-500" />
-              Waste &amp; Offcut Limits
+              Waste Limits
             </label>
             <span className="text-[10px] text-muted-foreground">Bounded operator scrap / offcut logging</span>
           </div>

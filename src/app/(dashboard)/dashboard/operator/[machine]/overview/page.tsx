@@ -249,7 +249,7 @@ export default function OperatorMachineOverview({
                 ) : null}
               </h1>
               <p className="text-xs text-slate-400 mt-1">
-                የማሽን መለያ: <span className="font-mono text-slate-200">{currentMachine?.code ?? "—"}</span> · የሚለካበት መለኪያ: <span className="font-mono text-[#00B4D8]">{currentMachine?.materialUnit ?? "m²"}</span>
+                የማሽን መለያ: <span className="font-mono text-slate-200">{currentMachine?.code ?? "—"}</span>
               </p>
             </div>
 
