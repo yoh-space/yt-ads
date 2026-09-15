@@ -358,6 +358,8 @@ export default defineSchema({
     email: v.string(),
     image: v.optional(v.string()),
     role,
+    /** False for newly registered staff until an owner assigns their role. */
+    assigned: v.optional(v.boolean()),
     /** Optional machine scope for operators; empty means all machines for their role. */
     assignedMachineIds: v.optional(v.array(v.id("machines"))),
     active: v.boolean(),

@@ -13,6 +13,7 @@ export const getTeamSummary = query({
     ]);
     const byRole = new Map<string, number>();
     for (const user of users) {
+      if (user.assigned === false) continue;
       byRole.set(user.role, (byRole.get(user.role) ?? 0) + 1);
     }
     return {
@@ -35,6 +36,7 @@ export const getTeamSummary = query({
           name: u.name,
           email: u.email,
           role: u.role,
+          assigned: u.assigned !== false,
           active: u.active,
           assignedMachineIds: u.assignedMachineIds ?? [],
         })),
