@@ -26,6 +26,7 @@ import { validateServiceSpecificationsAgainstDb } from "./owner/databaseFirstCat
 import { resolveRollSubstrate, type RollResolution } from "../src/shared/roll-width";
 import { normalizePhone as normalizePhoneUtil } from "../src/shared/phone-normalization";
 import { runDiagnosable } from "./utils/diagnostics";
+import { buildCustomerDocumentFileName } from "./utils/orderFileName";
 
 /** Statuses a customer may see through public tracking (EXPIRED stays internal). */
 const PUBLIC_TRACKING_STATUSES = new Set(["PENDING_REVIEW", "RECEPTION_REVIEW", "WAITING_FOR_MATERIAL", "PRICED_AND_PENDING_PAYMENT", "CONFIRMED_PAID_OR_CREDIT", "JOB_CARD_CREATED", "IN_PRODUCTION", "COMPLETED", "READY_FOR_PICKUP"]);
@@ -423,6 +424,18 @@ export const submit = mutation({
     const now = Date.now();
     const systemConfig = await ensureSystemConfig(ctx, identity?._id);
     const expiresAt = now + (systemConfig.orderExpirationHours * 60 * 60 * 1000);
+    const orderLength = args.length ?? parsedDimensions?.length;
+    const canonicalFileName = args.fileStorageId
+      ? buildCustomerDocumentFileName({
+          customerName: clientName,
+          serviceType,
+          width: orderWidth,
+          length: orderLength,
+          orderCode: code,
+          originalFileName: args.fileName,
+        })
+      : undefined;
+
     const id = await ctx.db.insert("customerOrders", {
       code,
       clientName,
@@ -431,8 +444,8 @@ export const submit = mutation({
       dimensions,
       serviceId: serviceId as typeof serviceType,
       specifications,
-      length: args.length ?? parsedDimensions?.length,
-      width: args.width ?? parsedDimensions?.width,
+      length: orderLength,
+      width: orderWidth,
       quantity,
       preferredDueDate: args.preferredDueDate,
       status: "PENDING_REVIEW",
@@ -444,7 +457,7 @@ export const submit = mutation({
       companyLegalName: accountType === "individual" ? undefined : normalizedCompany || undefined,
       editRevision: 1,
       fileStorageId: args.fileStorageId,
-      fileName: args.fileName?.trim() || undefined,
+      fileName: canonicalFileName,
       createdBy: identity?._id,
       createdAt: now,
       updatedAt: now,
@@ -692,6 +705,37 @@ let nextDimensions = order.dimensions;
     );
 
     const now = Date.now();
+    const effectiveFileStorageId = args.fileStorageId !== undefined ? args.fileStorageId : order.fileStorageId;
+    let nextFileName = order.fileName;
+    if (effectiveFileStorageId) {
+      nextFileName = buildCustomerDocumentFileName({
+        customerName: nextCustomerName,
+        serviceType: nextServiceId,
+        width: nextWidth,
+        length: nextLength,
+        orderCode: order.code,
+        originalFileName: args.fileName !== undefined ? args.fileName : order.fileName,
+      });
+    } else if (args.fileStorageId === undefined && !order.fileStorageId) {
+      nextFileName = undefined;
+    }
+
+    let nextAttachmentFileNames = order.attachmentFileNames;
+    if (order.attachmentStorageIds && order.attachmentStorageIds.length > 0) {
+      nextAttachmentFileNames = order.attachmentStorageIds.map((_, idx) => {
+        const orig = order.attachmentFileNames?.[idx];
+        return buildCustomerDocumentFileName({
+          customerName: nextCustomerName,
+          serviceType: nextServiceId,
+          width: nextWidth,
+          length: nextLength,
+          orderCode: order.code,
+          originalFileName: orig,
+          attachmentIndex: idx + 2,
+        });
+      });
+    }
+
     await ctx.db.patch(args.orderId, {
       clientName: nextCustomerName,
       phone: nextPhone,
@@ -706,8 +750,9 @@ let nextDimensions = order.dimensions;
       companyLegalName: nextAccountType === "individual" ? undefined : normalizedCompany || undefined,
       tinNumber: nextAccountType === "individual" ? undefined : normalizedTin || undefined,
       notes: args.notes !== undefined ? (args.notes.trim() || undefined) : order.notes,
-      fileStorageId: args.fileStorageId !== undefined ? args.fileStorageId : order.fileStorageId,
-      fileName: args.fileName !== undefined ? (args.fileName.trim() || undefined) : order.fileName,
+      fileStorageId: effectiveFileStorageId,
+      fileName: nextFileName,
+      attachmentFileNames: nextAttachmentFileNames,
       editRevision: currentRevision + 1,
       lastCustomerEditedAt: now,
       lastCustomerEditedBy: `Telegram ${telegramId}`,
@@ -827,14 +872,27 @@ export async function createWalkInInternal(
     const now = Date.now();
     const systemConfig = await ensureSystemConfig(ctx, identity._id);
     const expiresAt = now + (systemConfig.orderExpirationHours * 60 * 60 * 1000);
+    const orderLength = args.length ?? parsedDimensions?.length;
+    const orderWidth = args.width ?? parsedDimensions?.width;
+    const canonicalFileName = args.fileStorageId
+      ? buildCustomerDocumentFileName({
+          customerName: clientName,
+          serviceType,
+          width: orderWidth,
+          length: orderLength,
+          orderCode: code,
+          originalFileName: args.fileName,
+        })
+      : undefined;
+
     const id = await ctx.db.insert("customerOrders", {
       code,
       clientName,
       phone,
       serviceType,
       dimensions,
-       length: args.length ?? parsedDimensions?.length,
-       width: args.width ?? parsedDimensions?.width,
+      length: orderLength,
+      width: orderWidth,
       quantity,
       amount: args.amount === undefined ? undefined : Number(args.amount.toFixed(2)),
       preferredDueDate: args.preferredDueDate,
@@ -847,7 +905,7 @@ export async function createWalkInInternal(
       tinNumber: accountType === "individual" ? undefined : normalizedTin || undefined,
       companyLegalName: accountType === "individual" ? undefined : normalizedCompany || undefined,
       fileStorageId: args.fileStorageId,
-      fileName: args.fileName?.trim() || undefined,
+      fileName: canonicalFileName,
       createdBy: identity._id,
       createdAt: now,
       updatedAt: now,
@@ -1972,6 +2030,16 @@ export const createTelegramOrder = mutation({
     const dueDate = now + 7 * 24 * 60 * 60 * 1000;
     const systemConfig = await ensureSystemConfig(ctx);
     const expiresAt = now + (systemConfig.orderExpirationHours * 60 * 60 * 1000);
+    const canonicalFileName = args.fileStorageId
+      ? buildCustomerDocumentFileName({
+          customerName,
+          serviceType,
+          width: args.width,
+          length: args.length,
+          orderCode: code,
+          originalFileName: args.fileName,
+        })
+      : undefined;
     const noteParts = [`Telegram chat: ${args.telegramChatId}`];
     if (args.fileName?.trim()) noteParts.push(`Attached file: ${args.fileName.trim()}`);
     if (args.notes?.trim()) noteParts.push(args.notes.trim());
@@ -1993,7 +2061,7 @@ export const createTelegramOrder = mutation({
       source: "public_portal",
       notes: noteParts.join(" · "),
       fileStorageId: args.fileStorageId,
-      fileName: args.fileName?.trim() || undefined,
+      fileName: canonicalFileName,
       createdBy: undefined,
       createdAt: now,
       updatedAt: now,
@@ -2146,3 +2214,56 @@ export const sendTelegramNotificationInternal = internalAction({
     }
   },
 });
+
+/**
+ * Appends customer attachments to an order, synchronizing attachmentStorageIds
+ * and canonical attachmentFileNames at identical indices.
+ */
+export const addOrderAttachments = mutation({
+  args: {
+    orderId: v.id("customerOrders"),
+    attachments: v.array(
+      v.object({
+        storageId: v.id("_storage"),
+        fileName: v.optional(v.string()),
+        mimeType: v.optional(v.string()),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    const order = await ctx.db.get(args.orderId);
+    if (!order) throw new Error("Order not found.");
+
+    const currentStorageIds = order.attachmentStorageIds ?? [];
+    const currentFileNames = order.attachmentFileNames ?? [];
+    const startIndex = (order.fileStorageId ? 1 : 0) + currentStorageIds.length + 1;
+
+    const newStorageIds = [...currentStorageIds];
+    const newFileNames = [...currentFileNames];
+
+    args.attachments.forEach((att, i) => {
+      newStorageIds.push(att.storageId);
+      newFileNames.push(
+        buildCustomerDocumentFileName({
+          customerName: order.clientName,
+          serviceType: order.serviceType,
+          width: order.width,
+          length: order.length,
+          orderCode: order.code,
+          originalFileName: att.fileName,
+          mimeType: att.mimeType,
+          attachmentIndex: startIndex + i,
+        })
+      );
+    });
+
+    await ctx.db.patch(args.orderId, {
+      attachmentStorageIds: newStorageIds,
+      attachmentFileNames: newFileNames,
+      updatedAt: Date.now(),
+    });
+
+    return { attachmentStorageIds: newStorageIds, attachmentFileNames: newFileNames };
+  },
+});
+

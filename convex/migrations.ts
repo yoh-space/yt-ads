@@ -5,6 +5,7 @@ import { requirePermission } from "./users";
 import { MACHINE_CATALOG } from "../src/shared/machine-catalog";
 import { findMaterialSpecification } from "../src/shared/material-specifications";
 import { normalizeInkColor } from "./utils/inkColor";
+import { buildCustomerDocumentFileName } from "./utils/orderFileName";
 
 /**
  * Canonical `customerOrders.status` values. Any stored value outside this set
@@ -618,3 +619,108 @@ export const runUnifiedWorkflowMigrations = mutation({
     return { scheduled: true };
   },
 });
+
+/**
+ * Idempotent backfill that updates customer order documents and attachments
+ * to follow the canonical naming convention:
+ * {CustomerName}-{ServiceType}-{orderWidth}mX{orderLength}m.{extension}
+ */
+export const backfillOrderDocumentFileNames = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const orders = await ctx.db.query("customerOrders").collect();
+    let scannedOrders = 0;
+    let updatedOrders = 0;
+    let missingDimensionsCount = 0;
+
+    for (const order of orders) {
+      scannedOrders++;
+      let needsPatch = false;
+      const patch: { fileName?: string; attachmentFileNames?: string[] } = {};
+
+      if (!order.width || !order.length) {
+        missingDimensionsCount++;
+      }
+
+      if (order.fileStorageId) {
+        const canonicalPrimary = buildCustomerDocumentFileName({
+          customerName: order.clientName,
+          serviceType: order.serviceType,
+          width: order.width,
+          length: order.length,
+          orderCode: order.code,
+          originalFileName: order.fileName,
+        });
+        if (order.fileName !== canonicalPrimary) {
+          patch.fileName = canonicalPrimary;
+          needsPatch = true;
+        }
+      }
+
+      if (order.attachmentStorageIds && order.attachmentStorageIds.length > 0) {
+        const canonicalAttachments = order.attachmentStorageIds.map((_, idx) => {
+          const orig = order.attachmentFileNames?.[idx];
+          return buildCustomerDocumentFileName({
+            customerName: order.clientName,
+            serviceType: order.serviceType,
+            width: order.width,
+            length: order.length,
+            orderCode: order.code,
+            originalFileName: orig,
+            attachmentIndex: idx + 2,
+          });
+        });
+
+        const isDifferent =
+          !order.attachmentFileNames ||
+          order.attachmentFileNames.length !== canonicalAttachments.length ||
+          canonicalAttachments.some((name, i) => order.attachmentFileNames?.[i] !== name);
+
+        if (isDifferent) {
+          patch.attachmentFileNames = canonicalAttachments;
+          needsPatch = true;
+        }
+      }
+
+      if (needsPatch) {
+        await ctx.db.patch(order._id, patch);
+        updatedOrders++;
+      }
+    }
+
+    const attachments = await ctx.db.query("orderAttachments").collect();
+    let scannedAttachments = 0;
+    let updatedAttachments = 0;
+
+    for (const att of attachments) {
+      scannedAttachments++;
+      const order = await ctx.db.get(att.orderId);
+      if (!order) continue;
+
+      const canonicalName = buildCustomerDocumentFileName({
+        customerName: order.clientName,
+        serviceType: order.serviceType,
+        width: order.width,
+        length: order.length,
+        orderCode: order.code,
+        originalFileName: att.fileName,
+        mimeType: att.mimeType,
+        attachmentIndex: 2,
+      });
+
+      if (att.fileName !== canonicalName) {
+        await ctx.db.patch(att._id, { fileName: canonicalName });
+        updatedAttachments++;
+      }
+    }
+
+    return {
+      scannedOrders,
+      updatedOrders,
+      scannedAttachments,
+      updatedAttachments,
+      missingDimensionsCount,
+    };
+  },
+});
+
