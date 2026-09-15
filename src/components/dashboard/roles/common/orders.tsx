@@ -50,6 +50,21 @@ function inRange(timestamp: number, range: DateRange): boolean {
 const statuses: Array<CustomerOrderStatus | "all"> = ["all", "PENDING_REVIEW", "RECEPTION_REVIEW", "PRICED_AND_PENDING_PAYMENT", "CONFIRMED_PAID_OR_CREDIT", "JOB_CARD_CREATED", "IN_PRODUCTION", "COMPLETED", "READY_FOR_PICKUP", "EXPIRED", "EXPIRED_JUNK"];
 const priorities: Array<OrderPriority | "all"> = ["all", "High", "Medium", "Low"];
 
+/**
+ * Shared track definition for the orders queue header and its rows.
+ *
+ * Every track declares an explicit `minmax()` floor. Grid tracks default to
+ * `min-width: auto`, so an unshrinkable child (the `whitespace-nowrap` status
+ * pill or the "Waiting for Cashier" badge) used to force its track wider than
+ * the panel and paint the action column on top of the status column. The floors
+ * plus the horizontally scrollable wrapper keep each cell inside its own column.
+ */
+const ORDER_GRID_COLUMNS =
+  "grid grid-cols-[minmax(180px,2fr)_minmax(140px,1.5fr)_minmax(80px,0.9fr)_minmax(120px,1.1fr)_minmax(160px,1.35fr)_minmax(180px,1.45fr)] gap-4 px-4 py-3";
+
+/** Sum of the track floors + gaps + padding, so tracks never squeeze. */
+const ORDER_TABLE_MIN_WIDTH = "min-w-[980px]";
+
 function formatDue(timestamp: number) {
   return new Date(timestamp).toLocaleString("en-ET", { dateStyle: "medium", timeStyle: "short" });
 }
@@ -97,21 +112,33 @@ export function OrdersView({
   const [priority, setPriority] = useState<OrderPriority | "all">("all");
   const [machine, setMachine] = useState("all");
   const [dateRange, setDateRange] = useState<DateRange>("all");
-  const [selected, setSelected] = useState<CustomerOrder | null>(null);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   const filteredByRange = useMemo(() => orders.filter((order) => inRange(order.createdAt, dateRange)), [dateRange, orders]);
 
-  const filtered = useMemo(() => filteredByRange.filter((order) => {
-    const haystack = `${order.code} ${order.clientName} ${order.phone} ${getServiceLabel(order.serviceType) ?? order.serviceType} ${order.dimensions}`.toLowerCase();
-    return (!search || haystack.includes(search.toLowerCase()))
-       && (status === "all" ? order.status !== "EXPIRED" && order.status !== "EXPIRED_JUNK" : order.status === status)
-      && (priority === "all" || order.priority === priority)
-      && (machine === "all" || order.machineId === machine);
-  }), [filteredByRange, machine, priority, search, status]);
+  // Newest first. `reverse()` must run on a copy: reversing the memoized array in
+  // place flips the row order on every render and breaks the selected-row lookup.
+  const visibleOrders = useMemo(() => {
+    const matched = filteredByRange.filter((order) => {
+      const haystack = `${order.code} ${order.clientName} ${order.phone} ${getServiceLabel(order.serviceType) ?? order.serviceType} ${order.dimensions}`.toLowerCase();
+      return (!search || haystack.includes(search.toLowerCase()))
+        && (status === "all" ? order.status !== "EXPIRED" && order.status !== "EXPIRED_JUNK" : order.status === status)
+        && (priority === "all" || order.priority === priority)
+        && (machine === "all" || order.machineId === machine);
+    });
+    return [...matched].reverse();
+  }, [filteredByRange, machine, priority, search, status]);
 
   const overdue = filteredByRange.filter((order) => order.overdue).length;
   const pending = filteredByRange.filter((order) => order.status !== "COMPLETED").length;
+
+  // The drawer is driven by id so the row highlight stays correct even when the
+  // live Convex subscription reshapes the order object between renders.
+  const selected = useMemo(
+    () => (selectedOrderId ? orders.find((order) => order.id === selectedOrderId) ?? null : null),
+    [orders, selectedOrderId],
+  );
 
   const selectedMachinesLabel = selected
     ? machines.find((m) => m.id === selected.machineId)?.name
@@ -198,109 +225,127 @@ export function OrdersView({
         </div>
 
         {/* Table */}
-        <div className="divide-y divide-line">
-          {/* Table Header */}
-          <div className="grid grid-cols-[2fr_1.5fr_1fr_1.2fr_1fr_1.2fr] gap-4 px-4 py-3 bg-gray-50 text-xs font-semibold text-gray-600 uppercase tracking-wider">
-            <span>Order / Client</span>
-            <span>Service</span>
-            <span>Priority</span>
-            <span>Due</span>
-            <span>Status</span>
-            <span>Action</span>
-          </div>
+        <div className="overflow-x-auto">
+          <div className={cn("divide-y divide-line", ORDER_TABLE_MIN_WIDTH)}>
+            {/* Table Header */}
+            <div className={cn(ORDER_GRID_COLUMNS, "bg-gray-50 text-xs font-semibold text-gray-600 uppercase tracking-wider")}>
+              <span>Order / Client</span>
+              <span>Service</span>
+              <span>Priority</span>
+              <span>Due</span>
+              <span>Status</span>
+              <span className="text-right">Action</span>
+            </div>
 
-          {filtered.length === 0 ? (
-            <div className="p-8 text-center text-gray-500 text-sm">No orders match the current filters.</div>
-          ) : filtered.reverse().map((order) => (
-            <div
-              className={cn(
-                "grid grid-cols-[2fr_1.5fr_1fr_1.2fr_1fr_1.2fr] gap-4 px-4 py-3 items-center transition-colors cursor-pointer",
-                "border-l-4 border-l-transparent",
-                selected?.id === order.id
-                  ? "bg-[#1E293B] border-l-[#00B4D8]"
-                  : "hover:bg-[#16202f]",
-                order.overdue && "bg-rose-950/20"
-              )}
-              key={order.id}
-              role="button"
-              tabIndex={0}
-              onClick={() => setSelected(order)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  setSelected(order);
-                }
-              }}
-            >
+            {visibleOrders.length === 0 ? (
+              <div className="p-8 text-center text-gray-500 text-sm">No orders match the current filters.</div>
+            ) : visibleOrders.map((order) => (
+              <div
+                className={cn(
+                  ORDER_GRID_COLUMNS,
+                  "items-center transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary",
+                  "border-l-4 border-l-transparent",
+                  "hover:bg-muted/50",
+                  order.overdue && "bg-rose-950/20",
+                  selected?.id === order.id && "bg-secondary/60 border-l-cyan"
+                )}
+                key={order.id}
+                role="button"
+                aria-label={`Open details for order ${order.code}`}
+                tabIndex={0}
+                onClick={() => setSelectedOrderId(order.id)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    setSelectedOrderId(order.id);
+                  }
+                }}
+              >
               {/* Order/Client */}
-              <div className="min-w-0">
-                <b className="block text-sm font-semibold text-navy truncate">{order.code}</b>
-                <span className="block text-xs text-gray-600 truncate">{order.clientName}</span>
-                <small className="text-xs text-gray-400">{order.phone}</small>
-                {order.companyLegalName || order.tinNumber ? (
-                  <span className="mt-1 flex flex-wrap items-center gap-1">
-                    {order.companyLegalName ? (
-                      <button
-                        onClick={(event) => { event.stopPropagation(); copyToClipboard(order.companyLegalName as string, `company-${order.id}`, setCopiedKey); }}
-                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-gray-100 text-[10px] font-medium text-gray-600 hover:bg-gray-200 hover:text-navy"
-                        title={`Verified company: ${order.companyLegalName}`}
-                      >
-                        {copiedKey === `company-${order.id}` ? <Check size={10} /> : <Copy size={10} />}
-                        {copiedKey === `company-${order.id}` ? "Copied" : "Company"}
-                      </button>
-                    ) : null}
-                    {order.tinNumber ? (
-                      <button
-                        onClick={(event) => { event.stopPropagation(); copyToClipboard(order.tinNumber as string, `tin-${order.id}`, setCopiedKey); }}
-                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-gray-100 text-[10px] font-medium text-gray-600 hover:bg-gray-200 hover:text-navy"
-                        title={`TIN: ${order.tinNumber}`}
-                      >
-                        {copiedKey === `tin-${order.id}` ? <Check size={10} /> : <Copy size={10} />}
-                        TIN {order.tinNumber}
-                      </button>
-                    ) : null}
-                  </span>
-                ) : null}
-              </div>
-              
-              {/* Service */}
-              <div className="min-w-0">
-                <b className="block text-sm font-semibold text-navy truncate">{getServiceLabel(order.serviceType) ?? order.serviceType}</b>
-                <span className="block text-xs text-gray-600 truncate">{order.dimensions} · Qty {order.quantity}</span>
-                {order.fileUrl ? <a className="text-xs text-cyan hover:text-cyan-dark underline" href={order.fileUrl} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>Open {order.fileName ?? "artwork"}</a> : null}
-              </div>
-              
-              {/* Priority */}
-              <div className="flex items-center">
-                <StatusPill variant={order.priority === "High" ? "danger" : order.priority === "Medium" ? "warning" : "success"}>
-                  {order.priority}
-                </StatusPill>
-              </div>
-              
-              {/* Due */}
-              <div className="flex items-center gap-2 min-w-0">
-                <Clock3 size={13} className="text-gray-400 flex-none" />
-                <span className="text-xs text-gray-600 truncate">{formatDue(order.preferredDueDate)}</span>
-                {order.overdue ? <small className="text-xs font-semibold text-coral">Overdue</small> : null}
-              </div>
-              
-              {/* Status */}
-              <div className="min-w-0">
-                <StatusPill 
-                  variant={order.status === "COMPLETED" || order.status === "READY_FOR_PICKUP" ? "success" : order.overdue ? "warning" : "info"}
-                >
-                  {order.status}
-                </StatusPill>
-                {order.machineName ? <small className="block text-xs text-gray-500 mt-1">{order.machineName}</small> : null}
-              </div>
+                <div className="min-w-0">
+                  <b className="block text-sm font-semibold text-navy truncate">{order.code}</b>
+                  <span className="block text-xs text-gray-600 truncate">{order.clientName}</span>
+                  <small className="block text-xs text-gray-400 truncate">{order.phone}</small>
+                  {order.companyLegalName || order.tinNumber ? (
+                    <span className="mt-1 flex flex-wrap items-center gap-1">
+                      {order.companyLegalName ? (
+                        <button
+                          onClick={(event) => { event.stopPropagation(); copyToClipboard(order.companyLegalName as string, `company-${order.id}`, setCopiedKey); }}
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-gray-100 text-[10px] font-medium text-gray-600 hover:bg-gray-200 hover:text-navy"
+                          title={`Verified company: ${order.companyLegalName}`}
+                        >
+                          {copiedKey === `company-${order.id}` ? <Check size={10} /> : <Copy size={10} />}
+                          {copiedKey === `company-${order.id}` ? "Copied" : "Company"}
+                        </button>
+                      ) : null}
+                      {order.tinNumber ? (
+                        <button
+                          onClick={(event) => { event.stopPropagation(); copyToClipboard(order.tinNumber as string, `tin-${order.id}`, setCopiedKey); }}
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-gray-100 text-[10px] font-medium text-gray-600 hover:bg-gray-200 hover:text-navy"
+                          title={`TIN: ${order.tinNumber}`}
+                        >
+                          {copiedKey === `tin-${order.id}` ? <Check size={10} /> : <Copy size={10} />}
+                          TIN {order.tinNumber}
+                        </button>
+                      ) : null}
+                    </span>
+                  ) : null}
+                </div>
+
+                {/* Service */}
+                <div className="min-w-0">
+                  <b className="block text-sm font-semibold text-navy truncate">{getServiceLabel(order.serviceType) ?? order.serviceType}</b>
+                  <span className="block text-xs text-gray-600 truncate">{order.dimensions} · Qty {order.quantity}</span>
+                  {order.fileUrl ? (
+                    <a
+                      className="block max-w-[200px] truncate text-xs text-cyan hover:text-cyan-dark underline"
+                      href={order.fileUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      title={order.fileName ?? "artwork"}
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      Open {order.fileName ?? "artwork"}
+                    </a>
+                  ) : null}
+                </div>
+
+                {/* Priority */}
+                <div className="flex items-center">
+                  <StatusPill variant={order.priority === "High" ? "danger" : order.priority === "Medium" ? "warning" : "success"}>
+                    {order.priority}
+                  </StatusPill>
+                </div>
+
+                {/* Due */}
+                <div className="flex items-center gap-2 min-w-0">
+                  <Clock3 size={13} className="text-gray-400 flex-none" />
+                  <span className="text-xs text-gray-600 truncate">{formatDue(order.preferredDueDate)}</span>
+                  {order.overdue ? <small className="text-xs font-semibold text-coral">Overdue</small> : null}
+                </div>
+
+                {/* Status (+ assigned machine subtext) */}
+                <div className="flex min-w-0 flex-col items-start gap-1">
+                  <StatusPill
+                    variant={order.status === "COMPLETED" || order.status === "READY_FOR_PICKUP" ? "success" : order.overdue ? "warning" : "info"}
+                  >
+                    {order.status}
+                  </StatusPill>
+                  {order.machineName ? (
+                    <small className="block w-full truncate text-xs leading-4 text-muted-foreground" title={order.machineName}>
+                      {order.machineName}
+                    </small>
+                  ) : null}
+                </div>
               
               {/* Actions */}
-              <div className="flex items-center gap-2">
+              <div className="flex min-w-0 items-center justify-end gap-1.5">
                 {canManage && !order.jobCardId && order.status === "PENDING_REVIEW" ? (
-                  <Button 
-                    size="small" 
-                    variant="primary" 
-                    disabled={isPending(`lock-${order.id}`)} 
+                  <Button
+                    size="small"
+                    variant="primary"
+                    className="whitespace-nowrap"
+                    disabled={isPending(`lock-${order.id}`)}
                     onClick={(event) => { event.stopPropagation(); onLockReview(order); }}
                   >
                     <Wrench size={13} />
@@ -308,10 +353,11 @@ export function OrdersView({
                   </Button>
                 ) : null}
                 {canManage && !order.jobCardId && order.status === "RECEPTION_REVIEW" ? (
-                  <Button 
-                    size="small" 
-                    variant="primary" 
-                    disabled={isPending(`price-${order.id}`)} 
+                  <Button
+                    size="small"
+                    variant="primary"
+                    className="whitespace-nowrap"
+                    disabled={isPending(`price-${order.id}`)}
                     onClick={(event) => { event.stopPropagation(); onConvert(order); }}
                   >
                     <Wrench size={13} />
@@ -319,34 +365,37 @@ export function OrdersView({
                   </Button>
                 ) : null}
                 {canManage && canVerifyPayment && !order.jobCardId && order.status === "PRICED_AND_PENDING_PAYMENT" ? (
-                  <Button 
-                    size="small" 
-                    variant="primary" 
-                    disabled={isPending(`confirm-${order.id}`)} 
+                  <Button
+                    size="small"
+                    variant="primary"
+                    className="whitespace-nowrap"
+                    disabled={isPending(`confirm-${order.id}`)}
                     onClick={(event) => { event.stopPropagation(); onConvert(order); }}
                   >
                     <Wrench size={13} />
-                    {isPending(`confirm-${order.id}`) ? "Confirming…" : "Confirm & Issue Job Card"}
+                    {isPending(`confirm-${order.id}`) ? "Confirming…" : "Issue Job Card"}
                   </Button>
                 ) : !order.jobCardId && order.status === "PRICED_AND_PENDING_PAYMENT" ? (
-                  <span className="inline-flex items-center gap-1 rounded bg-amber-500/10 px-2 py-1 text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+                  <span className="inline-flex w-fit items-center gap-1 whitespace-nowrap rounded bg-amber-500/10 px-2 py-1 text-[11px] font-semibold text-amber-600 dark:text-amber-400">
                     Waiting for Cashier
                   </span>
                 ) : null}
                 {canManage && order.jobCardId && order.status === "IN_PRODUCTION" ? (
-                  <Button 
-                    size="small" 
-                    variant="secondary" 
-                    disabled={isPending(`order-status-${order.id}`)} 
+                  <Button
+                    size="small"
+                    variant="secondary"
+                    className="whitespace-nowrap"
+                    disabled={isPending(`order-status-${order.id}`)}
                     onClick={(event) => { event.stopPropagation(); onStatus(order.id, "COMPLETED"); }}
                   >
                     {isPending(`order-status-${order.id}`) ? "Saving..." : "Complete"}
                   </Button>
                 ) : null}
-                <ArrowUpRight size={14} className="text-gray-300 flex-none" aria-hidden />
+                <ArrowUpRight size={14} className="shrink-0 text-gray-300" aria-hidden />
               </div>
-            </div>
-          ))}
+              </div>
+            ))}
+          </div>
         </div>
       </Panel>
 
@@ -360,7 +409,7 @@ export function OrdersView({
           onConvert={onConvert}
           onLockReview={onLockReview}
           onStatus={onStatus}
-          onClose={() => setSelected(null)}
+          onClose={() => setSelectedOrderId(null)}
         />
       ) : null}
     </div>

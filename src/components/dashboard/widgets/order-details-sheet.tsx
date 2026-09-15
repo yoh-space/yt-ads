@@ -136,7 +136,7 @@ export function OrderDetailsSheet({
 
       {/* Drawer */}
       <div
-        className="absolute inset-y-0 right-0 h-full w-full max-w-xl top-0 m-0 p-0 rounded-none flex flex-col overflow-hidden bg-white shadow-2xl border-l border-gray-100"
+        className="animate-slide-in-right absolute inset-y-0 right-0 top-0 m-0 flex h-full w-full max-w-xl flex-col overflow-hidden rounded-none border-l border-border bg-card p-0 shadow-2xl"
         style={{ height: "100vh", minHeight: "100vh" }}
       >
         {/* Fixed Header */}
@@ -158,14 +158,30 @@ export function OrderDetailsSheet({
               <X size={18} />
             </button>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <StatusPill variant={statusTone[order.status]}>{order.status}</StatusPill>
-            <span className={cn("inline-flex items-center justify-center w-max px-2 py-1 rounded text-[9px] font-bold uppercase tracking-wide", {
+            <span className={cn("inline-flex w-max items-center justify-center rounded px-2 py-1 text-[9px] font-bold uppercase tracking-wide", {
               "bg-[#fde8e6] text-[#b84440]": priorityTone[order.priority] === "danger",
               "bg-[#fff3df] text-[#a86e11]": priorityTone[order.priority] === "warning",
               "bg-[#eef4f6] text-[#65818e]": priorityTone[order.priority] === "neutral",
             })}>
               {order.priority} priority
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5">
+              <Clock3 size={13} className="flex-none text-gray-400" />
+              Due {formatDue(order.preferredDueDate)}
+            </span>
+            <span className="inline-flex min-w-0 items-center gap-1.5">
+              <Printer size={13} className="flex-none text-gray-400" />
+              <span className="truncate" title={machinesLabel ?? order.machineName ?? undefined}>
+                {machinesLabel ?? order.machineName ?? "Machine not assigned"}
+              </span>
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <Wrench size={13} className="flex-none text-gray-400" />
+              {order.jobCardId ? "Job card issued" : "Job card not issued"}
             </span>
           </div>
           {order.customerEditLockedAt ? (
@@ -275,7 +291,7 @@ export function OrderDetailsSheet({
                   href={order.fileUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="block overflow-hidden rounded-lg border border-line bg-[#f8fafb] group"
+                  className="group relative block overflow-hidden rounded-lg border border-line bg-[#f8fafb]"
                 >
                   <div className="aspect-video w-full grid place-items-center bg-gradient-to-br from-[#eef4f6] to-[#dfecef]">
                     {order.fileUrl && /\.(png|jpe?g|gif|svg|webp|bmp|tiff?|webp)$/i.test(order.fileUrl) ? (
