@@ -118,7 +118,6 @@ export function RawMaterialsView() {
         <OwnerPageHeader
           kicker="Single Source of Truth · ነጠላ የመረጃ ምንጭ"
           title="Raw Materials Management"
-          subtitle="Define and control raw materials, category families (Roll, Sheet, Ink, Bars, Packages), packaging units, and reorder levels."
         />
         <Button
           variant="primary"
