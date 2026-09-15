@@ -20,6 +20,7 @@
     "@convex-dev/better-auth": "^0.12.5",
     "@hookform/resolvers": "^5.9.1",
     "@tauri-apps/api": "^2.11.1",
+    "@tauri-apps/plugin-notification": "^2.4.0",
     "@tauri-apps/plugin-updater": "^2.11.0",
     "@uploadthing/react": "^7.3.3",
     "better-auth": "~1.6.15",

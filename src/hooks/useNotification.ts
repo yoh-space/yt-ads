@@ -1,6 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import {
+  isPermissionGranted,
+  requestPermission,
+  sendNotification,
+} from "@tauri-apps/plugin-notification";
 import { useSoundStore } from "@/store/useSoundStore";
 
 /** Public path of the notification chime asset. */
@@ -20,6 +26,10 @@ export type NotificationSummary = {
 
 let sharedAudio: HTMLAudioElement | null = null;
 
+function isTauriRuntime(): boolean {
+  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+}
+
 function getAudio(): HTMLAudioElement | null {
   if (typeof window === "undefined") return null;
   if (!sharedAudio) {
@@ -35,9 +45,18 @@ async function playChime(): Promise<void> {
   try {
     audio.currentTime = 0;
     await audio.play();
-  } catch {
+  } catch (error) {
     // Autoplay restriction, audio unsupported, or user gesture required.
     // Quietly ignore — the desktop notification still delivers the alert.
+    console.warn("Web notification sound could not play.", error);
+  }
+}
+
+async function playNativeChime(): Promise<void> {
+  try {
+    await invoke("play_notification_sound");
+  } catch (error) {
+    console.warn("Native notification sound could not play.", error);
   }
 }
 
@@ -53,6 +72,14 @@ function unlockAudio(): void {
 }
 
 function showDesktopNotification({ title, body }: NotificationPayload): void {
+  if (isTauriRuntime()) {
+    try {
+      sendNotification({ title, body });
+    } catch (error) {
+      console.warn("Native desktop notification could not be delivered.", error);
+    }
+    return;
+  }
   if (typeof window === "undefined" || !("Notification" in window)) return;
   if (Notification.permission !== "granted") return;
   try {
@@ -80,6 +107,17 @@ export function useNotification(notifications?: NotificationSummary[]) {
   }, [isMuted]);
 
   useEffect(() => {
+    if (isTauriRuntime()) {
+      void (async () => {
+        try {
+          let granted = await isPermissionGranted();
+          if (!granted) granted = (await requestPermission()) === "granted";
+        } catch (error) {
+          console.warn("Native notification permission was unavailable.", error);
+        }
+      })();
+      return;
+    }
     if (typeof window === "undefined" || !("Notification" in window)) return;
     if (Notification.permission === "default") {
       void Notification.requestPermission().catch(() => {
@@ -89,6 +127,7 @@ export function useNotification(notifications?: NotificationSummary[]) {
   }, []);
 
   useEffect(() => {
+    if (isTauriRuntime()) return;
     window.addEventListener("pointerdown", unlockAudio, { once: true });
     window.addEventListener("keydown", unlockAudio, { once: true });
     return () => {
@@ -99,7 +138,7 @@ export function useNotification(notifications?: NotificationSummary[]) {
 
   const triggerNotification = useCallback(({ title, body }: NotificationPayload): void => {
     if (!isMutedRef.current) {
-      void playChime();
+      void (isTauriRuntime() ? playNativeChime() : playChime());
     }
     showDesktopNotification({ title, body });
   }, []);
