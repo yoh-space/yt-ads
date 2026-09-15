@@ -5,6 +5,7 @@ import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
+import { CustomerFilePreview } from "@/components/dashboard/orders/customer-file-preview";
 import { WorkspacePageHeader } from "@/components/dashboard/shell/workspace-page-header";
 import { StatCard } from "@/components/shared/ui/stat-card";
 import { Panel, PanelHeader } from "@/components/shared/ui/panel";
@@ -439,19 +440,11 @@ export default function DesignerTasksPage() {
               )}
 
               {selectedTask.customerFileUrl && (
-                <div>
-                  <h4 className="font-semibold text-foreground mb-1">Reference Artwork / Asset:</h4>
-                  <a
-                    href={selectedTask.customerFileUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs text-brand-primary-light hover:underline bg-muted/50 p-2 rounded w-full"
-                  >
-                    <FileText size={14} />
-                    <span className="truncate">{selectedTask.customerFileName || "Download Customer Reference"}</span>
-                    <ExternalLink size={12} className="ml-auto" />
-                  </a>
-                </div>
+                <CustomerFilePreview
+                  url={selectedTask.customerFileUrl}
+                  fileName={selectedTask.customerFileName}
+                  label="Customer uploaded reference"
+                />
               )}
             </div>
 

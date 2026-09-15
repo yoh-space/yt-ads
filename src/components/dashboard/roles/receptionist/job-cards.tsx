@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { WorkspacePageHeader } from "@/components/dashboard/shell/workspace-page-header";
 import { InventoryLoader } from "@/components/dashboard/widgets/inventory-loader";
+import { CustomerFilePreview } from "@/components/dashboard/orders/customer-file-preview";
 import { Panel, PanelHeader } from "@/components/shared/ui/panel";
 import { StatCard } from "@/components/shared/ui/stat-card";
 import { cn } from "@/lib/utils";
@@ -207,33 +208,14 @@ function InspectionDrawer({
                 <dd className="mt-1 text-foreground">{detail.priority}</dd>
               </div>
             </dl>
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-3 space-y-3">
               {detail.fileUrl ? (
-                <a
-                  href={detail.fileUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="rounded-md border border-primary/30 px-3 py-2 text-[10px] font-semibold text-primary hover:bg-primary/10"
-                >
-                  Open {detail.fileName ?? "vector file"}
-                </a>
+                <CustomerFilePreview url={detail.fileUrl} fileName={detail.fileName} label="Customer uploaded reference" compact />
               ) : (
-                <span className="text-[10px] text-muted-foreground">
-                  No vector file attached
-                </span>
+                <span className="text-[10px] text-muted-foreground">No customer file attached</span>
               )}
               {detail.attachments?.map((file: any) =>
-                file.url ? (
-                  <a
-                    key={file.name}
-                    href={file.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="rounded-md border border-border px-3 py-2 text-[10px] text-muted-foreground hover:text-foreground"
-                  >
-                    {file.name}
-                  </a>
-                ) : null
+                file.url ? <CustomerFilePreview key={file.name} url={file.url} fileName={file.name} label="Additional customer attachment" compact /> : null
               )}
             </div>
           </section>

@@ -6,6 +6,7 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { AlertTriangle, BriefcaseBusiness, CalendarClock, Check, ClipboardList, Clock3, Copy, CreditCard, Factory, Phone, UserRound, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CustomerFilePreview } from "@/components/dashboard/orders/customer-file-preview";
 
 function formatDate(value?: number) {
   if (!value) return "—";
@@ -94,6 +95,17 @@ export function OrderDetailDrawer({ orderId, onClose }: { orderId: Id<"customerO
               <div className="rounded-xl border border-border/60 bg-background/30 p-4"><div className="mb-3 flex items-center gap-2 text-xs font-semibold text-foreground"><Factory size={14} className="text-primary" /> Fulfillment</div><div className="space-y-3"><DetailRow label="Machine" value={detail.machineName ? `${detail.machineName}${detail.machineCode ? ` · ${detail.machineCode}` : ""}` : "Awaiting assignment"} /><DetailRow label="Operator group" value={detail.operatorRole ?? "Not assigned"} /><DetailRow label="Job" value={detail.job ? `${detail.job.code} · ${displayStatus(detail.job.status)}` : "No job card"} /></div></div>
               <div className={cn("rounded-xl border p-4", overdue ? "border-danger/30 bg-danger/5" : "border-border/60 bg-background/30")}><div className="mb-3 flex items-center gap-2 text-xs font-semibold text-foreground"><CalendarClock size={14} className={overdue ? "text-danger" : "text-primary"} /> Deadline</div><DetailRow label="Due date" value={<span className="inline-flex items-center gap-1">{overdue ? <AlertTriangle size={12} className="text-danger" /> : null}{formatDate(detail.preferredDueDate)}</span>} /><p className={cn("mt-2 text-[10px]", overdue ? "text-danger" : "text-muted-foreground")}>{overdue ? "This order is past its target date." : "Within the target completion window."}</p></div>
             </section>
+
+            {detail.fileUrl || detail.attachments?.some((file) => file.url) ? (
+              <section className="rounded-xl border border-border/60 bg-background/30 p-4">
+                <CustomerFilePreview url={detail.fileUrl} fileName={detail.fileName} label="Customer uploaded reference" />
+                {detail.attachments?.filter((file) => file.url).map((file) => (
+                  <div key={file.name} className="mt-4">
+                    <CustomerFilePreview url={file.url} fileName={file.name} label="Additional customer attachment" compact />
+                  </div>
+                ))}
+              </section>
+            ) : null}
 
             <section className="rounded-xl border border-border/60 bg-background/30 p-4"><div className="mb-3 flex items-center gap-2 text-xs font-semibold text-foreground"><CreditCard size={14} className="text-primary" /> Payment summary</div><div className="grid gap-4 sm:grid-cols-3"><DetailRow label="Total" value={formatMoney(paymentTotal)} /><DetailRow label="Advance" value={paymentStatus === "PAID" ? formatMoney(paymentTotal) : "Not recorded"} /><DetailRow label="Balance" value={paymentStatus === "PAID" ? formatMoney(0) : formatMoney(paymentTotal)} /></div><p className="mt-3 inline-flex items-center gap-1 text-[10px] text-muted-foreground"><Check size={11} /> {displayStatus(paymentStatus)}{detail.paymentMethod ? ` · ${detail.paymentMethod}` : ""}</p></section>
 

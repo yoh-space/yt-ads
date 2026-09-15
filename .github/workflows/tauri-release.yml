@@ -1,0 +1,127 @@
+name: Tauri Desktop Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Desktop version, for example 1.2.3"
+        required: true
+        type: string
+      prerelease:
+        description: "Mark the GitHub Release as a prerelease"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    name: Build and publish Windows desktop update
+    runs-on: windows-latest
+
+    env:
+      # Required GitHub Actions secrets:
+      # TAURI_SIGNING_PRIVATE_KEY      Full contents of the Tauri .key file.
+      # TAURI_SIGNING_PRIVATE_KEY_PASSWORD  Password used when generating the key.
+      # TAURI_UPDATER_PUBLIC_KEY       Public key matching TAURI_SIGNING_PRIVATE_KEY.
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      TAURI_UPDATER_PUBLIC_KEY: ${{ secrets.TAURI_UPDATER_PUBLIC_KEY }}
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve release version
+        id: release
+        shell: pwsh
+        run: |
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            $version = "${{ inputs.version }}"
+            $prerelease = "${{ inputs.prerelease }}"
+          } else {
+            $version = "${env:GITHUB_REF_NAME}" -replace '^v', ''
+            $prerelease = "false"
+          }
+
+          if ($version -notmatch '^\d+\.\d+\.\d+([-.][0-9A-Za-z.-]+)?$') {
+            throw "Invalid release version '$version'. Use semantic versioning, for example 1.2.3."
+          }
+
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "tag=v$version" >> $env:GITHUB_OUTPUT
+          "prerelease=$prerelease" >> $env:GITHUB_OUTPUT
+          "version=$version" >> $env:GITHUB_ENV
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Prepare Tauri updater configuration
+        shell: pwsh
+        env:
+          REPOSITORY: ${{ github.repository }}
+          VERSION: ${{ steps.release.outputs.version }}
+          PUBLIC_KEY: ${{ secrets.TAURI_UPDATER_PUBLIC_KEY }}
+        run: |
+          $configPath = "src-tauri/tauri.conf.json"
+          $config = Get-Content $configPath -Raw | ConvertFrom-Json
+
+          $config.version = $env:VERSION
+          $config.bundle.createUpdaterArtifacts = $true
+          $config.plugins.updater.pubkey = $env:PUBLIC_KEY
+          $config.plugins.updater.endpoints = @(
+            "https://github.com/$env:REPOSITORY/releases/latest/download/latest.json"
+          )
+
+          $config | ConvertTo-Json -Depth 20 | Set-Content $configPath -Encoding utf8
+
+      - name: Verify updater secrets are present
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace("${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}")) {
+            throw "Missing TAURI_SIGNING_PRIVATE_KEY repository secret."
+          }
+          if ([string]::IsNullOrWhiteSpace("${{ secrets.TAURI_UPDATER_PUBLIC_KEY }}")) {
+            throw "Missing TAURI_UPDATER_PUBLIC_KEY repository secret."
+          }
+
+      - name: Build and publish signed Tauri updater artifacts
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ steps.release.outputs.tag }}
+          releaseName: "YT Advertisements v${{ steps.release.outputs.version }}"
+          releaseBody: |
+            YT Advertisements desktop release v${{ steps.release.outputs.version }}.
+
+            Install this version for new staff members. Existing installations can use the Tauri updater to download the signed update.
+          releaseDraft: false
+          prerelease: ${{ steps.release.outputs.prerelease == 'true' }}
+          args: --target x86_64-pc-windows-msvc
+
+      - name: Confirm release metadata
+        shell: pwsh
+        run: |
+          Write-Host "Published YT Advertisements desktop version ${{ steps.release.outputs.version }}"
+          Write-Host "Updater manifest: https://github.com/${{ github.repository }}/releases/latest/download/latest.json"

@@ -14,6 +14,10 @@ export const get = query({
       order.machineId ? ctx.db.get(order.machineId) : null,
       order.jobCardId ? ctx.db.get(order.jobCardId) : null,
     ]);
+    const [fileUrl, attachmentUrls] = await Promise.all([
+      order.fileStorageId ? ctx.storage.getUrl(order.fileStorageId) : null,
+      Promise.all((order.attachmentStorageIds ?? []).map((storageId) => ctx.storage.getUrl(storageId))),
+    ]);
 
     const [requirements, reservations, movements] = await Promise.all([
       jobCard
@@ -86,6 +90,12 @@ export const get = query({
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
       createdBy: creator?.name ?? "Order intake",
+      fileName: order.fileName,
+      fileUrl,
+      attachments: (order.attachmentFileNames ?? []).map((name, index) => ({
+        name,
+        url: attachmentUrls[index] ?? null,
+      })),
       machineName: machine?.name,
       machineCode: machine?.code,
       operatorRole: machine?.operatorRole,
