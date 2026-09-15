@@ -10,4 +10,3 @@ export * from "./progress";
 export * from "./micro-histogram";
 export * from "./metric-chart";
 export * from "./table";
-export * from "./telemetry-bar";

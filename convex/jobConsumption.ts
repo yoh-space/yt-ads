@@ -8,6 +8,8 @@ export interface DeductJobRequirementsArgs {
   jobCardId: Id<"jobCards">;
   actorId: string;
   mode: "incremental" | "completion";
+  /** Require all completion consumption to come from machine floor stock. */
+  requireOperatorStock?: boolean;
   actualInputQuantity?: number;
   actualOutputQuantity?: number;
   wasteQuantity?: number;
@@ -51,6 +53,39 @@ export async function deductJobRequirements(
   let totalDeductedBase = 0;
   let completedRequirements = 0;
   let deductedCount = 0;
+
+  // Operator completion must be atomic with respect to floor stock. Perform
+  // the complete shortage check before writing any movement or requirement.
+  if (args.requireOperatorStock) {
+    for (const req of requirements) {
+      if (req.status === "COMPLETED") continue;
+
+      const material = await ctx.db.get(req.materialId);
+      if (!material || !material.active) continue;
+
+      const isSolvent = material.isSolvent || material.materialFamily === "SOLVENT" || material.name.toLowerCase().includes("solvent");
+      if (isSolvent) continue;
+
+      const totalPlanned = Number((req.plannedBaseQuantity + req.approvedScrapQuantity).toFixed(3));
+      const alreadyConsumed = req.consumedBaseQuantity ?? 0;
+      const required = args.mode === "completion"
+        ? Number(Math.max(0, totalPlanned - alreadyConsumed).toFixed(3))
+        : (args.actualInputQuantity ?? 0);
+      if (required <= 0) continue;
+
+      const activeSubStocks = await ctx.db
+        .query("operatorSubStock")
+        .withIndex("by_material_machine", (q) => q.eq("materialId", req.materialId).eq("machineId", job.machineId))
+        .collect();
+      const available = Number(activeSubStocks
+        .filter((batch) => batch.status === "ACTIVE" && batch.currentRemaining > 0)
+        .reduce((sum, batch) => sum + batch.currentRemaining, 0)
+        .toFixed(3));
+      if (available + 0.0005 < required) {
+        throw new Error(`Insufficient operator stock for ${material.name}: ${available}/${required} ${req.baseUnit}. Request the required material from the storekeeper before completing this job.`);
+      }
+    }
+  }
 
   for (const req of requirements) {
     if (req.status === "COMPLETED") continue;
@@ -144,6 +179,13 @@ export async function deductJobRequirements(
         remainingToDeduct = Number((remainingToDeduct - deductFromBatch).toFixed(3));
         if (remainingToDeduct <= 0) break;
       }
+    }
+
+    // Operator completion cannot substitute central inventory for missing floor
+    // stock. The preflight above makes this branch unreachable in strict mode,
+    // and this guard protects the invariant against future changes.
+    if (args.requireOperatorStock && remainingToDeduct > 0) {
+      throw new Error(`Insufficient operator stock for ${material.name}: required ${toDeduct} ${req.baseUnit}. Request the required material from the storekeeper before completing this job.`);
     }
 
     // Deduct remaining directly from parent inventory if floor stock is exhausted

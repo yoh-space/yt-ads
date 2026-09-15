@@ -22,7 +22,7 @@ export function findStockShortages(
   return required.map((item) => ({
     ...item,
     available: Number(batches
-      .filter((batch) => batch.machineId === machineId && operatorIds.includes(batch.operatorId) && (batch.status === "ACTIVE" || batch.status === "PENDING_CLEARANCE") && batch.materialId === item.materialId)
+      .filter((batch) => batch.machineId === machineId && operatorIds.includes(batch.operatorId) && batch.status === "ACTIVE" && batch.materialId === item.materialId)
       .reduce((sum, batch) => sum + Math.max(0, batch.currentRemaining), 0).toFixed(3)),
   })).filter((item) => item.available + 0.0005 < item.quantity);
 }
@@ -69,6 +69,9 @@ export async function auditJobMaterialAvailability(
   const missing = findStockShortages(required, batches, machineId, [operatorId, operatorRole]).map((item) => {
     const material = materialById.get(item.materialId);
     return { materialId: item.materialId, materialName: material?.name ?? "Required material", required: item.quantity, available: item.available, unit: material?.baseUnit ?? material?.unit ?? job.unit };
+  }).filter((item) => {
+    const material = materialById.get(item.materialId);
+    return !(material?.isSolvent || material?.materialFamily === "SOLVENT" || material?.name.toLowerCase().includes("solvent"));
   });
   return { sufficient: missing.length === 0, missing };
 }
@@ -186,6 +189,19 @@ export const complete = mutation({
     if (job.machineId !== machine._id) {
       throw new Error("This job is not assigned to your machine.");
     }
-    return completeJobInternal(ctx, identity, profile, { jobId: args.jobId });
+    if (job.status === "Completed") {
+      return { success: true, deduction: undefined };
+    }
+    if (job.status !== "In production") {
+      throw new Error("Only jobs currently in production can be completed.");
+    }
+    const stockAudit = await auditJobMaterialAvailability(ctx, job, machine._id, identity._id, profile.role);
+    if (!stockAudit.sufficient) {
+      const detail = stockAudit.missing
+        .map((item) => `${item.materialName}: ${item.available}/${item.required} ${item.unit}`)
+        .join("; ");
+      throw new Error(`Insufficient operator stock — request the required materials from the storekeeper before completing this job. ${detail}`);
+    }
+    return completeJobInternal(ctx, identity, profile, { jobId: args.jobId, requireOperatorStock: true });
   },
 });

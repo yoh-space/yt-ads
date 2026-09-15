@@ -594,7 +594,7 @@ export async function completeJobInternal(
   ctx: any,
   identity: { _id: string },
   profile: { role: string },
-  args: { jobId: any },
+  args: { jobId: any; requireOperatorStock?: boolean },
 ) {
   const job = await ctx.db.get(args.jobId);
   if (!job) throw new Error("Job card not found.");
@@ -609,6 +609,7 @@ export async function completeJobInternal(
     jobCardId: job._id,
     actorId: identity._id,
     mode: "completion",
+    requireOperatorStock: args.requireOperatorStock,
   });
 
   await ctx.db.patch(args.jobId, { status: "Completed" });

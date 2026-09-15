@@ -153,9 +153,18 @@ export default function OperatorJobDetailPage({
                 <button type="button" disabled={!pauseReason.trim() || isPending(`pause-${jobId}`)} onClick={() => void safeMutation(`pause-${jobId}`, pauseJob({ machineSlug: machineParam, jobId, reason: pauseReason }), () => { setPauseReason(""); toast.success("Job paused"); }, (err) => toast.error("Failed to pause job: " + (err instanceof Error ? err.message : String(err))))} className="inline-flex items-center gap-1.5 rounded-sm border border-amber-500/40 bg-amber-950/30 px-3.5 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-900/40 disabled:opacity-50">Pause job</button>
               </div>
             ) : null}
+            {!isInProduction && !isCompleted ? (
+              <p className="w-full text-right text-[11px] text-amber-200/80">
+                Start the job before completing it.
+              </p>
+            ) : !stockAudit.sufficient ? (
+              <p className="w-full text-right text-[11px] text-amber-200/80">
+                Request the required materials before completing this job.
+              </p>
+            ) : null}
             <button
               type="button"
-              disabled={isPending(`complete-${jobId}`)}
+              disabled={isPending(`complete-${jobId}`) || !isInProduction || !stockAudit.sufficient}
               onClick={() => {
                 void safeMutation(
                   `complete-${jobId}`,
