@@ -2,7 +2,7 @@ import { mutation, query } from "../_generated/server";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { requireOwner } from "../users";
-import { unit, purchaseUnit, materialCatalogFamily, materialFamily } from "../schema";
+import { unit, purchaseUnit, materialCatalogFamily, materialFamily, wasteLimitPolicy } from "../schema";
 import { normalizeInkColor } from "../utils/inkColor";
 
 function deriveSlug(name: string): string {
@@ -23,6 +23,47 @@ function resolveInventoryUnitType(
   if (normFam === "ROLL" || normPu === "roll") return "ROLL";
   if (normFam === "RIGID_SHEET" || normPu === "sheet" || normFam === "BARS") return "SHEET";
   return "LITER";
+}
+
+/**
+ * Validates owner-set waste limits against a material's catalog family.
+ * Minimum offcut dimensions are only meaningful for square-metre materials.
+ */
+function validateWasteLimits(args: {
+  catalogFamily: string;
+  unit?: string;
+  maxScrap?: number;
+  minOffcutWidth?: number;
+  minOffcutLength?: number;
+  wasteLimitPolicy?: string;
+}): {
+  maxScrap?: number;
+  minOffcutWidth?: number;
+  minOffcutLength?: number;
+  wasteLimitPolicy: "warn" | "block";
+} {
+  const policy = args.wasteLimitPolicy ?? "warn";
+  if (policy !== "warn" && policy !== "block") {
+    throw new Error("Waste limit policy must be either 'warn' or 'block'.");
+  }
+  if (args.maxScrap !== undefined && (!Number.isFinite(args.maxScrap) || args.maxScrap < 0)) {
+    throw new Error("Max scrap must be 0 or greater.");
+  }
+  if ((args.minOffcutWidth !== undefined || args.minOffcutLength !== undefined) && args.unit !== "m²") {
+    throw new Error("Minimum offcut dimensions are only valid for square-metre (m²) materials.");
+  }
+  if (args.minOffcutWidth !== undefined && (!Number.isFinite(args.minOffcutWidth) || args.minOffcutWidth <= 0)) {
+    throw new Error("Minimum offcut width must be greater than 0.");
+  }
+  if (args.minOffcutLength !== undefined && (!Number.isFinite(args.minOffcutLength) || args.minOffcutLength <= 0)) {
+    throw new Error("Minimum offcut length must be greater than 0.");
+  }
+  return {
+    maxScrap: args.maxScrap,
+    minOffcutWidth: args.minOffcutWidth,
+    minOffcutLength: args.minOffcutLength,
+    wasteLimitPolicy: policy,
+  };
 }
 
 /**
@@ -192,6 +233,10 @@ export const listRawMaterials = query({
           averageUse: m.averageUse,
           inkColor: m.inkColor,
           materialFamily: m.materialFamily,
+          maxScrap: m.maxScrap,
+          minOffcutWidth: m.minOffcutWidth,
+          minOffcutLength: m.minOffcutLength,
+          wasteLimitPolicy: m.wasteLimitPolicy,
           active: m.active,
         };
       });
@@ -217,6 +262,10 @@ export const createRawMaterial = mutation({
     averageUse: v.optional(v.string()),
     inkColor: v.optional(v.string()),
     materialFamily: v.optional(materialFamily),
+    maxScrap: v.optional(v.number()),
+    minOffcutWidth: v.optional(v.number()),
+    minOffcutLength: v.optional(v.number()),
+    wasteLimitPolicy: v.optional(wasteLimitPolicy),
   },
   handler: async (ctx, args) => {
     const { profile } = await requireOwner(ctx);
@@ -224,6 +273,14 @@ export const createRawMaterial = mutation({
     if (!name) throw new Error("Material name is required.");
     if (args.conversionRatio <= 0) throw new Error("Conversion ratio must be greater than 0.");
     if (args.reorderAt < 0) throw new Error("Reorder level must be 0 or greater.");
+    const wasteLimits = validateWasteLimits({
+      catalogFamily: args.catalogFamily,
+      unit: args.unit,
+      maxScrap: args.maxScrap,
+      minOffcutWidth: args.minOffcutWidth,
+      minOffcutLength: args.minOffcutLength,
+      wasteLimitPolicy: args.wasteLimitPolicy,
+    });
 
     const existing = await ctx.db
       .query("materials")
@@ -324,6 +381,10 @@ export const createRawMaterial = mutation({
         storageLocation: args.storageLocation,
         displayUnit: args.displayUnit,
         averageUse: args.averageUse,
+        maxScrap: wasteLimits.maxScrap,
+        minOffcutWidth: wasteLimits.minOffcutWidth,
+        minOffcutLength: wasteLimits.minOffcutLength,
+        wasteLimitPolicy: wasteLimits.wasteLimitPolicy,
         active: true,
       });
     } else {
@@ -346,6 +407,10 @@ export const createRawMaterial = mutation({
         storageLocation: args.storageLocation,
         displayUnit: args.displayUnit,
         averageUse: args.averageUse,
+        maxScrap: wasteLimits.maxScrap,
+        minOffcutWidth: wasteLimits.minOffcutWidth,
+        minOffcutLength: wasteLimits.minOffcutLength,
+        wasteLimitPolicy: wasteLimits.wasteLimitPolicy,
         accent: accentColor,
         active: true,
       });
@@ -410,6 +475,10 @@ export const updateRawMaterial = mutation({
     averageUse: v.optional(v.string()),
     inkColor: v.optional(v.string()),
     materialFamily: v.optional(materialFamily),
+    maxScrap: v.optional(v.number()),
+    minOffcutWidth: v.optional(v.number()),
+    minOffcutLength: v.optional(v.number()),
+    wasteLimitPolicy: v.optional(wasteLimitPolicy),
     active: v.boolean(),
   },
   handler: async (ctx, args) => {
@@ -421,6 +490,14 @@ export const updateRawMaterial = mutation({
     if (!name) throw new Error("Material name is required.");
     if (args.conversionRatio <= 0) throw new Error("Conversion ratio must be greater than 0.");
     if (args.reorderAt < 0) throw new Error("Reorder level must be 0 or greater.");
+    const wasteLimits = validateWasteLimits({
+      catalogFamily: args.catalogFamily,
+      unit: args.unit,
+      maxScrap: args.maxScrap,
+      minOffcutWidth: args.minOffcutWidth,
+      minOffcutLength: args.minOffcutLength,
+      wasteLimitPolicy: args.wasteLimitPolicy,
+    });
 
     const now = Date.now();
     const baseUnitVal = args.baseUnit ?? args.unit;
@@ -449,6 +526,10 @@ export const updateRawMaterial = mutation({
       storageLocation: args.storageLocation,
       displayUnit: args.displayUnit,
       averageUse: args.averageUse,
+      maxScrap: wasteLimits.maxScrap,
+      minOffcutWidth: wasteLimits.minOffcutWidth,
+      minOffcutLength: wasteLimits.minOffcutLength,
+      wasteLimitPolicy: wasteLimits.wasteLimitPolicy,
       active: args.active,
     });
 
@@ -502,7 +583,7 @@ export const updateRawMaterial = mutation({
 
     await ctx.db.insert("configurationChanges", {
       configKey: `material:${material._id}`,
-      changedFields: ["name", "category", "catalogFamily", "conversionRatio", "active"],
+      changedFields: ["name", "category", "catalogFamily", "conversionRatio", "active", "maxScrap", "minOffcutWidth", "minOffcutLength", "wasteLimitPolicy"],
       reason: `Owner updated raw material "${name}"`,
       actorAuthUserId: profile.authUserId,
       createdAt: now,

@@ -20,4 +20,4 @@ export type OperatorStockEntry = {
   consumed?: number;
 };
 
-export type View = "overview" | "orders" | "inventory" | "jobs" | "machines" | "offcuts" | "reports" | "reconciliation" | "audit" | "financial" | "config" | "settings";
+export type View = "overview" | "orders" | "inventory" | "jobs" | "machines" | "offcuts" | "waste" | "reports" | "reconciliation" | "audit" | "financial" | "config" | "settings";

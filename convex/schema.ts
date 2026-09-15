@@ -43,6 +43,12 @@ export const materialFamily = v.union(
   v.literal("HARDWARE"),
 );
 
+/** Owner-set behaviour when a material's waste limits are not (fully) configured. */
+export const wasteLimitPolicy = v.union(
+  v.literal("warn"),
+  v.literal("block"),
+);
+
 export const jobStatus = v.union(
   v.literal("Queued"),
   v.literal("In production"),
@@ -421,6 +427,13 @@ export default defineSchema({
     averageUse: v.optional(v.string()),
     reorderRule: v.optional(v.string()),
     scrapRule: v.optional(v.string()),
+    /** Owner-set maximum cumulative scrap for this material (global, all machines), in material.unit. */
+    maxScrap: v.optional(v.number()),
+    /** Owner-set minimum usable offcut dimensions in m (rolled/sheet materials only). */
+    minOffcutWidth: v.optional(v.number()),
+    minOffcutLength: v.optional(v.number()),
+    /** Behaviour when the waste limits above are not configured for this material. */
+    wasteLimitPolicy: v.optional(wasteLimitPolicy),
     accent,
     active: v.boolean(),
     productionType: v.optional(productionType),
@@ -910,7 +923,8 @@ export default defineSchema({
   })
     .index("by_material", ["materialId"])
     .index("by_status", ["status"])
-    .index("by_material_status", ["materialId", "status"]),
+    .index("by_material_status", ["materialId", "status"])
+    .index("by_machine_created", ["machineId", "createdAt"]),
 
   offcutConsumptions: defineTable({
     jobCardId: v.id("jobCards"),
@@ -935,7 +949,9 @@ export default defineSchema({
     operatorSubStockId: v.optional(v.id("operatorSubStock")),
     operatorId: v.optional(v.string()),
     machineId: v.optional(v.id("machines")),
-  }).index("by_material", ["materialId"]),
+  })
+    .index("by_material", ["materialId"])
+    .index("by_machine", ["machineId"]),
 
   reconciliations: defineTable({
     materialId: v.id("materials"),

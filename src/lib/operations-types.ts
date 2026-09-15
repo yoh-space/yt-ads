@@ -119,6 +119,10 @@ export type Material = {
   rollWidth?: number;
   sheetWidth?: number;
   sheetLength?: number;
+  maxScrap?: number;
+  minOffcutWidth?: number;
+  minOffcutLength?: number;
+  wasteLimitPolicy?: "warn" | "block";
 };
 
 export type Machine = {

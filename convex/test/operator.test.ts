@@ -382,3 +382,199 @@ describe("operator scrap entry scope (logScrapInternal)", () => {
     expect(docs.get("id_operatorSubStock_1").currentRemaining).toBe(10);
   });
 });
+
+describe("operator waste-limit enforcement (owner-set bounds)", () => {
+  const operator = { _id: "auth_printer" };
+  const areaSubStock = {
+    _id: "id_operatorSubStock_1",
+    __table: "operatorSubStock",
+    machineId: "id_machines_printer",
+    materialId: "id_materials_1",
+    operatorId: "auth_printer",
+    issuedQuantity: 20,
+    issuedUnits: 0,
+    issuedPackages: 0,
+    issuedBaseQuantity: 20,
+    remainingBaseQuantity: 12,
+    currentRemaining: 12,
+    status: "ACTIVE",
+    issuedAt: Date.now(),
+  };
+
+  function stateWithMaterial(materialPatch: Record<string, any>): Record<string, any> {
+    return {
+      id_materials_1: {
+        _id: "id_materials_1",
+        __table: "materials",
+        name: "Banner Flex",
+        unit: "m²",
+        baseUnit: "m²",
+        quantity: 100,
+        active: true,
+        ...materialPatch,
+      },
+      id_machines_printer: { ...PRINTER_MACHINE, __table: "machines" },
+      id_operatorSubStock_1: structuredClone(areaSubStock),
+    };
+  }
+
+  describe("offcut minimum dimensions", () => {
+    it("rejects an offcut below the owner-set minimum dimensions", async () => {
+      const { mockCtx } = createMockCtx(
+        stateWithMaterial({ minOffcutWidth: 0.5, minOffcutLength: 0.8, wasteLimitPolicy: "warn" }),
+      );
+
+      await expect(
+        createOffcutInternal(
+          mockCtx,
+          operator,
+          { role: "crystal_jet_operator" },
+          {
+            materialId: "id_materials_1",
+            width: 0.3,
+            length: 0.5,
+            location: "Shelf 1",
+            operatorSubStockId: "id_operatorSubStock_1",
+            machineId: "id_machines_printer",
+          },
+        ),
+      ).rejects.toThrow("below the 0.5 m × 0.8 m minimum set for Banner Flex");
+    });
+
+    it("accepts an offcut that meets the minimum dimensions", async () => {
+      const { mockCtx, inserted } = createMockCtx(
+        stateWithMaterial({ minOffcutWidth: 0.5, minOffcutLength: 0.8, wasteLimitPolicy: "warn" }),
+      );
+
+      const result = await createOffcutInternal(
+        mockCtx,
+        operator,
+        { role: "crystal_jet_operator" },
+        {
+          materialId: "id_materials_1",
+          width: 0.5,
+          length: 0.8,
+          location: "Shelf 1",
+          operatorSubStockId: "id_operatorSubStock_1",
+          machineId: "id_machines_printer",
+        },
+      );
+
+      expect(result).toBeTruthy();
+      expect(inserted.some((entry) => entry.table === "offcuts" && entry.value.area === 0.4)).toBe(true);
+    });
+
+    it("blocks offcut logging when the block policy has no configured minimum", async () => {
+      const { mockCtx } = createMockCtx(stateWithMaterial({ wasteLimitPolicy: "block" }));
+
+      await expect(
+        createOffcutInternal(
+          mockCtx,
+          operator,
+          { role: "crystal_jet_operator" },
+          {
+            materialId: "id_materials_1",
+            width: 1,
+            length: 2,
+            location: "Shelf 1",
+            operatorSubStockId: "id_operatorSubStock_1",
+            machineId: "id_machines_printer",
+          },
+        ),
+      ).rejects.toThrow("must configure the waste limits for Banner Flex");
+    });
+  });
+
+  describe("scrap global maximum", () => {
+    function scrapState(materialPatch: Record<string, any>, existingScrap = 0) {
+      const state = stateWithMaterial(materialPatch);
+      if (existingScrap > 0) {
+        state.id_scraps_seed = {
+          _id: "id_scraps_seed",
+          __table: "scraps",
+          materialId: "id_materials_1",
+          quantity: existingScrap,
+          unit: "m²",
+          reason: "Earlier misprint",
+        };
+      }
+      return state;
+    }
+
+    it("rejects scrap that would exceed the global max scrap for the material", async () => {
+      const { mockCtx } = createMockCtx(scrapState({ maxScrap: 5, wasteLimitPolicy: "warn" }, 4));
+
+      await expect(
+        logScrapInternal(
+          mockCtx,
+          operator,
+          { role: "crystal_jet_operator" },
+          {
+            materialId: "id_materials_1",
+            quantity: 2,
+            reason: "Misprint",
+            operatorSubStockId: "id_operatorSubStock_1",
+            machineId: "id_machines_printer",
+          },
+        ),
+      ).rejects.toThrow("beyond the 5 m² limit for Banner Flex (1 m² remaining)");
+    });
+
+    it("accepts scrap within the global max scrap", async () => {
+      const { mockCtx } = createMockCtx(scrapState({ maxScrap: 10, wasteLimitPolicy: "warn" }, 4));
+
+      const result = await logScrapInternal(
+        mockCtx,
+        operator,
+        { role: "crystal_jet_operator" },
+        {
+          materialId: "id_materials_1",
+          quantity: 2,
+          reason: "Misprint",
+          operatorSubStockId: "id_operatorSubStock_1",
+          machineId: "id_machines_printer",
+        },
+      );
+
+      expect(result).toBeTruthy();
+    });
+
+    it("blocks scrap logging when the block policy has no max scrap configured", async () => {
+      const { mockCtx } = createMockCtx(scrapState({ wasteLimitPolicy: "block" }));
+
+      await expect(
+        logScrapInternal(
+          mockCtx,
+          operator,
+          { role: "crystal_jet_operator" },
+          {
+            materialId: "id_materials_1",
+            quantity: 1,
+            reason: "Misprint",
+            operatorSubStockId: "id_operatorSubStock_1",
+            machineId: "id_machines_printer",
+          },
+        ),
+      ).rejects.toThrow("must configure the max scrap limit for Banner Flex");
+    });
+
+    it("allows scrap freely under the warn policy when the limit is unconfigured", async () => {
+      const { mockCtx } = createMockCtx(scrapState({ wasteLimitPolicy: "warn" }));
+
+      const result = await logScrapInternal(
+        mockCtx,
+        operator,
+        { role: "crystal_jet_operator" },
+        {
+          materialId: "id_materials_1",
+          quantity: 3,
+          reason: "Misprint",
+          operatorSubStockId: "id_operatorSubStock_1",
+          machineId: "id_machines_printer",
+        },
+      );
+
+      expect(result).toBeTruthy();
+    });
+  });
+});

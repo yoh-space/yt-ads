@@ -7,7 +7,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { toast } from "sonner";
 import { ModalShell } from "@/components/dashboard/modals/modal-shell";
 import { Button, Input, Select } from "@/components/shared/ui";
-import { Save, Layers, Droplet } from "lucide-react";
+import { Save, Layers, Droplet, Scissors } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type RawMaterialItem = {
@@ -32,6 +32,10 @@ export type RawMaterialItem = {
   averageUse?: string;
   inkColor?: string;
   materialFamily?: string;
+  maxScrap?: number;
+  minOffcutWidth?: number;
+  minOffcutLength?: number;
+  wasteLimitPolicy?: "warn" | "block";
   active: boolean;
 };
 
@@ -106,11 +110,18 @@ export function RawMaterialModal({ material, onClose }: RawMaterialModalProps) {
   const [storageLocation, setStorageLocation] = useState(material?.storageLocation ?? "Central store");
   const [averageUse, setAverageUse] = useState(material?.averageUse ?? "");
   const [inkColor, setInkColor] = useState(material?.inkColor ?? "CYAN");
+  const [maxScrap, setMaxScrap] = useState(material?.maxScrap?.toString() ?? "");
+  const [minOffcutWidth, setMinOffcutWidth] = useState(material?.minOffcutWidth?.toString() ?? "");
+  const [minOffcutLength, setMinOffcutLength] = useState(material?.minOffcutLength?.toString() ?? "");
+  const [wasteLimitPolicy, setWasteLimitPolicy] = useState<"warn" | "block">(
+    material?.wasteLimitPolicy ?? "warn"
+  );
   const [active, setActive] = useState(material?.active ?? true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Available categories for the currently selected family
   const availableCategories = CATEGORY_OPTIONS_BY_FAMILY[catalogFamily] ?? [];
+  const isAreaMaterial = catalogFamily === "ROLL" || catalogFamily === "RIGID_SHEET";
 
   // If editing an item with a category not in the pre-defined list, handle custom
   useEffect(() => {
@@ -187,6 +198,28 @@ export function RawMaterialModal({ material, onClose }: RawMaterialModalProps) {
       toast.error("Reorder level must be zero or greater.");
       return;
     }
+    const maxScrapVal = maxScrap.trim() === "" ? undefined : parseFloat(maxScrap);
+    if (maxScrapVal !== undefined && (isNaN(maxScrapVal) || maxScrapVal < 0)) {
+      toast.error("Max scrap must be zero or greater.");
+      return;
+    }
+    const isAreaMaterial = catalogFamily === "ROLL" || catalogFamily === "RIGID_SHEET";
+    const minWidthVal = minOffcutWidth.trim() === "" ? undefined : parseFloat(minOffcutWidth);
+    const minLengthVal = minOffcutLength.trim() === "" ? undefined : parseFloat(minOffcutLength);
+    if (minWidthVal !== undefined && (isNaN(minWidthVal) || minWidthVal <= 0)) {
+      toast.error("Minimum offcut width must be greater than zero.");
+      return;
+    }
+    if (minLengthVal !== undefined && (isNaN(minLengthVal) || minLengthVal <= 0)) {
+      toast.error("Minimum offcut length must be greater than zero.");
+      return;
+    }
+    const wastePayload = {
+      maxScrap: maxScrapVal,
+      minOffcutWidth: isAreaMaterial ? minWidthVal : undefined,
+      minOffcutLength: isAreaMaterial ? minLengthVal : undefined,
+      wasteLimitPolicy,
+    };
 
     setIsSubmitting(true);
     const isInkMaterial = catalogFamily === "INK_SOLVENT" || category.toLowerCase().includes("ink");
@@ -210,6 +243,7 @@ export function RawMaterialModal({ material, onClose }: RawMaterialModalProps) {
           storageLocation: storageLocation.trim() || undefined,
           averageUse: averageUse.trim() || undefined,
           active,
+          ...wastePayload,
         });
         toast.success(`Updated "${name.trim()}" successfully.`);
       } else {
@@ -229,6 +263,7 @@ export function RawMaterialModal({ material, onClose }: RawMaterialModalProps) {
           reorderAt: reorderNum,
           storageLocation: storageLocation.trim() || undefined,
           averageUse: averageUse.trim() || undefined,
+          ...wastePayload,
         });
         toast.success(`Created raw material "${name.trim()}" successfully.`);
       }
@@ -457,6 +492,92 @@ export function RawMaterialModal({ material, onClose }: RawMaterialModalProps) {
             </div>
           </div>
         )}
+
+        {/* Waste & Offcut limits — family-aware bounds set by the owner */}
+        <div className="rounded-lg border border-border/70 bg-secondary/20 p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <label className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+              <Scissors size={13} className="text-cyan-500" />
+              Waste &amp; Offcut Limits
+            </label>
+            <span className="text-[10px] text-muted-foreground">Bounded operator scrap / offcut logging</span>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs text-muted-foreground">
+                Max Scrap ({unit})
+                {catalogFamily === "ROLL" && (
+                  <span className="text-[10px]"> (e.g. ≈ 1.00 × 2.00 m piece)</span>
+                )}
+              </label>
+              <Input
+                type="number"
+                step="0.001"
+                min="0"
+                value={maxScrap}
+                onChange={(e) => setMaxScrap(e.target.value)}
+                placeholder={catalogFamily === "INK_SOLVENT" ? "e.g. 250" : "e.g. 2"}
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs text-muted-foreground">Unconfigured Policy</label>
+              <Select value={wasteLimitPolicy} onChange={(e) => setWasteLimitPolicy(e.target.value as "warn" | "block")} className="w-full bg-background">
+                <option value="warn">Warn (let operators log freely)</option>
+                <option value="block">Block (require limits before logging)</option>
+              </Select>
+            </div>
+          </div>
+
+          {isAreaMaterial && (
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-xs text-muted-foreground">Min Offcut Width (m)</label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={minOffcutWidth}
+                  onChange={(e) => setMinOffcutWidth(e.target.value)}
+                  placeholder="0.5"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-muted-foreground">Min Offcut Length (m)</label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={minOffcutLength}
+                  onChange={(e) => setMinOffcutLength(e.target.value)}
+                  placeholder="0.5"
+                />
+              </div>
+              {/* Live helper text */}
+              {minOffcutWidth && minOffcutLength && (
+                <p className="text-[11px] text-muted-foreground sm:col-span-2">
+                  A leftover piece ≥ <span className="font-medium text-foreground">{minOffcutWidth} × {minOffcutLength} m</span> is a
+                  usable offcut; anything smaller must be logged as scrap.
+                  {wasteLimitPolicy === "block" && (
+                    <span className="ml-1 text-amber-600">
+                      While the offcut limits are empty and policy is “Block”, operators cannot log offcuts for this material.
+                    </span>
+                  )}
+                </p>
+              )}
+            </div>
+          )}
+
+          {wasteLimitPolicy === "block" && maxScrap.trim() === "" && (
+            <p className="mt-3 text-[11px] text-amber-600">
+              Policy is “Block” but the max scrap limit is empty — operators will be unable to log scrap for this material
+              until it is set.
+            </p>
+          )}
+          <p className="mt-2 text-[10px] text-muted-foreground">
+            Max scrap applies to the total scrap logged for this material across the whole factory. “Warn” is the default:
+            limits left empty are not enforced, and operators are nudged to ask the owner to configure them.
+          </p>
+        </div>
 
         {/* Units and Packaging Conversion */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">

@@ -50,6 +50,12 @@ export function operatorNavItems(machineSlug: string): WorkspaceNavItem[] {
       icon: "scale",
     },
     {
+      href: `${base}/waste`,
+      label: "Offcuts & Scrap",
+      english: "ቀሪ ዕቃና ብክነት",
+      icon: "scissors",
+    },
+    {
       href: `${base}/settings`,
       label: "Settings",
       english: "ቅንብሮች",

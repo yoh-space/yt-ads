@@ -1,5 +1,5 @@
 import { mutation, query } from "./_generated/server";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { calculateOffcutArea } from "./units";
 import { requirePermission } from "./users";
 import { canAccessMachine } from "./authorization";
@@ -16,6 +16,67 @@ export const list = query({
       .collect();
   },
 });
+
+/** Human-friendly waste amount, dropping trailing zeros (e.g. "3.5 mL"). */
+function formatWasteAmount(value: number, unitLabel: string): string {
+  const formatted = Number(value.toFixed(3)).toString();
+  return `${formatted} ${unitLabel}`;
+}
+
+/** Owner-set bounds shared by the operator and management offcut/scrap paths. */
+
+/**
+ * Enforces the owner-set minimum offcut dimensions for square-metre materials.
+ * Called from `createOffcutInternal` so every offcut path is bounded the same way.
+ */
+async function enforceOffcutBounds(ctx: any, material: any, width: number, length: number) {
+  const policy = material.wasteLimitPolicy ?? "warn";
+  const minWidth = material.minOffcutWidth;
+  const minLength = material.minOffcutLength;
+
+  if (material.unit === "m²" && policy === "block" && (minWidth === undefined || minLength === undefined)) {
+    throw new ConvexError(
+      `The owner must configure the waste limits for ${material.name} before offcuts can be logged on it.`,
+    );
+  }
+  if (minWidth !== undefined && minLength !== undefined) {
+    if (width < minWidth || length < minLength) {
+      throw new ConvexError(
+        `Offcut ${formatWasteAmount(width, "m")} × ${formatWasteAmount(length, "m")} is below the ${formatWasteAmount(minWidth, "m")} × ${formatWasteAmount(minLength, "m")} minimum set for ${material.name}. Log it as scrap instead.`,
+      );
+    }
+  }
+}
+
+/**
+ * Enforces the owner-set global maximum scrap for a material, summed across all
+ * machines and operators. Called from `logScrapInternal` so every scrap path is
+ * bounded the same way.
+ */
+async function enforceScrapBounds(ctx: any, material: any, quantity: number) {
+  const policy = material.wasteLimitPolicy ?? "warn";
+  const maxScrap = material.maxScrap;
+  const unitLabel = material.baseUnit ?? material.unit ?? "";
+
+  if (policy === "block" && maxScrap === undefined) {
+    throw new ConvexError(
+      `The owner must configure the max scrap limit for ${material.name} before scrap can be logged on it.`,
+    );
+  }
+  if (maxScrap === undefined) return;
+
+  const logged = await ctx.db
+    .query("scraps")
+    .withIndex("by_material", (q: any) => q.eq("materialId", material._id))
+    .collect();
+  const total = logged.reduce((sum: number, entry: { quantity: number }) => sum + entry.quantity, 0) + quantity;
+  if (total > maxScrap) {
+    const remaining = Math.max(0, maxScrap - (total - quantity));
+    throw new ConvexError(
+      `Scrap would total ${formatWasteAmount(total, unitLabel)}, beyond the ${formatWasteAmount(maxScrap, unitLabel)} limit for ${material.name} (${formatWasteAmount(remaining, unitLabel)} remaining).`,
+    );
+  }
+}
 
 /**
  * Shared offcut-return transaction used by the generic `create` mutation and
@@ -43,6 +104,7 @@ export async function createOffcutInternal(
   const material = await ctx.db.get(args.materialId);
   if (!material || !material.active) throw new Error("Active material not found.");
   if (material.unit !== "m²") throw new Error("Only square-meter materials can create sheet offcuts.");
+  await enforceOffcutBounds(ctx, material, args.width, args.length);
   const isManagement = ["owner", "manager", "admin", "storekeeper"].includes(profile.role);
   let operatorSubStockId = args.operatorSubStockId;
   if (!isManagement) {
@@ -138,6 +200,7 @@ export async function logScrapInternal(
   if (!args.reason.trim()) throw new Error("A scrap reason is required.");
   const material = await ctx.db.get(args.materialId);
   if (!material || !material.active) throw new Error("Active material not found.");
+  await enforceScrapBounds(ctx, material, args.quantity);
   const isManagement = ["owner", "manager", "admin", "storekeeper"].includes(profile.role);
   let operatorSubStockId = args.operatorSubStockId;
   if (!isManagement) {

@@ -264,7 +264,7 @@ export default function OperatorMachineOverview({
 
             <div className="flex items-center gap-2.5">
               <button
-                onClick={() => router.push("/inventory/substock")}
+                onClick={() => router.push(`/${machineParam}/inventory`)}
                 className="h-10 px-4 rounded-lg border border-slate-700 bg-slate-900 hover:bg-slate-800 text-xs font-semibold text-slate-300 hover:text-white transition-colors"
               >
                 የማሽን ዕቃ (Floor Stock)

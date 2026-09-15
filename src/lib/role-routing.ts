@@ -206,6 +206,15 @@ export const ROUTE_DESCRIPTORS: Record<string, RouteDescriptor> = {
     href: () => "/inventory/substock",
     type: "canonical",
   },
+  waste: {
+    view: "waste",
+    href: (role) => {
+      const machine = operatorMachineForRole(role);
+      if (machine) return `/dashboard/operator/${machine}/waste`;
+      return "/dashboard/owner";
+    },
+    type: "operator-stable",
+  },
   reports: {
     view: "reports",
     href: () => "/reports",
