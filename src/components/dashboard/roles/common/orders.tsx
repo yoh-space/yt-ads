@@ -54,16 +54,19 @@ const priorities: Array<OrderPriority | "all"> = ["all", "High", "Medium", "Low"
  * Shared track definition for the orders queue header and its rows.
  *
  * Every track declares an explicit `minmax()` floor. Grid tracks default to
- * `min-width: auto`, so an unshrinkable child (the `whitespace-nowrap` status
- * pill or the "Waiting for Cashier" badge) used to force its track wider than
+ * `min-width: auto`, so an unshrinkable child used to force its track wider than
  * the panel and paint the action column on top of the status column. The floors
  * plus the horizontally scrollable wrapper keep each cell inside its own column.
+ *
+ * The status floor is 200px on purpose: `StatusPill` is `w-max whitespace-nowrap`,
+ * and the longest status (`PRICED_AND_PENDING_PAYMENT`, 26 chars at 8.5px mono
+ * with 0.1em tracking) needs ~181px including dot, gap, and padding.
  */
 const ORDER_GRID_COLUMNS =
-  "grid grid-cols-[minmax(180px,2fr)_minmax(140px,1.5fr)_minmax(80px,0.9fr)_minmax(120px,1.1fr)_minmax(160px,1.35fr)_minmax(180px,1.45fr)] gap-4 px-4 py-3";
+  "grid grid-cols-[minmax(180px,2fr)_minmax(140px,1.5fr)_minmax(80px,0.9fr)_minmax(120px,1.1fr)_minmax(200px,1.35fr)_minmax(180px,1.45fr)] gap-4 px-4 py-3";
 
-/** Sum of the track floors + gaps + padding, so tracks never squeeze. */
-const ORDER_TABLE_MIN_WIDTH = "min-w-[980px]";
+/** Sum of the track floors + 5 gaps + horizontal padding, so tracks never squeeze. */
+const ORDER_TABLE_MIN_WIDTH = "min-w-[1040px]";
 
 function formatDue(timestamp: number) {
   return new Date(timestamp).toLocaleString("en-ET", { dateStyle: "medium", timeStyle: "short" });
@@ -261,7 +264,7 @@ export function OrdersView({
                   }
                 }}
               >
-              {/* Order/Client */}
+                {/* Order/Client */}
                 <div className="min-w-0">
                   <b className="block text-sm font-semibold text-navy truncate">{order.code}</b>
                   <span className="block text-xs text-gray-600 truncate">{order.clientName}</span>
@@ -338,8 +341,8 @@ export function OrdersView({
                   ) : null}
                 </div>
               
-              {/* Actions */}
-              <div className="flex min-w-0 items-center justify-end gap-1.5">
+                {/* Actions */}
+                <div className="flex min-w-0 items-center justify-end gap-1.5">
                 {canManage && !order.jobCardId && order.status === "PENDING_REVIEW" ? (
                   <Button
                     size="small"
