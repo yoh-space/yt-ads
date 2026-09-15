@@ -17,7 +17,7 @@ import { OperatorStockWidget } from "@/components/dashboard/roles/operator/opera
 import type { OperatorStockEntry } from "@/types/dashboard-types";
 import type { AccessContext } from "@/lib/access-policy";
 import { WorkspaceModuleGate } from "@/components/dashboard/shell/workspace-renderer";
-import type { JobCard, Material } from "@/lib/operations-types";
+import type { JobCard } from "@/lib/operations-types";
 import { JobTicketHero } from "@/components/dashboard/roles/operator/job-ticket-hero";
 import { SmartBatchQueue } from "@/components/dashboard/roles/operator/smart-batch-queue";
 
@@ -46,7 +46,6 @@ export default function OperatorMachineOverview({
     machineSlug: machineParam,
     selectedJobId,
   });
-  const materials = useQuery(api.materials.list);
 
   const { openModal, setFloorMachineId, setFloorSubStockId } = useDashboardModal();
   const { isPending, safeMutation } = useSafeMutation();
@@ -68,14 +67,6 @@ export default function OperatorMachineOverview({
     [machineJobs]
   );
 
-  const materialOptions = useMemo(
-    () =>
-      materials
-        ? (materials.map((material) => ({ ...material, id: material._id })) as Material[])
-        : [],
-    [materials]
-  );
-
   const unclearedStock = useMemo(
     () =>
       floorStock
@@ -91,7 +82,7 @@ export default function OperatorMachineOverview({
     [floorStock, currentMachine]
   );
 
-  if (!profile || overview === undefined || materials === undefined) {
+  if (!profile || overview === undefined) {
     return (
       <div className="flex min-h-[400px] items-center justify-center">
         <InventoryLoader label={`የ${machineParam.toUpperCase()} ኦፕሬተር ገጽ በመጫን ላይ…`} />
@@ -362,7 +353,6 @@ export default function OperatorMachineOverview({
         {requestOpen ? (
           <MaterialRequestModal
             jobs={jobOptions}
-            materials={materialOptions}
             unclearedStock={unclearedStock}
             machineSlug={machineParam}
             onClose={() => setRequestOpen(false)}

@@ -1,12 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "convex/react";
 import { AlertTriangle, BriefcaseBusiness, CheckCircle2, ClipboardPlus, FileText, Info, Package, Plus, Ruler, Trash2 } from "lucide-react";
 import { api } from "@/convex/_generated/api";
-import type { JobCard, Material, PackageUnit, Unit } from "@/lib/operations-types";
+import type { JobCard, PackageUnit, Unit } from "@/lib/operations-types";
 import type { Id } from "@/convex/_generated/dataModel";
-import { findMaterialSpecification, isMaterialCompatibleWithMachine } from "@/shared/material-specifications";
 import { formatQuantity } from "@/lib/units";
 import { ModalShell } from "./modal-shell";
 import { Button, NumericInput } from "@/components/shared/ui";
@@ -39,14 +38,12 @@ export type UnclearedFloorStock = {
 
 export function MaterialRequestModal({
   jobs,
-  materials,
   unclearedStock = [],
   machineSlug,
   onClose,
   onSave,
 }: {
   jobs: JobCard[];
-  materials: Material[];
   unclearedStock?: UnclearedFloorStock[];
   machineSlug?: string;
   onClose: () => void;
@@ -73,36 +70,9 @@ export function MaterialRequestModal({
             ? "PIECE"
             : "PACKAGE");
 
-  // Allowed materials scoped strictly to this job card
-  const materialOptions = useMemo(() => {
-    if (eligibility?.allowedMaterials && eligibility.allowedMaterials.length > 0) {
-      return eligibility.allowedMaterials.map((m) => {
-        const fullMat = materials.find((mat) => mat.id === m.id);
-        return {
-          id: m.id,
-          name: m.name,
-          category: fullMat?.category ?? "Raw material",
-          unit: m.unit,
-          baseUnit: m.baseUnit,
-          packageUnit: m.packageUnit,
-          conversionRatio: m.conversionRatio,
-          isBlocked: m.isBlocked,
-          blockReason: m.blockReason,
-          priorCustodyState: m.priorCustodyState,
-          isPrimary: m.isPrimary,
-          quantity: fullMat?.quantity ?? 0,
-          reorderAt: fullMat?.reorderAt ?? 0,
-          accent: fullMat?.accent ?? "cyan",
-        } as Material & { isBlocked?: boolean; blockReason?: string; priorCustodyState?: string; isPrimary?: boolean };
-      });
-    }
-    // Fallback while eligibility query loads or if no machineSlug
-    if (selectedJob?.materialId) {
-      const primary = materials.filter((m) => m.id === selectedJob.materialId);
-      if (primary.length > 0) return primary;
-    }
-    return materials;
-  }, [eligibility, materials, selectedJob]);
+  // The server is the only source of requestable materials. There is
+  // intentionally no global-material fallback while eligibility is loading.
+  const materialOptions = useMemo(() => eligibility?.allowedMaterials ?? [], [eligibility]);
 
   type RequestLineItem = {
     materialId: string;
@@ -111,13 +81,12 @@ export function MaterialRequestModal({
   };
 
   const getInitialSpecOption = (matId: string) => {
-    const mat = materialOptions.find((m) => m.id === matId) ?? materials.find((m) => m.id === matId);
+    const mat = materialOptions.find((m) => m.id === matId);
     if (!mat) return undefined;
-    const spec = findMaterialSpecification(mat.name);
-    return spec?.specificationOptions?.[0];
+    return mat.specificationOptions?.[0];
   };
 
-  const defaultMaterial = materialOptions[0] ?? materials[0];
+  const defaultMaterial = materialOptions[0];
 
   const [lines, setLines] = useState<RequestLineItem[]>(() =>
     defaultMaterial
@@ -126,8 +95,21 @@ export function MaterialRequestModal({
   );
   const [note, setNote] = useState("");
 
+  useEffect(() => {
+    const first = materialOptions[0];
+    if (!first) {
+      setLines([]);
+      return;
+    }
+    setLines((current) => {
+      const valid = current.filter((line) => materialOptions.some((option) => option.id === line.materialId));
+      if (valid.length > 0) return valid;
+      return [{ materialId: first.id, packages: "1", specOption: getInitialSpecOption(first.id) }];
+    });
+  }, [selectedJob?.id, materialOptions]);
+
   const lineFor = (materialId: string) =>
-    materialOptions.find((m) => m.id === materialId) ?? materials.find((m) => m.id === materialId);
+    materialOptions.find((m) => m.id === materialId);
 
   const linesHaveError =
     lines.length === 0 ||
@@ -341,8 +323,7 @@ export function MaterialRequestModal({
 
               {lines.map((line, index) => {
                 const material = lineFor(line.materialId);
-                const specDef = material ? findMaterialSpecification(material.name) : undefined;
-                const specOptions = specDef?.specificationOptions ?? [];
+                const specOptions = material?.specificationOptions ?? [];
                 const ratio =
                   material?.conversionRatio && material.conversionRatio > 0 ? material.conversionRatio : 1;
                 const packageUnit = packageUnitFor(material);
@@ -413,7 +394,7 @@ export function MaterialRequestModal({
                       <div className="col-span-full flex flex-col gap-1 rounded-md border border-cyan-500/20 bg-cyan-950/20 p-2 text-xs">
                         <label className="flex items-center gap-1.5 font-semibold text-cyan-300">
                           <Ruler size={13} className="text-cyan-400" />
-                          {specDef?.specification ?? "Width / Specification"}
+                          {material?.specificationOptions?.length ? "Specification" : "Width / Specification"}
                         </label>
                         <select
                           value={line.specOption || specOptions[0]}

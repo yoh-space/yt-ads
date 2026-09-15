@@ -708,6 +708,56 @@ export const upsertMaterialCatalogItem = mutation({
       });
     }
 
+    // Inventory and operator requests reference operational materials, not
+    // catalog rows. Keep linked operational records synchronized so owner
+    // edits cannot silently change the meaning of a material ID.
+    const linkedOperationalMaterials: any[] = await qTable(ctx, "materials")
+      .filter((q: any) => q.eq(q.field("catalogMaterialId"), resultId))
+      .collect();
+    for (const material of linkedOperationalMaterials) {
+      const parentInventory = await qTable(ctx, "parentInventory")
+        .filter((q: any) => q.eq(q.field("materialId"), material._id))
+        .first();
+      const conversionChanged = material.conversionRatio !== args.conversionRatio;
+      const unitChanged = material.baseUnit !== baseUnit || material.purchaseUnit !== purchaseUnit;
+      if (parentInventory?.totalStockQuantity > 0 && (conversionChanged || unitChanged)) {
+        throw new Error(
+          `OPERATIONAL_MATERIAL_CONFLICT: ${material.name} has central stock. Reconcile or consume existing stock before changing its unit or conversion ratio.`,
+        );
+      }
+      await (ctx.db.patch as any)(material._id, {
+        name,
+        category,
+        catalogFamily,
+        catalogMaterialId: resultId,
+        unit: baseUnit,
+        baseUnit,
+        purchaseUnit,
+        conversionRatio: args.conversionRatio,
+        rollWidth: args.rollWidth,
+        sheetWidth: args.sheetWidth,
+        sheetLength: args.sheetLength,
+        specificationOptions: args.specificationOptions,
+        storageLocation: payload.storageLocation,
+        averageUse: payload.averageUse,
+        catalogDimensions: payload.catalogDimensions,
+        catalogVariant: payload.catalogVariant,
+        inkColor: payload.inkColor,
+        active: args.active,
+      });
+      if (parentInventory) {
+        const family = catalogFamily.toUpperCase();
+        const unitType = family === "ROLL" ? "ROLL" : family === "RIGID_SHEET" ? "SHEET" : "LITER";
+        await ctx.db.patch(parentInventory._id, {
+          unitType,
+          lengthPerRoll: unitType === "ROLL" ? args.conversionRatio : undefined,
+          areaPerSheet: unitType === "SHEET" ? args.conversionRatio : undefined,
+          volumePerContainer: unitType === "LITER" ? args.conversionRatio : undefined,
+          updatedAt: now,
+        });
+      }
+    }
+
     return resultId;
   },
 });
