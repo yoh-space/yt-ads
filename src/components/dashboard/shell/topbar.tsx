@@ -11,7 +11,6 @@ import type { View } from "@/types/dashboard-types";
 import { UserMenu } from "./user-menu";
 import { NotificationModal } from "../modals/notification-modal";
 import { SoundControl } from "./sound-control";
-import { TelemetryBar } from "@/components/shared/ui/telemetry-bar";
 import type { Profile } from "@/lib/operations-types";
 import { cn } from "@/lib/utils";
 
@@ -111,15 +110,6 @@ export function Topbar({
           <UserMenu profile={profile} onOpenSettings={onOpenSettings ?? (() => {})} />
         </div>
       </header>
-
-      <TelemetryBar
-        items={[
-          { label: "በሥራ ላይ", value: machines ? String(runningMachines) : "…", tone: "green" },
-          { label: "ዝግጁ", value: machines ? String(availableMachines) : "…", tone: "cyan" },
-          { label: "ጥገና", value: machines ? String(maintenanceMachines) : "…", tone: maintenanceMachines > 0 ? "amber" : "muted" },
-          { label: "የወቅቱ ሰዓት", value: clock, tone: "amber" },
-        ]}
-      />
 
       <div className="flex min-h-8 items-center gap-3 overflow-hidden border-b border-line bg-white px-[34px] text-[10px] text-gray-500">
         <span className="shrink-0 font-mono font-semibold uppercase tracking-[0.12em] text-gray-400">Recent activity</span>
