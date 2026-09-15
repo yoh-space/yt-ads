@@ -279,7 +279,7 @@ describe("materialRequests issuance and acknowledgement invariants", () => {
         baseOperator,
         "crystal_jet_operator"
       )
-    ).rejects.toThrow("Cannot acknowledge receipt while request is still partially issued.");
+    ).rejects.toThrow("The request is still partially issued.");
   });
 
   it("allows acknowledgement when request is Issued", async () => {
@@ -297,6 +297,88 @@ describe("materialRequests issuance and acknowledgement invariants", () => {
 
     expect(result.status).toBe("Received");
     expect(result.receivedBy).toBe(baseOperator._id);
+  });
+
+  it("treats repeated receipt acknowledgement as idempotent", async () => {
+    const state = buildValidState() as any;
+    state.id_materialRequests_1.status = "Received";
+    state.id_materialRequests_1.receivedBy = baseOperator._id;
+    const { mockCtx } = createMockCtx(state);
+
+    const result = await acknowledgeMaterialRequestInternal(
+      mockCtx,
+      { requestId: "id_materialRequests_1" as any },
+      baseOperator,
+      "crystal_jet_operator",
+    );
+
+    expect(result.status).toBe("Received");
+    expect(result.receivedBy).toBe(baseOperator._id);
+  });
+
+  it("rejects acknowledgement when the related machine is unavailable", async () => {
+    const state = buildValidState() as any;
+    state.id_materialRequests_1.status = "Issued";
+    state.id_materialRequests_1.issuedQuantity = 50;
+    delete state.id_machines_1;
+    const { mockCtx } = createMockCtx(state);
+
+    await expect(
+      acknowledgeMaterialRequestInternal(
+        mockCtx,
+        { requestId: "id_materialRequests_1" as any },
+        baseOperator,
+        "crystal_jet_operator",
+      ),
+    ).rejects.toThrow("The related machine is unavailable.");
+  });
+
+  it("requires every grouped line to be fully issued", async () => {
+    const state = buildValidState() as any;
+    state.id_materialRequests_1.status = "Issued";
+    state.id_materialRequests_1.issuedQuantity = 50;
+    state.id_materialRequests_1.requestGroupId = "group-1";
+    state.id_materialRequestLines_1 = {
+      _id: "id_materialRequestLines_1",
+      __table: "materialRequestLines",
+      requestGroupId: "group-1",
+      materialId: "id_materials_1",
+      requestedQuantity: 50,
+      issuedQuantity: 20,
+      status: "Partially Issued",
+    };
+    const { mockCtx } = createMockCtx(state);
+
+    await expect(
+      acknowledgeMaterialRequestInternal(
+        mockCtx,
+        { requestId: "id_materialRequests_1" as any },
+        baseOperator,
+        "crystal_jet_operator",
+      ),
+    ).rejects.toThrow("The grouped request is still partially issued.");
+  });
+
+  it("keeps acknowledgement successful when notification delivery fails", async () => {
+    const state = buildValidState() as any;
+    state.id_materialRequests_1.status = "Issued";
+    state.id_materialRequests_1.issuedQuantity = 50;
+    const { mockCtx, docs } = createMockCtx(state);
+    const originalInsert = mockCtx.db.insert;
+    mockCtx.db.insert = async (table: string, value: any) => {
+      if (table === "notifications") throw new Error("notification service unavailable");
+      return originalInsert(table, value);
+    };
+
+    const result = await acknowledgeMaterialRequestInternal(
+      mockCtx,
+      { requestId: "id_materialRequests_1" as any },
+      baseOperator,
+      "crystal_jet_operator",
+    );
+
+    expect(result.status).toBe("Received");
+    expect(docs.get("id_materialRequests_1").status).toBe("Received");
   });
 });
 

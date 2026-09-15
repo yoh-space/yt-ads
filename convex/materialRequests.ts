@@ -754,23 +754,36 @@ export async function acknowledgeMaterialRequestInternal(
 ) {
   const request = await ctx.db.get(args.requestId);
   if (!request) throw new Error("Material request not found.");
-  if (request.status !== "Issued" && request.status !== "Partially Issued") {
-    throw new Error("Only an issued request can be marked received.");
-  }
   const job = await ctx.db.get(request.jobCardId);
   const machine = job ? await ctx.db.get(job.machineId) : undefined;
   const material = await ctx.db.get(request.materialId);
+  if (!job) throw new Error("The related job card is unavailable.");
+  if (!machine) throw new Error("The related machine is unavailable.");
+  if (!material) throw new Error("The requested material is unavailable.");
   if (!canAccessMaterialRequest(role, identity._id, request, machine ?? undefined)) {
-    throw new Error("You cannot acknowledge this material request.");
+    throw new Error("You are not authorized to acknowledge this request.");
+  }
+  if (request.status === "Received") {
+    return request;
+  }
+  if (request.status !== "Issued" && request.status !== "Partially Issued") {
+    throw new Error("Only fully issued requests can be received.");
+  }
+  if ((request.issuedQuantity ?? 0) < request.requestedQuantity) {
+    throw new Error("The request is still partially issued.");
   }
   if (request.requestGroupId) {
     const lines = await ctx.db
       .query("materialRequestLines")
       .withIndex("by_request_group", (q: any) => q.eq("requestGroupId", request.requestGroupId!))
       .collect();
-    const hasPartiallyIssuedLine = lines.some((line: any) => line.status === "Partially Issued");
-    if (hasPartiallyIssuedLine && request.issuedQuantity < request.requestedQuantity) {
-      throw new Error("Cannot acknowledge receipt while request lines are still partially issued.");
+    const incompleteLine = lines.find(
+      (line: any) =>
+        line.status !== "Issued" && line.status !== "Received" ||
+        (line.issuedQuantity ?? 0) < line.requestedQuantity,
+    );
+    if (incompleteLine) {
+      throw new Error("The grouped request is still partially issued.");
     }
     const matchingLine = lines.find((line: any) => line.materialId === request.materialId);
     if (matchingLine) {
@@ -778,22 +791,27 @@ export async function acknowledgeMaterialRequestInternal(
         status: "Received",
       });
     }
-  } else if (request.status === "Partially Issued" && request.issuedQuantity < request.requestedQuantity) {
-    throw new Error("Cannot acknowledge receipt while request is still partially issued.");
   }
   await ctx.db.patch(args.requestId, {
     status: "Received",
     receivedBy: identity._id,
     receivedAt: Date.now(),
   });
-  await notifyUser(ctx, request.issuedBy ?? request.requestedBy, {
-    title: "Material received",
-    message: `${material?.name ?? "Material request"} for ${job?.code ?? "the production job"} was marked received.`,
-    type: "material_received",
-    actorAuthUserId: identity._id,
-    relatedTable: "materialRequests",
-    relatedId: args.requestId,
-  });
+  try {
+    await notifyUser(ctx, request.issuedBy ?? request.requestedBy, {
+      title: "Material received",
+      message: `${material.name} for ${job.code} was marked received.`,
+      type: "material_received",
+      actorAuthUserId: identity._id,
+      relatedTable: "materialRequests",
+      relatedId: args.requestId,
+    });
+  } catch (error) {
+    console.warn("Material receipt notification failed after acknowledgement", {
+      requestId: args.requestId,
+      error,
+    });
+  }
   return (await ctx.db.get(args.requestId))!;
 }
 

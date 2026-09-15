@@ -124,6 +124,7 @@ export default function OperatorRequestsPage({
               `ack-${requestId}`,
               acknowledgeRequest({ machineSlug: machineParam, requestId: requestId as Id<"materialRequests"> }),
               () => toast.success("Material receipt acknowledged"),
+              (err) => toast.error(err instanceof Error ? err.message : "Failed to acknowledge material receipt"),
             )
           }
           isPending={isPending}
