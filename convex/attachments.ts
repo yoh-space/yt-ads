@@ -4,13 +4,14 @@ import { authComponent } from "./auth";
 import { buildCustomerDocumentFileName } from "./utils/orderFileName";
 
 /**
- * Records a verified uploaded attachment (e.g. customer proof, mockup image) for an order.
+ * Records a Convex-storage attachment (e.g. customer proof, mockup image) for an order.
+ * The upload itself is two-step (generateUploadUrl via api.orders.generateUploadUrl, then
+ * a direct POST); this mutation only stores the resulting storageId and order metadata.
  */
 export const recordOrderAttachment = mutation({
   args: {
     orderId: v.id("customerOrders"),
-    fileUrl: v.string(),
-    fileKey: v.string(),
+    storageId: v.id("_storage"),
     fileName: v.optional(v.string()),
     fileSize: v.optional(v.number()),
     mimeType: v.optional(v.string()),
@@ -43,8 +44,7 @@ export const recordOrderAttachment = mutation({
 
     const attachmentId = await ctx.db.insert("orderAttachments", {
       orderId: args.orderId,
-      fileUrl: args.fileUrl,
-      fileKey: args.fileKey,
+      storageId: args.storageId,
       fileName: canonicalFileName,
       fileSize: args.fileSize,
       mimeType: args.mimeType,
@@ -56,15 +56,30 @@ export const recordOrderAttachment = mutation({
   },
 });
 
-/**
- * Lists all attachments associated with a customer order.
- */
+/** Lists all attachments for an order, resolving a fresh signed URL per read (Convex storage URLs are not permanent). */
 export const listOrderAttachments = query({
   args: { orderId: v.id("customerOrders") },
   handler: async (ctx, args) => {
-    return await ctx.db
+    const rows = await ctx.db
       .query("orderAttachments")
       .withIndex("by_order", (q) => q.eq("orderId", args.orderId))
       .collect();
+    return await Promise.all(
+      rows.map(async (row) => ({
+        ...row,
+        fileUrl: await ctx.storage.getUrl(row.storageId),
+      })),
+    );
+  },
+});
+
+/** Mirrors orders.ts's delete-on-order-removal cleanup for attachment storage objects. */
+export const deleteOrderAttachment = mutation({
+  args: { attachmentId: v.id("orderAttachments") },
+  handler: async (ctx, args) => {
+    const attachment = await ctx.db.get(args.attachmentId);
+    if (!attachment) return;
+    await ctx.storage.delete(attachment.storageId);
+    await ctx.db.delete(args.attachmentId);
   },
 });

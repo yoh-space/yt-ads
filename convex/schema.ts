@@ -1581,8 +1581,7 @@ export default defineSchema({
   /** Customer order reference attachments and proof images. */
   orderAttachments: defineTable({
     orderId: v.id("customerOrders"),
-    fileUrl: v.string(),
-    fileKey: v.string(),
+    storageId: v.id("_storage"),
     fileName: v.optional(v.string()),
     fileSize: v.optional(v.number()),
     mimeType: v.optional(v.string()),

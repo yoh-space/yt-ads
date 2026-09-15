@@ -626,16 +626,6 @@ export function OrderConfirmModal({ order, machines, materials, onClose, onSave 
         </div>
 
         <div className="space-y-4 rounded-xl border border-border-token bg-surface p-4">
-          <div className="flex items-center justify-between gap-3 border-b border-border-token pb-2">
-            <span className="text-sm font-bold text-text-primary">Production & Resource Verification</span>
-            {dispatchPreview ? (
-              <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-600">
-                Route Verified
-              </span>
-            ) : (
-              <span className="text-xs text-text-secondary">Checking resources…</span>
-            )}
-          </div>
 
           {dispatchPreviewError ? (
             <div className="rounded-lg border border-danger/40 bg-danger/15 p-3 text-xs text-danger" role="alert">
