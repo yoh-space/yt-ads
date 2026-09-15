@@ -69,16 +69,16 @@ const BASE_UNITS = [
   { value: "m²", label: "m² (Square Metres - Area)" },
   { value: "m", label: "m (Linear Metres - Length)" },
   { value: "sheet", label: "sheet (Rigid Sheets)" },
-  { value: "pcs", label: "pcs (Pieces / Count)" },
+  { value: "pcs", label: "pcs (Pieces)" },
   { value: "piece", label: "piece (Units)" },
-  { value: "L", label: "L (Litres - Liquid Volume)" },
-  { value: "mL", label: "mL (Millilitres - Liquid Volume)" },
+  { value: "L", label: "L (Litres)" },
+  { value: "mL", label: "mL (Millilitres)" },
 ] as const;
 
 const PURCHASE_UNITS = [
-  { value: "roll", label: "roll (Full Rolls)" },
-  { value: "sheet", label: "sheet (Full Sized Sheets)" },
-  { value: "canister", label: "canister (Sealed Canister / Bottle)" },
+  { value: "roll", label: "roll" },
+  { value: "sheet", label: "sheet" },
+  { value: "canister", label: "canister (Bottle)" },
   { value: "liter", label: "liter (Bulk Liquid Container)" },
   { value: "pack", label: "pack (Multi-item Pack)" },
   { value: "piece", label: "piece (Individual Wholesale Piece)" },
