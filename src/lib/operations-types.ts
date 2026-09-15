@@ -4,6 +4,8 @@ export type Role =
   | "admin"
   | "storekeeper"
   | "receptionist"
+  | "cashier"
+  | "designer"
   | "laser_operator"
   | "cnc_operator"
   | "crystal_jet_operator"
@@ -224,6 +226,8 @@ export const roleLabels: Record<Role, { am: string; en: string; initial: string 
   admin: { am: "ዋና ሥራ አስኪያጅ", en: "General Manager", initial: "GM" },
   storekeeper: { am: "መጋዘን ኃላፊ", en: "Storekeeper", initial: "SK" },
   receptionist: { am: "ተቀባይ", en: "Receptionist", initial: "RC" },
+  cashier: { am: "ገንዘብ ተቀባይ", en: "Cashier", initial: "CA" },
+  designer: { am: "ዲዛይነር", en: "Designer", initial: "DS" },
   laser_operator: { am: "Laser ኦፕሬተር", en: "Laser Cutter", initial: "LC" },
   cnc_operator: { am: "CNC ኦፕሬተር", en: "CNC Router", initial: "CN" },
   crystal_jet_operator: { am: "Crystal Jet ኦፕሬተር", en: "Crystal Jet Operator", initial: "CJ" },

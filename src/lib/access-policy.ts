@@ -15,6 +15,7 @@ export type Capability =
   | "inventory.reorder.create"
   | "inventory.substock.view"
   | "orders.view"
+  | "designs.view"
   | "reports.view"
   | "reconciliation.record"
   | "reconciliation.operator"
@@ -43,6 +44,7 @@ const CAPABILITY_PERMISSIONS: Record<Capability, Permission | null> = {
   "inventory.reorder.create": "material.edit",
   "inventory.substock.view": "material.view",
   "orders.view": "order.view",
+  "designs.view": "design.view",
   "reports.view": "reports.view",
   "reconciliation.record": "reconciliation.record",
   "reconciliation.operator": "reconciliation.operator",
@@ -65,6 +67,19 @@ const ROLE_CAPABILITY_OVERRIDES: Partial<Record<Role, Partial<Record<Capability,
   admin: { "finance.view": true },
   receptionist: {
     "orders.view": true,
+    "inventory.parent.view": false,
+    "inventory.substock.view": false,
+    "jobs.execute": false,
+  },
+  cashier: {
+    "orders.view": true,
+    "inventory.parent.view": false,
+    "inventory.substock.view": false,
+    "jobs.execute": false,
+  },
+  designer: {
+    "orders.view": false,
+    "designs.view": true,
     "inventory.parent.view": false,
     "inventory.substock.view": false,
     "jobs.execute": false,

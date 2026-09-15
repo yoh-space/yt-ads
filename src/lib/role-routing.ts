@@ -6,6 +6,8 @@ export const ALL_ROLES: readonly Role[] = [
   "admin",
   "storekeeper",
   "receptionist",
+  "cashier",
+  "designer",
   "laser_operator",
   "cnc_operator",
   "crystek_operator",
@@ -24,6 +26,8 @@ export const ALL_WORKSPACES = [
   "admin",
   "storekeeper",
   "receptionist",
+  "cashier",
+  "designer",
   "operator",
 ] as const;
 
@@ -64,6 +68,8 @@ export const ROLE_HOME_ROUTE: Record<Role, string> = {
   admin: "/dashboard/admin",
   storekeeper: "/dashboard/storekeeper",
   receptionist: "/dashboard/receptionist",
+  cashier: "/dashboard/cashier",
+  designer: "/dashboard/designer",
   laser_operator: "/dashboard/operator/laser",
   cnc_operator: "/dashboard/operator/cnc",
   crystek_operator: "/dashboard/operator/crystek",
@@ -82,6 +88,8 @@ export function getWorkspaceForRole(role: Role): WorkspaceId {
   if (role === "manager") return "manager";
   if (role === "storekeeper") return "storekeeper";
   if (role === "receptionist") return "receptionist";
+  if (role === "cashier") return "cashier";
+  if (role === "designer") return "designer";
   return "operator";
 }
 
@@ -96,6 +104,8 @@ export function canAccessWorkspace(role: Role, workspace: WorkspaceId): boolean 
   if (role === "receptionist") {
     return workspace === "receptionist";
   }
+  if (role === "cashier") return workspace === "cashier";
+  if (role === "designer") return workspace === "designer";
   return workspace === "operator";
 }
 
@@ -154,6 +164,8 @@ export const ROUTE_DESCRIPTORS: Record<string, RouteDescriptor> = {
       if (role === "manager") return "/dashboard/manager";
       if (role === "storekeeper") return "/dashboard/storekeeper";
       if (role === "receptionist") return "/dashboard/receptionist";
+      if (role === "cashier") return "/dashboard/cashier";
+      if (role === "designer") return "/dashboard/designer";
       const machine = operatorMachineForRole(role);
       if (machine) return `/dashboard/operator/${machine}`;
       return "/dashboard/owner";
@@ -165,6 +177,8 @@ export const ROUTE_DESCRIPTORS: Record<string, RouteDescriptor> = {
     href: (role) => {
       if (isOperatorRole(role)) return "/dashboard"; // operators don't access orders
       if (role === "receptionist") return "/dashboard/receptionist/orders";
+      if (role === "cashier") return "/dashboard/cashier";
+      if (role === "designer") return "/dashboard/designer";
       return "/orders";
     },
     type: "canonical",
@@ -552,7 +566,7 @@ function canAccessCanonicalRoute(role: Role, pathname: string): boolean {
 
   // Feature-based access for non-operator workspaces
   if (feature === "orders") {
-    return ["owner", "admin", "manager", "receptionist"].includes(role);
+    return ["owner", "admin", "manager", "receptionist", "cashier"].includes(role);
   }
   if (feature === "reports") {
     return ["owner", "admin"].includes(role);

@@ -38,7 +38,15 @@ export type Permission =
   | "audit.view"
   | "order.view"
   | "order.create"
+  | "order.review"
+  | "order.price"
+  | "order.payment_verify"
   | "order.manage"
+  | "design.view"
+  | "design.assign"
+  | "design.submit"
+  | "design.review"
+  | "customer.notify"
   | "stock.exception"
   | "reconciliation.record"
   | "reconciliation.review"
@@ -76,7 +84,15 @@ export const ALL_PERMISSIONS: Permission[] = [
   "audit.view",
   "order.view",
   "order.create",
+  "order.review",
+  "order.price",
+  "order.payment_verify",
   "order.manage",
+  "design.view",
+  "design.assign",
+  "design.submit",
+  "design.review",
+  "customer.notify",
   "reconciliation.record",
   "reconciliation.review",
   "reconciliation.operator",
@@ -186,7 +202,25 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "dashboard.view",
     "order.view",
     "order.create",
+    "order.review",
+    "order.price",
+    "design.view",
+    "design.assign",
+    "design.review",
+    "customer.notify",
     "order.manage",
+  ],
+  cashier: [
+    "dashboard.view",
+    "order.view",
+    "order.payment_verify",
+    "job.create",
+    "customer.notify",
+  ],
+  designer: [
+    "dashboard.view",
+    "design.view",
+    "design.submit",
   ],
 };
 

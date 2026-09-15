@@ -82,6 +82,26 @@ export const WORKSPACE_REGISTRY: Record<WorkspaceId, WorkspaceDefinition> = {
       { id: "orders.queue", capability: "orders.view", placement: "primary" },
     ],
   },
+  cashier: {
+    id: "cashier",
+    route: "/dashboard/cashier",
+    roles: ["cashier"],
+    primaryCapability: "orders.view",
+    navViews: ["overview", "orders", "settings"],
+    modules: [
+      { id: "cashier.payment-queue", capability: "orders.view", placement: "primary" },
+    ],
+  },
+  designer: {
+    id: "designer",
+    route: "/dashboard/designer",
+    roles: ["designer"],
+    primaryCapability: "designs.view",
+    navViews: ["overview", "settings"],
+    modules: [
+      { id: "designer.task-queue", capability: "designs.view", placement: "primary" },
+    ],
+  },
   operator: {
     id: "operator",
     route: "/dashboard/operator",

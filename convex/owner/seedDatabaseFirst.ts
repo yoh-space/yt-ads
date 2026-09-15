@@ -327,6 +327,22 @@ export async function runDatabaseFirstSeed(ctx: MutationCtx) {
       sortOrder: 5,
     },
     {
+      workspaceId: "cashier",
+      routePrefix: "/dashboard/cashier",
+      allowedRoles: ["cashier", "admin", "owner"],
+      label: "Cashier Payment Desk",
+      labelAm: "የገንዘብ ክፍያ ዴስክ",
+      sortOrder: 6,
+    },
+    {
+      workspaceId: "designer",
+      routePrefix: "/dashboard/designer",
+      allowedRoles: ["designer", "admin", "owner"],
+      label: "Design Workspace",
+      labelAm: "የዲዛይን ወርክስፔስ",
+      sortOrder: 7,
+    },
+    {
       workspaceId: "operator",
       routePrefix: "/dashboard/operator",
       allowedRoles: [
