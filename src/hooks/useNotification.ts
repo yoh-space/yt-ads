@@ -10,7 +10,8 @@ import {
 import { useSoundStore } from "@/store/useSoundStore";
 
 /** Public path of the notification chime asset. */
-const NOTIFICATION_SOUND_URL = "/notification.wav";
+const NOTIFICATION_SOUND_URL = "/notification.mp3";
+const FALLBACK_NOTIFICATION_SOUND_URL = "/notification.wav";
 
 export type NotificationPayload = {
   title: string;
@@ -25,30 +26,106 @@ export type NotificationSummary = {
 };
 
 let sharedAudio: HTMLAudioElement | null = null;
+let audioContext: AudioContext | null = null;
 
 function isTauriRuntime(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
 
+function getAudioContext(): AudioContext | null {
+  if (typeof window === "undefined") return null;
+  const AudioContextClass =
+    window.AudioContext ||
+    (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  if (!AudioContextClass) return null;
+  if (!audioContext || audioContext.state === "closed") {
+    try {
+      audioContext = new AudioContextClass();
+    } catch {
+      audioContext = null;
+    }
+  }
+  return audioContext;
+}
+
 function getAudio(): HTMLAudioElement | null {
   if (typeof window === "undefined") return null;
   if (!sharedAudio) {
-    sharedAudio = new Audio(NOTIFICATION_SOUND_URL);
-    sharedAudio.preload = "auto";
+    try {
+      sharedAudio = new Audio();
+      const canPlayMp3 = sharedAudio.canPlayType("audio/mpeg");
+      sharedAudio.src = canPlayMp3 !== "" ? NOTIFICATION_SOUND_URL : FALLBACK_NOTIFICATION_SOUND_URL;
+      sharedAudio.preload = "auto";
+      sharedAudio.onerror = () => {
+        if (sharedAudio && sharedAudio.src.endsWith(".mp3")) {
+          sharedAudio.src = FALLBACK_NOTIFICATION_SOUND_URL;
+          sharedAudio.load();
+        }
+      };
+    } catch {
+      sharedAudio = null;
+    }
   }
   return sharedAudio;
 }
 
-async function playChime(): Promise<void> {
+/**
+ * Synthesizes a crisp two-tone chime (D5 -> A5) via Web Audio API.
+ * Guarantees audio feedback even if audio files are blocked by autoplay or loading issues.
+ */
+export function playSynthesizedChime(): void {
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    if (ctx.state === "suspended") {
+      void ctx.resume().catch(() => {});
+    }
+    const now = ctx.currentTime;
+
+    // Tone 1: D5 (587.33 Hz)
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = "sine";
+    osc1.frequency.setValueAtTime(587.33, now);
+    gain1.gain.setValueAtTime(0.2, now);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.35);
+
+    // Tone 2: A5 (880.00 Hz)
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = "sine";
+    osc2.frequency.setValueAtTime(880, now + 0.08);
+    gain2.gain.setValueAtTime(0.22, now + 0.08);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(now + 0.08);
+    osc2.stop(now + 0.6);
+  } catch {
+    // AudioContext blocked or restricted
+  }
+}
+
+export async function playChime(): Promise<void> {
   const audio = getAudio();
-  if (!audio) return;
+  if (!audio) {
+    playSynthesizedChime();
+    return;
+  }
   try {
     audio.currentTime = 0;
     await audio.play();
   } catch (error) {
-    // Autoplay restriction, audio unsupported, or user gesture required.
-    // Quietly ignore — the desktop notification still delivers the alert.
-    console.warn("Web notification sound could not play.", error);
+    // Fall back to synthesized Web Audio chime if element playback failed
+    try {
+      playSynthesizedChime();
+    } catch {
+      console.warn("Web notification sound could not play.", error);
+    }
   }
 }
 
@@ -60,7 +137,11 @@ async function playNativeChime(): Promise<void> {
   }
 }
 
-function unlockAudio(): void {
+export function unlockAudio(): void {
+  const ctx = getAudioContext();
+  if (ctx && ctx.state === "suspended") {
+    void ctx.resume().catch(() => {});
+  }
   const audio = getAudio();
   if (!audio || !audio.paused) return;
   void audio.play().then(() => {
@@ -128,11 +209,18 @@ export function useNotification(notifications?: NotificationSummary[]) {
 
   useEffect(() => {
     if (isTauriRuntime()) return;
-    window.addEventListener("pointerdown", unlockAudio, { once: true });
-    window.addEventListener("keydown", unlockAudio, { once: true });
+    const handleUserGesture = () => {
+      unlockAudio();
+    };
+    window.addEventListener("pointerdown", handleUserGesture, { passive: true });
+    window.addEventListener("click", handleUserGesture, { passive: true });
+    window.addEventListener("keydown", handleUserGesture, { passive: true });
+    window.addEventListener("touchstart", handleUserGesture, { passive: true });
     return () => {
-      window.removeEventListener("pointerdown", unlockAudio);
-      window.removeEventListener("keydown", unlockAudio);
+      window.removeEventListener("pointerdown", handleUserGesture);
+      window.removeEventListener("click", handleUserGesture);
+      window.removeEventListener("keydown", handleUserGesture);
+      window.removeEventListener("touchstart", handleUserGesture);
     };
   }, []);
 
