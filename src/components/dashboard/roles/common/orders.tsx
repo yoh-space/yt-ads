@@ -343,59 +343,59 @@ export function OrdersView({
               
                 {/* Actions */}
                 <div className="flex min-w-0 items-center justify-end gap-1.5">
-                {canManage && !order.jobCardId && order.status === "PENDING_REVIEW" ? (
-                  <Button
-                    size="small"
-                    variant="primary"
-                    className="whitespace-nowrap"
-                    disabled={isPending(`lock-${order.id}`)}
-                    onClick={(event) => { event.stopPropagation(); onLockReview(order); }}
-                  >
-                    <Wrench size={13} />
-                    {isPending(`lock-${order.id}`) ? "Locking…" : "Begin Review"}
-                  </Button>
-                ) : null}
-                {canManage && !order.jobCardId && order.status === "RECEPTION_REVIEW" ? (
-                  <Button
-                    size="small"
-                    variant="primary"
-                    className="whitespace-nowrap"
-                    disabled={isPending(`price-${order.id}`)}
-                    onClick={(event) => { event.stopPropagation(); onConvert(order); }}
-                  >
-                    <Wrench size={13} />
-                    {isPending(`price-${order.id}`) ? "Pricing…" : "Price Order"}
-                  </Button>
-                ) : null}
-                {canManage && canVerifyPayment && !order.jobCardId && order.status === "PRICED_AND_PENDING_PAYMENT" ? (
-                  <Button
-                    size="small"
-                    variant="primary"
-                    className="whitespace-nowrap"
-                    disabled={isPending(`confirm-${order.id}`)}
-                    onClick={(event) => { event.stopPropagation(); onConvert(order); }}
-                  >
-                    <Wrench size={13} />
-                    {isPending(`confirm-${order.id}`) ? "Confirming…" : "Issue Job Card"}
-                  </Button>
-                ) : !order.jobCardId && order.status === "PRICED_AND_PENDING_PAYMENT" ? (
-                  <span className="inline-flex w-fit items-center gap-1 whitespace-nowrap rounded bg-amber-500/10 px-2 py-1 text-[11px] font-semibold text-amber-600 dark:text-amber-400">
-                    Waiting for Cashier
-                  </span>
-                ) : null}
-                {canManage && order.jobCardId && order.status === "IN_PRODUCTION" ? (
-                  <Button
-                    size="small"
-                    variant="secondary"
-                    className="whitespace-nowrap"
-                    disabled={isPending(`order-status-${order.id}`)}
-                    onClick={(event) => { event.stopPropagation(); onStatus(order.id, "COMPLETED"); }}
-                  >
-                    {isPending(`order-status-${order.id}`) ? "Saving..." : "Complete"}
-                  </Button>
-                ) : null}
-                <ArrowUpRight size={14} className="shrink-0 text-gray-300" aria-hidden />
-              </div>
+                  {canManage && !order.jobCardId && order.status === "PENDING_REVIEW" ? (
+                    <Button
+                      size="small"
+                      variant="primary"
+                      className="whitespace-nowrap"
+                      disabled={isPending(`lock-${order.id}`)}
+                      onClick={(event) => { event.stopPropagation(); onLockReview(order); }}
+                    >
+                      <Wrench size={13} />
+                      {isPending(`lock-${order.id}`) ? "Locking…" : "Begin Review"}
+                    </Button>
+                  ) : null}
+                  {canManage && !order.jobCardId && order.status === "RECEPTION_REVIEW" ? (
+                    <Button
+                      size="small"
+                      variant="primary"
+                      className="whitespace-nowrap"
+                      disabled={isPending(`price-${order.id}`)}
+                      onClick={(event) => { event.stopPropagation(); onConvert(order); }}
+                    >
+                      <Wrench size={13} />
+                      {isPending(`price-${order.id}`) ? "Pricing…" : "Price Order"}
+                    </Button>
+                  ) : null}
+                  {canManage && canVerifyPayment && !order.jobCardId && order.status === "PRICED_AND_PENDING_PAYMENT" ? (
+                    <Button
+                      size="small"
+                      variant="primary"
+                      className="whitespace-nowrap"
+                      disabled={isPending(`confirm-${order.id}`)}
+                      onClick={(event) => { event.stopPropagation(); onConvert(order); }}
+                    >
+                      <Wrench size={13} />
+                      {isPending(`confirm-${order.id}`) ? "Confirming…" : "Issue Job Card"}
+                    </Button>
+                  ) : !order.jobCardId && order.status === "PRICED_AND_PENDING_PAYMENT" ? (
+                    <span className="inline-flex w-fit items-center gap-1 whitespace-nowrap rounded bg-amber-500/10 px-2 py-1 text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+                      Waiting for Cashier
+                    </span>
+                  ) : null}
+                  {canManage && order.jobCardId && order.status === "IN_PRODUCTION" ? (
+                    <Button
+                      size="small"
+                      variant="secondary"
+                      className="whitespace-nowrap"
+                      disabled={isPending(`order-status-${order.id}`)}
+                      onClick={(event) => { event.stopPropagation(); onStatus(order.id, "COMPLETED"); }}
+                    >
+                      {isPending(`order-status-${order.id}`) ? "Saving..." : "Complete"}
+                    </Button>
+                  ) : null}
+                  <ArrowUpRight size={14} className="shrink-0 text-gray-300" aria-hidden />
+                </div>
               </div>
             ))}
           </div>

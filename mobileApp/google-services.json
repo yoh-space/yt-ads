@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "696500155257",
+    "project_id": "expo-push-easy",
+    "storage_bucket": "expo-push-easy.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:696500155257:android:f5a722ae82453e65d8f5a8",
+        "android_client_info": {
+          "package_name": "com.anonymous.expopusheasyconvex"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBWWnAZ9gU5nDWKfa7v1ITdz-TOZpvlypk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
