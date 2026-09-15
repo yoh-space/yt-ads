@@ -12,7 +12,6 @@ import { UserMenu } from "./user-menu";
 import { NotificationModal } from "../modals/notification-modal";
 import { SoundControl } from "./sound-control";
 import type { Profile } from "@/lib/operations-types";
-import { cn } from "@/lib/utils";
 
 function useClock(): string {
   const [now, setNow] = useState<Date | null>(null);
