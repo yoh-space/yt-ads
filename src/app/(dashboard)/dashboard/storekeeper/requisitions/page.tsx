@@ -71,6 +71,7 @@ export default function StorekeeperRequisitionsPage() {
                   packageUnit: input.packageUnit,
                 }),
                 () => toast.success("Material handed over to operator"),
+                (error) => toast.error(error instanceof Error ? error.message : "Unable to hand over material"),
               )
             }
             onShortStock={(requestId) =>

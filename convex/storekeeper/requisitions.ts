@@ -5,6 +5,18 @@ import { requireStorekeeper } from "../users";
 import { canAccessMaterialRequest } from "../authorization";
 import { acknowledgeMaterialRequestInternal, issueMaterialRequestInternal } from "../materialRequests";
 
+function packageFactor(inventory: any): number {
+  if (!inventory) return 1;
+  if (inventory.unitType === "ROLL") return inventory.lengthPerRoll ?? 1;
+  if (inventory.unitType === "SHEET") return inventory.areaPerSheet ?? 1;
+  return inventory.volumePerContainer ?? 1;
+}
+
+function packageUnitForInventory(inventory: any): "ROLL" | "SHEET" | "CANISTER" | undefined {
+  if (!inventory) return undefined;
+  return inventory.unitType === "ROLL" ? "ROLL" : inventory.unitType === "SHEET" ? "SHEET" : "CANISTER";
+}
+
 /**
  * Storekeeper-only requisition surface for the /dashboard/storekeeper
  * workspace namespace. Every function is guarded by the strict storekeeper role
@@ -16,18 +28,20 @@ export const list = query({
   args: {},
   handler: async (ctx) => {
     const { identity } = await requireStorekeeper(ctx);
-    const [requests, jobs, materials, machines, users] = await Promise.all([
+    const [requests, jobs, materials, machines, users, parentInventory] = await Promise.all([
       ctx.db.query("materialRequests").collect(),
       ctx.db.query("jobCards").collect(),
       ctx.db.query("materials").collect(),
       ctx.db.query("machines").collect(),
       ctx.db.query("users").collect(),
+      ctx.db.query("parentInventory").collect(),
     ]);
 
     const jobMap = new Map(jobs.map((job) => [job._id, job]));
     const materialMap = new Map(materials.map((material) => [material._id, material]));
     const machineMap = new Map(machines.map((machine) => [machine._id, machine]));
     const userMap = new Map(users.map((user) => [user.authUserId, user.name]));
+    const parentInventoryMap = new Map(parentInventory.map((item) => [item.materialId, item]));
 
     const visibleRequests = requests.filter((request) => {
       const job = jobMap.get(request.jobCardId);
@@ -40,8 +54,11 @@ export const list = query({
         const job = jobMap.get(request.jobCardId);
         const material = materialMap.get(request.materialId);
         const machine = job ? machineMap.get(job.machineId) : undefined;
+        const centralInventory = parentInventoryMap.get(request.materialId);
         return {
           ...request,
+          conversionRatioSnapshot: request.conversionRatioSnapshot ?? packageFactor(centralInventory),
+          packageUnit: request.packageUnit ?? packageUnitForInventory(centralInventory),
           jobCode: job?.code ?? "Unknown job",
           client: job?.client ?? "Unknown client",
           jobTitle: job?.title ?? "Unknown job",

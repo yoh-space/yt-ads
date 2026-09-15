@@ -589,11 +589,14 @@ export async function issueMaterialRequestInternal(
   if (packageQuantity === undefined || !Number.isFinite(packageQuantity) || packageQuantity <= 0) {
     throw new Error("Issued package quantity is required for central-store transfer.");
   }
-  const requestedPackageUnit = args.packageUnit ?? request.packageUnit;
-  const parentInventory = await ctx.db
+  const parentInventoryRows = await ctx.db
     .query("parentInventory")
     .withIndex("by_material", (q: any) => q.eq("materialId", request.materialId))
-    .unique();
+    .collect();
+  const parentInventory = parentInventoryRows
+    .filter((row: any) => Number(row.totalStockQuantity) >= packageQuantity)
+    .sort((left: any, right: any) => Number(right.totalStockQuantity) - Number(left.totalStockQuantity))[0]
+    ?? parentInventoryRows[0];
   if (!parentInventory) throw new Error("Central package inventory is not configured for this material.");
   if (packageQuantity > parentInventory.totalStockQuantity) {
     throw new Error("Insufficient central package stock for this request.");
@@ -616,6 +619,9 @@ export async function issueMaterialRequestInternal(
   if (Math.abs(expectedBaseQuantity - args.issuedQuantity) > 0.001) {
     throw new Error(`Issued quantity must equal ${expectedBaseQuantity} ${request.unit} for ${packageQuantity} package(s).`);
   }
+  const requestedPackageUnit = args.packageUnit ?? request.packageUnit ?? (
+    parentInventory.unitType === "ROLL" ? "ROLL" : parentInventory.unitType === "SHEET" ? "SHEET" : "CANISTER"
+  );
   const ledgerPackageUnit = requestedPackageUnit === "ROLL"
     ? "ROLL"
     : requestedPackageUnit === "SHEET"
