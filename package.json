@@ -14,7 +14,10 @@
     "telegram:set-webhook": "tsx scripts/set-webhook.ts",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:build": "tauri build",
+    "android:init": "tauri android init --skip-targets-install --ci",
+    "android:dev": "tauri android dev",
+    "android:build": "tauri android build"
   },
   "dependencies": {
     "@convex-dev/better-auth": "^0.12.5",
