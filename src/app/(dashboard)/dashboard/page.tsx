@@ -13,6 +13,9 @@ export default async function DashboardRootPage() {
   }
 
   const profile = await fetchAuthQuery(api.users.getCurrentProfile, {}).catch(() => null);
+  if (profile?.assigned === false) {
+    redirect("/pending-assignment");
+  }
   const role = profile?.role;
   if (isValidRole(role)) {
     redirect(routeForWorkspace({ profile: { role, active: profile?.active ?? true } }) ?? "/dashboard/owner");

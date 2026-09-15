@@ -233,6 +233,7 @@ export const ensureProfile = mutation({
       email: identity.email ?? "",
       image: identity.image ?? undefined,
       role: isFirst ? "owner" : "storekeeper",
+      assigned: isFirst,
       active: true,
     });
     return (await ctx.db.get(userId))!;
@@ -312,6 +313,7 @@ export const setRole = mutation({
     }
     await ctx.db.patch(args.userId, {
       role: args.role,
+      assigned: true,
       assignedMachineIds: args.role === target.role && OPERATOR_ROLES.includes(args.role)
         ? target.assignedMachineIds
         : undefined,
@@ -485,6 +487,9 @@ export async function requireActiveProfile(ctx: QueryCtx | MutationCtx) {
   const profile = await resolveProfileByIdentity(ctx, identity);
   if (!profile || !profile.active) {
     throw new Error("Active team profile required.");
+  }
+  if (profile.assigned === false) {
+    throw new Error("Owner assignment is required before this staff account can access a workspace.");
   }
   return { identity, profile };
 }
