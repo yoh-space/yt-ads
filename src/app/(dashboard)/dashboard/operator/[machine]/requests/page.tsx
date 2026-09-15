@@ -11,7 +11,7 @@ import { WorkspacePageHeader } from "@/components/dashboard/shell/workspace-page
 import { MaterialRequestModal } from "@/components/dashboard/modals/material-request-modal";
 import { MaterialRequestsPanel } from "@/components/dashboard/widgets/material-requests-panel";
 import { useSafeMutation } from "@/utils/pending-store";
-import type { JobCard, Material, MaterialRequest } from "@/lib/operations-types";
+import type { JobCard, MaterialRequest } from "@/lib/operations-types";
 
 type WithId<T extends { _id: string }> = Omit<T, "_id"> & { id: T["_id"] };
 
@@ -30,7 +30,6 @@ export default function OperatorRequestsPage({
   const profile = useQuery(api.users.getCurrentProfile);
   const requests = useQuery(api.operator.requests.list, { machineSlug: machineParam });
   const jobs = useQuery(api.operator.jobs.list, { machineSlug: machineParam });
-  const materials = useQuery(api.materials.list);
   const clearance = useQuery(api.operator.inventory.uncleared, { machineSlug: machineParam });
 
   const createRequest = useMutation(api.operator.requests.create);
@@ -51,14 +50,6 @@ export default function OperatorRequestsPage({
     [jobs],
   );
 
-  const materialOptions = useMemo(
-    () =>
-      materials
-        ? materials.map((material) => ({ ...material, id: material._id })) as Material[]
-        : [],
-    [materials],
-  );
-
   const unclearedStock = useMemo(
     () =>
       (clearance?.batches ?? []).map((batch) => ({
@@ -76,7 +67,6 @@ export default function OperatorRequestsPage({
     !profile ||
     requests === undefined ||
     jobs === undefined ||
-    materials === undefined ||
     clearance === undefined
   ) {
     return (
@@ -143,7 +133,6 @@ export default function OperatorRequestsPage({
       {requestOpen ? (
         <MaterialRequestModal
           jobs={jobOptions}
-          materials={materialOptions}
           unclearedStock={unclearedStock}
           machineSlug={machineParam}
           onClose={() => setRequestOpen(false)}

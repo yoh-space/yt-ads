@@ -13,6 +13,26 @@ import type { Role } from "./types";
 type Unit = Infer<typeof unit>;
 type PackageUnit = Infer<typeof packageUnit>;
 
+function expectedPackageUnit(material: {
+  packageUnit?: PackageUnit;
+  purchaseUnit?: string;
+}): PackageUnit {
+  if (material.packageUnit) return material.packageUnit;
+  switch (material.purchaseUnit) {
+    case "roll":
+      return "ROLL";
+    case "sheet":
+      return "SHEET";
+    case "canister":
+    case "liter":
+      return "CANISTER";
+    case "piece":
+      return "PIECE";
+    default:
+      return "PACKAGE";
+  }
+}
+
 export const list = query({
   args: {},
   handler: async (ctx) => {
@@ -257,7 +277,7 @@ export async function getMaterialRequestEligibilityInternal(
       warnings.push(`Previous batch for ${mat.name} has been consumed (0 remaining).`);
     }
 
-    const packageUnit = mat.packageUnit ?? (mat.purchaseUnit === "roll" ? "ROLL" : mat.purchaseUnit === "sheet" ? "SHEET" : mat.purchaseUnit === "canister" || mat.purchaseUnit === "liter" ? "CANISTER" : mat.purchaseUnit === "piece" ? "PIECE" : "PACKAGE");
+    const packageUnit = expectedPackageUnit(mat);
     const conversionRatio = mat.conversionRatio && mat.conversionRatio > 0 ? mat.conversionRatio : 1;
     const baseUnit = mat.baseUnit ?? mat.unit;
 
@@ -266,6 +286,10 @@ export async function getMaterialRequestEligibilityInternal(
       name: mat.name,
       unit: mat.unit,
       baseUnit,
+      category: mat.category,
+      catalogFamily: mat.catalogFamily,
+      inkColor: mat.inkColor,
+      specificationOptions: mat.specificationOptions,
       packageUnit,
       conversionRatio,
       plannedQuantity: plannedQty,
@@ -369,6 +393,19 @@ export async function createMaterialRequestInternal(
     throw new Error("The requested material and unit must match the job card.");
   }
   for (const line of requestLines) {
+    const lineMaterial = line.materialId === material._id ? material : await ctx.db.get(line.materialId);
+    if (!lineMaterial || !lineMaterial.active) throw new Error("Every requested material must be active.");
+    const expectedUnit = lineMaterial.baseUnit ?? lineMaterial.unit;
+    if (line.unit !== expectedUnit) throw new Error("Requested unit must match the material base unit.");
+    const expectedPackage = expectedPackageUnit(lineMaterial);
+    if (line.packageUnit !== expectedPackage) {
+      throw new Error(`Requested package unit must match ${lineMaterial.name}'s configured purchase unit.`);
+    }
+    const conversionRatio = lineMaterial.conversionRatio ?? 1;
+    const expectedQuantity = Number((line.requestedPackages * conversionRatio).toFixed(3));
+    if (Math.abs(expectedQuantity - line.requestedQuantity) > 0.001) {
+      throw new Error(`Requested quantity must equal ${expectedQuantity} ${expectedUnit} for ${line.requestedPackages} package(s).`);
+    }
     await requireNoUnresolvedShortage(ctx, line.materialId);
   }
 
