@@ -512,12 +512,12 @@ export async function requireAnyPermission(ctx: QueryCtx | MutationCtx, permissi
   return result;
 }
 
-export async function requireRoles(ctx: QueryCtx | MutationCtx, allowedRoles: Role[]) {
+export async function requireRoles(ctx: QueryCtx | MutationCtx, allowedRoles: readonly Role[] | Role[]) {
   const result = await requireActiveProfile(ctx);
-  const effectiveRoles = allowedRoles.includes("admin")
+  const effectiveRoles = (allowedRoles as readonly string[]).includes("admin")
     ? [...new Set([...allowedRoles, "owner", "manager"])]
     : allowedRoles;
-  if (!effectiveRoles.includes(result.profile.role)) {
+  if (!(effectiveRoles as readonly string[]).includes(result.profile.role)) {
     throw new Error(`Role ${result.profile.role} is not permitted for this action.`);
   }
   return result;
@@ -572,6 +572,16 @@ export async function requireStorekeeper(ctx: QueryCtx | MutationCtx) {
 /** Receptionist-only guard for the /dashboard/receptionist workspace namespace. */
 export async function requireReceptionist(ctx: QueryCtx | MutationCtx) {
   return requireExactRole(ctx, "receptionist");
+}
+
+/** Cashier-only guard for the /dashboard/cashier workspace namespace. */
+export async function requireCashier(ctx: QueryCtx | MutationCtx) {
+  return requireExactRole(ctx, "cashier");
+}
+
+/** Designer-only guard for the /dashboard/designer workspace namespace. */
+export async function requireDesigner(ctx: QueryCtx | MutationCtx) {
+  return requireExactRole(ctx, "designer");
 }
 
 /** Operator guard for the /dashboard/operator workspace namespace (any operator role). */

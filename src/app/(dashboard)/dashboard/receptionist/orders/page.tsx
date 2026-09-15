@@ -7,8 +7,13 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { WorkspacePageHeader } from "@/components/dashboard/shell/workspace-page-header";
 import { InventoryLoader } from "@/components/dashboard/widgets/inventory-loader";
-import { OrdersView, OrderConfirmModal, OrderPriceModal, OrderReviewLockModal } from "@/components/dashboard/roles/common/orders";
+import { OrdersView, OrderPriceModal, OrderReviewLockModal } from "@/components/dashboard/roles/common/orders";
 import { OrderCreateModal, type NewOrderInput } from "@/components/dashboard/modals/order-create-modal";
+import {
+  OrderAssignDesignModal,
+  OrderReviewDesignModal,
+  OrderReturnClarificationModal,
+} from "@/components/dashboard/roles/receptionist/reception-modals";
 import { useSafeMutation } from "@/utils/pending-store";
 import { hasPermission } from "@/lib/permissions";
 import type { CustomerOrder, CustomerOrderStatus, Machine, Material, Role } from "@/lib/operations-types";
@@ -28,13 +33,13 @@ export default function ReceptionistOrdersPage() {
   const setOrderStatus = useMutation(api.receptionist.orders.setStatus);
   const priceOrder = useMutation(api.receptionist.orders.priceOrder);
   const lockOrderForReview = useMutation(api.receptionist.orders.lockOrderForReview);
-  const confirmOrderAndIssueJobCard = useMutation(api.orders.confirmOrderAndIssueJobCard);
   const settleOrder = useMutation(api.orders.settleOrder);
   const createWalkIn = useMutation(api.receptionist.orders.createWalkIn);
 
   const [lockTarget, setLockTarget] = useState<CustomerOrder | null>(null);
   const [priceTarget, setPriceTarget] = useState<CustomerOrder | null>(null);
-  const [confirmTarget, setConfirmTarget] = useState<CustomerOrder | null>(null);
+  const [assignDesignTarget, setAssignDesignTarget] = useState<CustomerOrder | null>(null);
+  const [clarificationTarget, setClarificationTarget] = useState<CustomerOrder | null>(null);
   const [createOrderOpen, setCreateOrderOpen] = useState(false);
   const [settlement, setSettlement] = useState<{ id: string; code: string; amount: number } | null>(null);
   const [settlementMethod, setSettlementMethod] = useState("Cash");
@@ -70,11 +75,12 @@ export default function ReceptionistOrdersPage() {
           materials={materials}
           canManage={canManage}
           canCreateOrder={canCreateOrder}
+          canVerifyPayment={false}
           onConvert={(order) => {
             if (order.status === "RECEPTION_REVIEW") {
               setPriceTarget(order);
             } else if (order.status === "PRICED_AND_PENDING_PAYMENT") {
-              setConfirmTarget(order);
+              toast.info(`Order ${order.code} is waiting for Cashier payment verification.`);
             }
           }}
           onLockReview={(order) => setLockTarget(order)}
@@ -91,10 +97,36 @@ export default function ReceptionistOrdersPage() {
           onCreateOrder={() => setCreateOrderOpen(true)}
           isPending={isPending}
         />
-        {orders.some((order) => order.status === "READY_FOR_PICKUP" && order.paymentStatus !== "FULLY_PAID") ? <div className="rounded-xl border border-gold/30 bg-gold/5 p-4"><p className="mb-3 text-sm font-semibold text-foreground">Pickup settlement queue</p><div className="space-y-2">{orders.filter((order) => order.status === "READY_FOR_PICKUP" && order.paymentStatus !== "FULLY_PAID").map((order) => <div key={order.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card p-3"><div><p className="text-xs font-semibold text-foreground">{order.code} · {order.clientName}</p><p className="text-[11px] text-muted-foreground">Remaining balance: {(order.remainingDueAmount ?? order.amount ?? 0).toFixed(2)} ETB</p></div><button type="button" onClick={() => setSettlement({ id: order.id, code: order.code, amount: order.remainingDueAmount ?? order.amount ?? 0 })} className="rounded-md bg-primary px-3 py-2 text-[11px] font-semibold text-white">Record final payment</button></div>)}</div></div> : null}
+
+        {orders.some((order) => order.status === "READY_FOR_PICKUP" && order.paymentStatus !== "FULLY_PAID") ? (
+          <div className="rounded-xl border border-gold/30 bg-gold/5 p-4">
+            <p className="mb-3 text-sm font-semibold text-foreground">Pickup settlement queue</p>
+            <div className="space-y-2">
+              {orders
+                .filter((order) => order.status === "READY_FOR_PICKUP" && order.paymentStatus !== "FULLY_PAID")
+                .map((order) => (
+                  <div key={order.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card p-3">
+                    <div>
+                      <p className="text-xs font-semibold text-foreground">{order.code} · {order.clientName}</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        Remaining balance: {(order.remainingDueAmount ?? order.amount ?? 0).toFixed(2)} ETB
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSettlement({ id: order.id, code: order.code, amount: order.remainingDueAmount ?? order.amount ?? 0 })}
+                      className="rounded-md bg-primary px-3 py-2 text-[11px] font-semibold text-white"
+                    >
+                      Record final payment
+                    </button>
+                  </div>
+                ))}
+            </div>
+          </div>
+        ) : null}
       </div>
 
-{lockTarget ? (
+      {lockTarget ? (
         <OrderReviewLockModal
           order={lockTarget}
           onClose={() => setLockTarget(null)}
@@ -113,6 +145,7 @@ export default function ReceptionistOrdersPage() {
           }
         />
       ) : null}
+
       {priceTarget ? (
         <OrderPriceModal
           order={priceTarget}
@@ -127,35 +160,26 @@ export default function ReceptionistOrdersPage() {
                 setPriceTarget(null);
                 return result;
               }),
-              () => toast.success(`${priceTarget.code} priced · awaiting payment`),
+              () => toast.success(`${priceTarget.code} priced · routed to Cashier for payment verification`),
             )
           }
         />
       ) : null}
-      {confirmTarget ? (
-        <OrderConfirmModal
-          order={confirmTarget}
-          machines={machines}
-          materials={materials}
-          onClose={() => setConfirmTarget(null)}
-          onSave={(input) =>
-            safeMutation(
-              `receptionist-confirm-${confirmTarget.id}`,
-              confirmOrderAndIssueJobCard({
-                orderId: confirmTarget.id as Id<"customerOrders">,
-                paymentDecision: input.paymentDecision,
-                paymentMethod: input.paymentMethod,
-                advancePaidAmount: input.advancePaidAmount,
-                priority: input.priority,
-              }).then((result) => {
-                setConfirmTarget(null);
-                return result;
-              }),
-              () => toast.success("Order confirmed · job card issued"),
-            )
-          }
+
+      {assignDesignTarget ? (
+        <OrderAssignDesignModal
+          order={assignDesignTarget}
+          onClose={() => setAssignDesignTarget(null)}
         />
       ) : null}
+
+      {clarificationTarget ? (
+        <OrderReturnClarificationModal
+          order={clarificationTarget}
+          onClose={() => setClarificationTarget(null)}
+        />
+      ) : null}
+
       {createOrderOpen ? (
         <OrderCreateModal
           onClose={() => setCreateOrderOpen(false)}
@@ -171,7 +195,67 @@ export default function ReceptionistOrdersPage() {
           }}
         />
       ) : null}
-      {settlement ? <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4"><div className="w-full max-w-md rounded-xl border border-border bg-card p-5 shadow-2xl"><h2 className="text-base font-semibold text-foreground">Settle {settlement.code}</h2><p className="mt-1 text-xs text-muted-foreground">Exact remaining balance: {settlement.amount.toFixed(2)} ETB</p><label className="mt-4 block text-xs text-muted-foreground">Payment method<select value={settlementMethod} onChange={(event) => setSettlementMethod(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-border bg-background px-3 text-xs text-foreground"><option>Cash</option><option>CBE</option><option>BOA</option><option>Telebirr</option><option>CBE Birr</option></select></label><label className="mt-3 block text-xs text-muted-foreground">Reference (optional)<input value={settlementReference} onChange={(event) => setSettlementReference(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-border bg-background px-3 text-xs text-foreground" /></label><div className="mt-5 flex justify-end gap-2"><button type="button" onClick={() => setSettlement(null)} className="rounded-md border border-border px-4 py-2 text-xs">Cancel</button><button type="button" onClick={() => { void safeMutation(`settle-${settlement.id}`, settleOrder({ orderId: settlement.id as Id<"customerOrders">, amount: settlement.amount, paymentMethod: settlementMethod, paymentReference: settlementReference || undefined }).then((result) => { setSettlement(null); return result; }), () => toast.success(`${settlement.code} fully paid`)); }} className="rounded-md bg-primary px-4 py-2 text-xs font-semibold text-white">Confirm settlement</button></div></div></div> : null}
+
+      {settlement ? (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl border border-border bg-card p-5 shadow-2xl">
+            <h2 className="text-base font-semibold text-foreground">Settle {settlement.code}</h2>
+            <p className="mt-1 text-xs text-muted-foreground">Exact remaining balance: {settlement.amount.toFixed(2)} ETB</p>
+            <label className="mt-4 block text-xs text-muted-foreground">
+              Payment method
+              <select
+                value={settlementMethod}
+                onChange={(event) => setSettlementMethod(event.target.value)}
+                className="mt-1 h-10 w-full rounded-md border border-border bg-background px-3 text-xs text-foreground"
+              >
+                <option>Cash</option>
+                <option>CBE</option>
+                <option>BOA</option>
+                <option>Telebirr</option>
+                <option>CBE Birr</option>
+              </select>
+            </label>
+            <label className="mt-3 block text-xs text-muted-foreground">
+              Reference (optional)
+              <input
+                value={settlementReference}
+                onChange={(event) => setSettlementReference(event.target.value)}
+                className="mt-1 h-10 w-full rounded-md border border-border bg-background px-3 text-xs text-foreground"
+              />
+            </label>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setSettlement(null)}
+                className="rounded-md border border-border px-4 py-2 text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  void safeMutation(
+                    `settle-${settlement.id}`,
+                    settleOrder({
+                      orderId: settlement.id as Id<"customerOrders">,
+                      amount: settlement.amount,
+                      paymentMethod: settlementMethod,
+                      paymentReference: settlementReference || undefined,
+                    }).then((result) => {
+                      setSettlement(null);
+                      return result;
+                    }),
+                    () => toast.success(`${settlement.code} fully paid`),
+                  );
+                }}
+                className="rounded-md bg-primary px-4 py-2 text-xs font-semibold text-white"
+              >
+                Confirm settlement
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }

@@ -1075,7 +1075,7 @@ export const priceOrder = mutation({
     amount: v.number(),
   },
   handler: async (ctx, args) => {
-    const { identity } = await requirePermission(ctx, "order.manage");
+    const { identity } = await requirePermission(ctx, "order.price");
     return priceOrderInternal(ctx, identity, args);
   },
 });
@@ -1088,8 +1088,8 @@ export const priceOrder = mutation({
  */
 export async function priceOrderInternal(
   ctx: any,
-  identity: { _id: string },
-  args: { orderId: Id<"customerOrders">; amount: number },
+  identity: { _id: string; name?: string },
+  args: { orderId: Id<"customerOrders">; amount: number; notes?: string },
 ) {
     const order = await ctx.db.get(args.orderId);
     if (!order) throw new Error("Order not found.");
@@ -1102,12 +1102,16 @@ export async function priceOrderInternal(
     if (!["RECEPTION_REVIEW", "PRICED_AND_PENDING_PAYMENT"].includes(order.status)) {
       throw new Error(`Only orders under review or awaiting payment can be priced (current status: ${order.status}).`);
     }
+    if (order.designRequired && order.designStatus !== "APPROVED") {
+      throw new Error(`Required artwork must be approved before setting the final price (current design status: ${order.designStatus ?? "pending"}).`);
+    }
     if (!Number.isFinite(args.amount) || args.amount <= 0) {
       throw new Error("Order price must be greater than zero.");
     }
     const breakdown = paymentBreakdown(args.amount);
     const settings = await ctx.db.query("companySettings").withIndex("by_key", (q: any) => q.eq("key", "yt-advertisement")).unique();
     const paymentInstructionsSnapshot = snapshotPaymentInstructions(settings);
+    const now = Date.now();
     await ctx.db.patch(args.orderId, {
       amount: breakdown.total,
       advanceDueAmount: breakdown.advanceDueAmount,
@@ -1116,8 +1120,21 @@ export async function priceOrderInternal(
       paymentStatus: "UNPAID",
       paymentInstructionsSnapshot,
       status: "PRICED_AND_PENDING_PAYMENT",
-      updatedAt: Date.now(),
+      pricedAt: now,
+      pricedBy: identity._id,
+      pricingNotes: args.notes?.trim() || undefined,
+      updatedAt: now,
     });
+
+    await ctx.db.insert("orderEvents", {
+      orderId: args.orderId,
+      actorId: identity._id,
+      actorLabel: `Reception · ${identity.name ?? "Staff"}`,
+      action: "PRICED",
+      detail: `Total price set to ETB ${breakdown.total.toFixed(2)} (Advance due: ETB ${breakdown.advanceDueAmount.toFixed(2)})`,
+      createdAt: now,
+    });
+
     await pushCustomerOrderStatus(
       ctx,
       {
@@ -1489,7 +1506,7 @@ export const confirmOrderAndIssueJobCard = mutation({
   },
   // Wrap in a dispatcher so the same routing failures that previewAutoRouting
   // guards against surface to the client as a ConvexError (message visible)
-  // instead of a redacted "Server Error" at the exact moment Reception tries
+  // instead of a redacted "Server Error" at the exact moment Cashier tries
   // to create the job card.
   handler: (ctx, args) => runDiagnosable(() => confirmOrderAndIssueJobCardImpl(ctx, args)),
 });
@@ -1510,15 +1527,34 @@ type ConfirmOrderAndIssueJobCardArgs = {
 };
 
 async function confirmOrderAndIssueJobCardImpl(ctx: MutationCtx, args: ConfirmOrderAndIssueJobCardArgs) {
-    const { identity } = await requirePermission(ctx, "order.manage");
+    const { identity } = await requirePermission(ctx, "order.payment_verify");
+    return confirmOrderAndIssueJobCardInternal(ctx, identity, args);
+}
+
+export async function confirmOrderAndIssueJobCardInternal(
+  ctx: MutationCtx,
+  identity: { _id: string; name?: string },
+  args: ConfirmOrderAndIssueJobCardArgs,
+) {
     const order = await ctx.db.get(args.orderId);
     if (!order) throw new Error("Order not found.");
-    if (order.jobCardId) throw new Error("This order already has a job card.");
+    if (order.jobCardId) {
+      const existingJob = await ctx.db.get(order.jobCardId);
+      return {
+        jobCardId: order.jobCardId,
+        code: existingJob?.code ?? order.code,
+        status: order.status,
+        alreadyIssued: true,
+      };
+    }
     if (!order.customerEditLockedAt) {
       throw new Error("Begin the review of this order first — customer editing must be locked before confirming.");
     }
     if (!["RECEPTION_REVIEW", "PRICED_AND_PENDING_PAYMENT"].includes(order.status)) {
       throw new Error(`Only orders under review or awaiting payment can be confirmed (current status: ${order.status}).`);
+    }
+    if (order.designRequired && order.designStatus !== "APPROVED") {
+      throw new Error(`Required artwork must be approved before payment verification (current design status: ${order.designStatus ?? "pending"}).`);
     }
 
     const amount = args.amount !== undefined ? args.amount : order.amount;
@@ -1707,6 +1743,8 @@ async function confirmOrderAndIssueJobCardImpl(ctx: MutationCtx, args: ConfirmOr
       paymentMethod: args.paymentMethod?.trim() || undefined,
       paymentConfirmedAt: paymentNow,
       paymentConfirmedBy: identity._id,
+      paymentVerifiedAt: paymentNow,
+      paymentVerifiedBy: identity._id,
       advanceDueAmount: paymentAmounts.advanceDueAmount,
       advancePaidAmount: args.paymentDecision === "ADVANCE_PAID" ? paymentAmounts.advanceDueAmount : 0,
       remainingDueAmount: paymentAmounts.remainingDueAmount,
@@ -1719,11 +1757,17 @@ async function confirmOrderAndIssueJobCardImpl(ctx: MutationCtx, args: ConfirmOr
       machineId: machine._id,
       updatedAt: now,
     });
-    // Reception only assigns and queues the work. Inventory consumption,
-    // off-cut registration, and scrap accounting happen during operator
-    // execution/completion after the machine-stock gate succeeds.
 
-    await notifyRoles(ctx, [machine.operatorRole, "owner", "manager", "admin"], {
+    await ctx.db.insert("orderEvents", {
+      orderId: args.orderId,
+      actorId: identity._id,
+      actorLabel: `Cashier · ${identity.name ?? "Staff"}`,
+      action: "PAYMENT_VERIFIED_JOB_CARD_ISSUED",
+      detail: `Payment verified (${args.paymentDecision}); Job card ${code} issued to production on ${machine.name}`,
+      createdAt: now,
+    });
+
+    await notifyRoles(ctx, [machine.operatorRole, "owner", "manager", "admin", "receptionist"], {
       title: "Paid order issued to production",
       message: `${order.code} (${order.clientName}) is confirmed ${args.paymentDecision} and queued as ${code} on ${machine.name}.`,
       type: "order_status",
@@ -1732,10 +1776,6 @@ async function confirmOrderAndIssueJobCardImpl(ctx: MutationCtx, args: ConfirmOr
       relatedId: args.orderId,
     });
 
-    // Payment confirmation to the Telegram customer: the customer push is centralised in
-    // `pushCustomerOrderStatus` and fires only when reception explicitly
-    // transitions the order past PENDING_REVIEW. It never runs from the
-    // public/Mini App create path.
     await pushCustomerOrderStatus(
       ctx,
       {

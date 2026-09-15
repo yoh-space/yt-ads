@@ -13,6 +13,8 @@ const roleTone: Record<Role, "success" | "info" | "warning" | "neutral"> = {
   admin: "info",
   storekeeper: "neutral",
   receptionist: "info",
+  cashier: "info",
+  designer: "info",
   laser_operator: "neutral",
   cnc_operator: "neutral",
   crystek_operator: "neutral",

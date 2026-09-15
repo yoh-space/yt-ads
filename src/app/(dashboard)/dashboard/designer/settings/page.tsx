@@ -6,7 +6,7 @@ import { SettingsView } from "@/components/dashboard/roles/admin/settings";
 import { InventoryLoader } from "@/components/dashboard/widgets/inventory-loader";
 import { WorkspacePageHeader } from "@/components/dashboard/shell/workspace-page-header";
 
-export default function CashierSettingsPage() {
+export default function DesignerSettingsPage() {
   const profile = useQuery(api.users.getCurrentProfile);
 
   if (!profile) {
@@ -22,9 +22,9 @@ export default function CashierSettingsPage() {
   return (
     <div className="space-y-6">
       <WorkspacePageHeader
-        kicker="Cashier Desk"
+        kicker="Design Studio"
         title="Settings"
-        subtitle="Manage your profile and display preferences"
+        subtitle="Manage your designer profile and preferences"
       />
       <SettingsView profile={resolvedProfile} />
     </div>

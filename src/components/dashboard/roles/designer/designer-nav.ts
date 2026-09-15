@@ -2,10 +2,10 @@ import type { WorkspaceNavItem } from "@/components/dashboard/shell/workspace-sh
 
 export const designerNavItems: WorkspaceNavItem[] = [
   {
-    href: "/dashboard/designer",
+    href: "/dashboard/designer/tasks",
     label: "Design Tasks",
     english: "የዲዛይን ሥራዎች",
-    icon: "penTool",
+    icon: "scissors",
   },
   {
     href: "/dashboard/designer/settings",

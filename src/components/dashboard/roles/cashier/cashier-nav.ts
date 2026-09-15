@@ -2,10 +2,10 @@ import type { WorkspaceNavItem } from "@/components/dashboard/shell/workspace-sh
 
 export const cashierNavItems: WorkspaceNavItem[] = [
   {
-    href: "/dashboard/cashier",
+    href: "/dashboard/cashier/overview",
     label: "Payment Queue",
-    english: "የክፍያ ማረጋገጫ",
-    icon: "walletCards",
+    english: "የክፍያ ወረፋ",
+    icon: "circleDollarSign",
   },
   {
     href: "/dashboard/cashier/settings",

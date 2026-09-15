@@ -4,6 +4,8 @@ export type Role =
   | "admin"
   | "storekeeper"
   | "receptionist"
+  | "cashier"
+  | "designer"
   | "laser_operator"
   | "cnc_operator"
   | "crystal_jet_operator"
@@ -44,6 +46,8 @@ export const ROLES: Role[] = [
   "admin",
   "storekeeper",
   "receptionist",
+  "cashier",
+  "designer",
   "laser_operator",
   "cnc_operator",
   "crystal_jet_operator",

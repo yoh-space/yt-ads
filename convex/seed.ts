@@ -1015,6 +1015,8 @@ export const seedSingleRoleAccount = mutation({
       admin: { role: "admin", name: "Admin User", email: "ytadvert+admin@gmail.com", password: "password123" },
       storekeeper: { role: "storekeeper", name: "Zewuditu", email: "ytadvert+storekeeper@gmail.com", password: "password123", staffName: "Zewuditu" },
       receptionist: { role: "receptionist", name: "Selamawit", email: "ytadvert+receptionist@gmail.com", password: "password123", staffName: "Selamawit" },
+      cashier: { role: "cashier", name: "Cashier Staff", email: "ytadvert+casher@gmail.com", password: "password123", staffName: "Cashier" },
+      designer: { role: "designer", name: "Designer Staff", email: "ytadvert+designer@gmail.com", password: "password123", staffName: "Designer" },
       laser_operator: { role: "laser_operator", name: "Addisu", email: "ytadvert+laser@gmail.com", password: "password123", staffName: "Addisu" },
       cnc_operator: { role: "cnc_operator", name: "Addisu", email: "ytadvert+cnc@gmail.com", password: "password123", staffName: "Addisu" },
       crystek_operator: { role: "crystek_operator", name: "Debas Melaku", email: "ytadvert+plotter@gmail.com", password: "password123", staffName: "Debas melaku" },
@@ -1067,6 +1069,57 @@ export const seedSingleRoleAccount = mutation({
 });
 
 /**
+ * Idempotently ensures the target staff accounts are provisioned and assigned:
+ * - `ytadvert+casher@gmail.com` -> `cashier`
+ * - `ytadvert+designer@gmail.com` -> `designer`
+ */
+export const provisionWorkflowRoles = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const users = await ctx.db.query("users").collect();
+    const results: Array<{ email: string; role: Role; updated: boolean; created: boolean }> = [];
+
+    const targetAccounts: Array<{ email: string; role: Role; name: string }> = [
+      { email: "ytadvert+casher@gmail.com", role: "cashier", name: "Cashier Staff" },
+      { email: "ytadvert+designer@gmail.com", role: "designer", name: "Designer Staff" },
+    ];
+
+    for (const target of targetAccounts) {
+      const existing = users.find((u) => u.email.toLowerCase() === target.email.toLowerCase());
+      if (existing) {
+        if (existing.role !== target.role || !existing.active) {
+          await ctx.db.patch(existing._id, {
+            role: target.role,
+            active: true,
+            assigned: true,
+          });
+          results.push({ email: target.email, role: target.role, updated: true, created: false });
+        } else {
+          results.push({ email: target.email, role: target.role, updated: false, created: false });
+        }
+      } else {
+        // Create auth user and profile
+        const auth = createAuth(ctx);
+        const authRes = await auth.api.signUpEmail({
+          body: { name: target.name, email: target.email, password: "password123" },
+        });
+        await ctx.db.insert("users", {
+          authUserId: authRes.user.id,
+          name: target.name,
+          email: target.email,
+          role: target.role,
+          active: true,
+          assigned: true,
+        });
+        results.push({ email: target.email, role: target.role, updated: false, created: true });
+      }
+    }
+
+    return results;
+  },
+});
+
+/**
  * One-shot production bootstrap: clears any prior workspace data, seeds the
  * full YT Advertisement master dataset, issues sample opening stock through
  * the two-tier inventory design, creates/promotes the owner account, and —
@@ -1079,6 +1132,8 @@ const DEMO_ACCOUNT_ROLES = [
   "admin",
   "storekeeper",
   "receptionist",
+  "cashier",
+  "designer",
   "laser_operator",
   "cnc_operator",
   "crystek_operator",

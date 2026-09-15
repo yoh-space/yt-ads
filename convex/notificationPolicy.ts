@@ -19,7 +19,11 @@ export type NotificationType =
   | "overdue_order"
   | "exception_stock_out"
   | "clearance_granted"
-  | "clearance_rejected";
+  | "clearance_rejected"
+  | "design_task"
+  | "design_submission"
+  | "payment_verified"
+  | "payment_returned";
 
 export type NotificationDomain = "orders" | "inventory" | "operations" | "account";
 
@@ -73,6 +77,10 @@ export const NOTIFICATION_TYPE_DOMAIN_MAP: Record<NotificationType, Notification
   order_received: "orders",
   order_status: "orders",
   overdue_order: "orders",
+  design_task: "orders",
+  design_submission: "orders",
+  payment_verified: "orders",
+  payment_returned: "orders",
   material_request: "inventory",
   material_issue: "inventory",
   material_received: "inventory",
@@ -97,8 +105,11 @@ export function getAllowedDomainsForRole(role: Role): NotificationDomain[] {
   if (MANAGEMENT_ROLES.includes(role)) {
     return ["orders", "inventory", "operations", "account"];
   }
-  if (role === "receptionist") {
+  if (role === "receptionist" || role === "cashier") {
     return ["orders"];
+  }
+  if (role === "designer") {
+    return ["orders", "operations"];
   }
   if (role === "storekeeper") {
     return ["inventory"];
@@ -255,7 +266,20 @@ export function canViewNotification(
     return domain === "orders";
   }
 
-  // 3. Storekeeper: only "inventory" domain
+  // 3. Cashier: only "orders" domain
+  if (profile.role === "cashier") {
+    return domain === "orders";
+  }
+
+  // 4. Designer: design tasks & operations
+  if (profile.role === "designer") {
+    if (notification.type === "account_update") {
+      return Boolean(profile.authUserId && notification.recipientAuthUserId === profile.authUserId);
+    }
+    return domain === "orders" || domain === "operations";
+  }
+
+  // 5. Storekeeper: only "inventory" domain
   if (profile.role === "storekeeper") {
     return domain === "inventory";
   }

@@ -73,6 +73,7 @@ export function OrdersView({
   materials,
   canManage,
   canCreateOrder,
+  canVerifyPayment = false,
   onConvert,
   onLockReview,
   onStatus,
@@ -82,6 +83,7 @@ export function OrdersView({
   orders: CustomerOrder[];
   canManage: boolean;
   canCreateOrder: boolean;
+  canVerifyPayment?: boolean;
   machines: Machine[];
   materials: Material[];
   onConvert: (order: CustomerOrder) => void;
@@ -316,7 +318,7 @@ export function OrdersView({
                     {isPending(`price-${order.id}`) ? "Pricing…" : "Price Order"}
                   </Button>
                 ) : null}
-                {canManage && !order.jobCardId && order.status === "PRICED_AND_PENDING_PAYMENT" ? (
+                {canManage && canVerifyPayment && !order.jobCardId && order.status === "PRICED_AND_PENDING_PAYMENT" ? (
                   <Button 
                     size="small" 
                     variant="primary" 
@@ -326,6 +328,10 @@ export function OrdersView({
                     <Wrench size={13} />
                     {isPending(`confirm-${order.id}`) ? "Confirming…" : "Confirm & Issue Job Card"}
                   </Button>
+                ) : !order.jobCardId && order.status === "PRICED_AND_PENDING_PAYMENT" ? (
+                  <span className="inline-flex items-center gap-1 rounded bg-amber-500/10 px-2 py-1 text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+                    Waiting for Cashier
+                  </span>
                 ) : null}
                 {canManage && order.jobCardId && order.status === "IN_PRODUCTION" ? (
                   <Button 
@@ -349,6 +355,7 @@ export function OrdersView({
           order={selected}
           machinesLabel={selectedMachinesLabel}
           canManage={canManage}
+          canVerifyPayment={canVerifyPayment}
           isPending={isPending}
           onConvert={onConvert}
           onLockReview={onLockReview}

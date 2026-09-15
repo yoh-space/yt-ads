@@ -62,6 +62,7 @@ export function OrderDetailsSheet({
   order,
   machinesLabel,
   canManage,
+  canVerifyPayment = false,
   isPending,
   onConvert,
   onLockReview,
@@ -71,6 +72,7 @@ export function OrderDetailsSheet({
   order: CustomerOrder;
   machinesLabel?: string;
   canManage: boolean;
+  canVerifyPayment?: boolean;
   isPending: (key: string) => boolean;
   onConvert: (order: CustomerOrder) => void;
   onLockReview: (order: CustomerOrder) => void;
@@ -115,7 +117,7 @@ export function OrderDetailsSheet({
 
   const canLockReview = canManage && !order.jobCardId && order.status === "PENDING_REVIEW";
   const canPrice = canManage && !order.jobCardId && order.status === "RECEPTION_REVIEW" && Boolean(order.customerEditLockedAt);
-  const canConfirm = canManage && !order.jobCardId && order.status === "PRICED_AND_PENDING_PAYMENT";
+  const canConfirm = Boolean(canVerifyPayment) && canManage && !order.jobCardId && order.status === "PRICED_AND_PENDING_PAYMENT";
   const canComplete = canManage && order.jobCardId && order.status === "IN_PRODUCTION";
   const hasArtwork = Boolean(order.fileUrl && order.fileName);
 

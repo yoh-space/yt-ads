@@ -33,7 +33,11 @@ type NotificationType =
   | "overdue_order"
   | "exception_stock_out"
   | "clearance_granted"
-  | "clearance_rejected";
+  | "clearance_rejected"
+  | "design_task"
+  | "design_submission"
+  | "payment_verified"
+  | "payment_returned";
 
 type NotificationItem = {
   _id: string;
@@ -62,7 +66,15 @@ const ALL_CATEGORY_FILTERS: CategoryFilter[] = [
     value: "orders",
     label: "Orders",
     icon: ShoppingCart,
-    types: ["order_received", "order_status", "overdue_order"],
+    types: [
+      "order_received",
+      "order_status",
+      "overdue_order",
+      "design_task",
+      "design_submission",
+      "payment_verified",
+      "payment_returned",
+    ],
   },
   {
     value: "inventory",
@@ -94,8 +106,14 @@ const ATTENTION_TYPES: NotificationType[] = [
   "overdue_order",
   "exception_stock_out",
   "clearance_rejected",
+  "payment_returned",
 ];
-const SUCCESS_TYPES: NotificationType[] = ["material_received", "clearance_granted"];
+const SUCCESS_TYPES: NotificationType[] = [
+  "material_received",
+  "clearance_granted",
+  "payment_verified",
+  "design_submission",
+];
 
 function formatNotificationTime(createdAt: number) {
   return new Intl.DateTimeFormat(undefined, {

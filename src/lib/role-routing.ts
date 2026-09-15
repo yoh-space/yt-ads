@@ -341,6 +341,25 @@ export const ROUTE_CONTRACTS: Record<WorkspaceId, RouteContract> = {
       "/settings",
     ],
   },
+  cashier: {
+    workspace: "cashier",
+    roles: ["cashier"],
+    homeRoute: "/dashboard/cashier",
+    allowedPrefixes: [
+      "/dashboard/cashier",
+      "/orders",
+      "/settings",
+    ],
+  },
+  designer: {
+    workspace: "designer",
+    roles: ["designer"],
+    homeRoute: "/dashboard/designer",
+    allowedPrefixes: [
+      "/dashboard/designer",
+      "/settings",
+    ],
+  },
   operator: {
     workspace: "operator",
     roles: [

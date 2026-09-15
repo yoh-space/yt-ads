@@ -115,7 +115,7 @@ export function Topbar({
       <div className="flex min-h-8 items-center gap-3 overflow-hidden border-b border-line bg-white px-[34px] text-[10px] text-gray-500">
         <span className="shrink-0 font-mono font-semibold uppercase tracking-[0.12em] text-gray-400">Recent activity</span>
         <div className="flex min-w-0 items-center gap-4 overflow-hidden">
-          {activityItems.length > 0 ? activityItems.map((activity) => (
+          {activityItems.length > 0 ? activityItems.map((activity: any) => (
             <span key={activity._id} className="truncate whitespace-nowrap">
               <strong className="font-semibold text-navy">{activity.title}</strong>
               {activity.relatedLabel ? ` · ${activity.relatedLabel}` : ""}

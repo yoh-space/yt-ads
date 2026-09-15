@@ -45,6 +45,8 @@ describe("role-routing", () => {
     expect(getRoleHomeRoute("manager")).toBe("/dashboard/manager");
     expect(getRoleHomeRoute("storekeeper")).toBe("/dashboard/storekeeper");
     expect(getRoleHomeRoute("receptionist")).toBe("/dashboard/receptionist");
+    expect(getRoleHomeRoute("cashier")).toBe("/dashboard/cashier");
+    expect(getRoleHomeRoute("designer")).toBe("/dashboard/designer");
     expect(getRoleHomeRoute("laser_operator")).toBe("/dashboard/operator/laser");
     expect(getRoleHomeRoute("cnc_operator")).toBe("/dashboard/operator/cnc");
     expect(getRoleHomeRoute("crystek_operator")).toBe("/dashboard/operator/crystek");
@@ -58,10 +60,14 @@ describe("role-routing", () => {
       "admin",
       "storekeeper",
       "receptionist",
+      "cashier",
+      "designer",
       "operator",
     ]);
 
     expect(isValidWorkspaceId("owner")).toBe(true);
+    expect(isValidWorkspaceId("cashier")).toBe(true);
+    expect(isValidWorkspaceId("designer")).toBe(true);
     expect(isValidWorkspaceId("operator")).toBe(true);
     expect(isValidWorkspaceId("superadmin")).toBe(false);
     expect(isValidWorkspaceId("")).toBe(false);
@@ -71,6 +77,8 @@ describe("role-routing", () => {
     expect(getWorkspaceForRole("manager")).toBe("manager");
     expect(getWorkspaceForRole("storekeeper")).toBe("storekeeper");
     expect(getWorkspaceForRole("receptionist")).toBe("receptionist");
+    expect(getWorkspaceForRole("cashier")).toBe("cashier");
+    expect(getWorkspaceForRole("designer")).toBe("designer");
     expect(getWorkspaceForRole("laser_operator")).toBe("operator");
     expect(getWorkspaceForRole("cnc_operator")).toBe("operator");
     expect(getWorkspaceForRole("crystek_operator")).toBe("operator");

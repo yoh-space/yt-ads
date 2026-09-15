@@ -7,6 +7,8 @@ export const role = v.union(
   v.literal("admin"),
   v.literal("storekeeper"),
   v.literal("receptionist"),
+  v.literal("cashier"),
+  v.literal("designer"),
   v.literal("laser_operator"),
   v.literal("cnc_operator"),
   v.literal("crystal_jet_operator"),
@@ -295,6 +297,10 @@ export const notificationType = v.union(
   v.literal("exception_stock_out"),
   v.literal("clearance_granted"),
   v.literal("clearance_rejected"),
+  v.literal("design_task"),
+  v.literal("design_submission"),
+  v.literal("payment_verified"),
+  v.literal("payment_returned"),
 );
 
 export default defineSchema({
@@ -722,6 +728,23 @@ export default defineSchema({
      lastCustomerEditedAt: v.optional(v.number()),
      /** Telegram identity or customer ID who last edited. */
      lastCustomerEditedBy: v.optional(v.string()),
+     designRequired: v.optional(v.boolean()),
+     designStatus: v.optional(v.string()),
+     activeDesignTaskId: v.optional(v.id("designTasks")),
+     returnedToCustomerReason: v.optional(v.string()),
+     returnedToCustomerAt: v.optional(v.number()),
+     returnedToCustomerBy: v.optional(v.string()),
+     returnedToReceptionReason: v.optional(v.string()),
+     returnedToReceptionAt: v.optional(v.number()),
+     returnedToReceptionBy: v.optional(v.string()),
+     receptionReviewCompletedAt: v.optional(v.number()),
+     receptionReviewCompletedBy: v.optional(v.string()),
+     pricedAt: v.optional(v.number()),
+     pricedBy: v.optional(v.string()),
+     pricingNotes: v.optional(v.string()),
+     paymentVerifiedBy: v.optional(v.string()),
+     paymentVerifiedAt: v.optional(v.number()),
+     cashierNotes: v.optional(v.string()),
      machineId: v.optional(v.id("machines")),
     jobCardId: v.optional(v.id("jobCards")),
     createdBy: v.optional(v.string()),
@@ -741,6 +764,63 @@ export default defineSchema({
     .index("by_due_date", ["preferredDueDate"])
     .index("by_expires_at", ["expiresAt"]),
 
+  designTasks: defineTable({
+    orderId: v.id("customerOrders"),
+    assignedDesignerId: v.optional(v.string()),
+    assignedDesignerName: v.optional(v.string()),
+    assignedAt: v.optional(v.number()),
+    createdBy: v.string(),
+    createdByName: v.optional(v.string()),
+    status: v.union(
+      v.literal("UNASSIGNED"),
+      v.literal("ASSIGNED"),
+      v.literal("IN_PROGRESS"),
+      v.literal("SUBMITTED"),
+      v.literal("REVISION_REQUIRED"),
+      v.literal("APPROVED"),
+      v.literal("BLOCKED"),
+      v.literal("CANCELLED"),
+    ),
+    customerBrief: v.optional(v.string()),
+    productionBrief: v.optional(v.string()),
+    requiredOutputType: v.optional(v.string()),
+    dimensions: v.optional(v.string()),
+    dueTimestamp: v.optional(v.number()),
+    priority: v.optional(orderPriority),
+    currentVersionNumber: v.number(),
+    latestSubmissionId: v.optional(v.id("designSubmissions")),
+    receptionReviewNotes: v.optional(v.string()),
+    blockedReason: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_orderId", ["orderId"])
+    .index("by_assignedDesignerId", ["assignedDesignerId"])
+    .index("by_status", ["status"]),
+
+  designSubmissions: defineTable({
+    designTaskId: v.id("designTasks"),
+    orderId: v.id("customerOrders"),
+    versionNumber: v.number(),
+    fileStorageId: v.id("_storage"),
+    fileName: v.string(),
+    designerId: v.string(),
+    designerName: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    status: v.union(
+      v.literal("SUBMITTED"),
+      v.literal("APPROVED"),
+      v.literal("REVISION_REQUIRED"),
+    ),
+    receptionFeedback: v.optional(v.string()),
+    reviewedBy: v.optional(v.string()),
+    reviewedByName: v.optional(v.string()),
+    reviewedAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_designTaskId", ["designTaskId"])
+    .index("by_orderId", ["orderId"]),
+
   /**
    * Append-only audit trail for customer order lifecycle events used by the
    * review-lock and self-service edit workflow. Every lock, customer edit, and
@@ -759,6 +839,15 @@ export default defineSchema({
       v.literal("CUSTOMER_EDIT"),
       v.literal("EDIT_REJECTED_LOCKED"),
       v.literal("EDIT_REJECTED_STALE"),
+      v.literal("ACCEPTED_FOR_REVIEW"),
+      v.literal("DESIGN_ASSIGNED"),
+      v.literal("DESIGN_SUBMITTED"),
+      v.literal("DESIGN_APPROVED"),
+      v.literal("DESIGN_REVISION_REQUESTED"),
+      v.literal("PRICED"),
+      v.literal("RETURNED_TO_CUSTOMER"),
+      v.literal("RETURNED_TO_RECEPTION"),
+      v.literal("PAYMENT_VERIFIED_JOB_CARD_ISSUED"),
     ),
     detail: v.optional(v.string()),
     createdAt: v.number(),
