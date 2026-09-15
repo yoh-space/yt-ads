@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { normalizeCatalogFamily, ALLOWED_CATALOG_FAMILIES } from "../utils/normalizer";
-import { updateReorderLevel, updateReorderPolicy } from "../owner/materials";
+import { createRawMaterial, updateReorderLevel, updateReorderPolicy } from "../owner/materials";
 import { upsertPriceEstimate, deactivatePriceEstimate } from "../owner/priceEstimates";
 import * as users from "../users";
 import type { MutationCtx } from "../_generated/server";
@@ -9,11 +9,11 @@ import type { Id } from "../_generated/dataModel";
 beforeEach(() => {
   vi.spyOn(users, "requireOwner").mockResolvedValue({
     identity: { _id: "user_owner", email: "owner@test.com" } as any,
-    profile: { role: "owner", active: true, name: "Owner Test" } as any,
+    profile: { _id: "prof_owner", authUserId: "user_owner", role: "owner", active: true, name: "Owner Test" } as any,
   } as any);
   vi.spyOn(users, "requireActiveProfile").mockResolvedValue({
     identity: { _id: "user_owner", email: "owner@test.com" } as any,
-    profile: { role: "owner", active: true, name: "Owner Test" } as any,
+    profile: { _id: "prof_owner", authUserId: "user_owner", role: "owner", active: true, name: "Owner Test" } as any,
   } as any);
 });
 
@@ -315,6 +315,103 @@ describe("Owner-Managed Materials, Pricing & Category Configuration", () => {
       });
 
       expect(doc.active).toBe(false);
+    });
+  });
+
+  describe("Raw Material Create Path Produces Operational + Catalog Rows", () => {
+    it("creates a materialCatalog row and linked materials row with operational fields", async () => {
+      const tables = new Map<string, Map<string, any>>();
+      let counter = 1;
+      const getTable = (name: string) => {
+        if (!tables.has(name)) tables.set(name, new Map());
+        return tables.get(name)!;
+      };
+      const db = {
+        get: async (id: string) => {
+          for (const t of tables.values()) {
+            if (t.has(id)) return t.get(id);
+          }
+          return null;
+        },
+        insert: async (table: string, doc: any) => {
+          const _id = `${table}_${counter++}`;
+          getTable(table).set(_id, { _id, ...doc });
+          return _id;
+        },
+        query: (table: string) => {
+          const t = getTable(table);
+          let filterFn: ((row: any) => boolean) | null = null;
+          const builder = {
+            withIndex: (_name: string, indexFn?: (q: any) => any) => {
+              if (indexFn) {
+                const conditions: Array<{ field: string; value: any }> = [];
+                const indexQ: any = {
+                  eq: (field: string, value: any) => {
+                    conditions.push({ field, value });
+                    return indexQ;
+                  },
+                };
+                indexFn(indexQ);
+                filterFn = (row) => conditions.every((c) => row[c.field] === c.value);
+              }
+              return builder;
+            },
+            first: async () => {
+              const all = Array.from(t.values());
+              return filterFn ? all.find(filterFn) ?? null : all[0] ?? null;
+            },
+          };
+          return builder;
+        },
+      };
+      const mockCtx = { db } as unknown as MutationCtx;
+
+      const res = await (createRawMaterial as any)._handler(mockCtx, {
+        name: "Banner Flex 440g",
+        category: "Substrate",
+        catalogFamily: "ROLL",
+        unit: "m²",
+        baseUnit: "m²",
+        purchaseUnit: "roll",
+        conversionRatio: 160,
+        rollWidth: 3.2,
+        reorderAt: 8,
+        storageLocation: "Substrate Rack A",
+        averageUse: "2.0 m² per order",
+        maxScrap: 5,
+        minOffcutWidth: 0.5,
+        minOffcutLength: 0.5,
+        wasteLimitPolicy: "warn",
+      });
+
+      const catalogRow = await db.get(res.catalogId);
+      expect(catalogRow).toBeDefined();
+      expect(catalogRow.id).toBe("banner_flex_440g");
+      expect(catalogRow.name).toBe("Banner Flex 440g");
+      expect(catalogRow.active).toBe(true);
+      expect(catalogRow.storageLocation).toBe("Substrate Rack A");
+
+      const materialRow = await db.get(res.materialId);
+      expect(materialRow.catalogMaterialId).toBe(res.catalogId);
+      expect(materialRow.reorderAt).toBe(8);
+      expect(materialRow.storageLocation).toBe("Substrate Rack A");
+      expect(materialRow.averageUse).toBe("2.0 m² per order");
+      expect(materialRow.maxScrap).toBe(5);
+      expect(materialRow.minOffcutWidth).toBe(0.5);
+      expect(materialRow.minOffcutLength).toBe(0.5);
+      expect(materialRow.wasteLimitPolicy).toBe("warn");
+      expect(materialRow.quantity).toBe(0);
+      expect(materialRow.active).toBe(true);
+
+      const parentInv = Array.from(tables.get("parentInventory")!.values());
+      expect(parentInv).toHaveLength(1);
+      expect(parentInv[0].materialId).toBe(res.materialId);
+      expect(parentInv[0].unitType).toBe("ROLL");
+
+      const changes = Array.from(tables.get("configurationChanges")!.values());
+      expect(changes).toHaveLength(1);
+      expect(changes[0].configKey).toBe(`material:${res.materialId}`);
+      expect(changes[0].actorAuthUserId).toBe("user_owner");
     });
   });
 });

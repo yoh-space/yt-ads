@@ -1,6 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { createRawMaterial, updateRawMaterial, listRawMaterials } from "../owner/materials";
-import { upsertMaterialCatalogItem } from "../owner/databaseFirstCatalogs";
 import * as users from "../users";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 
@@ -209,24 +208,5 @@ describe("Owner Ink Raw Materials with Independent Color Property", () => {
     expect(list).toHaveLength(1);
     expect(list[0].inkColor).toBe("YELLOW");
     expect(list[0].materialFamily).toBe("INK");
-  });
-
-  it("supports inkColor in upsertMaterialCatalogItem", async () => {
-    const { db } = createMockDb();
-    const ctx = { db } as unknown as MutationCtx;
-
-    const id = await (upsertMaterialCatalogItem as any)._handler(ctx, {
-      name: "Solvent Ink 5L - Cyan",
-      category: "Ink",
-      catalogFamily: "INK_SOLVENT",
-      baseUnit: "L",
-      purchaseUnit: "canister",
-      conversionRatio: 5,
-      inkColor: "CYAN",
-      active: true,
-    });
-
-    const catItem = await db.get(id);
-    expect(catItem.inkColor).toBe("CYAN");
   });
 });

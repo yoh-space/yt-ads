@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { runDatabaseFirstSeed, assertServiceCatalogSync, assertRoleCatalogSync } from "../owner/seedDatabaseFirst";
-import { upsertMaterialCatalogItem } from "../owner/databaseFirstCatalogs";
+import { createRawMaterial, updateRawMaterial } from "../owner/materials";
 import * as users from "../users";
 
 beforeEach(() => {
@@ -146,73 +146,103 @@ describe("Database-First Catalog Seeding & Sync", () => {
     expect(servicesAfterSecond).toBe(servicesAfterFirst);
   });
 
-  it("normalizes names, derives ids, and rejects invalid family dimensions", async () => {
+  it("createRawMaterial is the single write path: normalizes names and validates operational fields", async () => {
     const { mockCtx, tables } = createMockDb();
-    const handler = (upsertMaterialCatalogItem as any)._handler ?? upsertMaterialCatalogItem;
-    const id = await handler(mockCtx, {
-      name: "  Banner   Flex  ",
-      category: " Banner ",
-      catalogFamily: "roll",
+    const create = (createRawMaterial as any)._handler;
+
+    const res = await create(mockCtx, {
+      name: "  Banner Flex  ",
+      category: "Banner",
+      catalogFamily: "ROLL",
+      unit: "m²",
       baseUnit: "m²",
-      purchaseUnit: " Roll ",
+      purchaseUnit: "roll",
       conversionRatio: 160,
       rollWidth: 3.2,
-      active: true,
+      reorderAt: 5,
     });
-    const row = Array.from(tables.get("materialCatalog")!.values())[0] as any;
-    expect(id).toBe(row._id);
-    expect(row.id).toBe("banner_flex");
-    expect(row.name).toBe("Banner Flex");
-    await expect(handler(mockCtx, {
-      name: "Rigid Board",
-      category: "Board",
-      catalogFamily: "RIGID_SHEET",
+
+    const catRow = Array.from(tables.get("materialCatalog")!.values())[0] as any;
+    expect(catRow.id).toBe("banner_flex");
+    expect(catRow.name).toBe("Banner Flex");
+
+    const matRow = await mockCtx.db.get(res.materialId);
+    expect(matRow.catalogMaterialId).toBe(res.catalogId);
+    expect(matRow.reorderAt).toBe(5);
+    expect(tables.get("parentInventory")!.size).toBe(1);
+
+    await expect(create(mockCtx, {
+      name: "Solvent Ink",
+      category: "Ink",
+      catalogFamily: "INK_SOLVENT",
+      unit: "L",
+      baseUnit: "L",
+      purchaseUnit: "canister",
+      conversionRatio: 5,
+      minOffcutWidth: 0.1,
+      reorderAt: 3,
+    })).rejects.toThrow("square-metre");
+
+    await expect(create(mockCtx, {
+      name: "Banner Flex",
+      category: "Banner",
+      catalogFamily: "ROLL",
+      unit: "m²",
       baseUnit: "m²",
-      purchaseUnit: "sheet",
-      conversionRatio: 2.9,
-      active: true,
-    })).rejects.toThrow("sheetWidth");
+      purchaseUnit: "roll",
+      conversionRatio: 160,
+      rollWidth: 3.2,
+      reorderAt: 5,
+    })).rejects.toThrow("already exists");
   });
 
-  it("rejects stale edits and renames referenced by active service routes", async () => {
+  it("updateRawMaterial keeps linked catalog and inventory rows in sync", async () => {
     const { mockCtx, tables } = createMockDb();
-    const handler = (upsertMaterialCatalogItem as any)._handler ?? upsertMaterialCatalogItem;
-    const id = await handler(mockCtx, {
-      id: "banner_flex",
+    const create = (createRawMaterial as any)._handler;
+    const update = (updateRawMaterial as any)._handler;
+
+    const created = await create(mockCtx, {
       name: "Banner Flex",
       category: "Banner",
       catalogFamily: "ROLL",
+      unit: "m²",
       baseUnit: "m²",
       purchaseUnit: "roll",
       conversionRatio: 160,
       rollWidth: 3.2,
+      reorderAt: 5,
+    });
+
+    await update(mockCtx, {
+      materialId: created.materialId,
+      name: "Banner Flex 2.1m",
+      category: "Banner",
+      catalogFamily: "ROLL",
+      unit: "m²",
+      baseUnit: "m²",
+      purchaseUnit: "roll",
+      conversionRatio: 210,
+      rollWidth: 2.1,
+      reorderAt: 8,
       active: true,
     });
-    const material = Array.from(tables.get("materialCatalog")!.values()).find((row: any) => row._id === id) as any;
-    await mockCtx.db.insert("serviceRoutes", { serviceId: "banner_print", preferredMaterialName: "Banner Flex", active: true });
-    await expect(handler(mockCtx, {
-      id: "banner_flex",
-      name: "Renamed Banner Flex",
-      category: "Banner",
-      catalogFamily: "ROLL",
-      baseUnit: "m²",
-      purchaseUnit: "roll",
-      conversionRatio: 160,
-      rollWidth: 3.2,
-      active: true,
-      expectedUpdatedAt: material.updatedAt,
-    })).rejects.toThrow("MATERIAL_REFERENCED");
-    await expect(handler(mockCtx, {
-      id: "banner_flex",
-      name: "Banner Flex",
-      category: "Banner",
-      catalogFamily: "ROLL",
-      baseUnit: "m²",
-      purchaseUnit: "roll",
-      conversionRatio: 160,
-      rollWidth: 3.2,
-      active: true,
-      expectedUpdatedAt: material.updatedAt - 1,
-    })).rejects.toThrow("MATERIAL_CONFLICT");
+
+    const matRow = await mockCtx.db.get(created.materialId);
+    expect(matRow.name).toBe("Banner Flex 2.1m");
+    expect(matRow.reorderAt).toBe(8);
+    expect(matRow.conversionRatio).toBe(210);
+
+    const catRow = await mockCtx.db.get(created.catalogId);
+    expect(catRow.name).toBe("Banner Flex 2.1m");
+    expect(catRow.conversionRatio).toBe(210);
+
+    const parent = Array.from(tables.get("parentInventory")!.values())[0];
+    expect(parent.lengthPerRoll).toBe(210);
+  });
+
+  it("does not expose catalog-only material mutations (single client write path)", async () => {
+    const mod: any = await import("../owner/databaseFirstCatalogs");
+    expect(mod.upsertMaterialCatalogItem).toBeUndefined();
+    expect(mod.toggleMaterialCatalogActive).toBeUndefined();
   });
 });
