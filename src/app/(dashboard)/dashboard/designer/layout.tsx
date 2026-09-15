@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { WorkspaceShell } from "@/components/dashboard/shell/workspace-shell";
 import { designerNavItems } from "@/components/dashboard/roles/designer/designer-nav";
-import { Scissors } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +14,7 @@ export default function DesignerDashboardLayout({ children }: { children: ReactN
       navItems={designerNavItems}
       brandLabel="Design Studio"
       consoleLabel="Designer workspace"
-      icon={Scissors}
+      iconName="scissors"
     >
       {children}
     </WorkspaceShell>

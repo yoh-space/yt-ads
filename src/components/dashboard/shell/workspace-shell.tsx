@@ -207,7 +207,7 @@ export function WorkspaceShell({
   navItems,
   brandLabel,
   consoleLabel,
-  icon = Crown,
+  iconName,
   accessDeniedReason,
   children,
 }: {
@@ -215,7 +215,7 @@ export function WorkspaceShell({
   navItems: WorkspaceNavItem[];
   brandLabel: string;
   consoleLabel: string;
-  icon?: LucideIcon;
+  iconName?: WorkspaceIconName;
   accessDeniedReason?: string;
   children: ReactNode;
 }) {
@@ -258,6 +258,7 @@ export function WorkspaceShell({
   }
 
   const resolvedProfile: Profile = { ...profile, id: profile._id };
+  const BrandIcon = iconName ? workspaceIcons[iconName] : Crown;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -269,7 +270,7 @@ export function WorkspaceShell({
         navItems={navItems}
         brandLabel={brandLabel}
         companyName={companySettings?.companyName}
-        BrandIcon={icon}
+        BrandIcon={BrandIcon}
       />
       <div className={cn("flex min-h-screen flex-col transition-all duration-300", sidebarCollapsed ? "md:ml-16" : "md:ml-60")}>
         <Topbar

@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { WorkspaceShell } from "@/components/dashboard/shell/workspace-shell";
 import { cashierNavItems } from "@/components/dashboard/roles/cashier/cashier-nav";
-import { CircleDollarSign } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +15,7 @@ export default function CashierDashboardLayout({ children }: { children: ReactNo
       navItems={cashierNavItems}
       brandLabel="Cashier Desk"
       consoleLabel="Cashier payment console"
-      icon={CircleDollarSign}
+      iconName="circleDollarSign"
     >
       {children}
     </WorkspaceShell>
