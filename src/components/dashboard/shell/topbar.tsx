@@ -12,6 +12,7 @@ import { UserMenu } from "./user-menu";
 import { NotificationModal } from "../modals/notification-modal";
 import { SoundControl } from "./sound-control";
 import type { Profile } from "@/lib/operations-types";
+import { useNotification, type NotificationSummary } from "@/hooks/useNotification";
 
 function useClock(): string {
   const [now, setNow] = useState<Date | null>(null);
@@ -52,6 +53,7 @@ export function Topbar({
   const clock = useClock();
   const notifications = useQuery(api.notifications.list, profile ? {} : "skip");
   const unreadCount = useQuery(api.notifications.unreadCount, profile ? {} : "skip");
+  useNotification(notifications as NotificationSummary[] | undefined);
   const machines = useQuery(api.machines.listForTopbar, profile ? {} : "skip");
   const markRead = useMutation(api.notifications.markRead);
   const markAllRead = useMutation(api.notifications.markAllRead);

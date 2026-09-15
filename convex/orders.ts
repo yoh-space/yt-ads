@@ -192,7 +192,7 @@ function publicOrder(order: OrderDoc) {
 }
 
 async function notifyOrderRoles(ctx: any, input: Parameters<typeof notifyRoles>[2]) {
-  await notifyRoles(ctx, ["owner", "manager", "admin"], input);
+  await notifyRoles(ctx, ["owner", "manager", "admin", "receptionist"], input);
 }
 
 /**
